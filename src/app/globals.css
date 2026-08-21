@@ -105,3 +105,296 @@ body{background:#eef1f5}
 .revision-panel-head>div{display:flex;align-items:center;gap:12px}.revision-panel-head>div span{font-size:12px;color:var(--muted)}
 @media(max-width:1000px){.part-summary-grid,.part-summary-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr))}.part-summary-grid .kv:nth-child(4n){border-right:1px solid #e4e7ec}.part-summary-grid .kv:nth-child(2n){border-right:0}}
 @media(max-width:650px){.tracker-search{grid-template-columns:1fr}.part-summary-grid,.part-summary-grid.compact{grid-template-columns:1fr}.part-summary-grid .kv{border-right:0!important}.revision-panel-head{align-items:flex-start;flex-direction:column}.revision-panel-head>div{align-items:flex-start;flex-direction:column;gap:3px}}
+
+
+/* =========================================================
+   Responsive Mobile Auto View v14
+   Desktop ERP remains unchanged. Mobile/tablet adapts automatically.
+   ========================================================= */
+
+/* Better touch behavior everywhere */
+button,a,input,select,textarea{touch-action:manipulation}
+.table-wrap{-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain}
+
+/* Tablet */
+@media (max-width: 900px){
+  .erp-header{
+    height:auto;
+    min-height:58px;
+    padding:10px 14px;
+    gap:10px;
+  }
+  .erp-header h1{font-size:18px}
+  .erp-header p{font-size:11px}
+  .erp-env{font-size:10px;padding:5px 7px}
+
+  .erp-modules{
+    height:43px;
+    padding:0;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  .erp-modules::-webkit-scrollbar{display:none}
+  .erp-module{
+    flex:0 0 auto;
+    padding:0 14px;
+    min-height:43px;
+  }
+
+  .erp-workspace{
+    display:block;
+    min-height:auto;
+  }
+
+  .erp-sidebar{
+    position:sticky;
+    top:0;
+    z-index:20;
+    background:#f8fafc;
+    padding:0;
+    border-right:0;
+    border-bottom:1px solid #cfd6df;
+  }
+  .erp-sidebar-title{display:none}
+  .erp-subnav{
+    flex-direction:row;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    gap:0;
+    padding:0;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  .erp-subnav::-webkit-scrollbar{display:none}
+  .erp-subnav-item{
+    flex:0 0 auto;
+    min-height:40px;
+    display:flex;
+    align-items:center;
+    padding:0 12px;
+    border-left:0;
+    border-bottom:3px solid transparent;
+    white-space:nowrap;
+  }
+  .erp-subnav-item.active{
+    border-left:0;
+    border-bottom-color:var(--brand);
+  }
+
+  .erp-content,
+  .erp-content-full{
+    width:100%;
+    max-width:none;
+    padding:14px;
+    margin:0;
+  }
+
+  .erp-page-head{
+    align-items:flex-start;
+    margin-bottom:12px;
+  }
+  .erp-page-head h2{font-size:18px}
+
+  .erp-panel-head{
+    min-height:40px;
+    height:auto;
+    padding:9px 10px;
+    gap:8px;
+  }
+
+  .erp-table-panel{
+    width:100%;
+    max-width:100%;
+  }
+
+  .table-wrap{
+    width:100%;
+    max-width:100%;
+    overflow-x:auto;
+  }
+
+  /* Preserve readable ERP tables on phones/tablets */
+  .erp-table{
+    min-width:720px;
+  }
+  .erp-table th,
+  .erp-table td{
+    padding:8px 9px;
+    font-size:12px;
+    white-space:nowrap;
+  }
+
+  .area-form,
+  .mapping-form,
+  .group-form{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .group-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+/* Phone */
+@media (max-width: 600px){
+  body{font-size:14px}
+
+  .erp-header{
+    min-height:54px;
+    padding:8px 10px;
+  }
+  .erp-header h1{font-size:17px}
+  .erp-header p{
+    max-width:210px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .erp-env{
+    max-width:120px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .erp-module{
+    padding:0 12px;
+    font-size:12px;
+  }
+
+  .erp-subnav-item{
+    font-size:12px;
+    padding:0 10px;
+  }
+
+  .erp-content,
+  .erp-content-full{
+    padding:10px;
+  }
+
+  .erp-page-head{
+    flex-direction:column;
+    gap:8px;
+  }
+  .erp-page-head .btn{
+    width:100%;
+  }
+
+  .erp-form-panel,
+  .tracker-search{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px;
+    padding:10px;
+  }
+  .erp-form-panel.row{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .input,
+  select.input,
+  textarea.input{
+    min-height:42px;
+    font-size:16px; /* avoids iOS auto-zoom */
+  }
+
+  .btn{
+    min-height:42px;
+    padding:9px 12px;
+  }
+
+  .row{
+    gap:8px;
+  }
+
+  /* Paging stays usable without taking excessive width */
+  .pager{
+    flex-direction:row!important;
+    align-items:center!important;
+  }
+  .pager .btn{
+    width:auto;
+    min-height:38px;
+  }
+  .pager .muted{
+    text-align:center;
+    font-size:12px;
+  }
+
+  .erp-panel-head{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  /* Part Tracker */
+  .part-summary-grid,
+  .part-summary-grid.compact{
+    grid-template-columns:1fr;
+  }
+  .part-summary-grid .kv{
+    min-height:54px;
+    border-right:0!important;
+  }
+  .revision-panel-head,
+  .revision-panel-head>div{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:3px;
+  }
+
+  .erp-details summary{
+    padding:11px 10px;
+    font-size:12px;
+  }
+
+  .search-results{
+    gap:6px;
+  }
+  .search-result{
+    grid-template-columns:1fr;
+    padding:10px;
+    border-radius:3px;
+  }
+  .search-result small{grid-column:auto}
+
+  /* Settings/admin forms */
+  .area-form,
+  .mapping-form,
+  .group-form,
+  .group-grid{
+    grid-template-columns:1fr;
+  }
+
+  .check-card{
+    border-radius:3px;
+    padding:9px;
+  }
+
+  /* On mobile, action button groups wrap rather than overflow */
+  td .row{
+    flex-direction:row;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  td .btn.small{
+    min-height:36px;
+  }
+
+  .notice{
+    font-size:12px;
+    padding:10px;
+  }
+  .issue-list li{font-size:11px}
+
+  /* Hide non-essential decorative whitespace */
+  .section{margin-top:10px}
+}
+
+/* Very small phones */
+@media (max-width: 380px){
+  .erp-header p{display:none}
+  .erp-env{max-width:100px;font-size:9px}
+  .erp-module{padding:0 10px}
+  .erp-subnav-item{padding:0 9px}
+  .erp-content,.erp-content-full{padding:8px}
+}

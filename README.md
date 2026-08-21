@@ -165,3 +165,15 @@ Navigation toàn app:
 - Bỏ toàn bộ card dashboard/summary bo tròn trong Part Tracker.
 - Search result, Part Summary, Process Requirement, Routing Detail và ST Planning Chain hiển thị dạng ERP panel/table.
 - Logic tra cứu Part và dữ liệu không thay đổi.
+
+
+## UI v14 – Auto Responsive Mobile
+- Tự nhận kích thước màn hình, không cần nút Mobile/Desktop.
+- Desktop giữ nguyên ERP layout.
+- Tablet/mobile: sidebar tự chuyển thành tab ngang cuộn được.
+- Module tabs cuộn ngang bằng touch.
+- Data table giữ độ rộng đọc được và tự scroll ngang.
+- Form, Import, Area, ST Group, Operation Mapping tự xếp 1–2 cột.
+- Part Tracker tự chuyển summary về 1 cột.
+- Input mobile dùng font-size 16px để tránh iPhone tự zoom.
+- Không thay database, routing hay business logic.
