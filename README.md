@@ -144,3 +144,9 @@ Navigation toàn app:
 
 ## v9 – No Login
 Đã bỏ màn hình đăng nhập và auth gate của các page/API trong web app theo yêu cầu. `/login` tự chuyển về `/master-data`. Supabase vẫn dùng server-side secret key cho truy cập dữ liệu.
+
+
+## Fix v10 – No Login Import Build
+- Sửa TypeScript `TS2339: Property 'id' does not exist on type '{ email: string; }'`.
+- Khi app chạy No Login, `master_import_batch.started_by` được ghi `NULL` thay vì `user.id`.
+- Không thay đổi logic Import Master, Incremental Import hoặc Routing.

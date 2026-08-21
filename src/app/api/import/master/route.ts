@@ -2,8 +2,8 @@ import { NextResponse } from "next/server"; import { createAdminClient } from "@
 export const runtime="nodejs"; export const maxDuration=300;
 export async function POST(req:Request){
  let batchId=""; let temp=""; try{
-  const user={email:"system"}; const {path:storagePath,fileName}=await req.json(); if(!storagePath||!String(fileName).toLowerCase().endsWith(".xlsx"))return NextResponse.json({error:"Chỉ chấp nhận file .xlsx"},{status:400});
-  const admin=createAdminClient(); const {data:b,error:bErr}=await admin.from("master_import_batch").insert({file_name:fileName,storage_path:storagePath,started_by:user.id,status:"RUNNING"}).select("id").single(); if(bErr)throw bErr; batchId=b.id;
+  const {path:storagePath,fileName}=await req.json(); if(!storagePath||!String(fileName).toLowerCase().endsWith(".xlsx"))return NextResponse.json({error:"Chỉ chấp nhận file .xlsx"},{status:400});
+  const admin=createAdminClient(); const {data:b,error:bErr}=await admin.from("master_import_batch").insert({file_name:fileName,storage_path:storagePath,started_by:null,status:"RUNNING"}).select("id").single(); if(bErr)throw bErr; batchId=b.id;
   const {data:blob,error:dErr}=await admin.storage.from("master-imports").download(storagePath); if(dErr||!blob)throw dErr||new Error("Không tải được file từ Storage");
   temp=path.join(os.tmpdir(),`${batchId}.xlsx`); await fs.writeFile(temp,Buffer.from(await blob.arrayBuffer()));
   const client=await getPool().connect(); try{
