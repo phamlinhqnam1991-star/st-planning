@@ -1,0 +1,5 @@
+{
+  "functions": {
+    "src/app/api/import/master/route.ts": { "maxDuration": 300 }
+  }
+}

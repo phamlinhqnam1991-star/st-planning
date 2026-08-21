@@ -1,0 +1,1 @@
+import { LoginForm } from "@/components/login-form"; export default function Page(){return <main className="shell"><LoginForm/></main>}
