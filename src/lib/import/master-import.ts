@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { ST_OPERATION_SCOPE, LEGACY_ROUTING_SUMMARIES, OPERATION_HEADERS, MATERIAL_FINISH_HEADERS, PROCESS_REQUIREMENT_HEADERS } from "@/data/master-config";
 
@@ -30,31 +31,27 @@ export async function seedRoutingConfig(c:PoolClient){
 }
 
 export async function importMasterXlsx(filePath:string,c:PoolClient,batchId:string){
+ const existing=new Map<string,string>(); const old=await c.query("select part_num,revision_num,source_hash from public.md_source_snapshot"); for(const r of old.rows)existing.set(`${r.part_num}\u0001${r.revision_num}`,r.source_hash);
  const workbook=new ExcelJS.stream.xlsx.WorkbookReader(filePath,{worksheets:"emit",sharedStrings:"cache",styles:"ignore",hyperlinks:"ignore"});
- let sourceRows=0,routingRows=0; const seenOps=new Set<string>();
- let partRows:unknown[][]=[], revRows:unknown[][]=[], finishRows:unknown[][]=[], reqRows:unknown[][]=[], routeRows:unknown[][]=[];
+ let sourceRows=0,routingRows=0,newRows=0,changedRows=0,unchangedRows=0; const seenOps=new Set<string>();
+ let partRows:unknown[][]=[],revRows:unknown[][]=[],finishRows:unknown[][]=[],reqRows:unknown[][]=[],routeRows:unknown[][]=[],snapshotRows:unknown[][]=[];
  const flush=async(force=false)=>{
   if(partRows.length>=1000||force){await upsertRows(c,"public.md_part",["part_num","part_description","program","part_cluster","surface_dm2","is_active","updated_at","last_import_batch_id"],partRows,["part_num"]);partRows=[]}
   if(revRows.length>=3000||force){await upsertRows(c,"public.md_part_revision",["part_num","revision_num","is_active","updated_at","last_import_batch_id"],revRows,["part_num","revision_num"]);revRows=[]}
   if(finishRows.length>=3000||force){await upsertRows(c,"public.md_material_finish",["part_num","revision_num","primer1","primer2","primer3","topcoat1","topcoat2","antiabration","primer1_name","topcoat_name","antiabrasion_name","varinish_name","alloy","temper","tsa","chemicalconv_airbus","is_active","updated_at","last_import_batch_id"],finishRows,["part_num","revision_num"]);finishRows=[]}
   if(reqRows.length>=5000||force){await upsertRows(c,"public.md_process_requirement",["part_num","revision_num","requirement_code","requirement_value","is_active","updated_at","last_import_batch_id"],reqRows,["part_num","revision_num","requirement_code"]);reqRows=[]}
   if(routeRows.length>=5000||force){await upsertRows(c,"public.md_routing_detailed",["part_num","revision_num","source_seq","operation_code","next_operation_code","operation_detail_code","operation_detail_name","is_active","updated_at","last_import_batch_id"],routeRows,["part_num","revision_num","source_seq"]);routingRows+=routeRows.length;routeRows=[]}
+  if(snapshotRows.length>=3000||force){await upsertRows(c,"public.md_source_snapshot",["part_num","revision_num","source_hash","last_seen_batch_id","updated_at"],snapshotRows,["part_num","revision_num"]);snapshotRows=[]}
  };
- for await(const ws of workbook){
-  let headers:string[]=[];
-  for await(const row of ws){
-   const vals=(row.values as unknown[]).slice(1); if(!headers.length){headers=vals.map(clean); continue}
-   const o:Obj={}; headers.forEach((h,i)=>o[h]=vals[i]); const part=clean(o.PartNum),rev=clean(o.RevisionNum); if(!part||!rev)continue; sourceRows++;
-   partRows.push([part,clean(o.PartDescription)||null,clean(o.Program)||null,clean(o.PartCluster)||null,num(o["Surface (dm2)"]),true,new Date(),batchId]);
-   revRows.push([part,rev,true,new Date(),batchId]);
-   finishRows.push([part,rev,...MATERIAL_FINISH_HEADERS.map(h=>clean(o[h])||null),true,new Date(),batchId]);
-   for(const h of PROCESS_REQUIREMENT_HEADERS){const v=clean(o[h]);if(v)reqRows.push([part,rev,h,v,true,new Date(),batchId])}
-   const ops=OPERATION_HEADERS.map((h,i)=>({seq:(i+1)*10,code:clean(o[h])})).filter(x=>x.code); for(const x of ops)seenOps.add(x.code);
-   for(const x of detailOps(ops))routeRows.push([part,rev,x.seq,x.code,x.next==="END"?null:x.next,x.detailCode,x.detailName,true,new Date(),batchId]);
-   if(sourceRows%500===0)await flush();
-  }
- }
+ for await(const ws of workbook){let headers:string[]=[];for await(const row of ws){const vals=(row.values as unknown[]).slice(1);if(!headers.length){headers=vals.map(clean);continue}const o:Obj={};headers.forEach((h,i)=>o[h]=vals[i]);const part=clean(o.PartNum),rev=clean(o.RevisionNum);if(!part||!rev)continue;sourceRows++;
+  const key=`${part}\u0001${rev}`,hash=createHash("sha256").update(headers.map(h=>clean(o[h])).join("\u001f")).digest("hex"),previous=existing.get(key);snapshotRows.push([part,rev,hash,batchId,new Date()]);
+  if(previous===hash){unchangedRows++;if(sourceRows%1000===0)await flush();continue} previous==null?newRows++:changedRows++;
+  await c.query("update md_routing_detailed set is_active=false,last_import_batch_id=$3,updated_at=now() where part_num=$1 and revision_num=$2",[part,rev,batchId]); await c.query("update md_process_requirement set is_active=false,last_import_batch_id=$3,updated_at=now() where part_num=$1 and revision_num=$2",[part,rev,batchId]);
+  partRows.push([part,clean(o.PartDescription)||null,clean(o.Program)||null,clean(o.PartCluster)||null,num(o["Surface (dm2)"]),true,new Date(),batchId]);revRows.push([part,rev,true,new Date(),batchId]);finishRows.push([part,rev,...MATERIAL_FINISH_HEADERS.map(h=>clean(o[h])||null),true,new Date(),batchId]);
+  for(const h of PROCESS_REQUIREMENT_HEADERS){const v=clean(o[h]);if(v)reqRows.push([part,rev,h,v,true,new Date(),batchId])}const ops=OPERATION_HEADERS.map((h,i)=>({seq:(i+1)*10,code:clean(o[h])})).filter(x=>x.code);for(const x of ops)seenOps.add(x.code);for(const x of detailOps(ops))routeRows.push([part,rev,x.seq,x.code,x.next==="END"?null:x.next,x.detailCode,x.detailName,true,new Date(),batchId]);if(sourceRows%500===0)await flush();}}
  await flush(true);
- const opRows=[...seenOps].map(x=>[x,x,true,new Date(),batchId]); for(let i=0;i<opRows.length;i+=3000)await upsertRows(c,"public.md_operation",["operation_code","operation_name","is_active","updated_at","last_import_batch_id"],opRows.slice(i,i+3000),["operation_code"]);
- return {sourceRows,routingRows};
+ for(const table of ["md_part_revision","md_routing_detailed","md_material_finish","md_process_requirement"]){await c.query(`update ${table} d set is_active=false,updated_at=now(),last_import_batch_id=$1 where d.is_active=true and not exists(select 1 from md_source_snapshot s where s.part_num=d.part_num and s.revision_num=d.revision_num and s.last_seen_batch_id=$1)`,[batchId])}
+ await c.query(`update md_part p set is_active=false,updated_at=now() where p.is_active=true and not exists(select 1 from md_source_snapshot s where s.part_num=p.part_num and s.last_seen_batch_id=$1)`,[batchId]);
+ const opRows=[...seenOps].map(x=>[x,x,true,new Date(),batchId]);for(let i=0;i<opRows.length;i+=3000)await upsertRows(c,"public.md_operation",["operation_code","operation_name","is_active","updated_at","last_import_batch_id"],opRows.slice(i,i+3000),["operation_code"]);
+ return {sourceRows,routingRows,newRows,changedRows,unchangedRows};
 }

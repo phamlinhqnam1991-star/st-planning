@@ -95,3 +95,40 @@ File master hiện tại khoảng 13 MB, lớn hơn giới hạn request body 4.
 - Storage bucket private, chỉ authenticated user được upload/read.
 - `ADMIN_EMAILS` chặn user không được phép chạy import.
 - Không commit `.env.local` lên GitHub.
+
+
+## Incremental Import + Reset All
+- Chạy thêm `supabase/migrations/003_incremental_import_reset.sql`
+   - `supabase/migrations/004_st_operation_mapping.sql` trên database hiện tại.
+- Lần đầu Full; lần sau SHA-256 theo Part+Revision, chỉ NEW/CHANGED xử lý master nặng.
+- Reset All có xác nhận kép; giữ ST Operation Scope/system config.
+
+
+### ST Operation Mapping
+Migration `004_st_operation_mapping.sql` adds the approved Planning Operation Master, 49 mapping rows, occurrence normalization for PRIMER/TOPCOAT, sequence normalization for HE-BAKE, and standardized fields in ST Routing Chain while preserving source routing.
+
+
+## Area Master (Migration 005)
+- Chạy `supabase/migrations/005_area_master.sql` sau migration 004.
+- Seed sẵn 14 Area đã chốt: Chemical line, NDT, Automatic shot peening, Manual Shot peening, Masking, Unmasking, Painting, Plating, Sirius cleaning, Manual Blasting, Auto Blasting, Passivation, Powder coating, He-bake Oven.
+- Area là danh mục động: có thể Add/Edit/Activate/Deactivate trên web.
+- Người dùng tự gán ST Group vào Area; không hard-code mapping nhóm → khu vực.
+- Một ST Group chỉ thuộc một Area tại một thời điểm.
+
+
+## Migration 006 – ST Operation Mapping Admin
+Nếu database đã chạy 001→005, chạy thêm `supabase/migrations/006_operation_mapping_admin.sql`. Tab ST Operation Mapping cho phép Add, Edit/Move và Remove (inactive) Operation Code; sau mỗi thay đổi hệ thống refresh mapping của ST Routing, không sửa Routing Detail nguồn.
+
+
+## Migration 007 – ST Group Master
+Nếu database đã chạy 001→006, chạy thêm `supabase/migrations/007_st_group_master.sql`. ST Group trở thành Master động: có thể Add/Edit/Deactivate trên web. Operation Mapping và Area Assignment lấy danh sách từ ST Group Master. Không hard-code danh sách nhóm.
+
+
+## UI v7 – Tabs + Part Tracker
+Không thay schema/database và không cần migration mới nếu đã chạy `001` → `007`.
+
+Navigation toàn app:
+- **Master Data**: Part, Revision, Source Operation, Routing Detail, Material Finish, Process Requirement, ST Routing Master/Chain, Part → Routing.
+- **Cấu hình**: Operation Master, ST Operation Mapping, ST Group Master, Area Master.
+- **Part Tracker**: tìm PartNum/Description và hiển thị toàn bộ dữ liệu liên quan theo từng Revision, gồm Finish, Requirements, Routing Detail, ST Routing, Standard Operation, ST Group, Area và Time Rule.
+- **Import Master**: Incremental Import, Reset All và Import History.
