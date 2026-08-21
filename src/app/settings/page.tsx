@@ -10,16 +10,27 @@ const sub=[
 ];
 export default async function Page(){
  const data=await getStats(),c=data.counts;
- const stats=[
-  ["Operation Master",c.md_operation_master,"/master/operation"],
-  ["ST Operation Mapping",c.md_st_operation_mapping,"/master/operationmapping"],
-  ["ST Group Master",c.md_st_group,"/st-groups"],
-  ["Area Master",c.md_area,"/area"],
+ const rows=[
+  ["Operation Master","Standard Operation + Time Rules",c.md_operation_master,"/master/operation"],
+  ["ST Operation Mapping","Operation Code → ST Group / Standard Operation",c.md_st_operation_mapping,"/master/operationmapping"],
+  ["ST Group Master","Danh mục nhóm công đoạn ST",c.md_st_group,"/st-groups"],
+  ["Area Master","Danh mục Area + gán ST Group",c.md_area,"/area"],
  ];
- return <main className="shell"><div className="top"><div className="brand"><h1>ST Planning</h1><p>Cấu hình Planning</p></div></div>
- <AppTabs active="config"/><SubTabs items={sub}/>
- {data.issues.length>0&&<div className="notice section"><b>Database cần kiểm tra:</b><ul className="issue-list">{data.issues.map((x:string)=><li key={x}>{x}</li>)}</ul></div>}
- <div className="grid section">{stats.map(([t,n,h])=><Link key={String(t)} href={String(h)} className="card stat"><b>{Number(n||0).toLocaleString()}</b><span>{String(t)}</span></Link>)}</div>
- <div className="card section"><h2 style={{marginTop:0}}>Cấu hình</h2><p className="muted">Quản lý Standard Operation, mapping Operation Code → ST Group, danh mục ST Group và Area. Các bảng nguồn không bị thay đổi tại đây.</p></div>
+ return <main className="erp-shell">
+  <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION</div></header>
+  <AppTabs active="config"/>
+  <div className="erp-workspace">
+   <aside className="erp-sidebar"><div className="erp-sidebar-title">CẤU HÌNH</div><SubTabs items={sub}/></aside>
+   <section className="erp-content">
+    <div className="erp-page-head"><div><h2>Cấu hình Planning</h2><p>Quản lý Operation, Group và Area dùng cho lập kế hoạch</p></div></div>
+    {data.issues.length>0&&<div className="notice"><b>Database cần kiểm tra:</b><ul className="issue-list">{data.issues.map((x:string)=><li key={x}>{x}</li>)}</ul></div>}
+    <div className="erp-table-panel">
+     <div className="erp-panel-head"><b>Configuration Master</b><span>{rows.length} configuration groups</span></div>
+     <div className="table-wrap"><table className="erp-table"><thead><tr><th>Configuration</th><th>Mô tả</th><th className="num">Records</th><th></th></tr></thead><tbody>
+      {rows.map(([name,desc,n,href])=><tr key={String(name)}><td><b>{String(name)}</b></td><td>{String(desc)}</td><td className="num mono">{Number(n||0).toLocaleString()}</td><td className="action"><Link className="erp-link" href={String(href)}>Open →</Link></td></tr>)}
+     </tbody></table></div>
+    </div>
+   </section>
+  </div>
  </main>
 }

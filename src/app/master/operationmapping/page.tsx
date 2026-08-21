@@ -11,5 +11,15 @@ export default async function Page(){const admin=createAdminClient();
  ]);if(error)throw error;
  const groups=[...new Set((masters||[]).map((x:any)=>String(x.st_group)).filter(Boolean))];
  const sourceOperations=[...new Set((ops||[]).map((x:any)=>String(x.operation_code)).filter(Boolean))];
- return <main className="shell"><div className="top"><div className="brand"><h1>ST Operation Mapping</h1><p>{rows?.length||0} active records · Add / Remove / Move Operation Code</p></div></div><AppTabs active="config"/><SubTabs items={tabs} active="operationmapping"/><div className="section"><OperationMappingManager rows={(rows||[]) as any} groups={groups} sourceOperations={sourceOperations}/></div></main>
+ return <main className="erp-shell">
+  <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION</div></header>
+  <AppTabs active="config"/>
+  <div className="erp-workspace">
+   <aside className="erp-sidebar"><div className="erp-sidebar-title">CẤU HÌNH</div><SubTabs items={tabs} active="operationmapping"/></aside>
+   <section className="erp-content">
+    <div className="erp-page-head"><div><h2>ST Operation Mapping</h2><p>{rows?.length||0} active mappings · Add / Remove / Move Operation Code</p></div></div>
+    <OperationMappingManager rows={(rows||[]) as any} groups={groups} sourceOperations={sourceOperations}/>
+   </section>
+  </div>
+ </main>
 }

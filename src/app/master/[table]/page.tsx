@@ -30,10 +30,20 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
  const {table:key}=await params;const c=config[key];if(!c)notFound();const sp=await searchParams,q=(sp.q||"").trim(),page=Math.max(1,Number(sp.p)||1),size=50,from=(page-1)*size;
  const admin=createAdminClient();let query=admin.from(c.table).select("*",{count:"exact"}).eq("is_active",true).range(from,from+size-1);
  if(q)query=query.or(c.search.map(x=>`${x}.ilike.%${q.replaceAll(",","")}%`).join(","));
- const {data,error,count}=await query;if(error)throw error;const rows=(data||[]) as Record<string,unknown>[];const cols=rows.length?Object.keys(rows[0]).filter(x=>!["created_at","updated_at","last_import_batch_id"].includes(x)):[];const pages=Math.max(1,Math.ceil((count||0)/size));
- return <main className="shell"><div className="top"><div className="brand"><h1>{c.title}</h1><p>{(count||0).toLocaleString()} active records</p></div></div>
- <AppTabs active={c.section==="master"?"master":"config"}/><SubTabs items={c.section==="master"?masterTabs:configTabs} active={key}/>
- <form className="row card section"><input className="input" name="q" defaultValue={q} placeholder="Tìm kiếm..."/><button className="btn primary">Tìm</button></form>
- <div className="card section table-wrap"><table><thead><tr>{cols.map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i}>{cols.map(x=><td key={x}>{String(r[x]??"")}</td>)}</tr>)}{!rows.length&&<tr><td className="muted">Không có dữ liệu.</td></tr>}</tbody></table></div>
- <div className="row pager"><Link className="btn" href={`?q=${encodeURIComponent(q)}&p=${Math.max(1,page-1)}`}>← Trước</Link><span className="muted">Trang {page} / {pages}</span><Link className="btn" href={`?q=${encodeURIComponent(q)}&p=${Math.min(pages,page+1)}`}>Sau →</Link></div></main>
+ const {data,error,count}=await query;if(error)throw error;
+ const rows=(data||[]) as Record<string,unknown>[];const cols=rows.length?Object.keys(rows[0]).filter(x=>!["created_at","updated_at","last_import_batch_id"].includes(x)):[];const pages=Math.max(1,Math.ceil((count||0)/size));
+ const tabs=c.section==="master"?masterTabs:configTabs;
+ return <main className="erp-shell">
+  <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">{c.section==="master"?"MASTER DATA":"CONFIGURATION"}</div></header>
+  <AppTabs active={c.section==="master"?"master":"config"}/>
+  <div className="erp-workspace">
+   <aside className="erp-sidebar"><div className="erp-sidebar-title">{c.section==="master"?"MASTER DATA":"CẤU HÌNH"}</div><SubTabs items={tabs} active={key}/></aside>
+   <section className="erp-content">
+    <div className="erp-page-head"><div><h2>{c.title}</h2><p>{(count||0).toLocaleString()} active records</p></div></div>
+    <form className="row erp-form-panel"><input className="input" name="q" defaultValue={q} placeholder="Tìm kiếm..."/><button className="btn primary">Tìm</button></form>
+    <div className="erp-table-panel section table-wrap"><table className="erp-table"><thead><tr>{cols.map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i}>{cols.map(x=><td key={x}>{String(r[x]??"")}</td>)}</tr>)}{!rows.length&&<tr><td className="muted">Không có dữ liệu.</td></tr>}</tbody></table></div>
+    <div className="row pager"><Link className="btn" href={`?q=${encodeURIComponent(q)}&p=${Math.max(1,page-1)}`}>← Trước</Link><span className="muted">Trang {page} / {pages}</span><Link className="btn" href={`?q=${encodeURIComponent(q)}&p=${Math.min(pages,page+1)}`}>Sau →</Link></div>
+   </section>
+  </div>
+ </main>
 }

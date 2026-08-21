@@ -150,3 +150,18 @@ Navigation toàn app:
 - Sửa TypeScript `TS2339: Property 'id' does not exist on type '{ email: string; }'`.
 - Khi app chạy No Login, `master_import_batch.started_by` được ghi `NULL` thay vì `user.id`.
 - Không thay đổi logic Import Master, Incremental Import hoặc Routing.
+
+
+## UI v11 – ERP Layout
+- Bỏ dashboard statistic cards ở Master Data và Cấu hình.
+- Chuyển sang bố cục ERP: dark system header → module tabs → sidebar module → work area.
+- Master Data/Cấu hình hiển thị dạng table overview với Record count và Open action.
+- Các bảng chi tiết dùng layout ERP thống nhất, mật độ dữ liệu cao hơn, border vuông và không dùng shadow card.
+- Không thay đổi database schema, Import logic, Routing, Mapping, ST Group, Area hoặc Part Tracker data logic.
+
+
+## UI v13 – Part Tracker ERP
+- Part Tracker dùng cùng ERP header/module navigation với các tab còn lại.
+- Bỏ toàn bộ card dashboard/summary bo tròn trong Part Tracker.
+- Search result, Part Summary, Process Requirement, Routing Detail và ST Planning Chain hiển thị dạng ERP panel/table.
+- Logic tra cứu Part và dữ liệu không thay đổi.

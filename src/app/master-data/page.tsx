@@ -16,21 +16,35 @@ const sub=[
 ];
 export default async function Page(){
  let data:any=null,err="";
- try{data=await getStats()}
- catch(e){err=errorMessage(e)}
+ try{data=await getStats()}catch(e){err=errorMessage(e)}
  const c=data?.counts||{};
- const stats=[
-  ["Part",c.md_part,"/master/part"],["Part Revision",c.md_part_revision,"/master/revision"],
-  ["Source Operation",c.md_operation,"/master/sourceoperation"],["Routing Detail",c.md_routing_detailed,"/master/routing"],
-  ["Material Finish",c.md_material_finish,"/master/finish"],["Process Requirement",c.md_process_requirement,"/master/requirement"],
-  ["ST Routing Master",c.md_st_routing_summary,"/master/strouting"],["ST Routing Chain",c.md_st_routing,"/master/stroutingchain"],
-  ["Part → Routing",c.md_part_routing,"/master/partrouting"]
+ const rows=[
+  ["Part","Danh mục Part",c.md_part,"/master/part"],
+  ["Part Revision","Revision theo Part",c.md_part_revision,"/master/revision"],
+  ["Source Operation","Operation nguồn từ file Master",c.md_operation,"/master/sourceoperation"],
+  ["Routing Detail","Routing đầy đủ theo Part + Revision",c.md_routing_detailed,"/master/routing"],
+  ["Material Finish","Surface / Primer / Topcoat / Finish",c.md_material_finish,"/master/finish"],
+  ["Process Requirement","Yêu cầu process theo Part + Revision",c.md_process_requirement,"/master/requirement"],
+  ["ST Routing Master","Danh mục routing ST chuẩn hóa",c.md_st_routing_summary,"/master/strouting"],
+  ["ST Routing Chain","Chuỗi operation ST chuẩn hóa",c.md_st_routing,"/master/stroutingchain"],
+  ["Part → Routing","Map Part + Revision → RoutingCode",c.md_part_routing,"/master/partrouting"]
  ];
- return <main className="shell"><div className="top"><div className="brand"><h1>ST Planning</h1><p>Master Data</p></div></div>
- <AppTabs active="master"/><SubTabs items={sub}/>
- {err&&<div className="notice section"><b>Lỗi kết nối:</b> {err}</div>}
- {data?.issues?.length>0&&<div className="notice section"><b>Database cần kiểm tra:</b><ul className="issue-list">{data.issues.map((x:string)=><li key={x}>{x}</li>)}</ul></div>}
- <div className="grid section">{stats.map(([t,n,h])=><Link key={String(t)} href={String(h)} className="card stat"><b>{Number(n||0).toLocaleString()}</b><span>{String(t)}</span></Link>)}</div>
- <div className="card section"><h2 style={{marginTop:0}}>Master Data</h2><p className="muted">Dữ liệu nguồn và routing dùng cho ST Planning. Chọn tab phía trên hoặc một ô thống kê để xem chi tiết.</p></div>
+ return <main className="erp-shell">
+  <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">MASTER DATA</div></header>
+  <AppTabs active="master"/>
+  <div className="erp-workspace">
+   <aside className="erp-sidebar"><div className="erp-sidebar-title">MASTER DATA</div><SubTabs items={sub}/></aside>
+   <section className="erp-content">
+    <div className="erp-page-head"><div><h2>Master Data</h2><p>Dữ liệu nền dùng cho ST Planning</p></div><Link className="btn primary" href="/import-master">Import Master</Link></div>
+    {err&&<div className="notice"><b>Lỗi kết nối:</b> {err}</div>}
+    {data?.issues?.length>0&&<div className="notice"><b>Database cần kiểm tra:</b><ul className="issue-list">{data.issues.map((x:string)=><li key={x}>{x}</li>)}</ul></div>}
+    <div className="erp-table-panel">
+     <div className="erp-panel-head"><b>Master Data Overview</b><span>{rows.length} data groups</span></div>
+     <div className="table-wrap"><table className="erp-table"><thead><tr><th>Master</th><th>Mô tả</th><th className="num">Records</th><th></th></tr></thead><tbody>
+      {rows.map(([name,desc,n,href])=><tr key={String(name)}><td><b>{String(name)}</b></td><td>{String(desc)}</td><td className="num mono">{Number(n||0).toLocaleString()}</td><td className="action"><Link className="erp-link" href={String(href)}>Open →</Link></td></tr>)}
+     </tbody></table></div>
+    </div>
+   </section>
+  </div>
  </main>
 }
