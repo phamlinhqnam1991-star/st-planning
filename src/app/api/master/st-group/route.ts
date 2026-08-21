@@ -1,9 +1,8 @@
 import { NextRequest,NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 const clean=(v:unknown)=>String(v??"").trim();
 export async function POST(req:NextRequest){
- try{await requireUser();const b=await req.json();const code=clean(b.st_group).toUpperCase(),name=clean(b.group_name)||code,desc=clean(b.description)||null;
+ try{const b=await req.json();const code=clean(b.st_group).toUpperCase(),name=clean(b.group_name)||code,desc=clean(b.description)||null;
   if(!code)return NextResponse.json({error:"ST Group không được để trống."},{status:400});
   const c=await getPool().connect();try{
    const n=await c.query("select coalesce(max(sort_order),0)+1 n from md_st_group");
@@ -13,14 +12,14 @@ export async function POST(req:NextRequest){
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500})}
 }
 export async function PATCH(req:NextRequest){
- try{await requireUser();const b=await req.json();const code=clean(b.st_group),name=clean(b.group_name),desc=clean(b.description)||null;
+ try{const b=await req.json();const code=clean(b.st_group),name=clean(b.group_name),desc=clean(b.description)||null;
   if(!code||!name)return NextResponse.json({error:"Thiếu ST Group / Group Name."},{status:400});
   const c=await getPool().connect();try{await c.query("update md_st_group set group_name=$2,description=$3,is_active=true,updated_at=now() where st_group=$1",[code,name,desc])}finally{c.release()}
   return NextResponse.json({ok:true});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500})}
 }
 export async function DELETE(req:NextRequest){
- try{await requireUser();const b=await req.json();const code=clean(b.st_group);const c=await getPool().connect();try{
+ try{const b=await req.json();const code=clean(b.st_group);const c=await getPool().connect();try{
    const used=await c.query(`select
     (select count(*) from md_st_operation_mapping where st_group=$1 and is_active) mapping_count,
     (select count(*) from md_operation_master where st_group=$1 and is_active) operation_count,

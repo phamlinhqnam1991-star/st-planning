@@ -1,14 +1,10 @@
-import {redirect} from "next/navigation";
-import {createClient} from "@/lib/supabase/server";
 import {MasterImporter} from "@/components/master-importer";
 import {getStats} from "@/lib/stats";
-import {LogoutButton} from "@/components/logout-button";
 import {AppTabs} from "@/components/app-tabs";
 export const dynamic="force-dynamic";
 export default async function Page(){
- const s=await createClient();const {data:{user}}=await s.auth.getUser();if(!user)redirect("/login");
  const data=await getStats();
- return <main className="shell"><div className="top"><div className="brand"><h1>ST Planning</h1><p>Import Master · {user.email}</p></div><LogoutButton/></div>
+ return <main className="shell"><div className="top"><div className="brand"><h1>ST Planning</h1><p>Import Master</p></div></div>
  <AppTabs active="import"/>
  {data.issues.length>0&&<div className="notice section"><b>Database cần kiểm tra:</b><ul className="issue-list">{data.issues.map((x:string)=><li key={x}>{x}</li>)}</ul></div>}
  <div className="section"><MasterImporter/></div>

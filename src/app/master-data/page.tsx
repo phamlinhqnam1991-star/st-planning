@@ -1,8 +1,5 @@
 import Link from "next/link";
-import {redirect} from "next/navigation";
-import {createClient} from "@/lib/supabase/server";
 import {getStats} from "@/lib/stats";
-import {LogoutButton} from "@/components/logout-button";
 import {AppTabs,SubTabs} from "@/components/app-tabs";
 import {errorMessage} from "@/lib/error-message";
 export const dynamic="force-dynamic";
@@ -18,7 +15,6 @@ const sub=[
  {key:"partrouting",label:"Part → Routing",href:"/master/partrouting"},
 ];
 export default async function Page(){
- const s=await createClient();const {data:{user}}=await s.auth.getUser();if(!user)redirect("/login");
  let data:any=null,err="";
  try{data=await getStats()}
  catch(e){err=errorMessage(e)}
@@ -30,7 +26,7 @@ export default async function Page(){
   ["ST Routing Master",c.md_st_routing_summary,"/master/strouting"],["ST Routing Chain",c.md_st_routing,"/master/stroutingchain"],
   ["Part → Routing",c.md_part_routing,"/master/partrouting"]
  ];
- return <main className="shell"><div className="top"><div className="brand"><h1>ST Planning</h1><p>Master Data · {user.email}</p></div><LogoutButton/></div>
+ return <main className="shell"><div className="top"><div className="brand"><h1>ST Planning</h1><p>Master Data</p></div></div>
  <AppTabs active="master"/><SubTabs items={sub}/>
  {err&&<div className="notice section"><b>Lỗi kết nối:</b> {err}</div>}
  {data?.issues?.length>0&&<div className="notice section"><b>Database cần kiểm tra:</b><ul className="issue-list">{data.issues.map((x:string)=><li key={x}>{x}</li>)}</ul></div>}

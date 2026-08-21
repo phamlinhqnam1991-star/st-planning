@@ -1,8 +1,5 @@
 import Link from "next/link";
-import {redirect} from "next/navigation";
-import {createClient} from "@/lib/supabase/server";
 import {createAdminClient} from "@/lib/supabase/admin";
-import {LogoutButton} from "@/components/logout-button";
 import {AppTabs} from "@/components/app-tabs";
 export const dynamic="force-dynamic";
 
@@ -10,7 +7,6 @@ const clean=(x:unknown)=>String(x??"");
 function KV({label,value}:{label:string,value:unknown}){return <div className="kv"><span>{label}</span><b>{value===null||value===undefined||value===""?"—":String(value)}</b></div>}
 
 export default async function Page({searchParams}:{searchParams:Promise<{q?:string}>}){
- const auth=await createClient();const {data:{user}}=await auth.auth.getUser();if(!user)redirect("/login");
  const sp=await searchParams,q=(sp.q||"").trim();const admin=createAdminClient();
  let matches:any[]=[];let part:any=null;let revisions:any[]=[],finish:any[]=[],requirements:any[]=[],routing:any[]=[],partRouting:any[]=[],stRouting:any[]=[],opMaster:any[]=[],areaMaps:any[]=[],areas:any[]=[];
  if(q){
@@ -45,7 +41,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
  }
  const areaByGroup=new Map(areaMaps.map(m=>[m.st_group,areas.find(a=>a.id===m.area_id)?.area_name||""]));
  const opByStd=new Map(opMaster.map(x=>[x.standard_operation,x]));
- return <main className="shell"><div className="top"><div className="brand"><h1>ST Planning</h1><p>Part Tracker · {user.email}</p></div><LogoutButton/></div>
+ return <main className="shell"><div className="top"><div className="brand"><h1>ST Planning</h1><p>Part Tracker</p></div></div>
  <AppTabs active="tracker"/>
  <form className="tracker-search card section"><div><label htmlFor="partq">Part Number / Description</label><input id="partq" className="input" name="q" defaultValue={q} placeholder="Nhập PartNum, ví dụ PVSHFSA002314"/></div><button className="btn primary">Tìm Part</button></form>
 

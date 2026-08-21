@@ -140,3 +140,7 @@ Navigation toàn app:
 - `.env.local`, `.env*`, `.vercel`, `tsconfig.tsbuildinfo` không được đưa lên GitHub.
 - Nếu `.env.local` đã từng được Git track, chạy `git rm --cached .env.local` rồi commit lại.
 - Không cần migration SQL mới; database vẫn dùng `001` → `007`.
+
+
+## v9 – No Login
+Đã bỏ màn hình đăng nhập và auth gate của các page/API trong web app theo yêu cầu. `/login` tự chuyển về `/master-data`. Supabase vẫn dùng server-side secret key cho truy cập dữ liệu.

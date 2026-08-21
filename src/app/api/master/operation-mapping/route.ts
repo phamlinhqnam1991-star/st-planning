@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 
 const RULES=["DIRECT","OCCURRENCE","SEQUENCE","SEQUENCE/FALLBACK"];
@@ -11,7 +10,7 @@ async function refresh(client:any){
 
 export async function POST(req:NextRequest){
   try{
-    const user=await requireUser(); const b=await req.json();
+    const user={email:"system"}; const b=await req.json();
     const stGroup=clean(b.st_group), source=clean(b.source_operation_code).toUpperCase();
     const label=clean(b.source_label)||source, standard=clean(b.standard_operation_rule), rule=clean(b.mapping_rule).toUpperCase();
     if(!stGroup||!source||!standard||!RULES.includes(rule)) return NextResponse.json({error:"Thiếu hoặc sai dữ liệu mapping."},{status:400});
@@ -45,7 +44,7 @@ export async function POST(req:NextRequest){
 
 export async function PATCH(req:NextRequest){
   try{
-    const user=await requireUser(); const b=await req.json(); const id=Number(b.id);
+    const user={email:"system"}; const b=await req.json(); const id=Number(b.id);
     if(!id) return NextResponse.json({error:"Mapping id không hợp lệ."},{status:400});
     const c=await getPool().connect();
     try{
@@ -66,7 +65,7 @@ export async function PATCH(req:NextRequest){
 
 export async function DELETE(req:NextRequest){
   try{
-    const user=await requireUser(); const b=await req.json(); const id=Number(b.id);
+    const user={email:"system"}; const b=await req.json(); const id=Number(b.id);
     const c=await getPool().connect();
     try{
       await c.query("begin");

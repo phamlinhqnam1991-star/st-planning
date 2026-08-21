@@ -1,1 +1,2 @@
-import { LoginForm } from "@/components/login-form"; export default function Page(){return <main className="shell"><LoginForm/></main>}
+import {redirect} from "next/navigation";
+export default function LoginPage(){redirect("/master-data")}
