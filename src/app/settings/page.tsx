@@ -22,6 +22,7 @@ export default async function Page(){
  ];
  return <main className="shell"><div className="top"><div className="brand"><h1>ST Planning</h1><p>Cấu hình Planning · {user.email}</p></div><LogoutButton/></div>
  <AppTabs active="config"/><SubTabs items={sub}/>
+ {data.issues.length>0&&<div className="notice section"><b>Database cần kiểm tra:</b><ul className="issue-list">{data.issues.map((x:string)=><li key={x}>{x}</li>)}</ul></div>}
  <div className="grid section">{stats.map(([t,n,h])=><Link key={String(t)} href={String(h)} className="card stat"><b>{Number(n||0).toLocaleString()}</b><span>{String(t)}</span></Link>)}</div>
  <div className="card section"><h2 style={{marginTop:0}}>Cấu hình</h2><p className="muted">Quản lý Standard Operation, mapping Operation Code → ST Group, danh mục ST Group và Area. Các bảng nguồn không bị thay đổi tại đây.</p></div>
  </main>

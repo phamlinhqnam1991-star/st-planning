@@ -132,3 +132,11 @@ Navigation toàn app:
 - **Cấu hình**: Operation Master, ST Operation Mapping, ST Group Master, Area Master.
 - **Part Tracker**: tìm PartNum/Description và hiển thị toàn bộ dữ liệu liên quan theo từng Revision, gồm Finish, Requirements, Routing Detail, ST Routing, Standard Operation, ST Group, Area và Time Rule.
 - **Import Master**: Incremental Import, Reset All và Import History.
+
+
+## Fix v8 – Dashboard / Vercel / Git
+- Dashboard không còn biến toàn bộ Master Data thành `0` khi chỉ một bảng Supabase bị lỗi.
+- Lỗi Supabase hiển thị `message / details / hint / code`, không còn `[object Object]`.
+- `.env.local`, `.env*`, `.vercel`, `tsconfig.tsbuildinfo` không được đưa lên GitHub.
+- Nếu `.env.local` đã từng được Git track, chạy `git rm --cached .env.local` rồi commit lại.
+- Không cần migration SQL mới; database vẫn dùng `001` → `007`.

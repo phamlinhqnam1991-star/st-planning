@@ -42,3 +42,5 @@ a{color:inherit;text-decoration:none}.shell{max-width:1180px;margin:0 auto;paddi
 .info-chip{display:inline-flex;padding:7px 10px;border-radius:8px;background:#f4f6f8;border:1px solid var(--line);font-size:13px}
 @media(max-width:900px){.tracker-summary{grid-template-columns:1fr}.details-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.tracker-search{grid-template-columns:1fr}.kv-grid,.details-grid{grid-template-columns:1fr}.search-result{grid-template-columns:1fr}.search-result small{grid-column:auto}.revision-head{align-items:flex-start;flex-direction:column}}
+
+.issue-list{margin:8px 0 0;padding-left:20px}.issue-list li{margin:5px 0;overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}

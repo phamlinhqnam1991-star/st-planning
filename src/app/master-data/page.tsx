@@ -4,6 +4,7 @@ import {createClient} from "@/lib/supabase/server";
 import {getStats} from "@/lib/stats";
 import {LogoutButton} from "@/components/logout-button";
 import {AppTabs,SubTabs} from "@/components/app-tabs";
+import {errorMessage} from "@/lib/error-message";
 export const dynamic="force-dynamic";
 const sub=[
  {key:"part",label:"Part",href:"/master/part"},
@@ -18,7 +19,9 @@ const sub=[
 ];
 export default async function Page(){
  const s=await createClient();const {data:{user}}=await s.auth.getUser();if(!user)redirect("/login");
- let data:any=null,err="";try{data=await getStats()}catch(e){err=e instanceof Error?e.message:String(e)}
+ let data:any=null,err="";
+ try{data=await getStats()}
+ catch(e){err=errorMessage(e)}
  const c=data?.counts||{};
  const stats=[
   ["Part",c.md_part,"/master/part"],["Part Revision",c.md_part_revision,"/master/revision"],
@@ -29,7 +32,8 @@ export default async function Page(){
  ];
  return <main className="shell"><div className="top"><div className="brand"><h1>ST Planning</h1><p>Master Data · {user.email}</p></div><LogoutButton/></div>
  <AppTabs active="master"/><SubTabs items={sub}/>
- {err&&<div className="notice section">{err}</div>}
+ {err&&<div className="notice section"><b>Lỗi kết nối:</b> {err}</div>}
+ {data?.issues?.length>0&&<div className="notice section"><b>Database cần kiểm tra:</b><ul className="issue-list">{data.issues.map((x:string)=><li key={x}>{x}</li>)}</ul></div>}
  <div className="grid section">{stats.map(([t,n,h])=><Link key={String(t)} href={String(h)} className="card stat"><b>{Number(n||0).toLocaleString()}</b><span>{String(t)}</span></Link>)}</div>
  <div className="card section"><h2 style={{marginTop:0}}>Master Data</h2><p className="muted">Dữ liệu nguồn và routing dùng cho ST Planning. Chọn tab phía trên hoặc một ô thống kê để xem chi tiết.</p></div>
  </main>
