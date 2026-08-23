@@ -1668,3 +1668,868 @@ button,a,input,select,textarea{touch-action:manipulation}
  .auto-rule-limit-grid{grid-template-columns:1fr}
  .auto-rule-priority-row{grid-template-columns:28px 1fr 80px 34px}
 }
+
+
+/* Operation Master Batch Prefix v76 */
+.operation-prefix-edit{
+ flex-wrap:nowrap;
+ gap:3px;
+}
+.operation-prefix-input{
+ width:58px!important;
+ min-width:58px!important;
+ text-transform:uppercase;
+ font-weight:800;
+ text-align:center;
+}
+.operation-prefix-button{
+ min-width:48px;
+ font-weight:800;
+}
+
+
+/* Batch Detail uses the same saved Candidate View as Planning Board v77 */
+.batch-add-title{
+ display:flex;
+ flex-direction:column;
+ gap:2px;
+}
+.batch-add-title small{
+ color:#667085;
+ font-size:9px;
+ font-weight:500;
+}
+.batch-add-filter-same-view{
+ grid-template-columns:minmax(280px,1fr) auto auto!important;
+ align-items:end;
+}
+.batch-add-view-info{
+ display:flex;
+ gap:5px;
+ align-items:center;
+ min-height:32px;
+}
+.batch-add-view-info span{
+ border:1px solid #d8dee7;
+ background:#f8fafc;
+ padding:5px 7px;
+ font-size:9px;
+ white-space:nowrap;
+}
+
+
+/* Paint-type selection lock v78 */
+.paint-selection-lock-banner{
+ display:flex;
+ align-items:center;
+ gap:10px;
+ flex-wrap:wrap;
+ padding:7px 10px;
+ border-bottom:1px solid #d8dee7;
+ background:#f8fafc;
+ font-size:10px;
+}
+.paint-selection-lock-banner b{
+ font-size:10px;
+ white-space:nowrap;
+}
+.paint-selection-lock-banner span{
+ color:#475467;
+}
+.paint-selection-lock-banner.is-locked{
+ background:#fff8e8;
+ border-color:#f0c36d;
+}
+.paint-selection-lock-banner.is-locked b{
+ color:#92400e;
+}
+.planning-candidate-table tr.paint-selection-disabled>td{
+ opacity:.32;
+ background:#f4f5f7!important;
+}
+.planning-candidate-table tr.paint-selection-disabled{
+ cursor:not-allowed!important;
+}
+.planning-candidate-table tr.paint-selection-disabled input[type="checkbox"]{
+ cursor:not-allowed;
+}
+
+
+/* Resource box scheduled Batch display v79 */
+.schedule-dnd-resource{
+ min-height:86px;
+}
+.schedule-dnd-resource.has-batches{
+ background:#fff;
+ border-style:solid;
+}
+.schedule-resource-box-head{
+ display:flex;
+ align-items:flex-start;
+ justify-content:space-between;
+ gap:6px;
+ margin-bottom:5px;
+}
+.schedule-resource-box-head>div{
+ display:flex;
+ flex-direction:column;
+ gap:2px;
+ min-width:0;
+}
+.schedule-resource-box-head b{
+ font-size:10px;
+}
+.schedule-resource-box-head span{
+ font-size:9px;
+ color:#475467;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+.schedule-resource-batch-count{
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ min-width:22px;
+ height:20px;
+ padding:0 5px;
+ border:1px solid #b8c4d4;
+ background:#eef3f8;
+ font-size:9px;
+ border-radius:10px;
+}
+.schedule-resource-batch-list{
+ display:grid;
+ gap:4px;
+}
+.schedule-resource-batch-item{
+ width:100%;
+ display:grid;
+ grid-template-columns:minmax(0,1fr) auto;
+ column-gap:6px;
+ row-gap:1px;
+ align-items:center;
+ padding:5px 6px;
+ border:1px solid #cbd5e1;
+ background:#f8fafc;
+ text-align:left;
+ cursor:grab;
+}
+.schedule-resource-batch-item strong{
+ font-size:10px;
+ overflow:hidden;
+ text-overflow:ellipsis;
+ white-space:nowrap;
+}
+.schedule-resource-batch-item>span{
+ font-size:9px;
+ font-family:monospace;
+ white-space:nowrap;
+ color:#344054;
+}
+.schedule-resource-batch-item small{
+ grid-column:1/-1;
+ font-size:8px;
+ color:#667085;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+.schedule-resource-drop-hint{
+ color:#667085;
+ font-size:8px;
+}
+.schedule-dnd-resource.is-over{
+ outline:2px solid #2273d1;
+ outline-offset:-2px;
+}
+
+
+/* Resource Batch extra details v80 */
+.schedule-resource-batch-item{
+ grid-template-columns:minmax(0,1fr) auto;
+}
+.schedule-resource-batch-meta{
+ grid-column:1/-1;
+ display:grid;
+ grid-template-columns:minmax(120px,1fr) auto auto;
+ gap:5px 8px;
+ align-items:center;
+ margin-top:3px;
+ padding-top:3px;
+ border-top:1px dashed #d8dee7;
+ font-size:8px;
+ color:#475467;
+}
+.schedule-resource-batch-meta span{
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+.schedule-resource-batch-meta span:first-child{
+ min-width:0;
+}
+.schedule-resource-batch-meta b{
+ font-size:8px;
+}
+@media(max-width:900px){
+ .schedule-resource-batch-meta{
+  grid-template-columns:1fr 1fr;
+ }
+ .schedule-resource-batch-meta span:first-child{
+  grid-column:1/-1;
+ }
+}
+
+
+/* Next paint requirement in Resource Batch card v81 */
+.schedule-resource-next-paint{
+ grid-column:1/-1;
+ display:block;
+ padding:2px 4px;
+ background:#fff8e8;
+ border-left:2px solid #d99a22;
+ color:#7a4b00!important;
+ font-weight:700;
+ white-space:normal!important;
+ overflow-wrap:anywhere;
+}
+
+
+/* v82 - Details in Unscheduled cards; Resource boxes show Batch No only */
+.schedule-dnd-batches .schedule-dnd-batch{
+ min-width:180px;
+ flex:1 1 180px;
+}
+.schedule-unscheduled-batch-meta{
+ width:100%;
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:2px 7px;
+ margin-top:4px;
+ padding-top:4px;
+ border-top:1px dashed #d8dee7;
+ text-align:left;
+}
+.schedule-unscheduled-batch-meta>span{
+ min-width:0;
+ font-size:8px;
+ color:#475467;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+.schedule-unscheduled-batch-meta>span:first-child{
+ grid-column:1/-1;
+}
+.schedule-unscheduled-next-paint{
+ grid-column:1/-1;
+ padding:2px 4px;
+ background:#fff8e8;
+ border-left:2px solid #d99a22;
+ color:#7a4b00!important;
+ font-weight:700;
+ white-space:normal!important;
+ overflow-wrap:anywhere;
+}
+.schedule-resource-batch-item{
+ display:block!important;
+ padding:6px 7px!important;
+ min-height:28px;
+}
+.schedule-resource-batch-item strong{
+ display:block;
+ font-size:10px;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+
+
+/* v83 - Scheduling batch list grouped by current Standard Operation */
+.schedule-batch-list-board{
+ display:block;
+ margin-top:10px;
+}
+.schedule-batch-pool-full{
+ width:100%;
+}
+.schedule-batch-section{
+ border-top:1px solid #e4e7ec;
+ padding-top:8px;
+ margin-top:8px;
+}
+.schedule-batch-section-title,
+.schedule-operation-group-head{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:8px;
+}
+.schedule-batch-section-title{
+ font-size:12px;
+ margin-bottom:8px;
+}
+.schedule-batch-section-title span,
+.schedule-operation-group-head span{
+ color:#667085;
+ font-size:9px;
+}
+.schedule-operation-group{
+ margin-top:8px;
+ border:1px solid #d8dee7;
+ background:#fff;
+}
+.schedule-operation-group-head{
+ padding:6px 8px;
+ background:#f4f6f8;
+ border-bottom:1px solid #d8dee7;
+}
+.schedule-operation-group-head b{
+ font-size:10px;
+}
+.schedule-operation-batch-list{
+ display:grid;
+ grid-template-columns:repeat(3,minmax(300px,1fr));
+ gap:6px;
+ padding:6px;
+}
+.schedule-operation-batch-list.scheduled{
+ grid-template-columns:repeat(4,minmax(210px,1fr));
+}
+.schedule-operation-batch-card{
+ border:1px solid #ccd5df;
+ background:#fff;
+ padding:7px;
+ text-align:left;
+ min-width:0;
+ cursor:pointer;
+}
+.schedule-operation-batch-card:hover{
+ border-color:#6b9ee8;
+ background:#f8fbff;
+}
+.schedule-operation-batch-card.is-scheduled{
+ background:#eef5ff;
+}
+.schedule-operation-batch-head,
+.schedule-operation-batch-total{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:8px;
+}
+.schedule-operation-batch-head strong{
+ font-size:11px;
+}
+.schedule-operation-batch-head>span{
+ font-size:9px;
+ color:#475467;
+}
+.schedule-operation-batch-total{
+ margin-top:4px;
+ padding-top:4px;
+ border-top:1px dashed #d8dee7;
+}
+.schedule-operation-batch-total span{
+ font-size:9px;
+ color:#344054;
+}
+.schedule-next-breakdown{
+ margin-top:5px;
+ display:grid;
+ gap:3px;
+}
+.schedule-next-breakdown-row{
+ display:grid;
+ grid-template-columns:minmax(130px,1fr) auto auto;
+ align-items:center;
+ gap:6px 10px;
+ padding:4px 5px;
+ background:#f8fafc;
+ border-left:2px solid #98a2b3;
+ font-size:9px;
+}
+.schedule-next-breakdown-op{
+ min-width:0;
+ display:flex;
+ flex-direction:column;
+ gap:1px;
+}
+.schedule-next-breakdown-op b{
+ font-size:9px;
+}
+.schedule-next-breakdown-op small{
+ font-size:8px;
+ color:#7a4b00;
+ white-space:normal;
+}
+.schedule-next-breakdown-row>span{
+ white-space:nowrap;
+}
+.schedule-scheduled-summary{
+ margin-top:4px;
+ font-size:9px;
+ color:#475467;
+}
+.schedule-empty-batches{
+ padding:10px;
+}
+@media(max-width:1150px){
+ .schedule-operation-batch-list{
+  grid-template-columns:repeat(2,minmax(280px,1fr));
+ }
+ .schedule-operation-batch-list.scheduled{
+  grid-template-columns:repeat(3,minmax(200px,1fr));
+ }
+}
+@media(max-width:760px){
+ .schedule-operation-batch-list,
+ .schedule-operation-batch-list.scheduled{
+  grid-template-columns:1fr;
+ }
+ .schedule-next-breakdown-row{
+  grid-template-columns:1fr 1fr;
+ }
+ .schedule-next-breakdown-op{
+  grid-column:1/-1;
+ }
+}
+
+
+/* v84 - Standard Operation color coding for Scheduling Batch groups */
+.schedule-operation-group{
+ --op-bg:#f8fafc;
+ --op-soft:#ffffff;
+ --op-border:#98a2b3;
+ --op-text:#344054;
+ border-color:var(--op-border)!important;
+ background:var(--op-soft)!important;
+}
+.schedule-operation-group .schedule-operation-group-head{
+ background:var(--op-bg)!important;
+ border-bottom-color:var(--op-border)!important;
+ border-left:5px solid var(--op-border);
+}
+.schedule-operation-group .schedule-operation-group-head b{
+ color:var(--op-text)!important;
+ font-weight:900;
+}
+.schedule-operation-batch-card{
+ border-color:var(--op-border)!important;
+ background:var(--op-soft)!important;
+ box-shadow:inset 4px 0 0 var(--op-border);
+}
+.schedule-operation-batch-card:hover{
+ background:var(--op-bg)!important;
+ border-color:var(--op-border)!important;
+}
+.schedule-operation-batch-card.is-scheduled{
+ background:var(--op-bg)!important;
+}
+.schedule-operation-batch-card .schedule-operation-batch-head strong{
+ color:var(--op-text)!important;
+}
+.schedule-operation-batch-card .schedule-next-breakdown-row{
+ background:color-mix(in srgb,var(--op-bg) 65%,white 35%)!important;
+ border-left-color:var(--op-border)!important;
+}
+
+/* Surface Treatment / Chemical */
+.op-color-01{--op-bg:#eaf4ff;--op-soft:#f7fbff;--op-border:#4788c7;--op-text:#174a75}
+.op-color-02{--op-bg:#e8f7f5;--op-soft:#f7fcfb;--op-border:#3b9488;--op-text:#145b53}
+.op-color-03{--op-bg:#e9f1ff;--op-soft:#f8faff;--op-border:#557fc1;--op-text:#264c86}
+.op-color-04{--op-bg:#eef0ff;--op-soft:#fafaff;--op-border:#7376c9;--op-text:#46498b}
+.op-color-05{--op-bg:#f3edff;--op-soft:#fcfaff;--op-border:#8f67c4;--op-text:#5e378e}
+.op-color-06{--op-bg:#f3f4f6;--op-soft:#fbfbfc;--op-border:#7b8493;--op-text:#3f4752}
+.op-color-07{--op-bg:#fff0f4;--op-soft:#fff9fb;--op-border:#c4607d;--op-text:#843752}
+.op-color-08{--op-bg:#fff3e8;--op-soft:#fffbf7;--op-border:#c77a3d;--op-text:#824815}
+.op-color-09{--op-bg:#eef8e9;--op-soft:#f9fcf7;--op-border:#6c9b4f;--op-text:#416629}
+.op-color-10{--op-bg:#e9f7ff;--op-soft:#f7fcff;--op-border:#4c91b6;--op-text:#24607f}
+.op-color-11{--op-bg:#e7f8fb;--op-soft:#f7fdfe;--op-border:#4297a3;--op-text:#215f68}
+.op-color-12{--op-bg:#edf7ee;--op-soft:#f8fcf8;--op-border:#57925f;--op-text:#32633a}
+.op-color-13{--op-bg:#f0f8e8;--op-soft:#fbfdf7;--op-border:#769e4d;--op-text:#4c6c2a}
+.op-color-14{--op-bg:#e9f7f2;--op-soft:#f7fcfa;--op-border:#489179;--op-text:#245f4d}
+.op-color-15{--op-bg:#eaf4f0;--op-soft:#f8fbfa;--op-border:#5b8d7e;--op-text:#315f52}
+.op-color-16{--op-bg:#e6f4f8;--op-soft:#f7fbfc;--op-border:#438aa0;--op-text:#245b6b}
+.op-color-17{--op-bg:#eff6ff;--op-soft:#f9fbff;--op-border:#668bb9;--op-text:#355b86}
+.op-color-18{--op-bg:#fff8dd;--op-soft:#fffdf5;--op-border:#c5a342;--op-text:#765d14}
+.op-color-19{--op-bg:#fff3d9;--op-soft:#fffaf1;--op-border:#c39134;--op-text:#77540f}
+.op-color-20{--op-bg:#fef0de;--op-soft:#fff9f2;--op-border:#bb8240;--op-text:#754715}
+.op-color-21{--op-bg:#fdecec;--op-soft:#fff8f8;--op-border:#b96565;--op-text:#7b3737}
+
+/* Bake / Blast / Plating */
+.op-color-22{--op-bg:#fff0e7;--op-soft:#fff9f5;--op-border:#c57950;--op-text:#7c4528}
+.op-color-23{--op-bg:#ffede2;--op-soft:#fff8f4;--op-border:#bd6d43;--op-text:#7d3d20}
+.op-color-24{--op-bg:#f4eef8;--op-soft:#fbf9fc;--op-border:#876aa0;--op-text:#59416e}
+.op-color-25{--op-bg:#eeeaf5;--op-soft:#faf9fc;--op-border:#76618e;--op-text:#4e3a62}
+.op-color-26{--op-bg:#edf1f5;--op-soft:#fafbfc;--op-border:#758494;--op-text:#435361}
+.op-color-27{--op-bg:#fff1e8;--op-soft:#fffaf6;--op-border:#c98358;--op-text:#7e4b2c}
+.op-color-28{--op-bg:#e8f5f6;--op-soft:#f7fbfc;--op-border:#4b8d91;--op-text:#285d60}
+
+/* Paint family */
+.op-color-29{--op-bg:#fff4c9;--op-soft:#fffdf4;--op-border:#d3a82f;--op-text:#806200}
+.op-color-30{--op-bg:#ffeabf;--op-soft:#fffaf0;--op-border:#cf9631;--op-text:#80580d}
+.op-color-31{--op-bg:#ffe1b8;--op-soft:#fff8ed;--op-border:#c9842e;--op-text:#7d4b0a}
+.op-color-32{--op-bg:#e7f0ff;--op-soft:#f7faff;--op-border:#527fc5;--op-text:#2d528b}
+.op-color-33{--op-bg:#dfeaff;--op-soft:#f5f8ff;--op-border:#446fb8;--op-text:#28477d}
+.op-color-34{--op-bg:#f2e6ff;--op-soft:#fbf7ff;--op-border:#9361bd;--op-text:#63358b}
+.op-color-35{--op-bg:#fde6f2;--op-soft:#fff7fb;--op-border:#bd5f91;--op-text:#7b3560}
+.op-color-36{--op-bg:#e9e5ff;--op-soft:#f9f8ff;--op-border:#7566c3;--op-text:#493b8b}
+
+.op-color-default{
+ --op-bg:#f2f4f7;
+ --op-soft:#fbfcfd;
+ --op-border:#98a2b3;
+ --op-text:#344054;
+}
+
+
+/* v85 - Batch card opens Job Detail; Schedule/Move stays available separately */
+.schedule-operation-batch-clickable{
+ cursor:pointer;
+}
+.schedule-operation-batch-clickable:focus{
+ outline:2px solid #2273d1;
+ outline-offset:1px;
+}
+.schedule-operation-batch-actions{
+ display:flex;
+ align-items:center;
+ gap:6px;
+}
+.schedule-operation-batch-actions>span{
+ font-size:9px;
+ color:#475467;
+}
+.schedule-card-select-btn{
+ min-height:22px!important;
+ padding:2px 6px!important;
+ font-size:8px!important;
+}
+.batch-job-remove-col{
+ position:sticky;
+ right:0;
+ background:#fff!important;
+ z-index:2;
+ min-width:74px;
+}
+.planning-batch-jobs-table tbody tr:hover .batch-job-remove-col{
+ background:#f8fbff!important;
+}
+
+
+/* v86 - Empty Batch plan-ahead workflow */
+.schedule-empty-batch-form{
+ display:grid;
+ grid-template-columns:minmax(250px,1.2fr) minmax(260px,1fr) minmax(280px,1.4fr) auto;
+ gap:8px;
+ align-items:end;
+ margin-bottom:8px;
+}
+.schedule-empty-batch-title{
+ align-self:center;
+}
+.schedule-empty-batch-title>div{
+ display:flex;
+ flex-direction:column;
+ gap:2px;
+}
+.schedule-empty-batch-title b{
+ font-size:11px;
+}
+.schedule-empty-batch-title small{
+ font-size:8px;
+ color:#667085;
+}
+.schedule-empty-badge{
+ display:inline-block;
+ margin-left:6px;
+ padding:1px 5px;
+ border:1px solid #d19b31;
+ background:#fff5d6;
+ color:#7a5600;
+ border-radius:8px;
+ font-size:7px;
+ font-style:normal;
+ vertical-align:middle;
+}
+@media(max-width:1050px){
+ .schedule-empty-batch-form{
+  grid-template-columns:1fr 1fr;
+ }
+}
+@media(max-width:650px){
+ .schedule-empty-batch-form{
+  grid-template-columns:1fr;
+ }
+}
+
+
+/* v88 - Two Planner Views on Scheduling Board */
+.schedule-planner-view-tabs{
+ display:flex;
+ gap:6px;
+ margin:8px 0 6px;
+}
+.schedule-planner-view-tab{
+ min-width:150px;
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:10px;
+ padding:7px 10px;
+ border:1px solid #cfd8e3;
+ background:#f8fafc;
+ color:#344054;
+ text-decoration:none;
+ font-size:11px;
+ font-weight:800;
+}
+.schedule-planner-view-tab small{
+ font-size:8px;
+ font-weight:600;
+ color:#667085;
+}
+.schedule-planner-view-tab.active{
+ border-color:#315f9f;
+ background:#eaf2ff;
+ color:#174a82;
+ box-shadow:inset 0 -2px 0 #315f9f;
+}
+.schedule-planner-view-summary{
+ display:flex;
+ align-items:flex-start;
+ gap:10px;
+ padding:6px 8px;
+ margin-bottom:6px;
+ border:1px solid #e4e7ec;
+ background:#fbfcfe;
+}
+.schedule-planner-view-summary b{
+ min-width:90px;
+ font-size:9px;
+ color:#344054;
+}
+.schedule-planner-view-summary span{
+ font-size:8px;
+ color:#667085;
+ line-height:1.5;
+}
+
+
+/* v89 - Cross Planner Handover Change Alerts */
+.handover-alert-panel{
+ margin-bottom:8px;
+ border:1px solid #d7dee8;
+ background:#fbfcfe;
+}
+.handover-alert-panel.has-new{
+ border-color:#d29a3a;
+ box-shadow:inset 4px 0 0 #d29a3a;
+}
+.handover-alert-head{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:10px;
+ padding:7px 9px;
+ border-bottom:1px solid #e4e7ec;
+ background:#f7f9fc;
+}
+.handover-alert-head>div:first-child{
+ display:flex;
+ flex-direction:column;
+ gap:2px;
+}
+.handover-alert-head b{
+ font-size:11px;
+}
+.handover-alert-head small{
+ font-size:8px;
+ color:#667085;
+}
+.handover-alert-head-actions{
+ display:flex;
+ align-items:center;
+ gap:6px;
+}
+.handover-new-count{
+ min-width:54px;
+ padding:4px 7px;
+ border:1px solid #d0d5dd;
+ background:#fff;
+ color:#667085;
+ text-align:center;
+ font-size:9px;
+ font-weight:800;
+}
+.handover-new-count.active{
+ border-color:#d29a3a;
+ background:#fff4d6;
+ color:#805900;
+}
+.handover-alert-list{
+ display:grid;
+ gap:5px;
+ padding:6px;
+ max-height:360px;
+ overflow:auto;
+}
+.handover-alert-item{
+ border:1px solid #d8dee7;
+ background:#fff;
+ padding:7px;
+}
+.handover-alert-item.impact-info{
+ border-left:4px solid #5f8fc7;
+}
+.handover-alert-item.impact-warning{
+ border-left:4px solid #d39b32;
+ background:#fffdf7;
+}
+.handover-alert-item.impact-impacted{
+ border-left:4px solid #d16e35;
+ background:#fff9f4;
+}
+.handover-alert-item.impact-critical{
+ border-left:4px solid #b42318;
+ background:#fff6f5;
+}
+.handover-alert-item.is-acknowledged{
+ opacity:.58;
+}
+.handover-alert-title{
+ display:flex;
+ align-items:flex-start;
+ justify-content:space-between;
+ gap:8px;
+}
+.handover-alert-title>div{
+ display:flex;
+ align-items:center;
+ gap:7px;
+}
+.handover-alert-title strong{
+ padding:2px 5px;
+ border:1px solid #cfd6df;
+ font-size:8px;
+}
+.handover-alert-title b{
+ font-size:10px;
+}
+.handover-alert-title time{
+ font-size:8px;
+ color:#667085;
+ white-space:nowrap;
+}
+.handover-alert-grid{
+ margin-top:6px;
+ display:grid;
+ grid-template-columns:repeat(3,minmax(180px,1fr));
+ gap:4px 10px;
+ padding:5px;
+ background:#f8fafc;
+}
+.handover-alert-grid span{
+ font-size:8px;
+ color:#475467;
+}
+.handover-alert-grid b{
+ font-size:8px;
+ color:#344054;
+}
+.handover-alert-actions{
+ display:flex;
+ align-items:center;
+ gap:5px;
+ margin-top:6px;
+}
+.handover-ack-label{
+ font-size:8px;
+ color:#4f6f52;
+ font-weight:700;
+}
+.handover-alert-empty{
+ padding:8px 10px;
+ color:#667085;
+ font-size:9px;
+}
+.schedule-impact-badge{
+ display:inline-block;
+ margin-left:6px;
+ padding:1px 5px;
+ border:1px solid #c55b4f;
+ background:#fff0ee;
+ color:#9b2c21;
+ border-radius:8px;
+ font-size:7px;
+ font-style:normal;
+ vertical-align:middle;
+}
+@media(max-width:900px){
+ .handover-alert-grid{
+  grid-template-columns:1fr 1fr;
+ }
+}
+@media(max-width:620px){
+ .handover-alert-head{
+  align-items:flex-start;
+  flex-direction:column;
+ }
+ .handover-alert-grid{
+  grid-template-columns:1fr;
+ }
+}
+
+
+/* v90 - Combined Planner 1 + Planner 2 Schedule Table */
+.schedule-table-all-planners{
+ border-color:#b8c7da!important;
+}
+.schedule-table-all-planners .erp-panel-head{
+ background:#eef4fb;
+}
+.schedule-table-all-planners .erp-panel-head>div{
+ display:flex;
+ flex-direction:column;
+ gap:1px;
+}
+.schedule-table-combined th:first-child,
+.schedule-table-combined td:first-child{
+ position:sticky;
+ left:0;
+ z-index:2;
+ background:#fff;
+ min-width:72px;
+}
+.schedule-planner-badge{
+ display:inline-block;
+ min-width:55px;
+ padding:2px 5px;
+ border:1px solid #cfd6df;
+ text-align:center;
+ font-size:8px;
+ font-weight:800;
+ white-space:nowrap;
+}
+.schedule-planner-badge.planner1{
+ border-color:#5f87b8;
+ background:#eaf2ff;
+ color:#285585;
+}
+.schedule-planner-badge.planner2{
+ border-color:#9b72b6;
+ background:#f2eaff;
+ color:#65417f;
+}
+.schedule-row-planner1 td{
+ background-color:#fbfdff;
+}
+.schedule-row-planner2 td{
+ background-color:#fdfbff;
+}
+.schedule-row-planner1:hover td,
+.schedule-row-planner2:hover td{
+ background-color:#f5f8fc;
+}

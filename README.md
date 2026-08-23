@@ -1480,3 +1480,376 @@ It does NOT silently turn on automatic Batch creation; all operations default to
 
 Migration required:
 `supabase/migrations/025_auto_planning_rule_master.sql`
+
+
+## v76 - Batch No rule for ALL Main Planning Operations
+
+Fixed the actual Batch creation API. The previous source still generated:
+`PB-000001`, `PB-000002`, ...
+
+Every newly created Batch now uses:
+
+`XXX_DDMMM_NNN`
+
+Examples on 23 AUG:
+- CPBILP / BSAUNSLD / TSAUNSLD / Chemical Line operations -> `CHM_23AUG_001`
+- PRIMER -> `PRI_23AUG_001`
+- PRIMER2 -> `PRI_23AUG_...` (shared PRI daily sequence)
+- PRIMER3 -> `PRI_23AUG_...` (shared PRI daily sequence)
+- TOPCOAT1 -> `TOP_23AUG_001`
+- TOPCOAT2 -> `TOP_23AUG_...` (shared TOP daily sequence)
+- ANTI-ABRASION -> `AAB_23AUG_001`
+- MANUALSP -> `MSP_23AUG_001`
+- V_A-SHPN -> `ASP_23AUG_001`
+
+Rules:
+- Prefix is read only from `md_operation_master.batch_prefix`.
+- API refuses to create a Batch if the operation has no valid 3-character Prefix.
+- NNN is allocated per Prefix + Planning Date.
+- Operations sharing one Prefix share the same daily NNN sequence.
+- PostgreSQL transaction advisory lock prevents duplicate numbers when multiple planners create Batches concurrently.
+- Daily sequence restarts at 001 for a new DDMMM.
+- Existing historical `PB-...` Batches are not renamed automatically.
+
+Operation Master now shows `batch_prefix` and lets the user edit it directly.
+
+Migration required:
+`supabase/migrations/026_batch_no_all_main_operations.sql`
+
+
+## v77 - Add Jobs to Batch uses the Standard Operation Candidate View
+
+Batch Detail -> Add Jobs to Batch no longer uses its own fixed table layout.
+
+It now reads the same browser-saved view used by Planning Board:
+`st-planning:candidate-view-by-operation:v1`
+
+For the Batch Standard Operation it automatically applies:
+- saved visible columns
+- saved column order
+- Next Main Plan Op filter
+- NextOperation filter
+- PRIMER1 / PRIMER2 / PRIMER3 filters
+- saved Sort Priority levels and ASC/DESC
+- dynamic All Open Job `source_data` columns
+- Candidate Priority highlighting
+
+Example:
+A PRIMER Batch opens with the same Candidate View previously saved for PRIMER.
+A BSAUNSLD Batch uses the BSAUNSLD view.
+
+The Batch Detail candidate query was also expanded to supply the same supporting
+fields used by Planning Board:
+- previous Planning Operation / status
+- Previous Batch No / status
+- PRIMER1 / PRIMER2 / PRIMER3
+- Recipe Required
+- Actual Progress
+- dynamic All Open Job source_data
+
+The Search box remains available as an extra temporary filter and does not alter
+the saved Standard Operation view.
+
+No SQL migration is required.
+
+
+## v78 - Paint Type Selection Lock
+
+Painting Candidate selection is now protected against mixing different paint materials.
+
+Operation -> lock field:
+- PRIMER -> `md_material_finish.primer1`
+- PRIMER2 -> `md_material_finish.primer2`
+- PRIMER3 -> `md_material_finish.primer3`
+- TOPCOAT1 -> `md_material_finish.topcoat1`
+- TOPCOAT2 -> `md_material_finish.topcoat2`
+- ANTI-ABRASION -> `md_material_finish.antiabration`
+- VARNISH -> `md_material_finish.varinish_name`
+
+Behavior in Planning Board:
+1. Before selection, all candidates with a valid paint type are selectable.
+2. The first selected Job becomes the Paint Selection Lock.
+3. Candidates with another paint type become dim and their checkbox is disabled.
+4. Candidates missing the required paint type are also disabled.
+5. Removing all selected Jobs releases the lock.
+6. Select All selects only compatible Jobs.
+
+Behavior in Batch Detail -> Add Jobs to Batch:
+- if the Batch already contains Jobs, its existing paint type is the lock immediately;
+- otherwise the first newly selected Job sets the lock;
+- incompatible candidates are dim and cannot be selected.
+
+Server protection was added to both:
+- Create Batch API
+- Add Jobs to existing Batch API
+
+Therefore different paint types cannot be mixed even if the UI is bypassed.
+
+No SQL migration is required.
+
+
+## v79 - Show scheduled Batches inside Resource drop boxes
+
+Board Điều Độ Resource boxes now display every scheduled Batch assigned to that
+Resource for the selected calendar date.
+
+Each Batch item shows:
+- Batch No
+- Start -> End time
+- Standard Operation
+- Recipe No
+
+If several Batches are assigned to the same Resource, all are listed in time order
+and the Resource header shows the Batch count.
+
+Clicking a Batch in a Resource box loads it into the Schedule form.
+The Batch item remains draggable, so it can still be moved to another Resource.
+
+Dropping an unscheduled Batch continues to use the existing scheduling logic/API.
+After the schedule is saved and the page reloads, the Batch appears immediately
+inside its Resource box.
+
+No SQL migration is required.
+\n\n## v80 - Resource box Batch details\n\nEach scheduled Batch shown inside a Resource box now includes:\n- Next Main Plan Operation (aggregated from Jobs in that Batch)\n- Total Qty\n- Total Surface dm2\n\nIf Jobs inside one Batch have different next main operations, all distinct next operations are shown separated by `/`.\n\nNo SQL migration is required.\n
+
+## v81 - Next Paint Material on Scheduling Resource Cards
+
+When `Next Main Plan Op` is a paint operation, Resource Batch cards also display
+the corresponding paint material from Part Master:
+
+- PRIMER -> PRIMER1
+- PRIMER2 -> PRIMER2
+- PRIMER3 -> PRIMER3
+- TOPCOAT1 -> TOPCOAT1
+- TOPCOAT2 -> TOPCOAT2
+- ANTI-ABRASION -> ANTIABRATION
+- VARNISH -> VarinishName
+
+Examples:
+`Next: PRIMER`
+`Paint: PRIMER: 10P4-2NF`
+
+`Next: TOPCOAT1`
+`Paint: TOPCOAT1: 017`
+
+If Jobs inside the Batch have several distinct next paint requirements, all
+distinct values are displayed. Non-paint next operations remain unchanged.
+
+No SQL migration is required.
+
+
+## v82 - Move Batch details to Unscheduled list
+
+Board Dieu Do display simplified:
+
+Unscheduled cards now show:
+- Batch No
+- current Standard Operation / Recipe
+- Next Main Plan Op
+- next paint material when the next operation is paint
+- total Qty
+- total Surface dm2
+
+Resource boxes (FB-01..FB-06, CAB1..CAB4, etc.) now show only Batch No
+for each scheduled Batch. The existing count badge and drag/move behavior remain.
+
+No SQL migration is required.
+
+
+## v83 - Batch Breakdown by Next Main Operation
+
+Board Dieu Do:
+- removed the Resource drop-box grid entirely;
+- kept the scheduling form (Batch / Resource / Start / Duration);
+- grouped both Unscheduled and Scheduled Batch lists by current Standard Operation.
+
+Each Unscheduled Batch displays:
+- Total Qty
+- Total Surface
+- one breakdown row per Next Main Plan Operation
+- Qty subtotal for that next operation
+- Surface subtotal for that next operation
+- paint material if the next operation is a paint operation
+
+Breakdown values are calculated from planning_batch_job snapshots, so subtotal
+Qty/Surface rows add up to the Batch totals.
+
+No SQL migration is required.
+
+
+## v84 - Color coding by Standard Operation
+
+Board Dieu Do now assigns a distinct soft color family to every confirmed main
+Standard Operation.
+
+The color is applied to:
+- the operation group header
+- all Batch cards belonging to that operation
+- the left border of the next-operation breakdown rows
+
+This is visual only. No Planning, Batch or Scheduling business logic changed.
+
+No SQL migration is required.
+
+
+## v85 - Open Batch Job Detail from Board Dieu Do
+
+Clicking any Batch card on Board Dieu Do now opens that Batch Detail page.
+
+Batch Detail:
+- `Jobs in Batch` uses the same saved Candidate View for that Standard Operation:
+  - same visible columns
+  - same column order
+  - same Sort Priority
+  - same dynamic All Open Job columns
+  - same Priority highlighting
+- each existing Job has a `Remove` action
+- `Add Jobs to Batch` remains available below with the same Candidate View
+- Paint Selection Lock remains active when adding Jobs to paint Batches
+
+The Batch card also includes a small `Schedule` or `Move` button. Use that button
+when the intent is to load the Batch into the scheduling form instead of opening
+Job Detail.
+
+When Batch Detail was opened from Board Dieu Do, the Back button returns to
+Board Dieu Do and preserves the selected date.
+
+No SQL migration is required.
+
+
+## v86 - Empty Batch -> Schedule -> Fill Jobs
+
+New primary plan-ahead workflow:
+1. Board Dieu Do -> Create Empty Batch.
+2. Select Standard Operation and optional Recipe.
+3. Batch is created with Jobs=0 / Qty=0 / Surface=0 using the normal
+   `XXX_DDMMM_NNN` numbering rule from Operation Master.
+4. Schedule the empty Batch to Resource / Start / Duration.
+5. Click the Batch card to open Batch Detail.
+6. Fill Jobs later through the existing Add Jobs to Batch Candidate Engine.
+
+Fill Jobs intentionally reuses the existing Candidate View and rules:
+- saved columns/order per Standard Operation
+- Sort Priority
+- Next Main Plan Op / NextOperation filters
+- Part Master paint fields
+- Recipe compatibility
+- Paint Selection Lock
+- server-side ELIGIBLE / operation / recipe / paint validation
+
+The existing workflow `Candidate Jobs -> Create Batch` remains available.
+No SQL migration is required.
+
+
+## v87 - Auto Plan / Empty Batch Future Foundation
+
+The current two manual Batch workflows remain unchanged:
+1. Candidate Jobs -> Create Batch on Planning Board.
+2. Create Empty Batch -> Schedule -> Fill Jobs later.
+
+Added per-Standard-Operation configuration for the future automation engine:
+- AllowEmptyBatch
+- AllowScheduleEmptyBatch
+- AutoCreateEmptyBatch
+- AutoFillScheduledBatch
+- RequireRecipeBeforeSchedule
+- RequirePaintTypeBeforeSchedule
+- BatchLockBeforeStartMinutes
+
+Important:
+- `AutoCreateEmptyBatch` and `AutoFillScheduledBatch` are configuration only in v87.
+- No automatic planning/scheduling job is started by this version.
+- Defaults preserve the current manual behavior.
+- Candidate/Fill Jobs continues to use the existing Planning Candidate Engine.
+
+Migration required:
+`supabase/migrations/027_auto_planning_empty_batch_rules.sql`
+
+
+## v88 - Two Planner Views on Board Dieu Do
+
+Scheduling Board now has two fixed Planner Views.
+
+Planner 1:
+CMSA, CHEMMILL, CPBILP, CPBILP-A, RWK, V_A-SHPN, MANUALSP, CLASP,
+BSAUNSLD, TSAUNSLD, BSASLD, TSASLD, CCNV-IM, CCNV-IA, V_PASS/BRTG.
+
+Planner 2:
+FMSKG-CM, SIPC, SI-SEAL, STRIP, HE-BAKE after plating,
+HE-BAKE before blasting, A-DBLST, M-DBLST, PLA-ZiNi, HE-BAKE, PLA-CC,
+PRIMER, PRIMER2, PRIMER3, TOPCOAT1, TOPCOAT2, ANTI-ABRASION,
+PAINT MARKING, VARNISH.
+
+Each view filters:
+- Planning Batch list
+- Create Empty Batch Standard Operation choices
+- Scheduled / Unscheduled groups
+- Schedule Table
+- Production Timeline
+
+Date changes preserve the selected Planner View.
+
+Note:
+`TSAUNSL` from the request is normalized to the existing canonical system code
+`TSAUNSLD`.
+
+No SQL migration is required.
+
+
+## v89 - Cross Planner Handover Change Impact Alerts
+
+When a Job is added to or removed from a Batch:
+1. The system finds the Job's next Main Planning Operation.
+2. It resolves the owner Planner for source and next operation.
+3. If ownership crosses Planner 1 <-> Planner 2, a Change Impact Event is created.
+4. The affected Planner Board shows the alert automatically.
+
+Alert data includes:
+- Source Batch / Source Operation
+- changed Job
+- ADD_JOB / REMOVE_JOB
+- Next Main Plan Operation
+- Batch Qty before -> after
+- Batch Surface before -> after
+- changed Job Qty / Surface
+- affected downstream Batch, if one already exists
+- affected Schedule / Resource / Start, if already scheduled
+- Impact Level:
+  - INFO: no downstream Batch yet
+  - WARNING: downstream Batch exists but is not scheduled
+  - IMPACTED: downstream Batch is scheduled
+  - CRITICAL: affected scheduled Batch starts within 60 minutes
+- NEW / ACKNOWLEDGED
+
+Board Dieu Do:
+- Handover Alerts panel is shown for the current Planner View.
+- It polls every 15 seconds.
+- Open Source Batch / Review My Batch actions.
+- Acknowledge action.
+- Affected Batch cards show `⚠ N` until alerts are acknowledged.
+
+Planner ownership uses the same Planner 1 / Planner 2 operation mapping as the
+Scheduling views.
+
+Migration required:
+`supabase/migrations/028_planner_handover_change_event.sql`
+
+
+## v90 - Combined Schedule Table for Both Planners
+
+Board Dieu Do now shows two schedule tables:
+
+1. `Schedule Table · Tổng Hợp Planner 1 + Planner 2`
+   - all scheduled Batches for the selected date
+   - Planner owner column
+   - current Standard Operation
+   - Resource / Recipe / Jobs / Qty / Surface / Start / End / Duration
+   - Planner 1 and Planner 2 rows are visually differentiated
+
+2. `Schedule Table · Planner N`
+   - keeps the existing filtered table for the currently selected Planner View
+
+The combined table uses the same date and live schedule data already loaded by
+the Board. No scheduling logic changed.
+
+No SQL migration is required.

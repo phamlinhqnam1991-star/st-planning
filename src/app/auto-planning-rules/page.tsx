@@ -60,6 +60,13 @@ const COLUMN_NOTES=[
  ["split_on_part / split_on_revision","BOOLEAN","Part hoặc Revision thay đổi thì mở Batch mới."],
  ["split_on_program","BOOLEAN","Program thay đổi thì mở Batch mới."],
  ["split_on_primer1/2/3","BOOLEAN","PRIMER tương ứng thay đổi thì mở Batch mới."],
+ ["allow_empty_batch","BOOLEAN","Cho phép tạo lô trống Jobs=0 để plan-ahead trước khi WIP tới."],
+ ["allow_schedule_empty_batch","BOOLEAN","Cho phép điều độ lô trống trước rồi Fill Job sau."],
+ ["auto_create_empty_batch","BOOLEAN","Cho phép Auto Batch tương lai tự tạo lô trống. v87 chưa tự chạy."],
+ ["auto_fill_scheduled_batch","BOOLEAN","Cho phép Auto Fill tương lai tự đưa Candidate vào lô đã điều độ. v87 chưa tự chạy."],
+ ["require_recipe_before_schedule","BOOLEAN","Auto Schedule tương lai chỉ schedule khi Batch đã có Recipe."],
+ ["require_paint_type_before_schedule","BOOLEAN","Auto Schedule tương lai chỉ schedule lô sơn khi đã xác định Paint Type."],
+ ["batch_lock_before_start_minutes","INTEGER","Cutoff tương lai: khóa Add/Remove Job trước giờ chạy N phút; 0 = chưa tự khóa."],
  ["priority_rules","JSONB","Danh sách tối đa 10 cấp Sort Priority trước khi engine gom Batch."],
  ["note","TEXT","Ghi chú nghiệp vụ riêng của operation."],
 ] as const;
@@ -105,6 +112,14 @@ export default async function Page(){
       coalesce(r.split_on_primer1,false) split_on_primer1,
       coalesce(r.split_on_primer2,false) split_on_primer2,
       coalesce(r.split_on_primer3,false) split_on_primer3,
+
+      coalesce(r.allow_empty_batch,true) allow_empty_batch,
+      coalesce(r.allow_schedule_empty_batch,true) allow_schedule_empty_batch,
+      coalesce(r.auto_create_empty_batch,false) auto_create_empty_batch,
+      coalesce(r.auto_fill_scheduled_batch,false) auto_fill_scheduled_batch,
+      coalesce(r.require_recipe_before_schedule,false) require_recipe_before_schedule,
+      coalesce(r.require_paint_type_before_schedule,false) require_paint_type_before_schedule,
+      coalesce(r.batch_lock_before_start_minutes,0) batch_lock_before_start_minutes,
 
       coalesce(r.priority_rules,'[]'::jsonb) priority_rules,
       r.note

@@ -21,6 +21,10 @@ type Candidate={
  part_master_primer1:string|null;
  part_master_primer2:string|null;
  part_master_primer3:string|null;
+ part_master_topcoat1:string|null;
+ part_master_topcoat2:string|null;
+ part_master_antiabration:string|null;
+ part_master_varnish:string|null;
  plan_qty:number;
  plan_surface:number;
  source_operation_code:string;
@@ -748,10 +752,51 @@ export function PlanningBoardClient({
    [displayCandidates]
  );
 
+ const paintSelectionField=(operation:string)=>{
+   switch(normalized(operation)){
+     case "PRIMER": return "PRIMER1";
+     case "PRIMER2": return "PRIMER2";
+     case "PRIMER3": return "PRIMER3";
+     case "TOPCOAT1": return "TOPCOAT1";
+     case "TOPCOAT2": return "TOPCOAT2";
+     case "ANTI-ABRASION": return "ANTI-ABRASION";
+     case "VARNISH": return "VARNISH";
+     default:return "";
+   }
+ };
+
+ const paintSelectionKey=(x:Candidate)=>{
+   switch(normalized(standardOperation)){
+     case "PRIMER": return normalized(x.part_master_primer1||x.recipe_no);
+     case "PRIMER2": return normalized(x.part_master_primer2||x.recipe_no);
+     case "PRIMER3": return normalized(x.part_master_primer3||x.recipe_no);
+     case "TOPCOAT1": return normalized(x.part_master_topcoat1||x.recipe_no);
+     case "TOPCOAT2": return normalized(x.part_master_topcoat2||x.recipe_no);
+     case "ANTI-ABRASION": return normalized(x.part_master_antiabration||x.recipe_no);
+     case "VARNISH": return normalized(x.part_master_varnish||x.recipe_no);
+     default:return "";
+   }
+ };
+
+ const isPaintSelectionOperation=Boolean(paintSelectionField(standardOperation));
+
  const selectedRows=useMemo(
    ()=>candidates.filter(x=>selected.includes(x.id) && x.planning_status==="ELIGIBLE"),
    [candidates,selected]
  );
+
+ const selectedPaintKey=useMemo(()=>{
+   if(!isPaintSelectionOperation)return "";
+   const first=selectedRows.find(x=>paintSelectionKey(x));
+   return first?paintSelectionKey(first):"";
+ },[selectedRows,isPaintSelectionOperation,standardOperation]);
+
+ const paintSelectionLocked=(x:Candidate)=>{
+   if(!isPaintSelectionOperation)return false;
+   const key=paintSelectionKey(x);
+   if(!key)return true;
+   return Boolean(selectedPaintKey && key!==selectedPaintKey);
+ };
 
  const totalQty=selectedRows.reduce((a,x)=>a+Number(x.plan_qty||0),0);
  const totalSurface=selectedRows.reduce((a,x)=>a+Number(x.plan_surface||0),0);
@@ -789,7 +834,7 @@ export function PlanningBoardClient({
 
  const addCandidateToSelection=(id:number)=>{
    const row=candidates.find(x=>x.id===id);
-   if(!row || row.planning_status!=="ELIGIBLE")return;
+   if(!row || row.planning_status!=="ELIGIBLE" || paintSelectionLocked(row))return;
    setSelected(prev=>prev.includes(id)?prev:[...prev,id]);
  };
 
@@ -809,11 +854,19 @@ export function PlanningBoardClient({
  function toggle(id:number){
    const row=candidates.find(x=>x.id===id);
    if(!row || row.planning_status!=="ELIGIBLE")return;
-   setSelected(x=>x.includes(id)?x.filter(y=>y!==id):[...x,id]);
+
+   if(selected.includes(id)){
+     setSelected(x=>x.filter(y=>y!==id));
+     return;
+   }
+
+   if(paintSelectionLocked(row))return;
+   setSelected(x=>[...x,id]);
  }
 
  function toggleAll(){
-   const ids=eligibleCandidates.map(x=>x.id);
+   const compatible=eligibleCandidates.filter(x=>!paintSelectionLocked(x));
+   const ids=compatible.map(x=>x.id);
    const all=ids.length>0 && ids.every(id=>selected.includes(id));
    if(all)setSelected(x=>x.filter(id=>!ids.includes(id)));
    else setSelected(x=>[...new Set([...x,...ids])]);
@@ -1014,6 +1067,16 @@ export function PlanningBoardClient({
       </button>
      </div>
     </div>
+
+    {isPaintSelectionOperation&&
+     <div className={`paint-selection-lock-banner ${selectedPaintKey?"is-locked":""}`}>
+      <b>Paint Selection Lock</b>
+      <span>
+       {selectedPaintKey
+        ? `${paintSelectionField(standardOperation)} = ${selectedPaintKey} · Các Job khác loại sơn đã bị khóa.`
+        : `Chọn Job đầu tiên để khóa theo ${paintSelectionField(standardOperation)}. Job thiếu loại sơn cũng không được chọn.`}
+      </span>
+     </div>}
 
     {displayRulesOpen&&
      <div className="candidate-display-rules">
@@ -1234,7 +1297,10 @@ export function PlanningBoardClient({
         <th>
          <input
           type="checkbox"
-          checked={eligibleCandidates.length>0 && eligibleCandidates.every(x=>selected.includes(x.id))}
+          checked={
+           eligibleCandidates.filter(x=>!paintSelectionLocked(x)).length>0 &&
+           eligibleCandidates.filter(x=>!paintSelectionLocked(x)).every(x=>selected.includes(x.id))
+          }
           onChange={toggleAll}
          />
         </th>
@@ -1245,10 +1311,10 @@ export function PlanningBoardClient({
        {displayCandidates.map(x=>
         <tr
          key={x.id}
-         className={`${selected.includes(x.id)?"planning-row-selected ":""}${x.planning_status==="PLANNED"?"planning-row-planned ":""}${dragCandidateId===x.id?"planning-row-dragging ":""}${priorityClass(x.priority_type)}`.trim()}
-         draggable={x.planning_status==="ELIGIBLE"}
+         className={`${selected.includes(x.id)?"planning-row-selected ":""}${x.planning_status==="PLANNED"?"planning-row-planned ":""}${dragCandidateId===x.id?"planning-row-dragging ":""}${paintSelectionLocked(x)?"paint-selection-disabled ":""}${priorityClass(x.priority_type)}`.trim()}
+         draggable={x.planning_status==="ELIGIBLE"&&!paintSelectionLocked(x)}
          onDragStart={e=>{
-          if(x.planning_status!=="ELIGIBLE")return;
+          if(x.planning_status!=="ELIGIBLE"||paintSelectionLocked(x))return;
           setDragCandidateId(x.id);
           e.dataTransfer.effectAllowed="copy";
           e.dataTransfer.setData("application/x-st-candidate",String(x.id));
@@ -1259,7 +1325,8 @@ export function PlanningBoardClient({
           <input
            type="checkbox"
            checked={selected.includes(x.id)}
-           disabled={x.planning_status!=="ELIGIBLE"}
+           disabled={x.planning_status!=="ELIGIBLE"||paintSelectionLocked(x)}
+           title={paintSelectionLocked(x)?"Khác loại sơn với Job đã chọn hoặc chưa có loại sơn":undefined}
            onChange={()=>toggle(x.id)}
           />
          </td>

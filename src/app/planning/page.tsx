@@ -147,6 +147,10 @@ export default async function Page({
        mf.primer1 part_master_primer1,
        mf.primer2 part_master_primer2,
        mf.primer3 part_master_primer3,
+       mf.topcoat1 part_master_topcoat1,
+       mf.topcoat2 part_master_topcoat2,
+       mf.antiabration part_master_antiabration,
+       mf.varinish_name part_master_varnish,
        j.source_data,
        j.part_cluster,j.part_description,
        j.prod_qty,j.current_good_wip_qty,j.last_labor_qty,
@@ -431,7 +435,7 @@ export default async function Page({
         <tbody>
          {batchesQ.rows.map((b:any)=>
           <tr key={b.id}>
-           <td><b>{b.batch_no||`PB-${b.id}`}</b></td>
+           <td><b>{b.batch_no||"—"}</b></td>
            <td>{String(b.planning_date).slice(0,10)}</td>
            <td>{b.area_name||"—"}</td>
            <td>{b.standard_operation}</td>
@@ -448,7 +452,7 @@ export default async function Page({
              <Link className="erp-link" href={`/planning/batches/${b.id}`}>View →</Link>
              <BatchRowActions
               batchId={Number(b.id)}
-              batchNo={b.batch_no||`PB-${b.id}`}
+              batchNo={b.batch_no||"—"}
               currentRecipeKey={b.recipe_key||null}
              />
             </div>

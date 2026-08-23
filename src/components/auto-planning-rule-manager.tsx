@@ -43,6 +43,14 @@ type Rule={
  split_on_primer2:boolean;
  split_on_primer3:boolean;
 
+ allow_empty_batch:boolean;
+ allow_schedule_empty_batch:boolean;
+ auto_create_empty_batch:boolean;
+ auto_fill_scheduled_batch:boolean;
+ require_recipe_before_schedule:boolean;
+ require_paint_type_before_schedule:boolean;
+ batch_lock_before_start_minutes:number;
+
  priority_rules:{field:string;direction:"asc"|"desc"}[];
  note:string|null;
 };
@@ -352,8 +360,69 @@ export function AutoPlanningRuleManager({
      </div>
 
      <div className="auto-rule-section">
+      <h3>6. Empty Batch / Auto Schedule / Auto Fill Foundation</h3>
+      <div className="auto-rule-toggle-grid">
+       <Toggle
+        label="AllowEmptyBatch"
+        checked={row.allow_empty_batch}
+        onChange={v=>patch(row.standard_operation,{allow_empty_batch:v})}
+        title="Cho phép tạo Batch Jobs=0 trước khi WIP tới."
+       />
+       <Toggle
+        label="AllowScheduleEmptyBatch"
+        checked={row.allow_schedule_empty_batch}
+        onChange={v=>patch(row.standard_operation,{allow_schedule_empty_batch:v})}
+        title="Cho phép điều độ Batch trống rồi Fill Job sau."
+       />
+       <Toggle
+        label="AutoCreateEmptyBatch"
+        checked={row.auto_create_empty_batch}
+        onChange={v=>patch(row.standard_operation,{auto_create_empty_batch:v})}
+        title="Dành cho Auto Batch tương lai. v87 chưa tự tạo."
+       />
+       <Toggle
+        label="AutoFillScheduledBatch"
+        checked={row.auto_fill_scheduled_batch}
+        onChange={v=>patch(row.standard_operation,{auto_fill_scheduled_batch:v})}
+        title="Dành cho Auto Fill tương lai. v87 chưa tự Fill."
+       />
+       <Toggle
+        label="RequireRecipeBeforeSchedule"
+        checked={row.require_recipe_before_schedule}
+        onChange={v=>patch(row.standard_operation,{require_recipe_before_schedule:v})}
+        title="Rule chuẩn bị cho Auto Schedule."
+       />
+       <Toggle
+        label="RequirePaintTypeBeforeSchedule"
+        checked={row.require_paint_type_before_schedule}
+        onChange={v=>patch(row.standard_operation,{require_paint_type_before_schedule:v})}
+        title="Rule chuẩn bị cho Auto Schedule của các công đoạn sơn."
+       />
+      </div>
+
+      <div className="auto-rule-limit-grid auto-rule-lock-grid">
+       <label>BatchLockBeforeStartMinutes
+        <input
+         className="input"
+         type="number"
+         min="0"
+         step="1"
+         value={row.batch_lock_before_start_minutes??0}
+         onChange={e=>patch(row.standard_operation,{
+          batch_lock_before_start_minutes:Math.max(0,Number(e.target.value)||0)
+         })}
+        />
+       </label>
+      </div>
+
+      <small className="muted">
+       Các Auto flag chỉ là cấu hình nền ở v87; chưa tự chạy Auto Plan/Auto Batch/Auto Schedule.
+      </small>
+     </div>
+
+     <div className="auto-rule-section">
       <div className="auto-rule-section-head">
-       <h3>6. Priority · tối đa 10 cấp</h3>
+       <h3>7. Priority · tối đa 10 cấp</h3>
        <button className="btn small" type="button" onClick={()=>addPriority(row.standard_operation)} disabled={row.priority_rules.length>=10}>
         + Priority Level
        </button>
@@ -381,7 +450,7 @@ export function AutoPlanningRuleManager({
      </div>
 
      <div className="auto-rule-section">
-      <h3>7. Note</h3>
+      <h3>8. Note</h3>
       <textarea
        className="input"
        rows={3}

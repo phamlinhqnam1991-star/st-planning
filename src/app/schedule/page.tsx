@@ -1,6 +1,10 @@
 import {getPool} from "@/lib/db";
 import {AppTabs} from "@/components/app-tabs";
 import ScheduleBoardClient from "@/components/schedule-board-client";
+import {
+ PLANNER_1_OPERATIONS,
+ PLANNER_2_OPERATIONS
+} from "@/lib/planner-ownership";
 
 export const dynamic="force-dynamic";
 
@@ -16,19 +20,28 @@ function time(v:any){
  return new Date(v).toLocaleTimeString("en-GB",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit"})
 }
 
-export default async function Page({searchParams}:{searchParams:Promise<{date?:string}>}){
+export default async function Page({
+ searchParams
+}:{searchParams:Promise<{date?:string;planner?:string}>}){
  const sp=await searchParams;
  const today=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Ho_Chi_Minh"});
  const date=sp.date||today;
+ const planner=sp.planner==="2"?"2":"1";
+ const plannerOperations=planner==="2"?PLANNER_2_OPERATIONS:PLANNER_1_OPERATIONS;
+ const plannerOperationSet=new Set(plannerOperations.map(x=>x.toUpperCase()));
  const c=await getPool().connect();
  try{
-  const [resourcesQ,batchesQ,scheduleTableQ,timelineQ]=await Promise.all([
+  const [
+   resourcesQ,batchesQ,scheduleTableQ,timelineQ,operationsQ,recipesQ,handoverAlertsQ
+  ]=await Promise.all([
    c.query(`select * from md_schedule_resource where is_active=true order by sort_order,resource_code`),
    c.query(`
     select
       b.id,b.batch_no,b.standard_operation,b.recipe_key,
       r.recipe_no,r.recipe_name,
       b.total_jobs,b.total_qty,b.total_surface_dm2,b.process_minutes,
+      nextbreakdown.next_main_operations,
+      nextbreakdown.next_main_breakdown,
       sch.schedule_id,
       sch.schedule_date,
       sch.resource_code scheduled_resource_code,
@@ -39,6 +52,63 @@ export default async function Page({searchParams}:{searchParams:Promise<{date?:s
     left join md_process_recipe r
       on r.recipe_key=b.recipe_key
      and r.is_active=true
+
+    left join lateral (
+      select
+        string_agg(x.next_op,' / ' order by x.next_op) next_main_operations,
+        jsonb_agg(
+          jsonb_build_object(
+            'operation',x.next_op,
+            'qty',x.qty,
+            'surface',x.surface,
+            'paint',nullif(x.paint_values,'')
+          )
+          order by x.next_op
+        ) next_main_breakdown
+      from (
+        select
+          coalesce(n.standard_operation,'END') next_op,
+          coalesce(sum(bj.qty),0) qty,
+          coalesce(sum(bj.surface_dm2),0) surface,
+          array_to_string(
+            array_remove(
+              array_agg(
+                distinct case n.standard_operation
+                  when 'PRIMER' then nullif(trim(coalesce(mf.primer1,'')),'')
+                  when 'PRIMER2' then nullif(trim(coalesce(mf.primer2,'')),'')
+                  when 'PRIMER3' then nullif(trim(coalesce(mf.primer3,'')),'')
+                  when 'TOPCOAT1' then nullif(trim(coalesce(mf.topcoat1,'')),'')
+                  when 'TOPCOAT2' then nullif(trim(coalesce(mf.topcoat2,'')),'')
+                  when 'ANTI-ABRASION' then nullif(trim(coalesce(mf.antiabration,'')),'')
+                  when 'VARNISH' then nullif(trim(coalesce(mf.varinish_name,'')),'')
+                  else null
+                end
+              ),
+              null
+            ),
+            ' / '
+          ) paint_values
+        from planning_batch_job bj
+        join open_job_current j on j.job_num=bj.job_num
+        left join md_material_finish mf
+          on mf.part_num=j.part_num
+         and mf.revision_num=j.revision_num
+         and mf.is_active=true
+        left join planning_job_operation cur
+          on cur.id=bj.planning_job_operation_id
+        left join lateral (
+          select p2.standard_operation
+          from planning_job_operation p2
+          where p2.job_num=bj.job_num
+            and p2.is_active=true
+            and p2.planning_seq>coalesce(cur.planning_seq,0)
+          order by p2.planning_seq
+          limit 1
+        ) n on true
+        where bj.batch_id=b.id
+        group by coalesce(n.standard_operation,'END')
+      ) x
+    ) nextbreakdown on true
 
     left join lateral (
       select
@@ -67,7 +137,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{date?:s
    c.query(`
     select
       s.*,
-      coalesce(b.batch_no,'PB-'||lpad(s.batch_id::text,6,'0')) batch_no,
+      coalesce(b.batch_no,'LEGACY-'||s.batch_id::text) batch_no,
       b.standard_operation,b.recipe_key,
       pr.recipe_no,pr.recipe_name,
       coalesce(b.total_jobs,0) total_jobs,
@@ -93,14 +163,14 @@ export default async function Page({searchParams}:{searchParams:Promise<{date?:s
       coalesce(sr.sort_order,9999),
       coalesce(b.standard_operation,''),
       s.planned_start,
-      coalesce(b.batch_no,'PB-'||lpad(s.batch_id::text,6,'0'))
+      coalesce(b.batch_no,'LEGACY-'||s.batch_id::text)
    `,[date]),
 
    // Timeline: production day remains 06:00 selected date -> 06:00 next day.
    c.query(`
     select
       s.*,
-      coalesce(b.batch_no,'PB-'||lpad(s.batch_id::text,6,'0')) batch_no,
+      coalesce(b.batch_no,'LEGACY-'||s.batch_id::text) batch_no,
       b.standard_operation,b.recipe_key,
       pr.recipe_no,pr.recipe_name,
       coalesce(b.total_jobs,0) total_jobs,
@@ -123,12 +193,80 @@ export default async function Page({searchParams}:{searchParams:Promise<{date?:s
     order by
       coalesce(sr.sort_order,9999),
       s.planned_start,
-      coalesce(b.batch_no,'PB-'||lpad(s.batch_id::text,6,'0'))
-   `,[date])
+      coalesce(b.batch_no,'LEGACY-'||s.batch_id::text)
+   `,[date]),
+
+   c.query(`
+    select standard_operation,batch_prefix
+    from md_operation_master
+    where is_active=true
+    order by standard_operation
+   `),
+
+   c.query(`
+    select recipe_key,recipe_no,recipe_name,process_family
+    from md_process_recipe
+    where is_active=true
+    order by process_family,recipe_no,recipe_name
+   `),
+
+   c.query(`
+    select
+      e.id,e.source_batch_id,e.source_batch_no,e.source_standard_operation,
+      e.source_planner,e.job_num,e.change_type,
+      e.next_standard_operation,e.affected_planner,
+      e.affected_batch_id,e.affected_batch_no,
+      e.affected_schedule_id,e.affected_resource_code,e.affected_planned_start,
+      e.source_batch_qty_before,e.source_batch_qty_after,
+      e.source_batch_surface_before,e.source_batch_surface_after,
+      e.changed_job_qty,e.changed_job_surface,
+      e.impact_level,e.status,e.created_at,e.acknowledged_at,e.acknowledged_by,e.note
+    from planning_handover_change_event e
+    where e.affected_planner=$1
+      and e.created_at>=now()-interval '14 days'
+    order by
+      case e.status when 'NEW' then 0 else 1 end,
+      case e.impact_level
+       when 'CRITICAL' then 0
+       when 'IMPACTED' then 1
+       when 'WARNING' then 2
+       else 3
+      end,
+      e.created_at desc
+    limit 200
+   `,[planner])
   ]);
 
-  const rows=scheduleTableQ.rows;
-  const timelineRows=timelineQ.rows;
+  const handoverAlerts=handoverAlertsQ.rows as any[];
+  const allRows=scheduleTableQ.rows as any[];
+
+  const alertCountByBatch=new Map<number,number>();
+  for(const alert of handoverAlerts){
+   if(alert.status!=="NEW"||!alert.affected_batch_id)continue;
+   const id=Number(alert.affected_batch_id);
+   alertCountByBatch.set(id,(alertCountByBatch.get(id)||0)+1);
+  }
+
+  const plannerBatches=(batchesQ.rows as any[])
+   .filter(
+    (x:any)=>plannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
+   )
+   .map((x:any)=>({
+    ...x,
+    handover_alert_count:alertCountByBatch.get(Number(x.id))||0
+   }));
+
+  const rows=(scheduleTableQ.rows as any[]).filter(
+   (x:any)=>plannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
+  );
+
+  const timelineRows=(timelineQ.rows as any[]).filter(
+   (x:any)=>plannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
+  );
+
+  const plannerOperationRows=(operationsQ.rows as any[]).filter(
+   (x:any)=>plannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
+  );
 
   // Unified production timeline order.
   // Resource order is for Board visualization only; the exact Standard Operation
@@ -151,14 +289,20 @@ export default async function Page({searchParams}:{searchParams:Promise<{date?:s
    (resourcesQ.rows as any[]).map((r:any)=>[String(r.resource_code),r])
   );
 
+  const usedResourceCodes=new Set(
+   timelineRows.map((x:any)=>String(x.resource_code||""))
+  );
+
   const productionResources=timelineResourceOrder
    .map(code=>resourceByCode.get(code))
-   .filter(Boolean) as any[];
+   .filter((r:any)=>Boolean(r)&&usedResourceCodes.has(String(r.resource_code))) as any[];
 
-  // Future resources not explicitly ordered are appended instead of disappearing.
+  // Future resources not explicitly ordered are appended only when this Planner View uses them.
   for(const r of resourcesQ.rows as any[]){
-   if(!timelineResourceOrder.includes(String(r.resource_code)))
-    productionResources.push(r);
+   if(
+    !timelineResourceOrder.includes(String(r.resource_code)) &&
+    usedResourceCodes.has(String(r.resource_code))
+   )productionResources.push(r);
   }
 
   // Production-day timeline = 06:00 selected date -> 06:00 next day.
@@ -201,9 +345,32 @@ export default async function Page({searchParams}:{searchParams:Promise<{date?:s
     <div className="erp-page-head">
      <div><h2>Board Điều Độ</h2><p>Batch scheduling theo resource và process time.</p></div>
      <form>
+      <input type="hidden" name="planner" value={planner}/>
       <input className="input" type="date" name="date" defaultValue={date}/>
       <button className="btn" type="submit">Load</button>
      </form>
+    </div>
+
+    <div className="schedule-planner-view-tabs">
+     <a
+      className={`schedule-planner-view-tab ${planner==="1"?"active":""}`}
+      href={`/schedule?date=${encodeURIComponent(date)}&planner=1`}
+     >
+      Planner 1
+      <small>{PLANNER_1_OPERATIONS.length} operations</small>
+     </a>
+     <a
+      className={`schedule-planner-view-tab ${planner==="2"?"active":""}`}
+      href={`/schedule?date=${encodeURIComponent(date)}&planner=2`}
+     >
+      Planner 2
+      <small>{PLANNER_2_OPERATIONS.length} operations</small>
+     </a>
+    </div>
+
+    <div className="schedule-planner-view-summary">
+     <b>Planner {planner} View</b>
+     <span>{plannerOperations.join(" · ")}</span>
     </div>
 
     <div className="schedule-rule-strip">
@@ -212,10 +379,87 @@ export default async function Page({searchParams}:{searchParams:Promise<{date?:s
      <b>Painting</b><span>CAB1</span><span>CAB2</span><span>CAB3</span><span>CAB4</span>
     </div>
 
-    <ScheduleBoardClient batches={batchesQ.rows as any} resources={resourcesQ.rows as any} date={date}/>
+    <ScheduleBoardClient
+     batches={plannerBatches as any}
+     resources={resourcesQ.rows as any}
+     operations={plannerOperationRows as any}
+     recipes={recipesQ.rows as any}
+     handoverAlerts={handoverAlerts as any}
+     planner={planner}
+     date={date}
+    />
+
+    <div className="erp-table-panel section schedule-table-all-planners">
+     <div className="erp-panel-head">
+      <div>
+       <b>Schedule Table · Tổng Hợp Planner 1 + Planner 2</b>
+       <small className="planning-sub">Tất cả Batch đã điều độ trong ngày {date}</small>
+      </div>
+      <span>{allRows.length} scheduled batches</span>
+     </div>
+
+     <div className="table-wrap">
+      <table className="erp-table schedule-table schedule-table-combined">
+       <thead><tr>
+        <th>Planner</th>
+        <th>SPX<br/>Clean</th><th>Manual<br/>DBL</th><th>Auto<br/>DBL</th><th>Plating</th><th>He-Bake</th>
+        <th>Passivation/<br/>Brightening</th><th>Batch#<br/>ManualSP</th><th>Batch#<br/>AutoSHP</th>
+        <th>Chemical line<br/>Flybar#</th><th>Painting<br/>Batch# CAB1</th><th>Painting<br/>Batch# CAB2</th>
+        <th>Painting<br/>Batch# CAB3</th><th>Painting<br/>Batch# CAB4</th>
+        <th>Painting<br/>Paint Powder</th><th>SP#/FB#/PB#</th>
+        <th>Operation</th><th>Recipe#</th><th>Recipe description</th>
+        <th className="num">Jobs</th><th className="num">pcs</th>
+        <th className="num">dm2</th><th>Start<br/>Time</th><th>End<br/>Time</th><th>Duration</th>
+       </tr></thead>
+
+       <tbody>
+        {allRows.map((x:any)=>{
+         const op=String(x.standard_operation||"").toUpperCase();
+         const owner=
+          PLANNER_1_OPERATIONS.some(v=>v.toUpperCase()===op)
+           ?"Planner 1"
+           :PLANNER_2_OPERATIONS.some(v=>v.toUpperCase()===op)
+            ?"Planner 2"
+            :"—";
+
+         const cell=(group:string,code?:string)=>
+          x.resource_group===group&&(!code||x.resource_code===code)
+           ?<b>{x.batch_no}</b>
+           :"—";
+
+         return <tr key={`all-${x.id}`} className={owner==="Planner 1"?"schedule-row-planner1":owner==="Planner 2"?"schedule-row-planner2":""}>
+          <td>
+           <span className={`schedule-planner-badge ${owner==="Planner 1"?"planner1":owner==="Planner 2"?"planner2":""}`}>
+            {owner}
+           </span>
+          </td>
+          <td>{cell("SPX_CLEAN")}</td><td>{cell("MANUAL_DBL")}</td><td>{cell("AUTO_DBL")}</td>
+          <td>{cell("PLATING")}</td><td>{cell("HE_BAKE")}</td>
+          <td>{cell("PASSIVATION")}</td><td>{cell("MANUALSP")}</td><td>{cell("AUTOSHP")}</td>
+          <td>{x.resource_group==="CHEMICAL_LINE"?<><b>{x.batch_no}</b><small className="planning-sub">{x.resource_code}</small></>:"—"}</td>
+          <td>{cell("PAINTING","CAB1")}</td><td>{cell("PAINTING","CAB2")}</td><td>{cell("PAINTING","CAB3")}</td>
+          <td>{cell("PAINTING","CAB4")}</td><td>{cell("PAINT_POWDER")}</td>
+          <td><b>{x.resource_code}</b></td>
+          <td><b>{x.standard_operation||"—"}</b></td>
+          <td>{x.recipe_no||"—"}</td><td>{x.recipe_name||"—"}</td>
+          <td className="num">{x.total_jobs}</td><td className="num">{fmt(x.total_qty)}</td>
+          <td className="num">{fmt(x.total_surface_dm2)}</td>
+          <td className="mono">{time(x.planned_start)}</td><td className="mono">{time(x.planned_end)}</td>
+          <td className="mono">{hhmm(x.duration_minutes)}</td>
+         </tr>
+        })}
+        {!allRows.length&&
+         <tr><td colSpan={25} className="muted">Chưa có Batch được xếp lịch cho ngày này.</td></tr>}
+       </tbody>
+      </table>
+     </div>
+    </div>
 
     <div className="erp-table-panel section">
-     <div className="erp-panel-head"><b>Schedule Table</b><span>{rows.length} scheduled batches</span></div>
+     <div className="erp-panel-head">
+      <b>Schedule Table · Planner {planner}</b>
+      <span>{rows.length} scheduled batches</span>
+     </div>
      <div className="table-wrap">
       <table className="erp-table schedule-table">
        <thead><tr>

@@ -33,6 +33,7 @@ export async function POST(req:Request){
  const maxQty=nullableNumber(body.max_qty_per_batch);
  const minSurface=nullableNumber(body.min_surface_dm2_per_batch);
  const maxSurface=nullableNumber(body.max_surface_dm2_per_batch);
+ const lockBeforeStart=Math.max(0,nullableInt(body.batch_lock_before_start_minutes)??0);
 
  if(minJobs!=null&&maxJobs!=null&&minJobs>maxJobs)
   return NextResponse.json({error:"Min Jobs không được lớn hơn Max Jobs."},{status:400});
@@ -92,6 +93,13 @@ export async function POST(req:Request){
     split_on_primer1,
     split_on_primer2,
     split_on_primer3,
+    allow_empty_batch,
+    allow_schedule_empty_batch,
+    auto_create_empty_batch,
+    auto_fill_scheduled_batch,
+    require_recipe_before_schedule,
+    require_paint_type_before_schedule,
+    batch_lock_before_start_minutes,
     priority_rules,
     note,is_active,updated_at
    )
@@ -103,8 +111,9 @@ export async function POST(req:Request){
     $18,$19,
     $20,$21,$22,$23,$24,$25,
     $26,$27,$28,$29,$30,$31,$32,$33,
-    $34::jsonb,
-    $35,true,now()
+    $34,$35,$36,$37,$38,$39,$40,
+    $41::jsonb,
+    $42,true,now()
    )
    on conflict(standard_operation)
    do update set
@@ -140,6 +149,13 @@ export async function POST(req:Request){
     split_on_primer1=excluded.split_on_primer1,
     split_on_primer2=excluded.split_on_primer2,
     split_on_primer3=excluded.split_on_primer3,
+    allow_empty_batch=excluded.allow_empty_batch,
+    allow_schedule_empty_batch=excluded.allow_schedule_empty_batch,
+    auto_create_empty_batch=excluded.auto_create_empty_batch,
+    auto_fill_scheduled_batch=excluded.auto_fill_scheduled_batch,
+    require_recipe_before_schedule=excluded.require_recipe_before_schedule,
+    require_paint_type_before_schedule=excluded.require_paint_type_before_schedule,
+    batch_lock_before_start_minutes=excluded.batch_lock_before_start_minutes,
     priority_rules=excluded.priority_rules,
     note=excluded.note,
     is_active=true,
@@ -172,6 +188,13 @@ export async function POST(req:Request){
    bool(body.split_on_primer1),
    bool(body.split_on_primer2),
    bool(body.split_on_primer3),
+   body.allow_empty_batch!==false,
+   body.allow_schedule_empty_batch!==false,
+   bool(body.auto_create_empty_batch),
+   bool(body.auto_fill_scheduled_batch),
+   bool(body.require_recipe_before_schedule),
+   bool(body.require_paint_type_before_schedule),
+   lockBeforeStart,
    JSON.stringify(priorityRules),
    text(body.note)||null
   ]);

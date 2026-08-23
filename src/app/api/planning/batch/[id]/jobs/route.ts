@@ -1,8 +1,183 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {plannerForOperation} from "@/lib/planner-ownership";
 import {refreshBatchTotals,recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
 
 const clean=(v:unknown)=>String(v??"").trim();
+
+function paintFieldName(operation:string){
+ const op=clean(operation).toUpperCase();
+ switch(op){
+  case "PRIMER":return "PRIMER1";
+  case "PRIMER2":return "PRIMER2";
+  case "PRIMER3":return "PRIMER3";
+  case "TOPCOAT1":return "TOPCOAT1";
+  case "TOPCOAT2":return "TOPCOAT2";
+  case "ANTI-ABRASION":return "ANTI-ABRASION";
+  case "VARNISH":return "VARNISH";
+  default:return "";
+ }
+}
+
+function paintKey(row:any,operation:string){
+ const op=clean(operation).toUpperCase();
+ const val=
+  op==="PRIMER" ? row.part_master_primer1 :
+  op==="PRIMER2" ? row.part_master_primer2 :
+  op==="PRIMER3" ? row.part_master_primer3 :
+  op==="TOPCOAT1" ? row.part_master_topcoat1 :
+  op==="TOPCOAT2" ? row.part_master_topcoat2 :
+  op==="ANTI-ABRASION" ? row.part_master_antiabration :
+  op==="VARNISH" ? row.part_master_varnish :
+  null;
+
+ return clean(val||row.recipe_no||"").toUpperCase();
+}
+
+function validateSamePaint(rows:any[],operation:string){
+ const field=paintFieldName(operation);
+ if(!field)return;
+
+ const keys=[...new Set(rows.map(r=>paintKey(r,operation)).filter(Boolean))];
+
+ if(rows.some(r=>!paintKey(r,operation)))
+  throw new Error(`Một số Job chưa có ${field}. Không thể tạo/chỉnh Batch sơn.`);
+
+ if(keys.length>1)
+  throw new Error(
+   `Các Job có ${field} khác nhau (${keys.join(", ")}). `+
+   `Một Batch sơn chỉ được chứa cùng một loại sơn.`
+  );
+}
+
+
+async function nextMainOperationForJob(c:any,jobNum:string,planningSeq:number){
+ const q=await c.query(`
+  select standard_operation
+  from planning_job_operation
+  where job_num=$1
+    and is_active=true
+    and planning_seq>$2
+  order by planning_seq
+  limit 1
+ `,[jobNum,planningSeq]);
+
+ return q.rows[0]?.standard_operation||null;
+}
+
+async function findDownstreamImpact(c:any,jobNum:string,nextOperation:string|null){
+ if(!nextOperation)return {
+  affected_batch_id:null,
+  affected_batch_no:null,
+  affected_schedule_id:null,
+  affected_resource_code:null,
+  affected_planned_start:null,
+  impact_level:"INFO"
+ };
+
+ const q=await c.query(`
+  select
+    b.id affected_batch_id,
+    b.batch_no affected_batch_no,
+    s.id affected_schedule_id,
+    s.resource_code affected_resource_code,
+    s.planned_start affected_planned_start,
+    case
+      when s.id is not null
+       and s.planned_start<=now()+interval '60 minutes'
+       then 'CRITICAL'
+      when s.id is not null then 'IMPACTED'
+      else 'WARNING'
+    end impact_level
+  from planning_batch_job bj
+  join planning_batch b
+    on b.id=bj.batch_id
+   and b.status<>'CANCELLED'
+  left join lateral (
+    select ps.id,ps.resource_code,ps.planned_start
+    from planning_schedule ps
+    where ps.batch_id=b.id
+      and ps.status<>'CANCELLED'
+    order by ps.planned_start desc,ps.id desc
+    limit 1
+  ) s on true
+  where bj.job_num=$1
+    and bj.standard_operation=$2
+  order by
+    case when s.id is not null then 0 else 1 end,
+    b.created_at desc,
+    b.id desc
+  limit 1
+ `,[jobNum,nextOperation]);
+
+ return q.rows[0]||{
+  affected_batch_id:null,
+  affected_batch_no:null,
+  affected_schedule_id:null,
+  affected_resource_code:null,
+  affected_planned_start:null,
+  impact_level:"INFO"
+ };
+}
+
+async function createCrossPlannerEvent(
+ c:any,
+ args:{
+  sourceBatchId:number;
+  sourceBatchNo:string;
+  sourceOperation:string;
+  jobNum:string;
+  planningSeq:number;
+  changeType:"ADD_JOB"|"REMOVE_JOB";
+  qtyBefore:number;
+  qtyAfter:number;
+  surfaceBefore:number;
+  surfaceAfter:number;
+  jobQty:number;
+  jobSurface:number;
+ }
+){
+ const sourcePlanner=plannerForOperation(args.sourceOperation);
+ const nextOperation=await nextMainOperationForJob(c,args.jobNum,args.planningSeq);
+ const affectedPlanner=plannerForOperation(nextOperation);
+
+ if(!sourcePlanner||!affectedPlanner||sourcePlanner===affectedPlanner)return;
+
+ const impact=await findDownstreamImpact(c,args.jobNum,nextOperation);
+
+ await c.query(`
+  insert into planning_handover_change_event(
+   source_batch_id,source_batch_no,source_standard_operation,source_planner,
+   job_num,change_type,
+   next_standard_operation,affected_planner,
+   affected_batch_id,affected_batch_no,
+   affected_schedule_id,affected_resource_code,affected_planned_start,
+   source_batch_qty_before,source_batch_qty_after,
+   source_batch_surface_before,source_batch_surface_after,
+   changed_job_qty,changed_job_surface,
+   impact_level,status,note
+  )
+  values(
+   $1,$2,$3,$4,
+   $5,$6,
+   $7,$8,
+   $9,$10,$11,$12,$13,
+   $14,$15,$16,$17,$18,$19,
+   $20,'NEW',$21
+  )
+ `,[
+  args.sourceBatchId,args.sourceBatchNo,args.sourceOperation,sourcePlanner,
+  args.jobNum,args.changeType,
+  nextOperation,affectedPlanner,
+  impact.affected_batch_id||null,impact.affected_batch_no||null,
+  impact.affected_schedule_id||null,impact.affected_resource_code||null,
+  impact.affected_planned_start||null,
+  args.qtyBefore,args.qtyAfter,args.surfaceBefore,args.surfaceAfter,
+  args.jobQty,args.jobSurface,
+  impact.impact_level||"INFO",
+  `${args.changeType}: ${args.jobNum} · ${args.sourceOperation} → ${nextOperation}`
+ ]);
+}
 
 export async function POST(
  req:NextRequest,
@@ -23,7 +198,9 @@ export async function POST(
    await c.query("begin");
 
    const batchQ=await c.query(`
-     select id,standard_operation,recipe_key,status
+     select id,batch_no,standard_operation,recipe_key,status,
+            coalesce(total_qty,0) total_qty,
+            coalesce(total_surface_dm2,0) total_surface_dm2
      from planning_batch
      where id=$1
      for update
@@ -37,8 +214,16 @@ export async function POST(
 
    const q=await c.query(`
      select
-       p.id,p.job_num,p.source_operation_code,p.standard_operation,p.recipe_key,p.status,
+       p.id,p.job_num,p.source_operation_code,p.standard_operation,p.recipe_key,p.status,p.planning_seq,
        j.part_num,j.revision_num,
+       mf.primer1 part_master_primer1,
+       mf.primer2 part_master_primer2,
+       mf.primer3 part_master_primer3,
+       mf.topcoat1 part_master_topcoat1,
+       mf.topcoat2 part_master_topcoat2,
+       mf.antiabration part_master_antiabration,
+       mf.varinish_name part_master_varnish,
+       pr.recipe_no,
        coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0) plan_qty,
        coalesce(
          j.total_surface,
@@ -48,6 +233,13 @@ export async function POST(
        ) plan_surface
      from planning_job_operation p
      join open_job_current j on j.job_num=p.job_num
+     left join md_material_finish mf
+       on mf.part_num=j.part_num
+      and mf.revision_num=j.revision_num
+      and mf.is_active=true
+     left join md_process_recipe pr
+       on pr.recipe_key=p.recipe_key
+      and pr.is_active=true
      where p.id=any($1::bigint[])
        and p.is_active=true
        and j.is_open=true
@@ -56,6 +248,47 @@ export async function POST(
 
    if(q.rowCount!==ids.length)
      throw new Error("Một số Job không còn hợp lệ.");
+
+   // Server-side paint compatibility check. UI dim/disable is only the
+   // convenience layer; this keeps the Batch safe even with direct API calls.
+   const existingPaintQ=await c.query(`
+     select
+       mf.primer1 part_master_primer1,
+       mf.primer2 part_master_primer2,
+       mf.primer3 part_master_primer3,
+       mf.topcoat1 part_master_topcoat1,
+       mf.topcoat2 part_master_topcoat2,
+       mf.antiabration part_master_antiabration,
+       mf.varinish_name part_master_varnish,
+       pr.recipe_no
+     from planning_batch_job bj
+     join open_job_current j on j.job_num=bj.job_num
+     left join md_material_finish mf
+       on mf.part_num=j.part_num
+      and mf.revision_num=j.revision_num
+      and mf.is_active=true
+     left join planning_job_operation p
+       on p.id=bj.planning_job_operation_id
+     left join md_process_recipe pr
+       on pr.recipe_key=p.recipe_key
+      and pr.is_active=true
+     where bj.batch_id=$1
+   `,[batchId]);
+
+   validateSamePaint(q.rows,batch.standard_operation);
+
+   if(paintFieldName(batch.standard_operation) && existingPaintQ.rowCount){
+     validateSamePaint(existingPaintQ.rows,batch.standard_operation);
+
+     const existingKey=paintKey(existingPaintQ.rows[0],batch.standard_operation);
+     const incomingKey=paintKey(q.rows[0],batch.standard_operation);
+
+     if(existingKey && incomingKey && existingKey!==incomingKey)
+       throw new Error(
+         `Batch đang khóa ${paintFieldName(batch.standard_operation)} = ${existingKey}. `+
+         `Job mới có ${incomingKey}.`
+       );
+   }
 
    for(const r of q.rows){
      if(r.status!=="ELIGIBLE")
@@ -109,6 +342,24 @@ export async function POST(
    }
 
    const totals=await refreshBatchTotals(c,batchId);
+
+   for(const r of q.rows){
+     await createCrossPlannerEvent(c,{
+       sourceBatchId:batchId,
+       sourceBatchNo:batch.batch_no,
+       sourceOperation:batch.standard_operation,
+       jobNum:r.job_num,
+       planningSeq:Number(r.planning_seq||0),
+       changeType:"ADD_JOB",
+       qtyBefore:Number(batch.total_qty||0),
+       qtyAfter:Number(totals.totalQty||0),
+       surfaceBefore:Number(batch.total_surface_dm2||0),
+       surfaceAfter:Number(totals.totalSurface||0),
+       jobQty:Number(r.plan_qty||0),
+       jobSurface:Number(r.plan_surface||0)
+     });
+   }
+
    await c.query("commit");
 
    return NextResponse.json({ok:true,...totals});
@@ -140,16 +391,23 @@ export async function DELETE(
    await c.query("begin");
 
    const batchQ=await c.query(`
-     select status from planning_batch where id=$1 for update
+     select id,batch_no,standard_operation,status,
+            coalesce(total_qty,0) total_qty,
+            coalesce(total_surface_dm2,0) total_surface_dm2
+     from planning_batch
+     where id=$1
+     for update
    `,[batchId]);
    if(!batchQ.rowCount)throw new Error("Không tìm thấy Batch.");
-   if(!["PLANNED","RELEASED"].includes(batchQ.rows[0].status))
+   const batch=batchQ.rows[0];
+   if(!["PLANNED","RELEASED"].includes(batch.status))
      throw new Error("Batch hiện tại không cho phép bỏ Job.");
 
    const rowQ=await c.query(`
      select
        bj.id,bj.job_num,bj.planning_job_operation_id,
-       p.planning_seq
+       bj.qty,bj.surface_dm2,
+       p.planning_seq,p.standard_operation
      from planning_batch_job bj
      join planning_job_operation p on p.id=bj.planning_job_operation_id
      where bj.id=$1 and bj.batch_id=$2
@@ -191,6 +449,22 @@ export async function DELETE(
    await recomputeJobPlanningStatus(c,row.job_num);
 
    const totals=await refreshBatchTotals(c,batchId);
+
+   await createCrossPlannerEvent(c,{
+     sourceBatchId:batchId,
+     sourceBatchNo:batch.batch_no,
+     sourceOperation:batch.standard_operation,
+     jobNum:row.job_num,
+     planningSeq:Number(row.planning_seq||0),
+     changeType:"REMOVE_JOB",
+     qtyBefore:Number(batch.total_qty||0),
+     qtyAfter:Number(totals.totalQty||0),
+     surfaceBefore:Number(batch.total_surface_dm2||0),
+     surfaceAfter:Number(totals.totalSurface||0),
+     jobQty:Number(row.qty||0),
+     jobSurface:Number(row.surface_dm2||0)
+   });
+
    await c.query("commit");
 
    return NextResponse.json({ok:true,...totals});

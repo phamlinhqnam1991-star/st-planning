@@ -5,6 +5,7 @@ import {useState} from "react";
 type Row={
  standard_operation:string;
  st_group:string;
+ batch_prefix:string|null;
  time_calc_type:string|null;
  priority:number|null;
  qty_min:number|null;
@@ -19,6 +20,8 @@ type Row={
 export function OperationMasterManager({rows}:{rows:Row[]}){
  const [editing,setEditing]=useState<string|null>(null);
  const [name,setName]=useState("");
+ const [prefixEditing,setPrefixEditing]=useState<string|null>(null);
+ const [prefixValue,setPrefixValue]=useState("");
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
 
@@ -74,6 +77,46 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
   }
  }
 
+ function beginPrefix(row:Row){
+  setPrefixEditing(row.standard_operation);
+  setPrefixValue(String(row.batch_prefix||"").toUpperCase());
+  setMessage("");
+ }
+
+ async function savePrefix(operation:string){
+  const prefix=prefixValue.trim().toUpperCase();
+
+  if(!/^[A-Z0-9]{3}$/.test(prefix)){
+   setMessage("Batch Prefix phải đúng 3 ký tự A-Z hoặc 0-9.");
+   return;
+  }
+
+  setBusy(true);
+  setMessage("");
+
+  try{
+   const r=await fetch("/api/config/operation-master/prefix",{
+    method:"POST",
+    headers:{"content-type":"application/json"},
+    body:JSON.stringify({
+     standard_operation:operation,
+     batch_prefix:prefix
+    })
+   });
+   const d=await r.json();
+
+   if(!r.ok)throw new Error(d.error||"Không lưu được Batch Prefix.");
+
+   setMessage(`Đã lưu ${operation} → Prefix ${prefix}.`);
+   setPrefixEditing(null);
+   setTimeout(()=>location.reload(),600);
+  }catch(e){
+   setMessage(e instanceof Error?e.message:"Không lưu được Batch Prefix.");
+  }finally{
+   setBusy(false);
+  }
+ }
+
  return <div className="erp-table-panel section">
   <div className="erp-panel-head">
    <b>Operation Master</b>
@@ -88,6 +131,7 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
      <tr>
       <th>standard_operation</th>
       <th>st_group</th>
+      <th>batch_prefix</th>
       <th>time_calc_type</th>
       <th>priority</th>
       <th>qty_min</th>
@@ -115,6 +159,38 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
          : <b>{row.standard_operation}</b>}
        </td>
        <td>{row.st_group}</td>
+       <td>
+        {prefixEditing===row.standard_operation
+         ? <div className="row operation-prefix-edit">
+            <input
+             className="input mono operation-prefix-input"
+             value={prefixValue}
+             maxLength={3}
+             onChange={e=>setPrefixValue(e.target.value.toUpperCase())}
+             disabled={busy}
+            />
+            <button
+             className="btn primary small"
+             type="button"
+             disabled={busy}
+             onClick={()=>savePrefix(row.standard_operation)}
+            >Save</button>
+            <button
+             className="btn small"
+             type="button"
+             disabled={busy}
+             onClick={()=>setPrefixEditing(null)}
+            >×</button>
+           </div>
+         : <button
+            className="btn small mono operation-prefix-button"
+            type="button"
+            disabled={busy}
+            onClick={()=>beginPrefix(row)}
+           >
+            {row.batch_prefix||"SET"}
+           </button>}
+       </td>
        <td>{row.time_calc_type||""}</td>
        <td>{row.priority??""}</td>
        <td>{row.qty_min??""}</td>
