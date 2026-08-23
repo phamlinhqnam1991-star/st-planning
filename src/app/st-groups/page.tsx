@@ -1,6 +1,8 @@
 import {createAdminClient} from "@/lib/supabase/admin";import {StGroupManager} from "@/components/st-group-manager";import {AppTabs,SubTabs} from "@/components/app-tabs";
 export const dynamic="force-dynamic";
 const tabs=[{key:"operation",label:"Operation Master",href:"/master/operation"},{key:"operationmapping",label:"ST Operation Mapping",href:"/master/operationmapping"},{key:"stgroup",label:"ST Group Master",href:"/st-groups"},{key:"area",label:"Area Master",href:"/area"},
+ {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
+ {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
  {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},{key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"}];
 export default async function Page(){
  const admin=createAdminClient();const {data,error}=await admin.from("md_st_group").select("*").eq("is_active",true).order("sort_order");if(error)throw error;

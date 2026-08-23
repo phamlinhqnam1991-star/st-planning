@@ -225,9 +225,9 @@ export async function POST(req:NextRequest){
        insert into planning_batch(
          batch_no,planning_date,area_id,standard_operation,recipe_key,
          total_jobs,total_qty,total_surface_dm2,process_minutes,
-         priority,status,note
+         priority,status,note,plan_source
        )
-       values($1,$2::date,$3,$4,$5,0,0,0,$6,$7,'PLANNED',$8)
+       values($1,$2::date,$3,$4,$5,0,0,0,$6,$7,'PLANNED',$8,'MANUAL_GRID')
        returning id,batch_no,planning_date
      `,[
        batchNo,effectivePlanningDate,areaId,standardOperation,recipeKey,
@@ -431,11 +431,11 @@ export async function POST(req:NextRequest){
      insert into planning_batch(
        batch_no,planning_date,area_id,standard_operation,recipe_key,
        total_jobs,total_qty,total_surface_dm2,process_minutes,
-       planned_start,planned_end,priority,status,note
+       planned_start,planned_end,priority,status,note,plan_source
      )
      values(
        $1,$2::date,$3,$4,$5,$6,$7,$8,$9,
-       $10::timestamptz,$11::timestamptz,$12,'PLANNED',$13
+       $10::timestamptz,$11::timestamptz,$12,'PLANNED',$13,'PLANNING_BOARD'
      )
      returning id,batch_no,planning_date
    `,[

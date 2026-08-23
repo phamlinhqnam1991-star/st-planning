@@ -1853,3 +1853,73 @@ The combined table uses the same date and live schedule data already loaded by
 the Board. No scheduling logic changed.
 
 No SQL migration is required.
+
+## v91 - Direct Schedule Grid + Auto-Ready Unified Architecture
+
+Board Điều Độ now has a direct scheduling grid for each Planner View.
+
+For every Standard Operation owned by the selected Planner:
+- existing scheduled Batches for the selected date are shown first;
+- 20 blank UI input rows are always available;
+- the 20 blank rows are NOT database records;
+- a real Batch/Schedule is created only after Save.
+
+Each blank row allows direct entry of:
+- Recipe / Paint Recipe
+- Resource
+- Date
+- Start Time
+- Duration HH:MM
+
+Save performs one atomic transaction:
+1. auto-generates the Batch No using the existing `XXX_DDMMM_NNN` rule;
+2. creates an EMPTY `planning_batch`;
+3. creates its `planning_schedule` immediately;
+4. preserves Chemical Line overlap / 3-Flybar / 60-minute launch checks;
+5. existing Batch Detail / Fill Jobs Candidate Engine is used later.
+
+Unified source architecture:
+- `MANUAL_GRID` = direct Schedule Grid;
+- `PLANNING_BOARD` = Candidate Jobs -> Create Batch;
+- `AUTO_PLAN` = reserved for future Auto Plan -> Auto Batch -> Auto Schedule.
+
+All three paths use the same core tables:
+- `planning_batch`
+- `planning_schedule`
+- `planning_batch_job`
+
+Existing Planning Board and existing scheduling controls remain available.
+
+Migration required:
+`supabase/migrations/029_manual_schedule_grid_plan_source.sql`
+
+
+## v92 - Direct Schedule Grid by ST Group
+
+Direct Schedule Grid is now organized by ST Group, not by Standard Operation.
+
+- 20 empty UI rows per ST Group.
+- Standard Operation is selected inside each row.
+- Only Standard Operations belonging to that ST Group and current Planner View appear.
+- Existing scheduled Batches display under their ST Group.
+- API validates ST Group -> Standard Operation before creating Batch/Schedule.
+- Exact Standard Operation is still stored on Batch for Candidate Fill, Recipe/Paint,
+  Batch Prefix and future Auto Plan / Auto Schedule.
+
+No new SQL migration is required beyond migrations already included in v91.
+
+
+## v93 - Schedule Area planning grid
+- Board direct planning is grouped by configurable Schedule Area, matching the operational Excel layout.
+- Seed areas: SPX Clean, Manual DBL, Auto DBL, Plating, He-Bake, Passivation/Brightening, ManualSP, AutoSHP, Flybar, CAB1, CAB2, CAB3, Paint Powder.
+- No guessed Standard Operation mapping is seeded. Configure it at Configuration > Schedule Area Mapping.
+- Each area defaults to 20 UI rows; + Row and - Row change the current view row count.
+- `default_rows` is configurable per area for future sessions.
+- Manual and future Auto planning share the same `planning_batch` / `planning_schedule` output.
+
+
+## v94 - Planner Work Assignment
+- Added Configuration > Phân chia Planner.
+- Schedule Area ownership is now separated from process/routing configuration.
+- Any area can be moved between Planner 1, Planner 2, or Unassigned without changing Standard Operation mapping, Routing, Batch logic, or historical schedules.
+- Board Điều Độ reads the current assignment dynamically.

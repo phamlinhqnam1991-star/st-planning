@@ -21,7 +21,7 @@ export async function POST(req:Request){
   await c.query("begin");
 
   const bq=await c.query(`
-    select id,batch_no,standard_operation,process_minutes,status
+    select id,batch_no,standard_operation,process_minutes,status,plan_source
     from planning_batch
     where id=$1
     for update
@@ -115,11 +115,11 @@ export async function POST(req:Request){
   const iq=await c.query(`
     insert into planning_schedule(
       batch_id,resource_code,schedule_date,planned_start,planned_end,
-      duration_minutes,status
+      duration_minutes,status,plan_source
     )
-    values($1,$2,($3 at time zone 'Asia/Ho_Chi_Minh')::date,$3,$4,$5,'SCHEDULED')
+    values($1,$2,($3 at time zone 'Asia/Ho_Chi_Minh')::date,$3,$4,$5,'SCHEDULED',$6)
     returning *
-  `,[batchId,resourceCode,start,end,duration]);
+  `,[batchId,resourceCode,start,end,duration,batch.plan_source||'PLANNING_BOARD']);
 
   await c.query(`
     update planning_batch

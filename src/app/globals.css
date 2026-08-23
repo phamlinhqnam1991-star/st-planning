@@ -2533,3 +2533,214 @@ button,a,input,select,textarea{touch-action:manipulation}
 .schedule-row-planner2:hover td{
  background-color:#f5f8fc;
 }
+
+/* v91 - Direct Manual Schedule Grid, shared architecture with future Auto Plan */
+.manual-schedule-grid-panel{
+ border-color:#9fb4cf!important;
+}
+.manual-grid-head{
+ background:#eef5fc;
+}
+.manual-grid-head>div{
+ display:flex;
+ flex-direction:column;
+ gap:2px;
+}
+.manual-grid-head small{
+ font-size:8px;
+ color:#667085;
+}
+.manual-grid-architecture-note{
+ display:flex;
+ align-items:center;
+ gap:6px;
+ flex-wrap:wrap;
+ padding:6px 8px;
+ border-bottom:1px solid #d8e0ea;
+ background:#fafcff;
+ font-size:8px;
+}
+.manual-grid-architecture-note>b{
+ font-size:9px;
+}
+.manual-grid-architecture-note>span{
+ padding:2px 6px;
+ border:1px solid #cbd5e1;
+ background:#fff;
+ font-weight:800;
+}
+.manual-grid-architecture-note>small{
+ color:#667085;
+}
+.manual-grid-message{
+ margin:6px;
+}
+.manual-operation-stack{
+ display:grid;
+ gap:7px;
+ padding:7px;
+}
+.manual-operation-block{
+ border:1px solid #cad5e2;
+ background:#fff;
+}
+.manual-operation-block>summary{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:8px;
+ padding:6px 8px;
+ cursor:pointer;
+ background:#f5f8fc;
+ border-bottom:1px solid #d8e0ea;
+}
+.manual-operation-block>summary>div{
+ display:flex;
+ align-items:center;
+ gap:7px;
+}
+.manual-operation-block>summary b{
+ font-size:10px;
+}
+.manual-operation-block>summary small,
+.manual-operation-block>summary span{
+ font-size:8px;
+ color:#667085;
+}
+.manual-grid-wrap{
+ max-height:620px;
+ overflow:auto;
+}
+.manual-schedule-table{
+ min-width:1180px;
+}
+.manual-schedule-table th{
+ position:sticky;
+ top:0;
+ z-index:2;
+ background:#f8fafc;
+ font-size:8px;
+ white-space:nowrap;
+}
+.manual-schedule-table td{
+ padding:3px 4px!important;
+ font-size:8px;
+ vertical-align:middle;
+}
+.manual-schedule-table .input{
+ min-height:26px!important;
+ height:26px;
+ padding:3px 5px!important;
+ font-size:8px!important;
+}
+.manual-schedule-table select.input{
+ min-width:150px;
+}
+.manual-schedule-table input[type="date"].input{
+ min-width:122px;
+}
+.manual-schedule-table input[type="time"].input{
+ min-width:88px;
+}
+.manual-duration-input{
+ width:68px!important;
+ min-width:68px!important;
+}
+.manual-grid-existing-row td{
+ background:#eef7ff;
+}
+.manual-grid-draft-row:nth-child(even) td{
+ background:#fcfdff;
+}
+.manual-auto-batch{
+ color:#667085;
+ font-style:italic;
+}
+.manual-source{
+ display:inline-block;
+ min-width:48px;
+ padding:2px 4px;
+ border:1px solid #cfd6df;
+ text-align:center;
+ font-size:7px;
+ font-weight:800;
+}
+.manual-source.source-manual_grid{
+ background:#eaf4ff;
+ border-color:#6f9ec8;
+ color:#245b85;
+}
+.manual-source.source-planning_board{
+ background:#eef7e9;
+ border-color:#7eaa62;
+ color:#466d30;
+}
+.manual-source.source-auto_plan{
+ background:#f2eaff;
+ border-color:#9169b3;
+ color:#623f80;
+}
+@media(max-width:900px){
+ .manual-grid-wrap{max-height:480px}
+}
+
+
+/* v92 - Direct Schedule Grid grouped by ST Group */
+.manual-stgroup-block>summary{
+ background:#eef4fb!important;
+ border-left:5px solid #547eaa;
+}
+.manual-stgroup-block>summary>div{
+ min-width:0;
+}
+.manual-stgroup-block>summary>div>b{
+ font-size:11px;
+ color:#244f7b;
+}
+.manual-stgroup-block>summary>div>small{
+ display:block;
+ max-width:1000px;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+.manual-stgroup-schedule-table .manual-operation-select{
+ min-width:160px;
+ font-weight:700;
+}
+.manual-stgroup-schedule-table th:nth-child(4),
+.manual-stgroup-schedule-table td:nth-child(4){
+ min-width:170px;
+}
+
+
+/* v93 Schedule Area direct planning grid */
+.schedule-area-grid-stack{display:flex;flex-direction:column;gap:12px;padding:10px}
+.schedule-area-grid-block{border:1px solid #b8c9dc;background:#fff}
+.schedule-area-grid-title{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;background:#dbe9f7;border-bottom:1px solid #9fb6cf}
+.schedule-area-grid-title>div:first-child{display:flex;flex-direction:column;min-width:0}
+.schedule-area-grid-title b{font-size:12px;color:#123f6b}
+.schedule-area-grid-title small{font-size:9px;color:#536b82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:900px}
+.schedule-area-row-actions{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.schedule-area-row-actions span{font-size:9px;color:#536b82}
+.schedule-area-unmapped{padding:7px 10px;background:#fff4d6;color:#805b00;font-size:10px;font-weight:700}
+.schedule-area-entry-table{font-size:9px}
+.schedule-area-entry-table th{white-space:nowrap;background:#f2f6fa}
+.schedule-area-entry-table td{padding:3px 5px}
+.schedule-area-entry-table .input{min-height:25px;height:25px;padding:2px 5px;font-size:9px}
+.schedule-area-entry-table th:nth-child(3),.schedule-area-entry-table td:nth-child(3){min-width:145px}
+.schedule-area-entry-table th:nth-child(4),.schedule-area-entry-table td:nth-child(4){min-width:210px}
+.schedule-area-existing{background:#eaf3fb}
+.schedule-area-empty-row{background:#fff}
+.schedule-area-form{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+
+/* v94 planner work assignment */
+.planner-assignment-board{display:grid;grid-template-columns:repeat(3,minmax(260px,1fr));gap:12px;margin-top:12px}
+.planner-assignment-column{border:1px solid #b8c9dc;background:#f7f9fb;min-height:260px}
+.planner-assignment-head{display:flex;justify-content:space-between;align-items:center;padding:10px;background:#dbe9f7;border-bottom:1px solid #b8c9dc}
+.planner-assignment-head span{font-size:10px;color:#536b82}
+.planner-assignment-list{padding:8px;display:flex;flex-direction:column;gap:7px}
+.planner-assignment-card{background:#fff;border:1px solid #d2dde8;padding:8px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.planner-assignment-card>div:first-child{display:flex;flex-direction:column}
+.planner-assignment-card small{color:#6a7c8e;font-size:9px}
+@media(max-width:1000px){.planner-assignment-board{grid-template-columns:1fr}}

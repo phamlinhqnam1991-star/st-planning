@@ -1,6 +1,7 @@
 import {getPool} from "@/lib/db";
 import {AppTabs} from "@/components/app-tabs";
 import ScheduleBoardClient from "@/components/schedule-board-client";
+import {ManualScheduleGrid} from "@/components/manual-schedule-grid";
 import {
  PLANNER_1_OPERATIONS,
  PLANNER_2_OPERATIONS
@@ -32,7 +33,7 @@ export default async function Page({
  const c=await getPool().connect();
  try{
   const [
-   resourcesQ,batchesQ,scheduleTableQ,timelineQ,operationsQ,recipesQ,handoverAlertsQ
+   resourcesQ,batchesQ,scheduleTableQ,timelineQ,operationsQ,recipesQ,handoverAlertsQ,scheduleAreasQ
   ]=await Promise.all([
    c.query(`select * from md_schedule_resource where is_active=true order by sort_order,resource_code`),
    c.query(`
@@ -139,6 +140,7 @@ export default async function Page({
       s.*,
       coalesce(b.batch_no,'LEGACY-'||s.batch_id::text) batch_no,
       b.standard_operation,b.recipe_key,
+      coalesce(s.plan_source,b.plan_source,'PLANNING_BOARD') plan_source,
       pr.recipe_no,pr.recipe_name,
       coalesce(b.total_jobs,0) total_jobs,
       coalesce(b.total_qty,0) total_qty,
@@ -172,6 +174,7 @@ export default async function Page({
       s.*,
       coalesce(b.batch_no,'LEGACY-'||s.batch_id::text) batch_no,
       b.standard_operation,b.recipe_key,
+      coalesce(s.plan_source,b.plan_source,'PLANNING_BOARD') plan_source,
       pr.recipe_no,pr.recipe_name,
       coalesce(b.total_jobs,0) total_jobs,
       coalesce(b.total_qty,0) total_qty,
@@ -197,10 +200,21 @@ export default async function Page({
    `,[date]),
 
    c.query(`
-    select standard_operation,batch_prefix
-    from md_operation_master
-    where is_active=true
-    order by standard_operation
+    select
+      o.standard_operation,
+      o.st_group,
+      o.batch_prefix,
+      coalesce(g.group_name,o.st_group) st_group_name,
+      coalesce(g.sort_order,9999) st_group_sort_order
+    from md_operation_master o
+    left join md_st_group g
+      on g.st_group=o.st_group
+     and g.is_active=true
+    where o.is_active=true
+    order by
+      coalesce(g.sort_order,9999),
+      o.st_group,
+      o.standard_operation
    `),
 
    c.query(`
@@ -234,6 +248,28 @@ export default async function Page({
       end,
       e.created_at desc
     limit 200
+   `,[planner]),
+
+   c.query(`
+    select a.*,
+      coalesce(jsonb_agg(
+       jsonb_build_object('standard_operation',m.standard_operation)
+       order by m.standard_operation
+      ) filter(where m.id is not null),'[]'::jsonb) operations
+    from md_schedule_area a
+    left join md_schedule_area_operation m
+      on m.schedule_area_code=a.schedule_area_code and m.is_active=true
+    left join md_planner_work_assignment w
+      on w.schedule_area_code=a.schedule_area_code
+     and w.is_active=true
+    where a.is_active=true
+      and a.allow_manual_plan=true
+      and coalesce(
+       w.planner_owner,
+       case when a.planner_owner in ('1','2') then a.planner_owner else 'UNASSIGNED' end
+      )=$1
+    group by a.schedule_area_code
+    order by a.display_order,a.schedule_area_code
    `,[planner])
   ]);
 
@@ -264,9 +300,10 @@ export default async function Page({
    (x:any)=>plannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
   );
 
-  const plannerOperationRows=(operationsQ.rows as any[]).filter(
-   (x:any)=>plannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
-  );
+  const operationOrder=new Map(plannerOperations.map((op,index)=>[op.toUpperCase(),index]));
+  const plannerOperationRows=(operationsQ.rows as any[])
+   .filter((x:any)=>plannerOperationSet.has(String(x.standard_operation||"").toUpperCase()))
+   .sort((a:any,b:any)=>(operationOrder.get(String(a.standard_operation).toUpperCase())??999)-(operationOrder.get(String(b.standard_operation).toUpperCase())??999));
 
   // Unified production timeline order.
   // Resource order is for Board visualization only; the exact Standard Operation
@@ -378,6 +415,16 @@ export default async function Page({
      <span>6 Flybars</span><span>Max 3 running simultaneously</span><span>Launch interval 01:00</span>
      <b>Painting</b><span>CAB1</span><span>CAB2</span><span>CAB3</span><span>CAB4</span>
     </div>
+
+    <ManualScheduleGrid
+     scheduleAreas={scheduleAreasQ.rows as any}
+     operations={plannerOperationRows as any}
+     resources={resourcesQ.rows as any}
+     recipes={recipesQ.rows as any}
+     scheduledRows={rows as any}
+     date={date}
+     planner={planner}
+    />
 
     <ScheduleBoardClient
      batches={plannerBatches as any}

@@ -9,6 +9,8 @@ const tabs=[
  {key:"operationmapping",label:"ST Operation Mapping",href:"/master/operationmapping"},
  {key:"stgroup",label:"ST Group Master",href:"/st-groups"},
  {key:"area",label:"Area Master",href:"/area"},
+ {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
+ {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
  {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},
  {key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"},
 ];
