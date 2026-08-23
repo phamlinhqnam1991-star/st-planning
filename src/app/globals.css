@@ -398,3 +398,1273 @@ button,a,input,select,textarea{touch-action:manipulation}
   .erp-subnav-item{padding:0 9px}
   .erp-content,.erp-content-full{padding:8px}
 }
+
+
+/* Process Recipe Master v16 */
+.recipe-note{margin-bottom:14px}
+.recipe-form{display:grid;grid-template-columns:1fr 1fr .8fr 1.6fr 1.4fr 1.2fr;gap:10px;padding:12px}
+.recipe-form label,.recipe-map-form label{font-size:12px;color:#475467;font-weight:700}
+.recipe-form .input,.recipe-map-form .input{margin-top:5px}
+.recipe-actions{display:flex;gap:8px;padding:0 12px 12px}
+.recipe-filter{min-width:150px;height:32px;padding:4px 8px}
+.recipe-map-form{display:grid;grid-template-columns:1.1fr 2fr .9fr auto auto;gap:10px;align-items:end;padding:12px;border-bottom:1px solid #d8dee7}
+.recipe-check{display:flex;align-items:center;gap:7px;min-height:42px;padding-bottom:1px}
+.recipe-part-search{display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px;border-bottom:1px solid #d8dee7}
+@media(max-width:1100px){.recipe-form{grid-template-columns:repeat(3,minmax(0,1fr))}.recipe-map-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.recipe-form,.recipe-map-form,.recipe-part-search{grid-template-columns:1fr}.recipe-filter{min-width:120px}.recipe-actions{flex-direction:column}.recipe-actions .btn{width:100%}}
+
+
+/* Chemical Line Operation Code -> Recipe v22 */
+.chemical-map-form{
+ display:grid;
+ grid-template-columns:1.1fr 2fr 1.2fr auto;
+ gap:10px;
+ align-items:end;
+ padding:12px;
+}
+.chemical-map-form label{
+ font-size:12px;
+ color:#475467;
+ font-weight:700;
+}
+.chemical-map-form .input{margin-top:5px}
+.chemical-map-filter{
+ width:220px;
+ height:32px;
+ padding:4px 8px;
+}
+@media(max-width:950px){
+ .chemical-map-form{grid-template-columns:1fr 1fr}
+}
+@media(max-width:650px){
+ .chemical-map-form{grid-template-columns:1fr}
+ .chemical-map-filter{width:150px}
+}
+
+
+/* Chemical Line multi-recipe v23 */
+.chemical-multi-map-form{
+ display:grid;
+ grid-template-columns:1.1fr 1.8fr .55fr 1.6fr 1.1fr auto auto;
+ gap:10px;
+ align-items:end;
+ padding:12px;
+}
+.chemical-multi-map-form label{
+ font-size:12px;
+ color:#475467;
+ font-weight:700;
+}
+.chemical-multi-map-form .input{margin-top:5px}
+.chemical-default-check{
+ min-height:42px;
+ display:flex;
+ align-items:center;
+ gap:7px;
+ padding-bottom:2px;
+ white-space:nowrap;
+}
+@media(max-width:1200px){
+ .chemical-multi-map-form{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:700px){
+ .chemical-multi-map-form{grid-template-columns:1fr}
+}
+
+
+/* Process Time by Recipe v24 */
+.time-family-tabs{
+ display:flex;
+ gap:8px;
+ padding:12px;
+ border-bottom:1px solid #d8dee7;
+ background:#fbfcfe;
+}
+.process-time-form{
+ display:grid;
+ gap:10px;
+ align-items:end;
+ padding:12px;
+}
+.process-time-form.fixed{
+ grid-template-columns:2fr 1fr .7fr .8fr 1.5fr auto;
+}
+.process-time-form.paint{
+ grid-template-columns:1.8fr 1fr .65fr .7fr .7fr .9fr .9fr .8fr 1.4fr auto;
+}
+.process-time-form label{
+ font-size:12px;
+ color:#475467;
+ font-weight:700;
+}
+.process-time-form .input{margin-top:5px}
+.process-time-actions{
+ display:flex;
+ gap:8px;
+ align-items:end;
+}
+.process-time-filter{
+ width:200px;
+ height:32px;
+ padding:4px 8px;
+}
+@media(max-width:1250px){
+ .process-time-form.paint{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .process-time-form.fixed{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:750px){
+ .time-family-tabs{overflow-x:auto}
+ .process-time-form.paint,.process-time-form.fixed{grid-template-columns:1fr}
+ .process-time-actions{flex-direction:column;align-items:stretch}
+ .process-time-filter{width:145px}
+}
+
+
+/* =========================================================
+   All Open Jobs / Planning Input v26
+   ========================================================= */
+.open-job-import-form{
+ display:grid;
+ grid-template-columns:minmax(0,1fr) auto;
+ gap:10px;
+ padding:12px;
+}
+.open-job-import-status{
+ padding:0 12px 12px;
+ color:var(--muted);
+ font-size:13px;
+}
+.open-job-status-tabs{
+ display:flex;
+ gap:0;
+ overflow-x:auto;
+ border:1px solid #cfd6df;
+ background:#fff;
+ scrollbar-width:none;
+}
+.open-job-status-tabs::-webkit-scrollbar{display:none}
+.open-job-status-tab{
+ flex:0 0 auto;
+ padding:10px 14px;
+ border-right:1px solid #e4e7ec;
+ border-bottom:3px solid transparent;
+ color:#475467;
+ font-size:12px;
+ font-weight:750;
+ white-space:nowrap;
+}
+.open-job-status-tab:hover{background:#f3f7fd;color:var(--brand)}
+.open-job-status-tab.active{
+ background:#eef4ff;
+ color:var(--brand);
+ border-bottom-color:var(--brand);
+}
+.open-job-search{
+ display:grid;
+ grid-template-columns:minmax(0,1fr) auto auto;
+ gap:10px;
+ margin-top:10px;
+}
+.open-job-history-filter{
+ display:grid;
+ grid-template-columns:180px minmax(0,1fr) auto;
+ gap:10px;
+}
+.open-job-table{min-width:1280px}
+.job-state{
+ display:inline-flex;
+ align-items:center;
+ min-height:22px;
+ padding:2px 7px;
+ border:1px solid #d0d5dd;
+ border-radius:3px;
+ font-size:10px;
+ font-weight:800;
+ letter-spacing:.03em;
+}
+.state-new{background:#ecfdf3;border-color:#abefc6;color:#067647}
+.state-changed{background:#fff6ed;border-color:#fedf89;color:#b54708}
+.state-unchanged{background:#f2f4f7;border-color:#d0d5dd;color:#475467}
+.state-closed{background:#fef3f2;border-color:#fecdca;color:#b42318}
+.job-detail-grid{
+ display:grid;
+ grid-template-columns:repeat(4,minmax(0,1fr));
+ background:#fff;
+}
+.job-kv{
+ min-height:64px;
+ padding:10px 12px;
+ border-right:1px solid #e4e7ec;
+ border-bottom:1px solid #e4e7ec;
+}
+.job-kv:nth-child(4n){border-right:0}
+.job-kv span{
+ display:block;
+ margin-bottom:5px;
+ color:#667085;
+ font-size:10px;
+ font-weight:750;
+ text-transform:uppercase;
+ letter-spacing:.04em;
+}
+.job-kv b{
+ display:block;
+ color:#101828;
+ font-size:13px;
+ overflow-wrap:anywhere;
+}
+.job-operation-chain{
+ padding:14px;
+ background:#fff;
+ white-space:pre-wrap;
+ overflow-wrap:anywhere;
+ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ font-size:12px;
+ line-height:1.6;
+}
+.job-source-value{
+ max-width:800px;
+ white-space:pre-wrap!important;
+ overflow-wrap:anywhere;
+}
+@media(max-width:900px){
+ .job-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .job-kv:nth-child(4n){border-right:1px solid #e4e7ec}
+ .job-kv:nth-child(2n){border-right:0}
+}
+@media(max-width:650px){
+ .open-job-import-form,
+ .open-job-search,
+ .open-job-history-filter{
+  grid-template-columns:1fr;
+ }
+ .open-job-import-form .btn,
+ .open-job-search .btn,
+ .open-job-history-filter .btn{width:100%}
+ .job-detail-grid{grid-template-columns:1fr}
+ .job-kv{border-right:0!important}
+}
+
+
+/* =========================================================
+   Planning Board v27
+   ========================================================= */
+.planning-page{max-width:1680px}
+.planning-filter{
+ display:grid;
+ grid-template-columns:1fr 1.4fr 1.8fr auto;
+ gap:10px;
+ align-items:end;
+}
+.planning-filter label{
+ font-size:12px;
+ font-weight:700;
+ color:#475467;
+}
+.planning-filter .input{margin-top:5px}
+
+.planning-board-grid{
+ display:grid;
+ grid-template-columns:minmax(0,1fr) 330px;
+ gap:14px;
+ align-items:start;
+}
+.planning-candidates{min-width:0}
+.planning-candidate-table{min-width:1100px}
+.planning-row-selected{background:#eef6ff!important}
+.planning-sub{
+ display:block;
+ margin-top:3px;
+ color:#667085;
+ font-size:10px;
+ font-weight:500;
+ max-width:260px;
+ white-space:normal;
+ line-height:1.3;
+}
+.planning-batch-panel{
+ position:sticky;
+ top:12px;
+}
+.planning-batch-body{
+ padding:12px;
+ display:grid;
+ gap:11px;
+}
+.planning-batch-body>label{
+ font-size:12px;
+ color:#475467;
+ font-weight:700;
+}
+.planning-batch-body>label .input{margin-top:5px}
+.planning-summary-grid{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ border:1px solid #e4e7ec;
+}
+.planning-summary-grid>div{
+ min-height:56px;
+ padding:8px 9px;
+ border-right:1px solid #e4e7ec;
+ border-bottom:1px solid #e4e7ec;
+}
+.planning-summary-grid>div:nth-child(2n){border-right:0}
+.planning-summary-grid span{
+ display:block;
+ color:#667085;
+ font-size:10px;
+ text-transform:uppercase;
+ margin-bottom:4px;
+}
+.planning-summary-grid b{
+ font-size:13px;
+ overflow-wrap:anywhere;
+}
+.planning-create-batch{width:100%}
+.planning-message{
+ padding:9px 10px;
+ background:#f8fafc;
+ border:1px solid #d8dee7;
+ font-size:12px;
+ overflow-wrap:anywhere;
+}
+.planning-batch-table{min-width:1350px}
+@media(max-width:1150px){
+ .planning-board-grid{grid-template-columns:1fr}
+ .planning-batch-panel{position:static}
+ .planning-filter{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+ .planning-filter{grid-template-columns:1fr}
+ .planning-summary-grid{grid-template-columns:1fr}
+ .planning-summary-grid>div{border-right:0}
+}
+
+
+/* Batch Job management v29 */
+.planning-batch-detail-summary{
+ display:grid;
+ grid-template-columns:repeat(4,minmax(0,1fr));
+ background:#fff;
+}
+.planning-batch-detail-summary>div{
+ min-height:66px;
+ padding:10px 12px;
+ border-right:1px solid #e4e7ec;
+ border-bottom:1px solid #e4e7ec;
+}
+.planning-batch-detail-summary>div:nth-child(4n){border-right:0}
+.planning-batch-detail-summary span{
+ display:block;
+ margin-bottom:5px;
+ color:#667085;
+ font-size:10px;
+ font-weight:750;
+ text-transform:uppercase;
+ letter-spacing:.04em;
+}
+.planning-batch-detail-summary b{
+ display:block;
+ font-size:13px;
+ overflow-wrap:anywhere;
+}
+.batch-add-filter{
+ display:grid;
+ grid-template-columns:1.2fr 1.5fr auto;
+ gap:10px;
+ align-items:end;
+ padding:12px;
+ border-bottom:1px solid #e4e7ec;
+}
+.batch-add-filter label{
+ font-size:12px;
+ font-weight:700;
+ color:#475467;
+}
+.batch-add-filter .input{margin-top:5px}
+.planning-batch-jobs-table{min-width:1000px}
+@media(max-width:900px){
+ .planning-batch-detail-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .planning-batch-detail-summary>div:nth-child(4n){border-right:1px solid #e4e7ec}
+ .planning-batch-detail-summary>div:nth-child(2n){border-right:0}
+ .batch-add-filter{grid-template-columns:1fr 1fr}
+}
+@media(max-width:650px){
+ .planning-batch-detail-summary{grid-template-columns:1fr}
+ .planning-batch-detail-summary>div{border-right:0!important}
+ .batch-add-filter{grid-template-columns:1fr}
+ .batch-add-filter .btn{width:100%}
+}
+
+
+/* Candidate Jobs - Full All Open Job columns v27 */
+.planning-candidate-table{
+ width:max-content;
+ min-width:100%;
+}
+.planning-candidate-table th,
+.planning-candidate-table td{
+ white-space:nowrap;
+}
+.planning-candidate-table .all-open-source-col{
+ max-width:260px;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+.planning-sticky-select{
+ position:sticky;
+ left:0;
+ z-index:4;
+ background:#fff;
+ min-width:42px;
+}
+.planning-sticky-job{
+ position:sticky;
+ left:42px;
+ z-index:3;
+ background:#fff;
+ min-width:120px;
+}
+.planning-candidate-table thead .planning-sticky-select,
+.planning-candidate-table thead .planning-sticky-job{
+ background:#f4f6f8;
+ z-index:6;
+}
+.planning-row-selected .planning-sticky-select,
+.planning-row-selected .planning-sticky-job{
+ background:#eef6ff;
+}
+
+
+/* Candidate Jobs main Planning Board - full All Open Job v29 */
+.planning-candidates{
+ min-width:0;
+ overflow:hidden;
+}
+.planning-candidates .table-wrap{
+ overflow-x:auto;
+}
+.planning-candidates .planning-candidate-table{
+ width:max-content;
+ min-width:100%;
+}
+.planning-candidates .planning-candidate-table th,
+.planning-candidates .planning-candidate-table td{
+ white-space:nowrap;
+}
+.planning-candidates .all-open-source-col{
+ max-width:280px;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+
+
+/* Candidate Jobs column picker v30 */
+.candidate-column-picker{
+ border-bottom:1px solid #d8dee7;
+ background:#fff;
+ padding:12px;
+}
+.candidate-column-picker-head{
+ display:grid;
+ grid-template-columns:auto minmax(220px,1fr) auto;
+ gap:12px;
+ align-items:center;
+ margin-bottom:10px;
+}
+.candidate-column-picker-grid{
+ display:grid;
+ grid-template-columns:repeat(4,minmax(0,1fr));
+ gap:7px;
+ max-height:260px;
+ overflow:auto;
+ padding-right:4px;
+}
+.candidate-column-choice{
+ display:grid;
+ grid-template-columns:auto minmax(0,1fr);
+ gap:2px 8px;
+ align-items:center;
+ border:1px solid #e1e6ed;
+ background:#fafbfd;
+ padding:8px 9px;
+ font-size:12px;
+ cursor:pointer;
+}
+.candidate-column-choice input{
+ grid-row:1 / span 2;
+}
+.candidate-column-choice span{
+ overflow:hidden;
+ text-overflow:ellipsis;
+ white-space:nowrap;
+ font-weight:650;
+}
+.candidate-column-choice small{
+ color:#667085;
+ font-size:10px;
+}
+@media(max-width:1050px){
+ .candidate-column-picker-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:700px){
+ .candidate-column-picker-head{grid-template-columns:1fr}
+ .candidate-column-picker-grid{grid-template-columns:1fr}
+}
+
+
+/* Candidate planning status v31 */
+.job-state.state-eligible{
+ background:#ecfdf3;
+ color:#027a48;
+ border:1px solid #abefc6;
+}
+.job-state.state-planned{
+ background:#eef4ff;
+ color:#175cd3;
+ border:1px solid #b2ccff;
+}
+.planning-row-planned{
+ background:#f7f8fa !important;
+ color:#667085;
+}
+.planning-row-planned:hover{
+ background:#f1f3f6 !important;
+}
+.planning-row-planned input[type="checkbox"]{
+ cursor:not-allowed;
+ opacity:.45;
+}
+
+
+/* Scheduling Board v38 */
+.schedule-rule-strip{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #cfd6df;padding:9px 12px;font-size:12px}
+.schedule-rule-strip span{padding:4px 8px;background:#f4f6f8;border:1px solid #e4e7ec}
+.schedule-rule-strip b:not(:first-child){margin-left:12px}
+.schedule-add-form{margin-top:12px;display:grid;grid-template-columns:2fr 1.3fr 1.3fr .7fr auto;gap:10px;align-items:end}
+.schedule-add-form label{font-size:12px;font-weight:700;color:#475467}
+.schedule-add-form label .input{margin-top:5px}
+.schedule-preview{min-height:38px;padding:6px 10px;border:1px solid #e4e7ec;background:#f8fafc}
+.schedule-preview span{display:block;font-size:10px;color:#667085}.schedule-preview b{font-family:ui-monospace,monospace}
+.schedule-message{grid-column:1/-1;margin:0!important}
+.schedule-table{min-width:1650px}
+.schedule-table th{text-align:center;white-space:nowrap}.schedule-table td{text-align:center;white-space:nowrap}
+.schedule-table td:nth-child(11){text-align:left;white-space:normal;min-width:180px}
+.schedule-resource-list{background:#fff}
+.schedule-resource-row{display:grid;grid-template-columns:100px minmax(0,1fr);min-height:48px;border-bottom:1px solid #e8ebef}
+.schedule-resource-row:last-child{border-bottom:0}
+.schedule-resource-row>b{padding:14px 12px;background:#f8fafc;border-right:1px solid #e4e7ec;font-size:12px}
+.schedule-resource-row>div{display:flex;align-items:center;gap:7px;overflow-x:auto;padding:7px 10px}
+.schedule-chip{display:inline-flex;white-space:nowrap;padding:7px 9px;border:1px solid #cfd6df;background:#f8fafc;font-size:11px;font-weight:700}
+.schedule-chip.chemical{background:#e9f8f8;border-color:#9ed9d9;color:#176b70}
+.schedule-chip.paint{background:#edf8ee;border-color:#aad7ae;color:#246b2d}
+.erp-page-head form{display:flex;gap:6px;align-items:center}
+@media(max-width:900px){.schedule-add-form{grid-template-columns:1fr 1fr}.schedule-rule-strip{align-items:flex-start}.schedule-resource-row{grid-template-columns:72px minmax(0,1fr)}}
+@media(max-width:600px){.schedule-add-form{grid-template-columns:1fr}.schedule-preview,.schedule-add-form .btn{width:100%}.erp-page-head form{width:100%}.erp-page-head form .input{flex:1}}
+
+.schedule-chip.other{background:#f5f5f5;border-color:#d0d5dd;color:#344054}
+
+
+/* Unified Production Timeline v43 */
+.production-timeline .schedule-resource-row{
+ grid-template-columns:170px minmax(0,1fr);
+}
+.schedule-resource-label{
+ padding:9px 12px;
+ background:#f8fafc;
+ border-right:1px solid #e4e7ec;
+ display:flex;
+ flex-direction:column;
+ justify-content:center;
+}
+.schedule-resource-label b{font-size:12px}
+.schedule-resource-label small{font-size:10px;color:#667085;margin-top:2px}
+.production-timeline .schedule-chip{
+ display:inline-grid;
+ grid-template-columns:auto;
+ gap:2px;
+ align-items:start;
+ min-width:155px;
+}
+.production-timeline .schedule-chip b{font-size:11px}
+.production-timeline .schedule-chip span{font-size:10px}
+.schedule-empty-slot{color:#98a2b3;font-size:12px}
+@media(max-width:700px){
+ .production-timeline .schedule-resource-row{grid-template-columns:110px minmax(0,1fr)}
+}
+
+
+/* Batch management v48 */
+.batch-list-actions{
+ display:flex;
+ align-items:flex-start;
+ gap:10px;
+ min-width:250px;
+}
+.batch-row-actions{
+ display:flex;
+ flex-direction:column;
+ gap:6px;
+ min-width:190px;
+}
+.batch-row-buttons{
+ display:flex;
+ gap:5px;
+ flex-wrap:wrap;
+}
+.batch-recipe-editor{
+ display:grid;
+ grid-template-columns:minmax(180px,1fr) auto;
+ gap:5px;
+ align-items:center;
+ min-width:340px;
+}
+.batch-recipe-editor .input{
+ min-height:32px;
+ padding:6px 8px;
+ font-size:12px;
+}
+.batch-action-error{
+ display:block;
+ max-width:340px;
+ color:#b42318;
+ white-space:normal;
+ line-height:1.35;
+}
+@media(max-width:700px){
+ .batch-list-actions{min-width:220px}
+ .batch-recipe-editor{
+  grid-template-columns:1fr;
+  min-width:220px;
+ }
+}
+
+
+/* Production Timeline 24h frame v51 */
+.production-timeline-panel{overflow:hidden}
+.production-timeline-scroll{
+ overflow-x:auto;
+ overflow-y:hidden;
+ -webkit-overflow-scrolling:touch;
+}
+.production-timeline-frame{
+ min-width:1800px;
+ background:#fff;
+}
+.production-timeline-hours{
+ display:grid;
+ grid-template-columns:150px minmax(0,1fr);
+ position:sticky;
+ top:0;
+ z-index:4;
+ border-bottom:1px solid #cfd6df;
+ background:#f8fafc;
+ min-height:42px;
+}
+.production-timeline-corner{
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ font-size:11px;
+ font-weight:800;
+ color:#475467;
+ border-right:1px solid #cfd6df;
+}
+.production-timeline-hour-track{
+ position:relative;
+ min-height:42px;
+ background-image:
+  repeating-linear-gradient(
+   to right,
+   transparent 0,
+   transparent calc(4.1666667% - 1px),
+   #dfe4ea calc(4.1666667% - 1px),
+   #dfe4ea 4.1666667%
+  );
+}
+.production-timeline-hour{
+ position:absolute;
+ top:12px;
+ transform:translateX(-50%);
+ font-size:10px;
+ font-variant-numeric:tabular-nums;
+ color:#475467;
+ white-space:nowrap;
+}
+.production-timeline-hour:first-child{transform:none}
+.production-timeline-hour:last-child{transform:translateX(-100%)}
+.production-timeline-row{
+ display:grid;
+ grid-template-columns:150px minmax(0,1fr);
+ min-height:62px;
+ border-bottom:1px solid #e8ebef;
+}
+.production-timeline-row:last-child{border-bottom:0}
+.production-timeline-row .schedule-resource-label{
+ position:sticky;
+ left:0;
+ z-index:3;
+ border-right:1px solid #d8dee7;
+ background:#f8fafc;
+}
+.production-timeline-track{
+ position:relative;
+ min-height:62px;
+ background-image:
+  repeating-linear-gradient(
+   to right,
+   transparent 0,
+   transparent calc(4.1666667% - 1px),
+   #edf0f3 calc(4.1666667% - 1px),
+   #edf0f3 4.1666667%
+  );
+}
+.production-timeline-batch{
+ position:absolute!important;
+ top:5px;
+ bottom:5px;
+ overflow:hidden;
+ min-width:8px;
+ margin:0!important;
+ padding:5px 6px!important;
+ display:flex!important;
+ flex-direction:column;
+ gap:1px;
+ border-radius:2px;
+ box-sizing:border-box;
+}
+.production-timeline-batch b,
+.production-timeline-batch span{
+ overflow:hidden;
+ text-overflow:ellipsis;
+ white-space:nowrap;
+}
+.production-timeline-batch b{font-size:10px}
+.production-timeline-batch span{font-size:9px}
+@media(max-width:700px){
+ .production-timeline-frame{min-width:1550px}
+ .production-timeline-hours,
+ .production-timeline-row{
+  grid-template-columns:115px minmax(0,1fr);
+ }
+}
+
+.schedule-duration-hint{
+ display:block;
+ margin-top:4px;
+ font-size:10px;
+ color:#667085;
+ line-height:1.3;
+}
+
+.batch-panel-tools{
+ display:flex;
+ align-items:center;
+ gap:10px;
+}
+.reset-all-batches{
+ display:flex;
+ align-items:center;
+ gap:8px;
+}
+
+/* Candidate Display Rules v61 */
+.candidate-display-rules{
+ border-bottom:1px solid #d8dee7;
+ background:#fbfcfe;
+ padding:10px 12px;
+}
+.candidate-display-rules-head,
+.candidate-sort-title{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:10px;
+ margin-bottom:8px;
+}
+.candidate-display-rules-head>div{
+ display:flex;
+ flex-direction:column;
+ gap:2px;
+}
+.candidate-display-rules-head small{color:#667085;font-size:10px}
+.candidate-filter-grid{
+ display:grid;
+ grid-template-columns:repeat(5,minmax(150px,1fr));
+ gap:8px;
+ margin-bottom:10px;
+}
+.candidate-filter-grid label{
+ font-size:10px;
+ font-weight:700;
+ color:#475467;
+}
+.candidate-filter-grid .input{margin-top:4px}
+.candidate-sort-rules{
+ border-top:1px solid #e4e7ec;
+ padding-top:9px;
+}
+.candidate-sort-row{
+ display:grid;
+ grid-template-columns:28px minmax(180px,280px) 90px 34px;
+ gap:6px;
+ align-items:center;
+ margin-top:5px;
+}
+.candidate-sort-level{
+ width:24px;height:24px;
+ display:flex;align-items:center;justify-content:center;
+ border:1px solid #d0d5dd;
+ background:#fff;
+ font-size:11px;font-weight:800;
+}
+@media(max-width:900px){
+ .candidate-filter-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}
+}
+@media(max-width:560px){
+ .candidate-filter-grid{grid-template-columns:1fr}
+ .candidate-sort-row{grid-template-columns:28px 1fr 78px 34px}
+}
+
+.candidate-view-message{
+ margin:0 0 8px;
+ padding:6px 8px;
+ border:1px solid #b8d4ff;
+ background:#eef5ff;
+ color:#1849a9;
+ font-size:11px;
+}
+
+
+/* Candidate column ordering v67 */
+.candidate-column-order-grid{
+ display:grid;
+ grid-template-columns:repeat(2,minmax(320px,1fr));
+ gap:6px;
+}
+.candidate-column-order-item{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:8px;
+ min-height:38px;
+ padding:5px 7px;
+ border:1px solid #e4e7ec;
+ background:#fff;
+}
+.candidate-column-order-item.is-visible{
+ border-color:#b8d4ff;
+ background:#f7fbff;
+}
+.candidate-column-toggle{
+ display:grid;
+ grid-template-columns:18px minmax(120px,1fr) auto;
+ gap:6px;
+ align-items:center;
+ flex:1;
+ min-width:0;
+}
+.candidate-column-toggle span{
+ overflow:hidden;
+ text-overflow:ellipsis;
+ white-space:nowrap;
+}
+.candidate-column-toggle small{
+ color:#667085;
+ font-size:9px;
+}
+.candidate-column-order-actions{
+ display:flex;
+ align-items:center;
+ gap:3px;
+ flex:0 0 auto;
+}
+.candidate-column-order-actions .btn.small{
+ min-width:27px;
+ padding:3px 5px;
+}
+.candidate-column-order-number{
+ min-width:24px;
+ text-align:center;
+ font-size:10px;
+ font-weight:800;
+ color:#475467;
+}
+@media(max-width:800px){
+ .candidate-column-order-grid{grid-template-columns:1fr}
+}
+
+
+/* Planning Board wide / compact Batch Builder v68 */
+.planning-page{
+ max-width:none!important;
+ width:100%!important;
+ padding-left:8px!important;
+ padding-right:8px!important;
+}
+.planning-board-grid{
+ grid-template-columns:minmax(0,1fr) 230px!important;
+ gap:8px!important;
+}
+.planning-candidates{
+ width:100%;
+ min-width:0;
+}
+.planning-batch-panel{
+ width:230px;
+ min-width:230px;
+}
+.planning-batch-head{
+ min-height:34px;
+ padding:7px 9px!important;
+}
+.planning-batch-body-compact{
+ padding:7px!important;
+ gap:7px!important;
+}
+.planning-summary-grid-compact>div{
+ min-height:44px!important;
+ padding:6px 7px!important;
+}
+.planning-summary-grid-compact span{
+ font-size:8.5px!important;
+ margin-bottom:2px!important;
+}
+.planning-summary-grid-compact b{
+ font-size:11px!important;
+ line-height:1.15;
+}
+.planning-summary-grid-compact .planning-process-time{
+ grid-column:1/-1;
+ border-right:0!important;
+ min-height:40px!important;
+}
+.planning-create-batch{
+ min-height:30px;
+ padding:6px 7px!important;
+ font-size:10px!important;
+}
+
+/* Candidate table: use available width efficiently. */
+.planning-candidate-table{
+ width:max-content!important;
+ min-width:100%!important;
+ table-layout:auto!important;
+ font-size:10px!important;
+}
+.planning-candidate-table th{
+ padding:5px 6px!important;
+ font-size:9px!important;
+ line-height:1.1!important;
+ white-space:nowrap!important;
+ vertical-align:middle!important;
+ text-align:left;
+}
+.planning-candidate-table td{
+ padding:5px 6px!important;
+ font-size:10px!important;
+ line-height:1.15!important;
+ white-space:nowrap;
+ vertical-align:middle!important;
+}
+.planning-candidate-table th.num,
+.planning-candidate-table td.num{
+ text-align:right!important;
+}
+.planning-candidate-table .planning-sub{
+ font-size:8.5px!important;
+ line-height:1.1!important;
+ margin-top:2px!important;
+ max-width:210px;
+}
+.planning-candidate-table .all-open-source-col{
+ max-width:230px;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+.planning-candidate-table td:nth-child(2),
+.planning-candidate-table td:nth-child(3){
+ font-size:9.5px!important;
+}
+
+/* Let the table consume almost the whole viewport before horizontal scrolling. */
+.planning-candidates .table-wrap{
+ width:100%;
+ overflow-x:auto;
+}
+@media(max-width:1150px){
+ .planning-board-grid{
+  grid-template-columns:minmax(0,1fr) 210px!important;
+ }
+ .planning-batch-panel{
+  width:210px;
+  min-width:210px;
+  position:sticky!important;
+ }
+}
+@media(max-width:760px){
+ .planning-board-grid{
+  grid-template-columns:1fr!important;
+ }
+ .planning-batch-panel{
+  width:100%;
+  min-width:0;
+  position:static!important;
+ }
+}
+
+
+/* Drag & Drop interactions v69 */
+.candidate-column-order-item[draggable="true"],
+.candidate-sort-row[draggable="true"],
+.planning-candidate-table tr[draggable="true"]{
+ cursor:grab;
+}
+.is-dragging,
+.planning-row-dragging{
+ opacity:.45;
+}
+.planning-batch-drop-ready{
+ outline:2px dashed #2273d1;
+ outline-offset:2px;
+}
+.schedule-dnd-board{
+ display:grid;
+ grid-template-columns:minmax(280px,360px) minmax(0,1fr);
+ gap:10px;
+ margin-top:10px;
+}
+.schedule-dnd-pool,
+.schedule-dnd-resources{
+ border:1px solid #d8dee7;
+ background:#fff;
+ padding:8px;
+}
+.schedule-dnd-pool-head{
+ display:flex;
+ flex-direction:column;
+ gap:2px;
+ margin-bottom:8px;
+}
+.schedule-dnd-pool-head small,
+.schedule-dnd-section small{
+ color:#667085;
+ font-size:10px;
+}
+.schedule-dnd-section{
+ border-top:1px solid #edf0f3;
+ padding-top:7px;
+ margin-top:7px;
+}
+.schedule-dnd-batches{
+ display:flex;
+ flex-wrap:wrap;
+ gap:5px;
+ margin-top:5px;
+}
+.schedule-dnd-batch{
+ display:flex;
+ flex-direction:column;
+ gap:2px;
+ align-items:flex-start;
+ min-width:130px;
+ border:1px solid #cfd6df;
+ background:#f8fafc;
+ padding:6px 7px;
+ cursor:grab;
+ text-align:left;
+}
+.schedule-dnd-batch.scheduled{
+ background:#eef5ff;
+}
+.schedule-dnd-batch strong{font-size:10px}
+.schedule-dnd-batch span{font-size:9px;color:#475467}
+.schedule-dnd-resources{
+ display:grid;
+ grid-template-columns:repeat(4,minmax(120px,1fr));
+ gap:6px;
+ align-content:start;
+}
+.schedule-dnd-resource{
+ min-height:64px;
+ border:1px dashed #98a2b3;
+ background:#fbfcfe;
+ padding:7px;
+ display:flex;
+ flex-direction:column;
+ gap:2px;
+ transition:background .12s,border-color .12s;
+}
+.schedule-dnd-resource.is-over{
+ border-color:#2273d1;
+ background:#eef5ff;
+}
+.schedule-dnd-resource b{font-size:10px}
+.schedule-dnd-resource span{font-size:9px}
+.schedule-dnd-resource small{font-size:8px;color:#667085}
+@media(max-width:900px){
+ .schedule-dnd-board{grid-template-columns:1fr}
+ .schedule-dnd-resources{grid-template-columns:repeat(2,minmax(120px,1fr))}
+}
+
+
+/* Operation Master rename v70 */
+.operation-name-input{
+ min-width:150px;
+ height:30px;
+ padding:4px 7px!important;
+ font-weight:700;
+}
+.operation-rename-message{
+ margin:8px 10px 0;
+}
+
+
+/* Candidate business priority highlight v72 */
+.planning-candidate-table tr.priority-cat3>td{
+ background:#fff1f0;
+}
+.planning-candidate-table tr.priority-cat5>td{
+ background:#fff8e8;
+}
+.planning-candidate-table tr.priority-sales>td{
+ background:#eef7ff;
+}
+.planning-candidate-table tr.priority-current-month>td{
+ background:#f2f8ef;
+}
+.planning-candidate-table td.candidate-priority-cell{
+ font-weight:800;
+}
+.planning-candidate-table td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+ border-left:3px solid #b42318;
+}
+.planning-candidate-table td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+ border-left:3px solid #b54708;
+}
+.planning-candidate-table td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+ border-left:3px solid #175cd3;
+}
+.planning-candidate-table td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+ border-left:3px solid #3f7d20;
+}
+.planning-candidate-table tr.planning-row-selected>td{
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+
+
+/* Auto Planning Rule Master v75 */
+.auto-planning-rule-manager{
+ display:grid;
+ gap:12px;
+}
+.auto-rule-message{margin-bottom:0}
+.auto-rule-summary{min-width:1250px}
+.auto-rule-summary tr.auto-rule-enabled>td{
+ background:#f4fbf6;
+}
+.auto-rule-editor{
+ border-top:3px solid #2457a6;
+}
+.auto-rule-body{
+ padding:10px;
+ display:grid;
+ gap:10px;
+}
+.auto-rule-section{
+ border:1px solid #e4e7ec;
+ background:#fbfcfe;
+ padding:9px;
+}
+.auto-rule-section h3{
+ margin:0 0 8px;
+ font-size:12px;
+}
+.auto-rule-section-head{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ gap:8px;
+ margin-bottom:8px;
+}
+.auto-rule-section-head h3{margin:0}
+.auto-rule-grid{
+ display:grid;
+ grid-template-columns:repeat(3,minmax(160px,1fr));
+ gap:8px;
+ align-items:end;
+}
+.auto-rule-grid>label,
+.auto-rule-limit-grid>label{
+ font-size:10px;
+ font-weight:700;
+ color:#475467;
+}
+.auto-rule-grid .input,
+.auto-rule-limit-grid .input{
+ margin-top:4px;
+}
+.auto-rule-toggle-grid{
+ display:grid;
+ grid-template-columns:repeat(4,minmax(190px,1fr));
+ gap:6px;
+}
+.auto-rule-toggle{
+ display:flex;
+ align-items:center;
+ gap:6px;
+ min-height:34px;
+ padding:6px 7px;
+ border:1px solid #dfe4ea;
+ background:#fff;
+ font-size:10px;
+ font-weight:700;
+ cursor:pointer;
+}
+.auto-rule-limit-grid{
+ display:grid;
+ grid-template-columns:repeat(6,minmax(130px,1fr));
+ gap:7px;
+}
+.auto-rule-priority-list{
+ display:grid;
+ gap:5px;
+}
+.auto-rule-priority-row{
+ display:grid;
+ grid-template-columns:28px minmax(260px,1fr) 90px 34px;
+ gap:6px;
+ align-items:center;
+}
+.auto-rule-priority-row>span{
+ text-align:center;
+ font-size:10px;
+ font-weight:800;
+}
+.auto-rule-savebar{
+ display:flex;
+ justify-content:flex-end;
+}
+.auto-rule-help-table{
+ min-width:950px;
+}
+.auto-rule-help-table code{
+ font-size:10px;
+}
+.auto-rule-logic-note code{
+ font-size:10px;
+}
+@media(max-width:1100px){
+ .auto-rule-toggle-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}
+ .auto-rule-limit-grid{grid-template-columns:repeat(3,minmax(130px,1fr))}
+}
+@media(max-width:700px){
+ .auto-rule-grid,
+ .auto-rule-toggle-grid,
+ .auto-rule-limit-grid{grid-template-columns:1fr}
+ .auto-rule-priority-row{grid-template-columns:28px 1fr 80px 34px}
+}

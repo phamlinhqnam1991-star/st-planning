@@ -1,0 +1,177 @@
+import Link from "next/link";
+import {notFound} from "next/navigation";
+import {AppTabs} from "@/components/app-tabs";
+import {BatchDetailManager} from "@/components/batch-detail-manager";
+import {getPool} from "@/lib/db";
+
+export const dynamic="force-dynamic";
+
+const formatNumber=(value:unknown, maxDecimals=2)=>{
+ const n=Number(value??0);
+ if(!Number.isFinite(n))return "0";
+ const fixed=n.toFixed(maxDecimals);
+ let [whole,decimal]=fixed.split(".");
+ whole=whole.replace(/\B(?=(\d{3})+(?!\d))/g,".");
+ decimal=(decimal||"").replace(/0+$/,"");
+ return decimal?`${whole},${decimal}`:whole;
+};
+
+const hhmm=(minutes:number|null)=>{
+ if(minutes==null)return "—";
+ const h=Math.floor(minutes/60),m=minutes%60;
+ return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+};
+
+export default async function Page({
+ params,searchParams
+}:{
+ params:Promise<{id:string}>,
+ searchParams:Promise<{next?:string}>
+}){
+ const {id}=await params;
+ const sp=await searchParams;
+ const batchId=Number(id);
+ if(!Number.isFinite(batchId))notFound();
+
+ const c=await getPool().connect();
+ try{
+   const batchQ=await c.query(`
+     select
+       b.id,b.batch_no,b.planning_date,b.standard_operation,b.recipe_key,
+       b.total_jobs,b.total_qty,b.total_surface_dm2,b.process_minutes,
+       b.planned_start,b.planned_end,b.status,b.priority,b.note,
+       a.area_name,
+       r.recipe_no,r.recipe_name
+     from planning_batch b
+     left join md_area a on a.id=b.area_id
+     left join md_process_recipe r on r.recipe_key=b.recipe_key
+     where b.id=$1
+   `,[batchId]);
+
+   if(!batchQ.rowCount)notFound();
+   const batch=batchQ.rows[0];
+
+   const [jobsQ,candidatesQ]=await Promise.all([
+     c.query(`
+       select
+         bj.id batch_job_id,
+         bj.planning_job_operation_id,
+         bj.job_num,
+         j.part_num,j.revision_num,j.priority_type,
+         bj.qty,bj.surface_dm2,
+         bj.source_operation_code,bj.standard_operation,
+         (
+           select p2.standard_operation
+           from planning_job_operation p2
+           where p2.job_num=bj.job_num
+             and p2.is_active=true
+             and p2.planning_seq>(
+               select planning_seq from planning_job_operation where id=bj.planning_job_operation_id
+             )
+           order by p2.planning_seq
+           limit 1
+         ) next_standard_operation
+       from planning_batch_job bj
+       join open_job_current j on j.job_num=bj.job_num
+       where bj.batch_id=$1
+       order by bj.job_num
+     `,[batchId]),
+     c.query(`
+       select
+         p.id,p.job_num,p.source_operation_code,p.standard_operation,
+         j.part_num,j.revision_num,j.priority_type,
+         j.source_data,
+         j.program,j.part_cluster,j.part_description,
+         j.prod_qty,j.current_good_wip_qty,j.last_labor_qty,
+         j.last_operation,j.next_operation,j.all_operation,
+         j.total_surface,j.surface_per_part_dm2,
+         j.open_dmr,j.st,j.st_wip_area,j.wip_sequence,
+         j.cat35_transit,j.impact_sale_value,
+         j.last_import_status,j.first_seen_at,j.last_seen_at,j.last_changed_at,
+         coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0) plan_qty,
+         coalesce(
+           j.total_surface,
+           coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)
+             * coalesce(j.surface_per_part_dm2,0),
+           0
+         ) plan_surface,
+         coalesce(r.recipe_no,br.recipe_no) recipe_no,
+         coalesce(r.recipe_name,br.recipe_name) recipe_name,
+         (
+           select p2.standard_operation
+           from planning_job_operation p2
+           where p2.job_num=p.job_num
+             and p2.is_active=true
+             and p2.planning_seq>p.planning_seq
+           order by p2.planning_seq
+           limit 1
+         ) next_standard_operation
+       from planning_job_operation p
+       join open_job_current j on j.job_num=p.job_num
+       left join md_process_recipe r on r.recipe_key=p.recipe_key and r.is_active=true
+       left join md_process_recipe br on br.recipe_key=$1::text and br.is_active=true
+       where p.is_active=true
+         and p.status='ELIGIBLE'
+         and j.is_open=true
+         and p.standard_operation=$2::text
+         and (
+           $1::text is null
+           or p.recipe_key=$1::text
+           or (
+             p.recipe_key is null
+             and exists(
+               select 1
+               from md_operation_code_recipe ocr
+               where ocr.operation_code=p.source_operation_code
+                 and ocr.recipe_key=$1::text
+                 and ocr.is_active=true
+             )
+           )
+         )
+       order by p.job_num
+       limit 1000
+     `,[batch.recipe_key,batch.standard_operation])
+   ]);
+
+   return <main className="erp-shell">
+    <header className="erp-header">
+     <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
+     <div className="erp-env">BATCH DETAIL</div>
+    </header>
+
+    <AppTabs active="planning"/>
+
+    <section className="erp-content erp-content-full planning-page">
+     <div className="erp-page-head">
+      <div>
+       <h2>{batch.batch_no||`PB-${batch.id}`}</h2>
+       <p>{batch.area_name||"—"} · {batch.standard_operation}</p>
+      </div>
+      <Link className="btn" href="/planning">← Planning Board</Link>
+     </div>
+
+     <div className="erp-table-panel">
+      <div className="planning-batch-detail-summary">
+       <div><span>Operation</span><b>{batch.standard_operation}</b></div>
+       <div><span>Recipe</span><b>{batch.recipe_no?`${batch.recipe_no} · ${batch.recipe_name||""}`:"—"}</b></div>
+       <div><span>Jobs</span><b>{batch.total_jobs}</b></div>
+       <div><span>Total Qty</span><b>{formatNumber(batch.total_qty)}</b></div>
+       <div><span>Total Surface</span><b>{formatNumber(batch.total_surface_dm2)} dm²</b></div>
+       <div><span>Process Time</span><b>{hhmm(batch.process_minutes)}</b></div>
+       <div><span>Status</span><b>{batch.status}</b></div>
+       <div><span>Priority</span><b>{batch.priority}</b></div>
+      </div>
+     </div>
+
+     <BatchDetailManager
+      batchId={batchId}
+      jobs={jobsQ.rows as any}
+      candidates={candidatesQ.rows as any}
+      initialNextFilter={sp.next||""}
+     />
+    </section>
+   </main>
+ }finally{
+   c.release();
+ }
+}

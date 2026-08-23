@@ -1,0 +1,147 @@
+"use client";
+
+import {useState} from "react";
+
+type Row={
+ standard_operation:string;
+ st_group:string;
+ time_calc_type:string|null;
+ priority:number|null;
+ qty_min:number|null;
+ qty_max:number|null;
+ surface_min_dm2:number|null;
+ surface_max_dm2:number|null;
+ fixed_hours:number|null;
+ standard_hours:number|null;
+ note:string|null;
+};
+
+export function OperationMasterManager({rows}:{rows:Row[]}){
+ const [editing,setEditing]=useState<string|null>(null);
+ const [name,setName]=useState("");
+ const [busy,setBusy]=useState(false);
+ const [message,setMessage]=useState("");
+
+ function begin(row:Row){
+  setEditing(row.standard_operation);
+  setName(row.standard_operation);
+  setMessage("");
+ }
+
+ async function save(){
+  if(!editing)return;
+  const next=name.trim().toUpperCase();
+
+  if(!next){
+   setMessage("Tên công đoạn không được để trống.");
+   return;
+  }
+
+  if(next===editing){
+   setEditing(null);
+   return;
+  }
+
+  const ok=window.confirm(
+   `Đổi tên công đoạn "${editing}" thành "${next}"?\n\n`+
+   `Hệ thống sẽ cập nhật các liên kết Planning/Recipe/Batch liên quan.`
+  );
+  if(!ok)return;
+
+  setBusy(true);
+  setMessage("");
+
+  try{
+   const r=await fetch("/api/config/operation-master/rename",{
+    method:"POST",
+    headers:{"content-type":"application/json"},
+    body:JSON.stringify({
+     old_name:editing,
+     new_name:next
+    })
+   });
+   const d=await r.json();
+
+   if(!r.ok)throw new Error(d.error||"Không đổi được tên công đoạn.");
+
+   setMessage(`Đã đổi ${editing} → ${next}.`);
+   setEditing(null);
+   setTimeout(()=>location.reload(),700);
+  }catch(e){
+   setMessage(e instanceof Error?e.message:"Không đổi được tên công đoạn.");
+  }finally{
+   setBusy(false);
+  }
+ }
+
+ return <div className="erp-table-panel section">
+  <div className="erp-panel-head">
+   <b>Operation Master</b>
+   <span>{rows.length} active records</span>
+  </div>
+
+  {message&&<div className="notice operation-rename-message">{message}</div>}
+
+  <div className="table-wrap">
+   <table className="erp-table">
+    <thead>
+     <tr>
+      <th>standard_operation</th>
+      <th>st_group</th>
+      <th>time_calc_type</th>
+      <th>priority</th>
+      <th>qty_min</th>
+      <th>qty_max</th>
+      <th>surface_min_dm2</th>
+      <th>surface_max_dm2</th>
+      <th>fixed_hours</th>
+      <th>standard_hours</th>
+      <th>note</th>
+      <th>Action</th>
+     </tr>
+    </thead>
+    <tbody>
+     {rows.map(row=>
+      <tr key={row.standard_operation}>
+       <td>
+        {editing===row.standard_operation
+         ? <input
+            className="input operation-name-input"
+            value={name}
+            onChange={e=>setName(e.target.value)}
+            disabled={busy}
+            autoFocus
+           />
+         : <b>{row.standard_operation}</b>}
+       </td>
+       <td>{row.st_group}</td>
+       <td>{row.time_calc_type||""}</td>
+       <td>{row.priority??""}</td>
+       <td>{row.qty_min??""}</td>
+       <td>{row.qty_max??""}</td>
+       <td>{row.surface_min_dm2??""}</td>
+       <td>{row.surface_max_dm2??""}</td>
+       <td>{row.fixed_hours??""}</td>
+       <td>{row.standard_hours??""}</td>
+       <td>{row.note||""}</td>
+       <td>
+        {editing===row.standard_operation
+         ? <div className="row">
+            <button className="btn primary small" type="button" disabled={busy} onClick={save}>
+             Save
+            </button>
+            <button className="btn small" type="button" disabled={busy} onClick={()=>setEditing(null)}>
+             Cancel
+            </button>
+           </div>
+         : <button className="btn small" type="button" disabled={busy} onClick={()=>begin(row)}>
+            Edit Name
+           </button>}
+       </td>
+      </tr>
+     )}
+    </tbody>
+   </table>
+  </div>
+ </div>
+}

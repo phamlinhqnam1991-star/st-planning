@@ -14,7 +14,9 @@ const tables=[
   "md_st_routing",
   "md_part_routing",
   "md_area",
-  "md_st_group"
+  "md_st_group",
+  "md_process_recipe",
+  "md_auto_planning_rule"
 ] as const;
 
 export async function getStats(){

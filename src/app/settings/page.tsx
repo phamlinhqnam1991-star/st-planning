@@ -7,6 +7,7 @@ const sub=[
  {key:"operationmapping",label:"ST Operation Mapping",href:"/master/operationmapping"},
  {key:"stgroup",label:"ST Group Master",href:"/st-groups"},
  {key:"area",label:"Area Master",href:"/area"},
+ {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},{key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"},
 ];
 export default async function Page(){
  const data=await getStats(),c=data.counts;
@@ -15,6 +16,8 @@ export default async function Page(){
   ["ST Operation Mapping","Operation Code → ST Group / Standard Operation",c.md_st_operation_mapping,"/master/operationmapping"],
   ["ST Group Master","Danh mục nhóm công đoạn ST",c.md_st_group,"/st-groups"],
   ["Area Master","Danh mục Area + gán ST Group",c.md_area,"/area"],
+  ["Process Recipe","Recipe theo process; Phase 1 Paint",c.md_process_recipe,"/process-recipes"],
+  ["Auto Planning Rules","Rule tự động gom Batch theo từng Standard Operation",c.md_auto_planning_rule||0,"/auto-planning-rules"],
  ];
  return <main className="erp-shell">
   <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION</div></header>

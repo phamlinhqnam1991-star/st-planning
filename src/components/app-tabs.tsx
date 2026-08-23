@@ -1,12 +1,15 @@
 import Link from "next/link";
 
-export type AppTab="master"|"config"|"tracker"|"import";
+export type AppTab="master"|"config"|"tracker"|"jobs"|"planning"|"schedule"|"import";
 
 export function AppTabs({active}:{active:AppTab}){
  const tabs=[
   {key:"master",label:"Master Data",href:"/master-data"},
   {key:"config",label:"Cấu hình",href:"/settings"},
   {key:"tracker",label:"Part Tracker",href:"/part-tracker"},
+  {key:"jobs",label:"All Open Jobs",href:"/all-open-jobs"},
+  {key:"planning",label:"Planning Board",href:"/planning"},
+  {key:"schedule",label:"Board Điều Độ",href:"/schedule"},
   {key:"import",label:"Import Master",href:"/import-master"},
  ] as const;
  return <nav className="erp-modules" aria-label="ST Planning modules">

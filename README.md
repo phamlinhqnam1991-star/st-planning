@@ -177,3 +177,1306 @@ Navigation toàn app:
 - Part Tracker tự chuyển summary về 1 cột.
 - Input mobile dùng font-size 16px để tránh iPhone tự zoom.
 - Không thay database, routing hay business logic.
+
+
+## Performance v15 – Master Search
+Nếu database đã chạy `001` → `007`, chạy thêm:
+`supabase/migrations/008_master_search_indexes.sql`
+
+Thay đổi:
+- Part Revision, Routing Detail, Material Finish, Process Requirement và Part → Routing tìm theo `part_num = ...` thay vì `ILIKE '%...%'`.
+- Các bảng lớn có composite index theo `part_num + is_active + revision`.
+- Process Requirement (~2M+ rows) không còn full scan khi tìm Part.
+- Nếu query database lỗi, trang hiển thị lỗi trong ERP workspace thay vì Next.js Runtime Error.
+
+
+## Process Recipe v16 – Phase 1 Paint
+Nếu database đã chạy tới `008`, chạy thêm:
+`supabase/migrations/009_process_recipe_paint.sql`
+
+Kiến trúc mới dùng chung cho tất cả process:
+- `md_process_recipe`: Recipe catalog dùng chung.
+- `md_operation_recipe_mapping`: Standard Operation → Recipe được phép chạy.
+- `md_part_process_recipe`: Part + Revision + Standard Operation → Recipe thực tế.
+
+Phase 1 chỉ tự động sinh Paint Recipe từ Master List:
+- `PRIMER1/2/3` + `Primer1Name`
+- `TOPCOAT1/2` + `TopcoatName`
+- `ANTIABRATION` + `AntiAbrasionName`
+- `VarinishName` (name-based khi source chưa có recipe no trong Material Finish hiện tại)
+
+Tab `Cấu hình → Process Recipe` hỗ trợ:
+- xem/thêm/sửa recipe,
+- quản lý Operation → Recipe,
+- tra cứu Part → Recipe,
+- `Batch Key` làm khóa tương thích để gom lô Planning sau này.
+
+Các process ngoài Painting chưa tự sinh recipe cho đến khi rule tương ứng được chốt.
+
+
+## Fix v16.1 – Process Recipe duplicate UPSERT
+- Sửa lỗi SQLSTATE `21000: ON CONFLICT DO UPDATE command cannot affect row a second time`.
+- Trước khi UPSERT `md_part_process_recipe`, hệ thống deduplicate theo `(part_num, revision_num, standard_operation)`.
+- Nếu `009` đã chạy dở và lỗi, có thể chạy riêng `009A_fix_process_recipe_duplicate.sql`.
+
+
+## Fix v17 – Complete Process Recipe Migration
+`009_process_recipe_paint.sql` đã được viết lại đầy đủ, idempotent và theo đúng thứ tự:
+1. Tạo đủ 3 bảng.
+2. Tạo index + RLS.
+3. Chuẩn hóa source Paint vào temporary table.
+4. Backfill Process Recipe.
+5. Backfill Operation → Recipe.
+6. Backfill Part + Revision + Operation → Recipe.
+7. Trả về counts để xác nhận.
+
+**Phải chạy toàn bộ file 009**, không highlight/chạy riêng phần cuối.
+Sau khi 009 chạy thành công có thể chạy `009_verify_process_recipe.sql` để kiểm tra.
+
+
+## v19 - ANTI_ABRASION Recipe Name + Batch Key
+Run `supabase/migrations/010_fix_anti_abrasion_recipe_batch_key.sql` after migration 009.
+
+Final Paint rules:
+- PRIMER / PRIMER2 / PRIMER3: Recipe No=`Primer 1`, Recipe Name=`Primer1Name`
+- TOPCOAT1 / TOPCOAT2: Recipe No=`Top Coat`, Recipe Name=`TopcoatName`
+- ANTI-ABRASION: Recipe No=`Anti Abrasion Paint`; Recipe Group remains `ANTI_ABRASION`.
+  If source `AntiAbrasionName` is blank, fallback:
+  - 004 = 23-T3-10 White Resistant Polyurethane Coating
+  - 005 = 23-T3-105 Gray Resistant Polyurethane Coating
+  - 014 = CA 8100 Gray Abrasion Resistant Topcoat
+  - 015 = CA 8100 White Abrasion Resistant Topcoat
+  - 020 = CA 8101 Gray Series Anti-Chafe Topcoat
+  - 019 = CA 8101 White Series Anti-Chafe Topcoat
+  - 160 = CA8100F12197BMG43K base component Orange
+- VARNISH: Recipe No=`Clear Coat`, Recipe Name=`VarinishName`
+
+Batch Key is now:
+`Process Family | Recipe Group | Recipe Name`
+
+Recipe No is not included in Batch Key.
+
+
+## v20 - Recipe No 3-digit normalization
+Run `supabase/migrations/011_normalize_recipe_no_3_digits.sql` after migration 010.
+
+Numeric-only Recipe No is canonicalized to at least 3 digits:
+- `1` -> `001`
+- `4` -> `004`
+- `12` -> `012`
+- `19` -> `019`
+- `160` -> `160`
+
+Non-numeric recipe codes are unchanged.
+Future imports and manually-added recipes use the same normalization.
+Batch Key still excludes Recipe No.
+
+
+## v21 - Process Recipe Master is Recipe Name source of truth
+
+Run:
+`supabase/migrations/012_process_recipe_master_lookup.sql`
+
+Final architecture:
+- Master List supplies Recipe No only.
+- Numeric Recipe No is normalized (`1 -> 001`, `12 -> 012`).
+- Recipe Name is resolved only from `md_process_recipe`.
+- Lookup key = `process_family + recipe_group + recipe_no`.
+- One active Process Recipe Master row is allowed per lookup key.
+- `md_part_process_recipe.source_recipe_name` is no longer used for Recipe Name.
+- Part -> Process Recipe UI joins `md_process_recipe` and returns `recipe_name` from the master.
+- Unknown Recipe No is auto-discovered with Recipe Name blank; maintain the name in Process Recipe Master.
+- Batch Key remains `Family | Recipe Group | Recipe Name`, without Recipe No.
+
+- Reset All now preserves `md_process_recipe` and `md_operation_recipe_mapping`; only `md_part_process_recipe` is regenerated from imported Part data.
+
+
+## v22 - Chemical Line Recipe Configuration
+
+Run:
+`supabase/migrations/013_chemical_line_recipe_mapping.sql`
+
+Chemical Line is intentionally different from Paint:
+
+### Paint
+`Master List Recipe No -> Process Recipe Master -> Recipe Name`
+
+### Chemical Line
+`Source Operation Code -> configured Recipe -> Process Recipe Master`
+
+New table:
+- `md_operation_code_recipe`
+  - one active Chemical Line Recipe per source Operation Code.
+
+Process Recipe page now includes:
+- Chemical Line Recipe catalog seeded from the approved Recipe No / Recipe Name list.
+- `Chemical Line · Operation Code -> Recipe` configuration.
+- Add/Edit/Remove mapping without changing source Master data.
+
+Numeric Recipe No is stored in 3-digit format:
+`1 -> 001`, `14 -> 014`, `29 -> 029`.
+Non-numeric `29A` remains `29A`.
+
+Batch Key remains:
+`Process Family | Recipe Group | Recipe Name`
+and does not include Recipe No.
+
+
+## v23 - Chemical Line: one Operation Code -> multiple Recipes
+
+Run:
+`supabase/migrations/014_chemical_operation_multi_recipe.sql`
+
+New Chemical Line mapping model:
+- Primary key = `operation_code + recipe_key`
+- One Operation Code can have many active Recipes.
+- Fields reserved for future All Open Job auto-selection:
+  - `priority` (lower number = higher preference)
+  - `selection_rule` (currently optional text)
+  - `is_default`
+  - `note`
+- Only one active Default Recipe is allowed per Operation Code.
+- No automatic Recipe selection is implemented yet.
+- Future flow:
+  `All Open Job -> Operation Code -> allowed Recipes -> Selection Rule/Priority -> selected Recipe -> Batch Key`.
+
+
+## v24 - Process Time by Recipe
+
+Run:
+`supabase/migrations/015_process_time_by_recipe.sql`
+
+New master:
+`md_recipe_time_rule`
+
+### Chemical Line
+- Calc Type is fixed to `FIXED_HOURS`.
+- Configure `Fixed Hours` independently for each Recipe.
+- One Recipe may have multiple rules if needed, controlled by Priority.
+
+### Paint
+- Calc Type is fixed to `QTY_SURFACE`.
+- Configure time rules per Paint Recipe with:
+  - Qty Min / Qty Max
+  - Surface Min dm2 / Surface Max dm2
+  - Standard Hours
+  - Priority
+  - Note
+- Multiple ranges can be added for the same Recipe.
+
+Example:
+- Recipe 012
+- Qty 0–100
+- Surface >= 5000 dm2
+- Standard Hours = 7
+
+Planning calculation is not implemented yet; this version provides the configuration/master data only.
+
+
+## v26 - All Open Jobs / Planning Input
+
+Run:
+`supabase/migrations/016_all_open_jobs.sql`
+
+New module:
+`All Open Jobs`
+
+All Open Job is a dynamic Planning Input, not Master Data.
+
+Every import is treated as a full open-job snapshot and compared by `JobNum`:
+- `NEW`: JobNum did not exist before.
+- `CHANGED`: Job exists but any source planning field changed, or a previously closed Job reappears.
+- `UNCHANGED`: source row is identical to previous import.
+- `CLOSED`: previously open Job is missing from the new full snapshot.
+
+New tables:
+- `open_job_import_batch`
+- `open_job_current`
+- `open_job_history`
+
+`open_job_current` normalizes the main Planning fields:
+- JobNum
+- EpicorPart / RevisionNum
+- Program / PartCluster / PartDescription
+- ProdQty / CurrentGoodWIPQty / LastLaborQty
+- LastLaborOp / NextOperation / AllOperation
+- TotalSurface / Part_Masterlist.Surface (dm2)
+- OpenDMR / ST / STWIParea / WIPSequence
+- Priority / CAT transit / Impact sale value
+
+All source columns from the Excel row are also preserved in `source_data JSONB`.
+The Excel `NEWJOB` formula column is intentionally ignored; PostgreSQL determines NEW/CHANGED itself.
+
+History only stores meaningful transitions:
+`NEW / CHANGED / CLOSED`.
+UNCHANGED does not create history rows.
+
+Future Planning can consume:
+`Job -> Part/Revision -> Last/Next Operation -> ST Mapping -> Recipe -> Process Time -> Batch`.
+
+
+## v27 - Manual Batch Planning Board
+
+Run:
+`supabase/migrations/017_planning_board.sql`
+
+The confirmed Planning scope contains exactly these 35 Standard Operations:
+
+`CMSA, CHEMMILL, CPBILP, CPBILP-A, PIONBL, RWK, V_A-SHPN, MANUALSP, CLASP,
+BSAUNSLD, TSAUNSL, BSASLD, TSASLD, CCNV-IM, CCNV-IA, V_PASS/BRTG, FMSKG-CM,
+SIPC, SI-SEAL, STRIP, HE-BAKE after plating, HE-BAKE before blasting,
+A-DBLST, M-DBLST, PLA-ZiNi, HE-BAKE, PLA-CC, PRIMER, PRIMER2, PRIMER3,
+TOPCOAT1, TOPCOAT2, ANTI-ABRASION, PAINT MARKING, VARNISH`.
+
+`ANOD/CCNV FB` is not in the current Planning scope because it was not included
+in the latest confirmed list.
+
+### Planning Chain
+- Source sequence = `All Open Jobs.AllOperation`.
+- Source Operation Codes are standardized through `md_st_operation_mapping`.
+- PRIMER occurrence: PRIMER -> PRIMER2 -> PRIMER3.
+- TOPCOAT occurrence: TOPCOAT1 -> TOPCOAT2.
+- HE-BAKE uses sequence context.
+- Operations before the current Last/Next position are outside the future Planning horizon.
+- First future Planning Operation = `ELIGIBLE`.
+- Later operations = `LOCKED`.
+- Adding an ELIGIBLE Job/Operation to a Batch sets it to `PLANNED`.
+- Its next Planning Operation immediately becomes `ELIGIBLE`.
+
+### Candidate Jobs / Batch
+Planning Board filters:
+- Area
+- Standard Operation
+- Recipe
+
+Candidate jobs are only active `ELIGIBLE` Job + Operation instances.
+One Batch contains multiple Job + Operation rows.
+
+Chemical Line:
+- if Operation Code has multiple valid Recipes, select Recipe before batching.
+
+Paint:
+- Part/Revision Recipe is resolved from Process Recipe Master.
+
+Batch summary calculates:
+- Total Jobs
+- Total Qty (`CurrentGoodWIPQty`, fallback `ProdQty`)
+- Total Surface (`TotalSurface`, fallback Qty × Surface/Part)
+- Process Time from Recipe Time Rules
+- Planned Start / End
+
+### New tables
+- `md_planning_operation_scope`
+- `planning_job_operation`
+- `planning_batch`
+- `planning_batch_job`
+
+After migration 017, either:
+1. import All Open Job again; or
+2. open Planning Board and use `Rebuild Chain`.
+
+All future All Open Job imports automatically rebuild Planning Chains while
+preserving already PLANNED operation state.
+
+
+## v28 - NextOperation is the Planning start position
+
+Planning Chain start logic is now:
+
+1. `NextOperation` is the PRIMARY current-position marker.
+2. Find that exact operation inside `AllOperation`.
+3. Planning starts from that `NextOperation` position.
+4. `AllOperation` is standardized in full BEFORE cutting the future chain, so
+   PRIMER/TOPCOAT occurrence numbers remain correct.
+5. If the same NextOperation code appears multiple times, `LastLaborOp` is used
+   only to disambiguate which occurrence of NextOperation is current.
+6. Only if NextOperation cannot be found, fallback to the operation immediately
+   after `LastLaborOp`.
+7. If neither position can be resolved, the Job becomes `SEQUENCE_CHECK` logic:
+   no ELIGIBLE Planning Candidate is generated automatically.
+
+Example:
+`AllOperation = CNC | CMSA | QA | CHEMMILL | PPRSLVT | PTCSLVT`
+`NextOperation = CHEMMILL`
+
+Planning future chain:
+`CHEMMILL -> PRIMER -> TOPCOAT1`
+
+Initial state:
+`CHEMMILL = ELIGIBLE`
+`PRIMER = LOCKED`
+`TOPCOAT1 = LOCKED`
+
+
+## v29 - View / Add / Remove Jobs in an existing Planning Batch
+
+No new database migration is required after v28/v17.
+
+### Batch Detail
+Recent Planning Batches now have a `View` action:
+`Planning Board -> Recent Planning Batches -> View`.
+
+Batch Detail shows:
+- Batch Operation / Recipe
+- Total Jobs / Qty / Surface
+- Process Time
+- all Jobs currently in the Batch
+
+### Add Job
+An existing Batch can receive more `ELIGIBLE` Jobs when:
+- same Standard Operation
+- Job is still Open
+- operation is still ELIGIBLE
+- Recipe matches the Batch, or the Batch Recipe is valid for the Chemical Line source Operation Code
+
+After adding:
+- current Job + Operation becomes `PLANNED`
+- the next main Planning Operation becomes `ELIGIBLE`
+- Batch Qty / Surface / Process Time / Planned End are recalculated
+
+### Remove Job
+A Job can be removed from a Batch while the Batch is PLANNED/RELEASED.
+The system blocks removal if a later main Planning Operation for that Job is already PLANNED.
+
+After removal:
+- removed current operation returns to `ELIGIBLE`
+- later unplanned operations return to the proper `LOCKED` sequence
+- Batch totals and time are recalculated
+
+### Next Main Plan Operation
+Candidate Jobs and Jobs inside a Batch now show:
+`Next Main Plan Op`
+
+This is the next Standard Operation in that Job's Planning Chain after the current Batch operation.
+
+The Add Jobs section can filter by `Next Main Plan Operation`, so the planner can group
+Jobs that not only share the current batch condition but also have a compatible downstream
+planning path.
+
+
+## v26 - Fix Batch Detail PostgreSQL parameter type error
+
+Fixed `src/app/planning/batches/[id]/page.tsx`:
+- Candidate query previously passed `[batchId, recipe_key, standard_operation]` but did not reference `$1`.
+- PostgreSQL therefore could not infer the data type of parameter `$1`.
+- Removed unused `batchId` from that query.
+- Renumbered parameters and explicitly cast:
+  - `$1::text` = `recipe_key`
+  - `$2::text` = `standard_operation`
+- No Planning business logic changed.
+
+
+## v27 - Candidate Jobs shows full All Open Job source columns
+
+Batch Detail -> Candidate Jobs now keeps the existing Planning columns and appends every original column from `open_job_current.source_data`.
+
+Why:
+- `source_data` preserves the full imported All Open Job row.
+- Columns are built dynamically from JSONB keys.
+- If future All Open Job files add source columns, Candidate Jobs displays them automatically without another schema/UI change.
+- Search also matches values inside `source_data`.
+- Checkbox and Job columns stay sticky while horizontally scrolling.
+- Batch selection/business logic is unchanged.
+
+## v28 - Fix Planning hydration mismatch
+- Replaced locale-dependent `Number.toLocaleString()` in Planning client/server render paths.
+- Added deterministic number formatting shared by Planning Board, Candidate Jobs and Batch Detail.
+- Decimal separator is `,` and thousands separator is `.` consistently on SSR and browser.
+- Example: `146.94` -> `146,94`; `1234.5` -> `1.234,5`.
+- Planning business logic is unchanged.
+
+
+## v29 - Full All Open Job columns in main Candidate Jobs
+
+Planning Board -> Candidate Jobs now appends every original Excel column preserved in
+`open_job_current.source_data`, while keeping Planning columns first:
+Job, Part/Rev, Qty, Surface, Source Op, Previous Plan Op, Next Main Plan Op, Recipe, Priority.
+
+The source columns are dynamic; no hard-coded Excel column list is required.
+No Planning/Batch business logic changed.
+
+
+## v30 - Candidate Jobs column picker
+
+Planning Board -> Candidate Jobs now has a `Columns` control.
+
+Features:
+- Tick/untick any Planning or All Open Job column.
+- Search columns by name.
+- `Select All`.
+- `Planning Only`.
+- `Clear`.
+- Selection is persisted in browser `localStorage`.
+- Saved selection is loaded only after hydration, preventing SSR/client hydration mismatch.
+- Newly imported All Open Job source columns are automatically available in the picker.
+- Checkbox selection column always remains visible.
+
+
+## v31 - Candidate Job planning/status visibility
+
+Planning Board -> Candidate Jobs now shows both `ELIGIBLE` and already `PLANNED`
+operations for the selected Standard Operation.
+
+New selectable Planning columns:
+- `Status`
+  - `ELIGIBLE` = can be added to a batch.
+  - `PLANNED` = already assigned/planned; checkbox is disabled.
+- `Batch No`
+  - shows the Planning Batch containing the Job operation and the Batch status.
+- `Previous Plan Status`
+  - shows the previous main Planning Operation and its current Planning status.
+  - `START / FIRST PLAN OP` when there is no prior main planning operation.
+- `Actual Progress`
+  - shows current All Open Job physical progress as `Last Operation -> Next Operation`.
+
+Important:
+`PLANNED` means planning state, not shop-floor completion.
+The current system does not yet have execution/reporting completion state, so it does
+not falsely label a previous operation as physically completed. Actual position is
+shown separately from All Open Job.
+
+Column picker preference migrates from v30 and automatically adds the four new
+status columns once; users can hide them afterwards.
+
+
+## v32 - Previous Batch No in Candidate Jobs
+
+Added selectable Planning column `Previous Batch No`.
+For each Candidate Job it resolves the immediately preceding main Planning Operation,
+then shows the active Planning Batch containing that previous operation.
+If there is no previous Planning Operation or it was never added to a Batch, the value is `—`.
+No Planning eligibility or Batch creation logic changed.
+
+
+## v33 - Previous Batch from durable Batch history
+
+`Previous Batch No` no longer depends on `Previous Plan Status`.
+
+For each Candidate operation, the system finds the nearest historical Planning Batch
+for the same Job whose original `source_seq` is before the current operation's `source_seq`.
+
+This remains valid after a new All Open Job import moves `NextOperation` forward and
+the current future Planning Chain starts again at `START`.
+
+Candidate Jobs now shows:
+- Previous Batch No
+- Previous Batch Operation
+- Previous Batch Status
+
+Planning Board also adds filter:
+`Previous Batch No`
+
+This enables workflow:
+`Previous Batch -> jobs now ready for next operation -> new Batch`.
+
+No Batch history is deleted and no eligibility rule was changed.
+
+
+## v34 - Skip PIONBL from Planning
+
+Run:
+`supabase/migrations/018_skip_pionbl_planning.sql`
+
+Final rule:
+- `PIONBL` remains in All Open Job `AllOperation` source routing.
+- `PIONBL` is not part of Planning Scope.
+- No Candidate Job is created for `PIONBL`.
+- No new Planning Batch is created for `PIONBL`.
+- Sequence skips through it.
+
+Example:
+`CPBILP -> PIONBL -> BSAUNSLD`
+becomes Planning sequence:
+`CPBILP -> BSAUNSLD`.
+
+If All Open Job currently has `NextOperation=PIONBL`, the chain anchor still uses the
+real source position of PIONBL, but because PIONBL is excluded from Planning Scope,
+the first Planning candidate after that position is `BSAUNSLD`.
+
+Old PIONBL Batch records are preserved as history, but PIONBL is ignored when resolving
+the previous Planning operation / previous Planning Batch for new Candidate planning.
+
+
+## v35 - Durable Previous Batch history snapshot
+
+Run:
+`supabase/migrations/019_batch_job_sequence_snapshot.sql`
+
+Why this is required:
+`planning_job_operation` is a live planning chain and is rebuilt after every
+All Open Job import. Historical Batch relationships must not depend only on
+that live row.
+
+`planning_batch_job` now snapshots:
+- `source_seq_snapshot`
+- `planning_seq_snapshot`
+- `operation_instance_key_snapshot`
+
+Existing Batch Jobs are backfilled from their currently linked Planning Job Operation.
+
+Future Batch creation writes these snapshot values immediately.
+
+Previous Batch lookup now uses:
+`planning_batch_job.source_seq_snapshot`
+first, with the linked live operation only as fallback for older data.
+
+Example:
+`CPBILP -> PIONBL -> BSAUNSLD`
+with PIONBL skipped from Planning.
+
+If CPBILP was previously placed in `PB-000123`, then after All Open Job advances
+to BSAUNSLD, Candidate BSAUNSLD can still show:
+- Previous Plan Status = START
+- Previous Batch No = PB-000123
+- Previous Batch Operation = CPBILP
+
+This remains stable across later All Open Job imports/rebuilds.
+
+
+## v36 - Previous Planning Operation from full route
+
+Run:
+`supabase/migrations/020_previous_planning_operation_snapshot.sql`
+
+Then click `Rebuild Chain`.
+
+The current future chain may start at BSAUNSLD after a new All Open Job import, but
+the system now snapshots the immediately preceding Planning Operation from the FULL
+standardized AllOperation route.
+
+Example:
+`CPBILP -> PIONBL -> BSAUNSLD`
+with PIONBL skipped becomes:
+`CPBILP -> BSAUNSLD`.
+
+For Candidate BSAUNSLD:
+- Previous Plan Op = CPBILP
+- If the exact same Job has a historical CPBILP Batch:
+  - Previous Plan Status shows the historical Batch status
+  - Previous Batch No shows that Batch
+- If no CPBILP Batch exists for that exact Job:
+  - Previous Plan Op still shows CPBILP
+  - Previous Plan Status = NO BATCH
+  - Previous Batch No = —
+
+`START` is now reserved for a true first Planning Operation in the full route.
+
+
+## v37 - Plan Ahead across all Planning Operations
+
+Plan-ahead logic is now generic for the complete Planning route.
+
+For every Job:
+1. All Open Job `NextOperation` identifies the actual production anchor.
+2. The standardized Planning route is built from full `AllOperation`.
+3. Skipped operations such as `PIONBL` do not participate in Planning.
+4. A Planning operation already belonging to any non-cancelled Batch is `PLANNED`.
+5. The first actual-ready future Planning operation is `ELIGIBLE`.
+6. Any subsequent Planning operation becomes `ELIGIBLE` immediately when its
+   immediately preceding Planning operation is `PLANNED`.
+7. No wait for All Open Job `NextOperation` to advance is required for plan-ahead.
+
+Example:
+Source:
+`CPBILP -> PIONBL -> BSAUNSLD -> PRIMER -> TOPCOAT1`
+
+Planning:
+`CPBILP -> BSAUNSLD -> PRIMER -> TOPCOAT1`
+
+If All Open Job still says:
+`NextOperation = CPBILP`
+
+then after CPBILP is added to a Batch:
+- CPBILP = PLANNED
+- BSAUNSLD = ELIGIBLE
+- PRIMER = LOCKED
+- TOPCOAT1 = LOCKED
+
+After BSAUNSLD is added to a Batch:
+- BSAUNSLD = PLANNED
+- PRIMER = ELIGIBLE
+
+The same rule continues through every Planning operation.
+
+Rebuild stability:
+`syncPlanningChains()` now reads durable `planning_batch_job` + `planning_batch`
+history, not only the currently active planning chain row. Therefore Batch planning
+state survives repeated All Open Job imports and Rebuild Chain.
+
+
+## v38 - Scheduling Board
+
+Run migration:
+`supabase/migrations/021_schedule_board.sql`
+
+New module:
+`/schedule`
+
+Resources:
+- Passivation / Brightening
+- ManualSP
+- AutoSHP
+- Chemical Line: FB-01 ... FB-07
+- Painting: CAB1, CAB2, CAB3
+- Paint Powder
+
+Chemical Line rules:
+- 7 physical Flybars.
+- Maximum 3 Flybars may run on the line simultaneously.
+- Flybar launches are normally at least 60 minutes apart.
+- One physical Flybar cannot overlap itself.
+
+Painting:
+- CAB1/CAB2/CAB3 are independent resources and can run simultaneously.
+
+Recipe No / Recipe Description always come from the scheduled Planning Batch,
+therefore they are operation-specific; resources do not share one global recipe.
+
+Schedule duration uses `planning_batch.process_minutes`.
+
+
+## v39
+Fixed Scheduling Board compatibility with the existing `planning_batch` schema. The board no longer queries a non-existent `planning_batch.area_name` column. No database migration is required for this fix.
+
+
+## v40 - Scheduling Board Recipe Master join fix
+
+Fixed Scheduling Board compatibility with the existing `planning_batch` schema.
+
+`planning_batch` stores only `recipe_key`.
+The Scheduling Board now resolves:
+- `recipe_no`
+- `recipe_name`
+
+by LEFT JOIN to `md_process_recipe`.
+
+No Recipe fields are duplicated into `planning_batch`.
+No database migration is required for this fix.
+
+
+## v41 - Scheduling resources update
+
+Run:
+`supabase/migrations/022_schedule_resources_6fb_4cab.sql`
+
+Updated resources:
+- Chemical Line: `FB-01` .. `FB-06`
+  - 6 physical Flybars
+  - maximum 3 running concurrently
+  - 60-minute normal launch interval
+- Painting: `CAB1` .. `CAB4`
+  - 4 independent painting cabins
+
+Timeline:
+- Chemical Line Timeline: all 6 Flybars
+- Painting Timeline: CAB1..CAB4
+- Other Operations Timeline:
+  - Passivation / Brightening
+  - ManualSP
+  - AutoSHP
+  - Paint Powder
+  - and any future active non-Chemical/non-Painting schedule resource automatically
+
+FB-07 is deactivated for new scheduling, but historical schedule records are preserved.
+
+
+## v42 - Complete Scheduling Board resource columns
+
+Run:
+`supabase/migrations/023_schedule_resources_missing_groups.sql`
+
+Added missing resource groups:
+- SPX Clean
+- Manual DBL
+- Auto DBL
+- Plating
+- He-Bake
+
+Schedule Table order now includes:
+SPX Clean → Manual DBL → Auto DBL → Plating → He-Bake →
+Passivation/Brightening → ManualSP → AutoSHP →
+Chemical Line Flybar → Painting CAB1 → CAB2 → CAB3 → CAB4 →
+Paint Powder → Resource No → Recipe → Jobs/pcs/dm2 → Time.
+
+The existing Other Operations Timeline automatically includes all five newly added resources.
+
+Existing rules remain unchanged:
+- Chemical Line: 6 Flybars, max 3 concurrent, 60-minute launch spacing.
+- Painting: CAB1..CAB4 independent.
+
+
+## v43 - Unified Production Timeline
+
+Scheduling Board now uses one Production Timeline instead of separate
+Chemical / Painting / Other timelines.
+
+Display order:
+1. SPX Clean
+2. Manual DBL
+3. Auto DBL
+4. Plating
+5. He-Bake
+6. Passivation / Brightening
+7. ManualSP
+8. AutoSHP
+9. Chemical Line FB-01 .. FB-06
+10. Painting CAB1 .. CAB4
+11. Paint Powder
+
+Important:
+This is a Board display/resource order only.
+It does NOT replace each Job's real AllOperation / Planning route.
+Every timeline chip still displays its actual Standard Operation and Recipe.
+Future resources not present in the explicit order are appended automatically.
+
+No database migration is required for v43 if 021, 022 and 023 are already applied.
+
+
+## v45 - Fix cross-operation PLANNED status
+
+Critical Planning fix:
+- A Candidate operation is now `PLANNED` only when actual Batch history matches:
+  `Job + Standard Operation + source_seq`.
+- A stale `planning_job_operation.status='PLANNED'` is no longer trusted by itself.
+- A CPBILP Batch can only appear as Previous Batch for BSAUNSLD.
+- BSAUNSLD becomes `ELIGIBLE` after CPBILP is planned, but is not `PLANNED`
+  until BSAUNSLD itself is added to a BSAUNSLD Batch.
+- Rebuild Chain now corrects old stale PLANNED statuses.
+
+After replacing the code, click `Rebuild Chain` once.
+No SQL migration is required.
+
+
+## v46 - Candidate Jobs status sorting
+
+Candidate Jobs are automatically sorted for the selected Standard Operation:
+
+1. Not yet added to a Batch (`ELIGIBLE`) -> top
+2. Already added to a Batch (`PLANNED`) -> bottom
+
+Within each status group the existing Priority rule is preserved,
+then Job number is used as the final stable sort key.
+
+No Planning/Batch eligibility logic changed.
+
+
+## v47 - Group PLANNED Candidate Jobs by Batch
+
+Candidate sorting:
+1. ELIGIBLE / not yet batched -> top.
+2. PLANNED -> bottom.
+3. PLANNED rows are grouped by current Batch No:
+   PB-000008 together, PB-000009 together, etc.
+4. ELIGIBLE rows retain the existing priority rule.
+5. Job number is used as the stable order inside each group.
+
+No Planning/Batch logic changed.
+
+
+## v48 - Batch management
+
+Recent Planning Batches now supports:
+- `Edit Recipe`
+  - loads Recipe options only when requested
+  - validates that the selected Recipe is valid for every Job in the Batch
+  - updates Batch Recipe and Job-operation Recipe
+  - recalculates Process Time and Planned End
+  - blocks Recipe edit while the Batch has an active schedule
+- `Delete`
+  - implemented as Batch `CANCELLED` for audit safety
+  - deletes active `planning_batch_job` membership so the Job operation can be batched again
+  - cancels non-running schedule rows
+  - restores affected Job operations to unbatched Planning state
+  - recomputes the Planning sequence for all affected Jobs
+  - protects chain integrity by blocking deletion when a later operation of the same Job is already in another active Batch
+  - blocks deletion for RUNNING/COMPLETED schedules
+
+Cancelled Batches are hidden from Recent Planning Batches.
+
+No SQL migration is required.
+
+
+## v51 - 24-hour Production Timeline frame
+
+Production Timeline now uses a fixed production-day window:
+- Start: 06:00 on the selected Board date
+- End: 06:00 on the following day
+- Total: 24 hours
+
+Schedule rows are loaded by time overlap with this window, so a Batch starting
+after midnight and before 06:00 next day remains visible on the selected production day.
+
+Timeline features:
+- Hour grid from 06:00 -> 06:00 next day
+- Batch blocks positioned by actual Planned Start / Planned End
+- Blocks are clipped to the production-day frame when they cross 06:00 boundaries
+- Resource labels stay on the left
+- Existing Planning / Batch / resource-capacity rules are unchanged
+
+No SQL migration is required.
+
+
+## v53 - Editable Schedule Duration
+
+Add Schedule now proposes Duration from `planning_batch.process_minutes`, but the planner may override it manually.
+
+Input format:
+`HH:MM`
+
+Examples:
+- `02:30`
+- `07:00`
+- `12:45`
+
+Behavior:
+- selecting a Batch auto-fills its configured Process Time;
+- planner can replace the proposed value;
+- the entered Duration is stored in `planning_schedule.duration_minutes`;
+- Planned End is calculated from Start Time + entered Duration;
+- configured `planning_batch.process_minutes` is not overwritten by the manual schedule override.
+
+No SQL migration is required.
+
+
+## v54 - Scheduled Batch annotation in Add Schedule
+
+Planning Batch dropdown now contains all active Planning Batches.
+
+Sorting:
+1. Batches not yet scheduled -> top
+2. Batches already scheduled on any date -> bottom
+
+Already scheduled Batches show:
+`SCHEDULED <date> · <resource>`
+
+Example:
+`PB-000003 · CPBILP · 001 · SCHEDULED 22/08/2026 · FB-01`
+
+Already scheduled options are disabled to prevent duplicate scheduling.
+This check is independent of the date currently being viewed on the Board.
+
+No SQL migration is required.
+
+
+## v55 - Schedule Table sort by operation/resource first
+
+Schedule Table order is now:
+1. Resource / process order (`md_schedule_resource.sort_order`)
+2. Standard Operation
+3. Planned Start
+4. Batch No
+
+This keeps batches of the same process/resource together instead of mixing
+different operations only because they start earlier/later.
+
+Production Timeline remains unchanged.
+No SQL migration is required.
+
+
+## v56 - Schedule Table complete daily list
+
+Fixed a mismatch where the Schedule Table used the same 06:00 -> 06:00 overlap
+window as the Production Timeline.
+
+Now:
+- Schedule Table = every non-cancelled schedule whose `schedule_date` equals the selected date.
+- Production Timeline = schedules overlapping 06:00 selected date -> 06:00 next day.
+
+This means if CAB2 has two Batches scheduled on the selected date, both rows are
+shown in Schedule Table, even if one lies outside the production-timeline window.
+
+No SQL migration is required.
+
+
+## v57 - Full Schedule Board repair
+
+Fixed:
+- TypeScript build error caused by SQL-style `--` comments outside query strings.
+- Schedule Table now treats `planning_schedule` as the authoritative source.
+- Schedule rows cannot disappear because Recipe/Resource master data is missing:
+  supporting tables are LEFT JOINed.
+- Schedule Table includes rows when either:
+  - `schedule_date` matches the selected date, or
+  - local Vietnam Planned Start date matches the selected date.
+- Production Timeline remains 06:00 selected date -> 06:00 next day.
+- Existing Duration override, scheduled-batch annotation, 6 Flybars / max 3 concurrent,
+  4 Painting CABs, Edit Recipe, Delete Batch, and Candidate planning logic are unchanged.
+
+Validation performed:
+- Scanned TS/TSX files for invalid external SQL-style comments.
+- Syntax-focused TypeScript parse checks passed for:
+  schedule page, schedule client, schedule API, batch actions,
+  batch-management API, and planning page.
+
+A full dependency-aware build was not available in this isolated package because
+`node_modules` is not included; run `npm install` / `npm run build` in the normal project environment.
+
+
+## v60 - NextOperation intermediate -> nearest main Planning operation
+
+Planning Candidate selection now explicitly follows the main-operation rule.
+
+Planning only keeps operations in `PLANNING_SCOPE`.
+
+If `NextOperation` is an intermediate source operation such as:
+- Masking
+- Unmasking
+- preparation
+- inspection
+- or any other operation that is not a main Planning operation
+
+the engine uses its position in `AllOperation` and scans FORWARD to the nearest
+main Planning operation.
+
+Example:
+
+`CPBILP -> MASKING -> UNMASKING -> BSAUNSLD -> PRIMER`
+
+- NextOperation = `CPBILP` -> Candidate main op = `CPBILP`
+- NextOperation = `MASKING` -> Candidate main op = `BSAUNSLD`
+- NextOperation = `UNMASKING` -> Candidate main op = `BSAUNSLD`
+- NextOperation = `BSAUNSLD` -> Candidate main op = `BSAUNSLD`
+
+The engine never jumps backward to a completed/previous main operation.
+
+This applies generically to all intermediate operations; no hard-coded Masking
+list is required.
+
+No SQL migration is required. Run Rebuild Chain once after deploying v60.
+
+
+## v61 - Candidate Job Display Rules
+
+Candidate Jobs now has `Sort / Filter`.
+
+Filter fields:
+- Next Main Plan Op
+- NextOperation
+- Part Master PRIMER1
+- Part Master PRIMER2
+- Part Master PRIMER3
+
+PRIMER1/2/3 are loaded from `md_material_finish` by:
+`part_num + revision_num`.
+
+Multi-level sorting supports up to 4 levels:
+- Next Main Plan Op
+- NextOperation
+- PRIMER1 / PRIMER2 / PRIMER3
+- Recipe No
+- Previous Batch No
+- Priority
+- Part Num
+- Program
+- Qty
+- Surface
+- Job
+
+Business rules remain fixed:
+1. ELIGIBLE rows stay above PLANNED rows.
+2. PLANNED rows remain grouped by Batch No.
+3. Custom sort rules apply inside those groups.
+
+Three new optional columns were added:
+- PRIMER1
+- PRIMER2
+- PRIMER3
+
+Display rules affect UI only; Planning eligibility and Batch logic are unchanged.
+No SQL migration is required.
+
+
+## v62 - Default Candidate View per Standard Operation
+
+Each Standard Operation can now save its own Candidate Jobs view.
+
+Saved per operation:
+- visible Columns
+- Next Main Plan Op filter
+- NextOperation filter
+- PRIMER1 / PRIMER2 / PRIMER3 filters
+- up to 4 Sort levels and ASC/DESC
+
+Buttons:
+- `Set Default` saves the current view for the selected Standard Operation
+- `Load Default` reloads the saved view
+- `Delete Default` removes only that operation's saved view
+- `Reset` clears the current filter/sort back to the generic defaults
+
+When Standard Operation changes, its saved default view is loaded automatically.
+
+Examples:
+- CPBILP can have one view
+- BSAUNSLD another view
+- PRIMER a paint-focused view
+- TOPCOAT1 a different paint-focused view
+
+Storage is browser-local (`localStorage`) and does not change Planning / Batch data.
+No SQL migration is required.
+
+
+## v63 - Sort Priority supports every Candidate column
+
+`Sort Priority` now exposes:
+- all calculated Planning fields
+- every standard Candidate Jobs column
+- every dynamic `All Open Job` column stored in `source_data`
+
+This means any field available through `Columns` can also be selected as a
+Sort Priority level.
+
+Existing per-Standard-Operation default views continue to save/load the chosen
+sort fields.
+
+Existing business ordering remains:
+1. ELIGIBLE above PLANNED
+2. PLANNED jobs grouped by Batch
+3. user Sort Priority applies within those business groups
+
+No SQL migration is required.
+
+
+## v65 - Fix sorting for dynamic All Open Job columns
+
+Fixed Sort Priority for dynamic source columns.
+
+Cause:
+- Candidate column key = `source:<column>`
+- Sort field key = `column:source:<column>`
+- Previous sorter incorrectly expected `raw:<column>`, so the sort value was blank.
+
+Now:
+- `column:source:*` reads directly from `candidate.source_data`
+- numeric values sort numerically
+- text values sort naturally
+- existing ELIGIBLE-first and PLANNED-by-Batch rules remain unchanged
+
+No SQL migration is required.
+
+
+## v66 - All Candidate columns fully sortable
+
+Fixed Sort Priority mapping for every Candidate Jobs column.
+
+Planning columns now map exactly:
+- Job
+- Part / Rev
+- Qty
+- Surface
+- Source Op
+- Previous Plan Op
+- Next Main Plan Op
+- Recipe
+- PRIMER1 / PRIMER2 / PRIMER3
+- Priority
+- Status
+- Batch No
+- Previous Plan Status
+- Previous Batch No
+- Actual Progress
+
+Every dynamic All Open Job `source:*` column also sorts from `source_data`.
+
+Numeric source values are sorted numerically instead of as text.
+
+Sort levels increased from 4 to 10.
+
+Existing saved per-Standard-Operation views remain compatible.
+ELIGIBLE remains above PLANNED, and PLANNED rows remain grouped by Batch.
+No SQL migration is required.
+
+
+## v67 - Candidate column ordering
+
+Candidate Jobs `Columns` now controls both:
+- visibility
+- display order
+
+For each visible column:
+- `↑` move one position left / earlier
+- `↓` move one position right / later
+- `⇤` move to first
+- `⇥` move to last
+
+The Candidate Jobs table now renders directly from the saved column order.
+
+Column order is stored in the existing `columns` array, therefore it is also
+saved/restored by `Set Default` for each Standard Operation.
+
+All Planning and dynamic All Open Job columns can be reordered.
+
+No SQL migration is required.
+
+
+## v68 - Wide Candidate View + Compact Batch Builder
+
+Removed from Batch Builder:
+- Planning Date
+- Planned Start
+- Priority
+- Note
+
+Batch creation now submits only:
+- selected Planning Job Operations
+- Standard Operation
+- Recipe
+
+The Batch API continues to use its existing defaults:
+- planning_date = database current date
+- priority = 100
+- planned_start/end = blank until scheduling
+- note = blank
+
+UI changes:
+- Planning page uses nearly full browser width
+- Batch Builder reduced to 230 px
+- Candidate Jobs receives the remaining width
+- tighter table font/padding
+- numeric columns right aligned
+- headers kept compact
+- dynamic All Open Job columns use ellipsis when very long
+
+No SQL migration is required.
+
+
+## v69 - Drag & Drop Planning + Scheduling
+
+Planning Board:
+- drag visible Columns to reorder them
+- drag Sort Priority rows to change sort level order
+- drag an ELIGIBLE Candidate Job onto Batch Builder to select it
+- existing checkboxes and arrow buttons remain available
+
+Board Điều Độ:
+- draggable Unscheduled Batch cards
+- draggable Scheduled Batch cards for moving
+- drop a Batch onto any Resource
+- current Start Time and Duration fields are used for the drop
+- dropping an already scheduled Batch moves its schedule through PATCH
+- all existing resource overlap / Chemical Line max-3 / launch-spacing validation remains active
+- RUNNING / COMPLETED schedules cannot be moved
+
+The normal select controls and Add/Move Schedule button remain available as non-drag alternatives.
+
+No SQL migration is required.
+
+
+## v70 - Rename Standard Operation
+
+Configuration -> Operation Master now supports `Edit Name`.
+
+Rename behavior:
+- edits `md_operation_master.standard_operation`
+- preserves all other Operation Master settings
+- updates exact linked Standard Operation references in:
+  - `md_st_operation_mapping.standard_operation_rule`
+  - `md_st_routing.standard_operation`
+  - `md_operation_recipe_mapping.standard_operation`
+  - `md_part_process_recipe.standard_operation`
+  - `md_planning_operation_scope.standard_operation`
+  - `planning_job_operation.standard_operation`
+  - `planning_job_operation.previous_standard_operation_snapshot`
+  - `planning_batch.standard_operation`
+  - `planning_batch_job.standard_operation`
+
+The existing `st_group` is not renamed automatically.
+
+The API inserts the new Operation Master key before moving references, then
+deletes the old key in one database transaction.
+
+No SQL migration is required.
+
+
+## v71 - Fix TSAUNSLD Next Main Plan Op
+
+Fixed a Planning Scope typo:
+
+- wrong: `TSAUNSL`
+- correct: `TSAUNSLD`
+
+Because `standardize()` filters operations through `PLANNING_SCOPE`,
+the typo caused TSAUNSLD to be removed from the standardized Planning route.
+
+Example before:
+`CPBILP-A | TSAUNSLD`
+-> CPBILP-A
+-> END
+
+After v71:
+`CPBILP-A | TSAUNSLD`
+-> CPBILP-A
+-> TSAUNSLD
+
+Run `Rebuild Chain` once after deploying so current Candidate Jobs are rebuilt.
+
+No SQL migration is required.
+
+
+## v72 - Global Candidate Priority Highlight
+
+Fixed business priority for all main Planning Operations:
+1. CAT3
+2. CAT5
+3. Sales / Sale
+4. Current month (dynamic from Planning date, e.g. AUG-26)
+5. Other priorities
+
+Priority is applied before custom Sort Priority inside the ELIGIBLE/PLANNED groups.
+Rows and the Priority cell are highlighted by level.
+
+No SQL migration is required.
+
+
+## v73 - Priority highlight only
+
+CAT3 / CAT5 / Sales / current-month values are highlighted only.
+
+They no longer change Candidate Jobs sorting order.
+Candidate Jobs order remains controlled by the existing per-view Sort Priority settings.
+
+No SQL migration is required.
+
+
+## v75 - Auto Planning Rule Master
+
+Added Configuration -> Auto Planning Rules.
+
+One independent rule can be configured for every Standard Operation.
+
+Configurable groups:
+1. Enable / Mode / Run Order
+2. Eligibility:
+   - first Planning operation
+   - Actual WIP without Previous Batch
+   - from Previous Batch
+   - Plan Ahead
+   - require Previous Completed
+   - require Recipe
+   - exclude Open DMR
+3. Batch compatibility:
+   - same Recipe
+   - group by Previous Batch
+   - same Part / Revision / Program
+   - same PRIMER1 / PRIMER2 / PRIMER3
+4. Min/Max:
+   - Jobs
+   - Qty
+   - Surface dm2
+5. Split conditions:
+   - Recipe / Previous Batch
+   - Part / Revision / Program
+   - PRIMER1 / PRIMER2 / PRIMER3
+6. Up to 10 configurable Priority fields.
+   Priority can use core Candidate fields or dynamic All Open Job source_data keys.
+7. Per-operation Note.
+
+Eligibility design:
+- ACTUAL WIP may enter the current main Planning Operation without historical Previous Batch when enabled.
+- Future operations may enter from the immediately previous main Planning Batch when enabled.
+- Plan Ahead and Previous Completed are separately configurable.
+
+This version adds the Rule Master and UI/API only.
+It does NOT silently turn on automatic Batch creation; all operations default to OFF.
+
+Migration required:
+`supabase/migrations/025_auto_planning_rule_master.sql`
