@@ -43,6 +43,7 @@ export default async function Page({
       b.total_jobs,b.total_qty,b.total_surface_dm2,b.process_minutes,
       nextbreakdown.next_main_operations,
       nextbreakdown.next_main_breakdown,
+      coalesce(previousinfo.previous_main_batches,'[]'::jsonb) previous_main_batches,
       sch.schedule_id,
       sch.schedule_date,
       sch.resource_code scheduled_resource_code,
@@ -110,6 +111,115 @@ export default async function Page({
         group by coalesce(n.standard_operation,'END')
       ) x
     ) nextbreakdown on true
+
+    left join lateral (
+      select jsonb_agg(
+       jsonb_build_object(
+        'batch_id',pinfo.previous_batch_id,
+        'batch_no',pinfo.previous_batch_no,
+        'operation',pinfo.previous_operation,
+        'schedule_status',pinfo.schedule_status,
+        'resource_code',pinfo.resource_code,
+        'planned_start',pinfo.planned_start,
+        'planned_end',pinfo.planned_end
+       )
+       order by
+        pinfo.previous_operation,
+        pinfo.previous_batch_no nulls last,
+        pinfo.planned_end nulls last
+      ) previous_main_batches
+      from (
+       select distinct
+        prevhist.previous_batch_id,
+        prevhist.previous_batch_no,
+        coalesce(
+         prevhist.previous_batch_operation,
+         prevp.standard_operation,
+         cur.previous_standard_operation_snapshot
+        ) previous_operation,
+        case
+         when prevhist.previous_batch_id is not null
+          and prevsch.id is not null
+          then 'SCHEDULED'
+         else 'UNSCHEDULED'
+        end schedule_status,
+        prevsch.resource_code,
+        prevsch.planned_start,
+        prevsch.planned_end
+       from planning_batch_job cbj
+
+       left join planning_job_operation cur
+        on cur.id=cbj.planning_job_operation_id
+
+       left join lateral (
+        select
+         p2.standard_operation,
+         p2.source_seq,
+         p2.planning_seq
+        from planning_job_operation p2
+        where p2.job_num=cbj.job_num
+          and p2.is_active=true
+          and p2.standard_operation<>'PIONBL'
+          and (
+           (
+            cur.planning_seq is not null
+            and p2.planning_seq<cur.planning_seq
+           )
+           or (
+            cur.planning_seq is null
+            and cbj.planning_seq_snapshot is not null
+            and p2.planning_seq<cbj.planning_seq_snapshot
+           )
+          )
+        order by p2.planning_seq desc
+        limit 1
+       ) prevp on true
+
+       left join lateral (
+        select
+         hb.id previous_batch_id,
+         hb.batch_no previous_batch_no,
+         hbj.standard_operation previous_batch_operation,
+         coalesce(hbj.source_seq_snapshot,hp.source_seq) previous_batch_source_seq
+        from planning_batch_job hbj
+        join planning_batch hb
+         on hb.id=hbj.batch_id
+        and hb.status<>'CANCELLED'
+        left join planning_job_operation hp
+         on hp.id=hbj.planning_job_operation_id
+        where hbj.job_num=cbj.job_num
+          and hbj.batch_id<>cbj.batch_id
+          and hbj.standard_operation<>'PIONBL'
+          and coalesce(hbj.source_seq_snapshot,hp.source_seq,-1)
+              <coalesce(cbj.source_seq_snapshot,cur.source_seq,2147483647)
+        order by
+         coalesce(hbj.source_seq_snapshot,hp.source_seq) desc,
+         hb.created_at desc,
+         hbj.id desc
+        limit 1
+       ) prevhist on true
+
+       left join lateral (
+        select
+         ps.id,
+         ps.resource_code,
+         ps.planned_start,
+         ps.planned_end
+        from planning_schedule ps
+        where ps.batch_id=prevhist.previous_batch_id
+          and ps.status<>'CANCELLED'
+        order by ps.planned_start desc,ps.id desc
+        limit 1
+       ) prevsch on true
+
+       where cbj.batch_id=b.id
+         and coalesce(
+          prevhist.previous_batch_operation,
+          prevp.standard_operation,
+          cur.previous_standard_operation_snapshot
+         ) is not null
+      ) pinfo
+    ) previousinfo on true
 
     left join lateral (
       select

@@ -2911,3 +2911,89 @@ button,a,input,select,textarea{touch-action:manipulation}
  display:block;
  margin-top:1px;
 }
+
+
+/* v110 - Unscheduled Batch dependency / Previous Main information */
+.schedule-area-unscheduled-card{
+ min-width:300px!important;
+ max-width:420px!important;
+ gap:5px!important;
+}
+.schedule-area-unscheduled-card-main{
+ display:flex;
+ flex-direction:column;
+ gap:1px;
+}
+.schedule-unscheduled-recipe-name{
+ color:#805b00!important;
+ font-weight:700;
+ white-space:normal;
+}
+.schedule-previous-main-list{
+ margin-top:4px;
+ padding-top:4px;
+ border-top:1px dashed #c5d2df;
+ display:flex;
+ flex-direction:column;
+ gap:3px;
+}
+.schedule-previous-main-list>b{
+ font-size:8px;
+ color:#44566c;
+ text-transform:uppercase;
+ letter-spacing:.02em;
+}
+.schedule-previous-main-row{
+ border-left:3px solid #9aa8b7;
+ background:#f6f8fa;
+ padding:3px 5px;
+ display:flex;
+ flex-direction:column;
+ gap:1px;
+}
+.schedule-previous-main-row.is-scheduled{
+ border-left-color:#2f8f55;
+ background:#edf8f1;
+}
+.schedule-previous-main-row.is-unscheduled{
+ border-left-color:#d69b24;
+ background:#fff8e7;
+}
+.schedule-previous-main-row.no-previous{
+ border-left-color:#b7c0ca;
+ background:#f7f8fa;
+}
+.schedule-previous-main-top{
+ display:flex;
+ align-items:center;
+ gap:5px;
+ min-width:0;
+}
+.schedule-previous-main-top>strong{
+ font-size:8px;
+ color:#123f6b;
+}
+.schedule-previous-main-top>span{
+ font-size:8px;
+ font-weight:800;
+ color:#26374a;
+}
+.schedule-previous-main-top>em{
+ margin-left:auto;
+ font-style:normal;
+ font-size:7px;
+ font-weight:900;
+ padding:1px 4px;
+ border:1px solid currentColor;
+}
+.schedule-previous-main-row.is-scheduled .schedule-previous-main-top>em{
+ color:#267647;
+}
+.schedule-previous-main-row.is-unscheduled .schedule-previous-main-top>em{
+ color:#9a6908;
+}
+.schedule-previous-main-row>small{
+ font-size:7.5px!important;
+ color:#5b6877!important;
+ white-space:normal;
+}

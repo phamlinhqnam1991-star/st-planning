@@ -2026,3 +2026,23 @@ No new SQL migration is required beyond migrations already included in v91.
 - Removed resource-specific Batch columns from these summary tables.
 - Summary columns are now: Planner (combined only), Batch#, Standard Operation, Resource, Recipe#, Recipe description, Jobs, pcs, dm², Start, End, Duration.
 - Schedule Area boards and all Planning/Batch/Schedule/Auto logic are unchanged.
+
+
+## v110 - Unscheduled Batch Previous Main details
+Applied to every Schedule Area unscheduled Batch card:
+- Current Batch Recipe Name is displayed when available.
+- All distinct Previous Main dependencies found across Jobs in the Batch are displayed.
+- Each dependency shows Previous Batch No, Previous Main Standard Operation, SCHEDULED/UNSCHEDULED status.
+- If scheduled, Resource and planned completion time are shown.
+- Multiple Previous Main Batches/Operations are all rendered; they are not collapsed into one.
+- Historical lookup uses `planning_batch_job` sequence snapshots so it remains compatible with rebuilt Planning Job chains.
+- Scheduling, Planning Board, Batch creation, and future Auto Schedule logic are unchanged.
+
+
+## v111 - CAB/Flybar Schedule Area exact-resource fix
+- Fixed scheduled Batch duplication across CAB1/CAB2/CAB3 and other Schedule Areas that have a concrete `resource_code`.
+- If a Schedule Area has `resource_code`, its scheduled list now contains only schedules on that exact resource.
+- Example: a Batch scheduled on CAB1 is shown only in CAB1, never CAB2/CAB3.
+- Unscheduled Batch candidates remain visible in all compatible CAB areas so the Planner can choose where to schedule them.
+- Resource-group areas still require both matching `resource_group` and mapped Standard Operation.
+- No change to Batch, Recipe, Previous Main, Planning Board, or future Auto Schedule architecture.

@@ -16,10 +16,20 @@ type ScheduledRow={
  total_surface_dm2:number;planned_start:string;planned_end:string;duration_minutes:number;sequence_no:number;
  plan_source?:string|null;
 };
+type PreviousMainBatch={
+ batch_id:number|null;
+ batch_no:string|null;
+ operation:string|null;
+ schedule_status:"SCHEDULED"|"UNSCHEDULED"|string;
+ resource_code:string|null;
+ planned_start:string|null;
+ planned_end:string|null;
+};
 type PlanningBatch={
  id:number;batch_no:string;standard_operation:string;recipe_key:string|null;recipe_no:string|null;recipe_name:string|null;
  total_jobs:number;total_qty:number;total_surface_dm2:number;process_minutes:number|null;
  schedule_id:number|null;
+ previous_main_batches:PreviousMainBatch[];
 };
 type Draft={
  standardOperation:string;recipeKey:string;resourceCode:string;date:string;startTime:string;duration:string;
@@ -33,6 +43,19 @@ const blank=(date:string,resourceCode=""):Draft=>({
 function parseHHMM(v:string){const m=v.trim().match(/^(\d{1,3}):(\d{2})$/);if(!m)return null;const n=Number(m[1])*60+Number(m[2]);return Number(m[2])<60&&n>0?n:null}
 function fmt(v:unknown,d=2){const n=Number(v||0);return Number.isFinite(n)?new Intl.NumberFormat("vi-VN",{maximumFractionDigits:d}).format(n):"0"}
 function time(v:string){const d=new Date(v);return Number.isNaN(d.getTime())?"—":d.toLocaleTimeString("en-GB",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit"})}
+function dateTime(v:string|null|undefined){
+ if(!v)return "—";
+ const d=new Date(v);
+ if(Number.isNaN(d.getTime()))return "—";
+ return d.toLocaleString("vi-VN",{
+  timeZone:"Asia/Ho_Chi_Minh",
+  day:"2-digit",
+  month:"2-digit",
+  year:"numeric",
+  hour:"2-digit",
+  minute:"2-digit"
+ });
+}
 
 export function ManualScheduleGrid({
  scheduleAreas,operations,resources,recipes,scheduledRows,planningBatches,date,planner
@@ -71,10 +94,26 @@ export function ManualScheduleGrid({
  }
  function scheduledFor(a:ScheduleArea){
   const allowed=new Set((a.operations||[]).map(x=>x.standard_operation.toUpperCase()));
+
   return scheduledRows.filter(r=>{
-   if(a.resource_code&&r.resource_code===a.resource_code)return true;
-   if(a.resource_group&&r.resource_group===a.resource_group&&allowed.has(r.standard_operation.toUpperCase()))return true;
-   return allowed.has(r.standard_operation.toUpperCase());
+   const op=String(r.standard_operation||"").toUpperCase();
+
+   // IMPORTANT:
+   // A Schedule Area with a concrete resource_code (CAB1/CAB2/CAB3, FB-01...)
+   // only owns schedules on that exact resource.
+   // Do not fall through to resource_group / operation matching, otherwise a CAB1
+   // schedule is repeated in CAB2/CAB3 simply because all three are PAINTING.
+   if(a.resource_code){
+    return r.resource_code===a.resource_code;
+   }
+
+   // Area defined by Resource Group: require BOTH group + mapped operation.
+   if(a.resource_group){
+    return r.resource_group===a.resource_group&&allowed.has(op);
+   }
+
+   // Generic area without resource restriction.
+   return allowed.has(op);
   }).sort((x,y)=>{
    const sx=Number(x.sequence_no||0);
    const sy=Number(y.sequence_no||0);
@@ -406,12 +445,56 @@ export function ManualScheduleGrid({
           key={`area-unscheduled-${b.id}`}
           onClick={()=>selectUnscheduledBatch(a,b)}
          >
-          <strong>{b.batch_no}</strong>
-          <span>{b.standard_operation}{b.recipe_no?` · ${b.recipe_no}`:""}</span>
-          <small>
-           {fmt(b.total_qty,0)} pcs · {fmt(b.total_surface_dm2)} dm²
-           {Number(b.total_jobs||0)===0?" · EMPTY":""}
-          </small>
+          <div className="schedule-area-unscheduled-card-main">
+           <strong>{b.batch_no}</strong>
+           <span>
+            {b.standard_operation}
+            {b.recipe_no?` · ${b.recipe_no}`:""}
+           </span>
+
+           {b.recipe_name&&
+            <small className="schedule-unscheduled-recipe-name">
+             Recipe: {b.recipe_name}
+            </small>}
+
+           <small>
+            {fmt(b.total_qty,0)} pcs · {fmt(b.total_surface_dm2)} dm²
+            {Number(b.total_jobs||0)===0?" · EMPTY":""}
+           </small>
+          </div>
+
+          <div className="schedule-previous-main-list">
+           <b>Previous Main</b>
+
+           {(b.previous_main_batches||[]).map((prev,index)=>
+            <div
+             className={`schedule-previous-main-row ${
+              prev.schedule_status==="SCHEDULED"
+               ?"is-scheduled"
+               :"is-unscheduled"
+             }`}
+             key={`${b.id}-prev-${prev.batch_id||"none"}-${prev.operation||"op"}-${index}`}
+            >
+             <div className="schedule-previous-main-top">
+              <strong>{prev.batch_no||"NO BATCH"}</strong>
+              <span>{prev.operation||"—"}</span>
+              <em>{prev.schedule_status||"UNSCHEDULED"}</em>
+             </div>
+
+             {prev.schedule_status==="SCHEDULED"
+              ? <small>
+                 {prev.resource_code&&<>Resource: {prev.resource_code} · </>}
+                 Complete: {dateTime(prev.planned_end)}
+                </small>
+              : <small>Chưa điều độ Previous Main Batch</small>}
+            </div>
+           )}
+
+           {(!b.previous_main_batches||!b.previous_main_batches.length)&&
+            <div className="schedule-previous-main-row no-previous">
+             <small>Không có Previous Main Operation</small>
+            </div>}
+          </div>
          </button>
         )}
        </div>
