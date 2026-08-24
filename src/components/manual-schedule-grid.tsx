@@ -33,7 +33,9 @@ export function ManualScheduleGrid({
   scheduleAreas.map(a=>[a.schedule_area_code,Math.max(1,Number(a.default_rows)||20)])
  ));
  const [drafts,setDrafts]=useState<Record<string,Draft>>({});
- const [busy,setBusy]=useState("");const [message,setMessage]=useState("");
+ const [busy,setBusy]=useState("");
+ const [rowBusy,setRowBusy]=useState("");
+ const [message,setMessage]=useState("");
 
  const opMap=useMemo(()=>new Map(operations.map(o=>[o.standard_operation.toUpperCase(),o])),[operations]);
 
@@ -62,12 +64,70 @@ export function ManualScheduleGrid({
   const k=key(a.schedule_area_code,i);
   setDrafts(p=>({...p,[k]:{...(p[k]||blank(date,a.resource_code||"")),...x}}));
  }
- function addRow(a:ScheduleArea){setRowCounts(p=>({...p,[a.schedule_area_code]:(p[a.schedule_area_code]||20)+1}))}
- function removeRow(a:ScheduleArea){
-  const count=rowCounts[a.schedule_area_code]||20;if(count<=1)return;
-  const last=count-1;const k=key(a.schedule_area_code,last);
-  setDrafts(p=>{const n={...p};delete n[k];return n});
-  setRowCounts(p=>({...p,[a.schedule_area_code]:count-1}));
+ async function persistRowCount(a:ScheduleArea,nextCount:number){
+  const safeCount=Math.min(200,Math.max(1,nextCount));
+  setRowBusy(a.schedule_area_code);
+
+  try{
+   const res=await fetch("/api/config/schedule-areas",{
+    method:"PATCH",
+    headers:{"content-type":"application/json"},
+    body:JSON.stringify({
+     schedule_area_code:a.schedule_area_code,
+     schedule_area_name:a.schedule_area_name,
+     resource_group:a.resource_group,
+     resource_code:a.resource_code,
+     planner_owner:a.planner_owner,
+     display_order:a.display_order,
+     default_rows:safeCount,
+     allow_manual_plan:a.allow_manual_plan,
+     allow_auto_plan:a.allow_auto_plan,
+     is_active:true
+    })
+   });
+
+   const text=await res.text();
+   let data:any={};
+
+   if(text){
+    try{data=JSON.parse(text)}catch{}
+   }
+
+   if(!res.ok){
+    throw new Error(data.error||`Không lưu được số dòng (${res.status}).`);
+   }
+
+   setRowCounts(p=>({...p,[a.schedule_area_code]:safeCount}));
+   setMessage(`${a.schedule_area_name}: đã lưu ${safeCount} dòng mặc định.`);
+   return true;
+  }catch(e){
+   setMessage(e instanceof Error?e.message:"Không lưu được số dòng.");
+   return false;
+  }finally{
+   setRowBusy("");
+  }
+ }
+
+ async function addRow(a:ScheduleArea){
+  const count=rowCounts[a.schedule_area_code]||Math.max(1,Number(a.default_rows)||20);
+  await persistRowCount(a,count+1);
+ }
+
+ async function removeRow(a:ScheduleArea){
+  const count=rowCounts[a.schedule_area_code]||Math.max(1,Number(a.default_rows)||20);
+  if(count<=1)return;
+
+  const ok=await persistRowCount(a,count-1);
+  if(!ok)return;
+
+  const last=count-1;
+  const k=key(a.schedule_area_code,last);
+
+  setDrafts(p=>{
+   const n={...p};
+   delete n[k];
+   return n;
+  });
  }
  async function save(a:ScheduleArea,i:number){
   const r=draft(a,i),duration=parseHHMM(r.duration);
@@ -92,7 +152,7 @@ export function ManualScheduleGrid({
  return <section className="erp-table-panel section schedule-area-direct-grid">
   <div className="erp-panel-head">
    <div><b>Direct Schedule Grid · Planner {planner} · Schedule Area</b>
-    <small className="planning-sub">Mặc định 20 dòng/khu vực. + Row / − Row chỉ thay đổi số dòng nhập trên view; không tạo Batch rác.</small></div>
+    <small className="planning-sub">Mặc định 20 dòng/khu vực. + Row / − Row tự lưu số dòng của từng khu vực cho lần mở sau; không tạo Batch rác.</small></div>
    <span>{scheduleAreas.length} areas</span>
   </div>
   {message&&<div className="notice">{message}</div>}
@@ -104,8 +164,22 @@ export function ManualScheduleGrid({
       <div><b>{a.schedule_area_name}</b><small>{a.schedule_area_code} · {aOps.length?aOps.map(x=>x.standard_operation).join(" / "):"CHƯA MAP OPERATION"}</small></div>
       <div className="schedule-area-row-actions">
        <span>{actual.length} scheduled · {count} input rows</span>
-       <button type="button" className="btn small" onClick={()=>removeRow(a)}>− Row</button>
-       <button type="button" className="btn small primary" onClick={()=>addRow(a)}>+ Row</button>
+       <button
+        type="button"
+        className="btn small"
+        disabled={rowBusy===a.schedule_area_code||count<=1}
+        onClick={()=>removeRow(a)}
+       >
+        − Row
+       </button>
+       <button
+        type="button"
+        className="btn small primary"
+        disabled={rowBusy===a.schedule_area_code||count>=200}
+        onClick={()=>addRow(a)}
+       >
+        {rowBusy===a.schedule_area_code?"Saving...":"+ Row"}
+       </button>
       </div>
      </div>
      {!aOps.length&&<div className="schedule-area-unmapped">Khu vực chưa có Standard Operation. Vào Cấu hình → Schedule Area Mapping để thêm.</div>}

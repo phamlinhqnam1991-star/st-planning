@@ -1923,3 +1923,19 @@ No new SQL migration is required beyond migrations already included in v91.
 - Schedule Area ownership is now separated from process/routing configuration.
 - Any area can be moved between Planner 1, Planner 2, or Unassigned without changing Standard Operation mapping, Routing, Batch logic, or historical schedules.
 - Board Điều Độ reads the current assignment dynamically.
+
+
+## v95 - Planner Assignment API robustness
+- Fixed `Unexpected end of JSON input` in Planner Work Assignment.
+- Client now safely reads empty/non-JSON responses instead of crashing.
+- Assignment API always returns JSON on success/error.
+- API self-checks and creates/backfills `md_planner_work_assignment` if migration 031 has not yet been applied.
+- Existing Planner/Schedule Area logic is unchanged.
+
+
+## v96 - Persist Schedule Area row count
+- `+ Row` and `- Row` now persist the resulting row count to `md_schedule_area.default_rows`.
+- Reopening Schedule / refreshing the browser restores the saved row count per Schedule Area.
+- Row count remains independent for each Schedule Area.
+- Range remains 1..200 rows.
+- Adding/removing UI rows still does not create planning batches.
