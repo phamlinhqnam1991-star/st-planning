@@ -2046,3 +2046,60 @@ Applied to every Schedule Area unscheduled Batch card:
 - Unscheduled Batch candidates remain visible in all compatible CAB areas so the Planner can choose where to schedule them.
 - Resource-group areas still require both matching `resource_group` and mapped Standard Operation.
 - No change to Batch, Recipe, Previous Main, Planning Board, or future Auto Schedule architecture.
+
+
+## v112 - Planning Board Area -> Operation dynamic filter
+- Planning Board `Standard Operation` dropdown is now filtered dynamically by selected `Area`.
+- Example: selecting Chemical line immediately shows only Standard Operations mapped to Chemical line.
+- Applies to every Area using `md_operation_master -> md_area_operation_group -> md_area`; no hard-coded Area list.
+- Changing Area automatically clears a previously selected Operation if that Operation does not belong to the new Area.
+- `All Areas` continues to show all active Planning operations.
+- Candidate/Batch/Recipe/Auto planning logic is unchanged.
+
+
+## v114 - Candidate Job Route Status Matrix
+- Candidate Jobs now include dynamic route columns built from each Job's mapped AllOperation sequence.
+- Each route cell shows status: DONE, READY, WAITING, PLANNED-UNSCHEDULED, SCHEDULED, RUNNING, COMPLETED, HOLD.
+- If a Job operation already belongs to a Batch, the cell also shows Batch No.
+- If that Batch is scheduled, the cell also shows Resource and planned End time.
+- Historical operations before the current Planning source sequence display DONE.
+- PIONBL is included as a route-visibility column even though it remains intentionally excluded from Planning Batch creation.
+- Repeated source operation codes use separate columns (`CODE`, `CODE #2`, ...).
+- Matrix columns are dynamic for the loaded Candidate set and remain compatible with Columns / Sort Priority / saved views.
+- Existing Candidate selection, same-Standard-Operation Batch lock, Recipe/Paint lock, Planning Board, and future Auto Plan architecture are unchanged.
+
+
+## v115 - One Main Standard Operation per Route Status column
+- Candidate Route Status Matrix now creates columns by Main / Standard Operation, not raw Operation Code.
+- Example: source code `PPRSLVT` mapped to `PRIMER` is displayed in the `PRIMER` column.
+- Repeated paint stages remain separate when Planning mapping already resolves them as `PRIMER`, `PRIMER2`, `PRIMER3`, `TOPCOAT1`, `TOPCOAT2`.
+- `PIONBL` remains visible as its own route-status column for progress visibility.
+- If legacy data contains duplicate identical Main Operations, they are shown inside one Main Operation cell rather than creating duplicate columns.
+- Batch No, Schedule status, Resource and End time remain visible in the Main Operation cell.
+- Column settings / Sort Priority remain supported. Candidate selection and Batch logic are unchanged.
+
+
+## v116 - Separate fixed Main Operation columns
+- Candidate Jobs now gets route matrix columns from active Planning Operation Scope / Operation Master, not only from operations found in loaded Jobs.
+- Every Main / Standard Operation is a separate physical table column.
+- Selecting an Area displays every Main Operation column belonging to that Area.
+- All Areas displays all configured Main Operation columns.
+- If a Job does not contain an operation, its cell is `—`; otherwise it displays route status and Batch/Schedule information.
+- PIONBL remains a dedicated progress-only column when present.
+- Existing Candidate selection, Recipe lock, Batch logic, Schedule logic and future Auto architecture are unchanged.
+
+## v118 - Fix empty Main Operation status cells
+- Candidate route-status standardization now mirrors Planning Chain rules for PRIMER/PRIMER2/PRIMER3, TOPCOAT1/TOPCOAT2, HE-BAKE variants, DIRECT/OCCURRENCE/SEQUENCE mappings.
+- Added current-operation fallback so READY or PLANNED-UNSCHEDULED is never blank for the Job's current Main Operation.
+- UI columns and Batch/Schedule/Auto logic are unchanged.
+
+
+## v119 - Full Route Status Matrix
+- Fixed Candidate route matrix showing only READY.
+- Every mapped Main Operation in a Job route now receives a status.
+- Source sequence before current = DONE.
+- Current source sequence = READY, or PLANNED-UNSCHEDULED/SCHEDULED/RUNNING/HOLD when Batch/Schedule exists.
+- Future source sequence = WAITING unless a future Batch/Schedule already exists.
+- Historical/future Batch lookup uses `planning_batch_job.source_seq_snapshot` first, with Standard Operation fallback for legacy rows.
+- Existing Planning Chain rows are preferred to preserve PRIMER2/PRIMER3/TOPCOAT2 and other occurrence/sequence mapping.
+- Candidate selection, Batch creation, Schedule and Auto architecture are unchanged.

@@ -2997,3 +2997,101 @@ button,a,input,select,textarea{touch-action:manipulation}
  color:#5b6877!important;
  white-space:normal;
 }
+
+
+/* v114 - Candidate Job Route Status Matrix */
+.planning-candidate-table .route-status-header{
+ min-width:118px;
+ text-align:center;
+ background:#e9f0f8;
+ border-left:2px solid #9eb5cd;
+}
+.planning-candidate-table .route-status-cell{
+ min-width:118px;
+ max-width:150px;
+ padding:4px 5px;
+ text-align:center;
+ vertical-align:middle;
+ border-left:2px solid #d1d9e2;
+}
+.route-status-cell>b{
+ display:block;
+ font-size:8px;
+ line-height:1.15;
+}
+.route-status-cell .route-status-batch{
+ display:block;
+ margin-top:2px;
+ font-size:8px;
+ font-weight:900;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+.route-status-cell>small{
+ display:block;
+ margin-top:1px;
+ font-size:7px;
+ line-height:1.15;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+.route-status-done{
+ background:#e7f4eb!important;
+ color:#25633b;
+}
+.route-status-ready{
+ background:#e4effb!important;
+ color:#164f82;
+}
+.route-status-unscheduled{
+ background:#fff3d6!important;
+ color:#875900;
+}
+.route-status-scheduled{
+ background:#e1f4ec!important;
+ color:#146647;
+}
+.route-status-running{
+ background:#dcecff!important;
+ color:#0b4f94;
+}
+.route-status-completed{
+ background:#dff3e4!important;
+ color:#1d6b37;
+}
+.route-status-hold{
+ background:#fde4e1!important;
+ color:#8e2f25;
+}
+.route-status-waiting{
+ background:#f4f5f7!important;
+ color:#6b7280;
+}
+.route-status-na{
+ background:#fafafa!important;
+ color:#a0a7b1;
+}
+.route-status-current{
+ box-shadow:inset 0 0 0 2px #2878c7;
+}
+
+
+/* v115 - Main Standard Operation matrix */
+.planning-candidate-table .route-status-header{
+ font-weight:900;
+}
+
+
+/* v116 - every Main Operation is a separate fixed Candidate column */
+.planning-candidate-table th.route-status-header{
+ min-width:124px;
+ border-left:2px solid #7898b8;
+ border-right:1px solid #b9c9d8;
+}
+.planning-candidate-table td.route-status-cell{
+ min-width:124px;
+ border-left:2px solid #aebfce;
+ border-right:1px solid #d4dde5;
+}

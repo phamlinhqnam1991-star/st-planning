@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {AppTabs} from "@/components/app-tabs";
 import {PlanningBoardClient} from "@/components/planning-board-client";
+import {PlanningAreaOperationFilter} from "@/components/planning-area-operation-filter";
 import {BatchRowActions} from "@/components/batch-row-actions";
 import {ResetAllBatchesButton} from "@/components/reset-all-batches-button";
 import {getPool} from "@/lib/db";
@@ -37,7 +38,7 @@ export default async function Page({
 
  const c=await getPool().connect();
  try{
-   const [areasQ,opsQ,batchesQ]=await Promise.all([
+   const [areasQ,opsQ,batchesQ,matrixOpsQ]=await Promise.all([
      c.query(`
        select id,area_name
        from md_area
@@ -74,6 +75,35 @@ export default async function Page({
        where b.status<>'CANCELLED'
        order by b.created_at desc
        limit 50
+     `),
+     c.query(`
+       select
+         s.standard_operation,
+         s.sort_order operation_sort,
+         om.st_group,
+         a.id area_id,
+         a.area_name,
+         coalesce(a.sort_order,999999) area_sort,
+         coalesce(sg.sort_order,999999) st_group_sort
+       from md_planning_operation_scope s
+       left join md_operation_master om
+         on om.standard_operation=s.standard_operation
+        and om.is_active=true
+       left join md_st_group sg
+         on sg.st_group=om.st_group
+        and sg.is_active=true
+       left join md_area_operation_group ag
+         on ag.st_group=om.st_group
+        and ag.is_active=true
+       left join md_area a
+         on a.id=ag.area_id
+        and a.is_active=true
+       where s.is_active=true
+       order by
+         coalesce(a.sort_order,999999),
+         coalesce(sg.sort_order,999999),
+         s.sort_order,
+         s.standard_operation
      `)
    ]);
 
@@ -87,8 +117,6 @@ export default async function Page({
    if(op){
      params.push(op);
      conditions.push(`p.standard_operation=$${params.length}`);
-   }else{
-     conditions.push("false");
    }
 
    if(areaId){
@@ -169,6 +197,7 @@ export default async function Page({
        a.area_name,
        coalesce(r.recipe_no,selected_r.recipe_no) recipe_no,
        coalesce(r.recipe_name,selected_r.recipe_name) recipe_name,
+       coalesce(routeinfo.route_status,'[]'::jsonb) route_status,
        (
          p.recipe_key is not null
          or exists(
@@ -206,6 +235,15 @@ export default async function Page({
       and mf.revision_num=j.revision_num
       and mf.is_active=true
 
+     -- Current Batch of this exact planning operation.
+     -- Keep this separate from route-history lookup below.
+     left join planning_batch_job pbj
+       on pbj.planning_job_operation_id=p.id
+     left join planning_batch pb
+       on pb.id=pbj.batch_id
+      and pb.status<>'CANCELLED'
+
+     -- Previous planning operation for Candidate display/filter.
      left join lateral (
        select p2.standard_operation,p2.status
        from planning_job_operation p2
@@ -217,25 +255,15 @@ export default async function Page({
        limit 1
      ) prevp on true
 
-     left join planning_batch_job pbj
-       on pbj.planning_job_operation_id=p.id
-
-     left join planning_batch pb
-       on pb.id=pbj.batch_id
-      and pb.status<>'CANCELLED'
-
-     -- Historical previous Batch:
-     -- use original AllOperation source_seq, NOT current future-chain planning_seq.
-     -- Therefore it still works after a new All Open Job import moves NextOperation
-     -- forward and the current Planning Chain starts again at START.
+     -- Most recent previous Main Operation batch for this Job.
      left join lateral (
        select
-         hb.id as previous_batch_id,
-         hb.batch_no as previous_batch_no,
-         hb.status as previous_batch_status,
-         hp.standard_operation as previous_batch_operation,
-         hbj.source_operation_code as previous_batch_source_operation,
-         coalesce(hbj.source_seq_snapshot,hp.source_seq) as previous_batch_source_seq
+         hb.id previous_batch_id,
+         hb.batch_no previous_batch_no,
+         hb.status previous_batch_status,
+         hp.standard_operation previous_batch_operation,
+         hbj.source_operation_code previous_batch_source_operation,
+         coalesce(hbj.source_seq_snapshot,hp.source_seq) previous_batch_source_seq
        from planning_batch_job hbj
        join planning_batch hb
          on hb.id=hbj.batch_id
@@ -251,6 +279,222 @@ export default async function Page({
          hbj.id desc
        limit 1
      ) prevhist on true
+
+     left join lateral (
+       select jsonb_agg(
+         jsonb_build_object(
+           'route_key',r.route_key,
+           'source_operation',r.source_operation,
+           'source_seq',r.source_seq,
+           'occurrence',r.occurrence,
+           'standard_operation',r.standard_operation,
+           'route_status',r.route_status,
+           'batch_id',r.batch_id,
+           'batch_no',r.batch_no,
+           'batch_status',r.batch_status,
+           'schedule_id',r.schedule_id,
+           'schedule_status',r.schedule_status,
+           'resource_code',r.resource_code,
+           'planned_start',r.planned_start,
+           'planned_end',r.planned_end,
+           'recipe_no',r.recipe_no,
+           'recipe_name',r.recipe_name
+         )
+         order by r.source_seq
+       ) route_status
+       from (
+         with raw_route as (
+           select
+             trim(both '[] ' from token) source_operation,
+             ordinality::int source_seq,
+             row_number() over(
+               partition by upper(trim(both '[] ' from token))
+               order by ordinality
+             ) occurrence
+           from regexp_split_to_table(
+             regexp_replace(coalesce(j.all_operation,''),'^\s*\[|\]\s*$','','g'),
+             '\s*\|\s*'
+           ) with ordinality as parts(token,ordinality)
+           where trim(both '[] ' from token)<>''
+         ),
+
+         mapped_route as (
+           select
+             rr.*,
+
+             -- Prefer the exact Planning Chain operation at this source sequence.
+             -- This preserves occurrence rules such as PRIMER2/PRIMER3/TOPCOAT2.
+             coalesce(
+               exact_po.standard_operation,
+
+               -- For source codes already completed and no longer active in
+               -- planning_job_operation, reuse historical Batch snapshot.
+               hist_op.standard_operation,
+
+               -- Fallback to DIRECT mapping.
+               direct_map.standard_operation_rule,
+
+               case when upper(rr.source_operation)='PIONBL' then 'PIONBL' end
+             ) standard_operation
+
+           from raw_route rr
+
+           left join lateral (
+             select po.standard_operation
+             from planning_job_operation po
+             where po.job_num=p.job_num
+               and po.source_seq=rr.source_seq
+             order by
+               po.is_active desc,
+               po.updated_at desc,
+               po.id desc
+             limit 1
+           ) exact_po on true
+
+           left join lateral (
+             select hbj.standard_operation
+             from planning_batch_job hbj
+             where hbj.job_num=p.job_num
+               and hbj.source_seq_snapshot=rr.source_seq
+             order by hbj.id desc
+             limit 1
+           ) hist_op on true
+
+           left join lateral (
+             select m.standard_operation_rule
+             from md_st_operation_mapping m
+             where m.is_active=true
+               and upper(trim(m.source_operation_code))=upper(rr.source_operation)
+               and m.mapping_rule='DIRECT'
+             order by m.sort_order,m.id
+             limit 1
+           ) direct_map on true
+         ),
+
+         enriched as (
+           select
+             mr.*,
+
+             hist_batch.batch_id,
+             hist_batch.batch_no,
+             hist_batch.batch_status,
+             hist_batch.recipe_no,
+             hist_batch.recipe_name,
+
+             hist_schedule.schedule_id,
+             hist_schedule.schedule_status,
+             hist_schedule.resource_code,
+             hist_schedule.planned_start,
+             hist_schedule.planned_end
+
+           from mapped_route mr
+
+           left join lateral (
+             select
+               hb.id batch_id,
+               hb.batch_no,
+               hb.status batch_status,
+               pr.recipe_no,
+               pr.recipe_name
+             from planning_batch_job hbj
+             join planning_batch hb
+               on hb.id=hbj.batch_id
+              and hb.status<>'CANCELLED'
+             left join md_process_recipe pr
+               on pr.recipe_key=hb.recipe_key
+              and pr.is_active=true
+             where hbj.job_num=p.job_num
+               and (
+                 hbj.source_seq_snapshot=mr.source_seq
+                 or (
+                   hbj.standard_operation=mr.standard_operation
+                   and hbj.source_seq_snapshot is null
+                 )
+               )
+             order by hb.created_at desc,hbj.id desc
+             limit 1
+           ) hist_batch on true
+
+           left join lateral (
+             select
+               ps.id schedule_id,
+               ps.status schedule_status,
+               ps.resource_code,
+               ps.planned_start,
+               ps.planned_end
+             from planning_schedule ps
+             where ps.batch_id=hist_batch.batch_id
+               and ps.status<>'CANCELLED'
+             order by ps.planned_start desc,ps.id desc
+             limit 1
+           ) hist_schedule on true
+         )
+
+         select
+           concat(
+             coalesce(standard_operation,source_operation),
+             '#',
+             occurrence
+           ) route_key,
+           source_operation,
+           source_seq,
+           occurrence,
+           standard_operation,
+
+           case
+             -- Any operation physically before current AllOperation source position
+             -- is completed, even when no historical Batch record exists.
+             when source_seq < p.source_seq
+               then 'DONE'
+
+             -- Existing Batch/Schedule always overrides generic READY/WAITING.
+             when batch_id is not null
+              and schedule_id is not null
+               then case
+                 when upper(coalesce(schedule_status,'')) in ('COMPLETED','DONE')
+                   then 'COMPLETED'
+                 when upper(coalesce(schedule_status,''))='RUNNING'
+                   then 'RUNNING'
+                 when upper(coalesce(schedule_status,''))='HOLD'
+                   then 'HOLD'
+                 else 'SCHEDULED'
+               end
+
+             when batch_id is not null
+               then 'PLANNED-UNSCHEDULED'
+
+             -- Current planning position
+             when source_seq = p.source_seq
+              and p.status='PLANNED'
+               then 'PLANNED-UNSCHEDULED'
+
+             when source_seq = p.source_seq
+               then 'READY'
+
+             -- Every mapped operation after current position remains visible
+             -- as WAITING until it gets its own Batch/Schedule.
+             when source_seq > p.source_seq
+               then 'WAITING'
+
+             else 'DONE'
+           end route_status,
+
+           batch_id,
+           batch_no,
+           batch_status,
+           schedule_id,
+           schedule_status,
+           resource_code,
+           planned_start,
+           planned_end,
+           recipe_no,
+           recipe_name
+
+         from enriched
+         where standard_operation is not null
+            or upper(source_operation)='PIONBL'
+       ) r
+     ) routeinfo on true
 
      left join md_area_operation_group ag
        on ag.st_group=p.st_group and ag.is_active=true
@@ -351,27 +595,12 @@ export default async function Page({
      </div>
 
      <form className="erp-form-panel planning-filter" method="get">
-      <label>
-       Area
-       <select className="input" name="area" defaultValue={areaId}>
-        <option value="">All Areas</option>
-        {areasQ.rows.map((a:any)=>
-         <option key={a.id} value={a.id}>{a.area_name}</option>
-        )}
-       </select>
-      </label>
-
-      <label>
-       Standard Operation
-       <select className="input" name="op" defaultValue={op}>
-        <option value="">Select Operation...</option>
-        {opsQ.rows.map((x:any)=>
-         <option key={x.standard_operation} value={x.standard_operation}>
-          {x.standard_operation}{x.area_name?` · ${x.area_name}`:""}
-         </option>
-        )}
-       </select>
-      </label>
+      <PlanningAreaOperationFilter
+       areas={areasQ.rows as any}
+       operations={opsQ.rows as any}
+       initialAreaId={areaId}
+       initialOperation={op}
+      />
 
       <label>
        Recipe
@@ -398,16 +627,18 @@ export default async function Page({
       <button className="btn primary">Load Candidates</button>
      </form>
 
-     {!op&&
+     {!op&&!areaId&&
       <div className="notice section">
-       Chọn Standard Operation để xem danh sách Job ELIGIBLE. Nếu vừa chạy migration 017 lần đầu,
-       bấm <b>Rebuild Chain</b> sau khi chọn Operation hoặc import lại All Open Job.
+       Chọn Area để xem toàn bộ Candidate thuộc Area, hoặc chọn thêm Standard Operation để lọc chi tiết.
       </div>}
 
      <div className="section">
       <PlanningBoardClient
        candidates={candidatesQ.rows as any}
        standardOperation={op}
+       areaMode={Boolean(areaId&&!op)}
+       selectedAreaId={areaId}
+       mainOperations={matrixOpsQ.rows as any}
        recipeKey={recipeKey}
        timeRules={timeRules as any}
        today={today}

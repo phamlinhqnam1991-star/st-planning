@@ -13,6 +13,34 @@ const formatNumber=(value:unknown, maxDecimals=2)=>{
  return decimal?`${whole},${decimal}`:whole;
 };
 
+type RouteStatusItem={
+ route_key:string;
+ source_operation:string;
+ source_seq:number;
+ occurrence:number;
+ standard_operation:string|null;
+ route_status:
+  |"DONE"
+  |"READY"
+  |"WAITING"
+  |"PLANNED-UNSCHEDULED"
+  |"SCHEDULED"
+  |"RUNNING"
+  |"COMPLETED"
+  |"HOLD"
+  |string;
+ batch_id:number|null;
+ batch_no:string|null;
+ batch_status:string|null;
+ schedule_id:number|null;
+ schedule_status:string|null;
+ resource_code:string|null;
+ planned_start:string|null;
+ planned_end:string|null;
+ recipe_no:string|null;
+ recipe_name:string|null;
+};
+
 type Candidate={
  id:number;
  job_num:string;
@@ -73,6 +101,7 @@ type Candidate={
  last_seen_at:string|null;
  last_changed_at:string|null;
  source_data:Record<string,unknown>|null;
+ route_status:RouteStatusItem[];
 };
 
 type TimeRule={
@@ -122,14 +151,25 @@ function estimateMinutes(
 }
 
 
+type MainOperationMaster={
+ standard_operation:string;
+ st_group:string|null;
+ area_id:number|null;
+ area_name:string|null;
+ area_sort:number|null;
+ st_group_sort:number|null;
+ operation_sort:number|null;
+};
+
 type CandidateColumn={
  key:string;
  label:string;
- group:"planning"|"allopen";
+ group:"planning"|"route"|"allopen";
 };
 
 const PLANNING_COLUMNS:CandidateColumn[]=[
  {key:"job",label:"Job",group:"planning"},
+ {key:"standard_operation",label:"Standard Operation",group:"planning"},
  {key:"part_rev",label:"Part / Rev",group:"planning"},
  {key:"qty",label:"Qty",group:"planning"},
  {key:"surface",label:"Surface",group:"planning"},
@@ -169,7 +209,7 @@ const CANDIDATE_SORT_SPECIAL_FIELDS=[
 
 const SORT_STORAGE_KEY="st-planning:candidate-sort:v1";
 const VIEW_STORAGE_KEY="st-planning:candidate-view-by-operation:v1";
-const COLUMN_STORAGE_KEY="st-planning:candidate-columns:v3";
+const COLUMN_STORAGE_KEY="st-planning:candidate-columns:v6";
 
 type CandidateViewPreset={
  columns:string[];
@@ -182,17 +222,23 @@ type CandidateViewPreset={
  };
  sortRules:SortRule[];
 };
-const LEGACY_COLUMN_STORAGE_KEY="st-planning:candidate-columns:v2";
+const LEGACY_COLUMN_STORAGE_KEY="st-planning:candidate-columns:v5";
 
 export function PlanningBoardClient({
  candidates,
  standardOperation,
+ areaMode,
+ selectedAreaId,
+ mainOperations,
  recipeKey,
  timeRules,
  today
 }:{
  candidates:Candidate[];
  standardOperation:string;
+ areaMode:boolean;
+ selectedAreaId:string;
+ mainOperations:MainOperationMaster[];
  recipeKey:string;
  timeRules:TimeRule[];
  today:string;
@@ -237,14 +283,52 @@ export function PlanningBoardClient({
    return out;
  },[candidates]);
 
+ const routeColumns=useMemo<CandidateColumn[]>(()=>{
+   // One Main / Standard Operation = one permanent physical Candidate column.
+   // The selected Area controls which master columns are shown.
+   const selectedArea=selectedAreaId?Number(selectedAreaId):null;
+   const seen=new Set<string>();
+   const columns:CandidateColumn[]=[];
+
+   for(const op of mainOperations){
+     if(selectedArea && Number(op.area_id)!==selectedArea)continue;
+
+     const mainOperation=normalized(op.standard_operation);
+     if(!mainOperation||seen.has(mainOperation))continue;
+     seen.add(mainOperation);
+
+     columns.push({
+      key:`route-main:${mainOperation}`,
+      label:mainOperation,
+      group:"route"
+     });
+   }
+
+   // PIONBL is progress-only and may not be in Planning Operation Scope.
+   if(
+    candidates.some(row=>
+     (row.route_status||[]).some(item=>normalized(item.source_operation)==="PIONBL")
+    ) &&
+    !seen.has("PIONBL")
+   ){
+     columns.push({
+      key:"route-main:PIONBL",
+      label:"PIONBL",
+      group:"route"
+     });
+   }
+
+   return columns;
+ },[mainOperations,selectedAreaId,candidates]);
  const allColumns=useMemo<CandidateColumn[]>(()=>[
    ...PLANNING_COLUMNS,
+   ...routeColumns,
    ...sourceColumns.map(col=>({
      key:`source:${col}`,
      label:col,
      group:"allopen" as const
    }))
- ],[sourceColumns]);
+ ],[sourceColumns,routeColumns]);
 
  const candidateSortFields=useMemo(()=>{
    const seen=new Set<string>();
@@ -285,12 +369,17 @@ export function PlanningBoardClient({
        const valid=new Set(allColumns.map(x=>x.key));
        let next=saved.filter((x:unknown)=>typeof x==="string"&&valid.has(x)) as string[];
 
-       // When upgrading from v30, surface the new status columns once.
-       // After saving v2, the user remains free to hide them.
+       // On a new column-schema version, surface status fields and the Route Status Matrix once.
+       // After it is saved, the user remains free to hide/reorder any matrix column.
        if(!window.localStorage.getItem(COLUMN_STORAGE_KEY)){
          for(const key of ["status","batch_no","previous_status","previous_batch_no","actual_progress"]){
            if(valid.has(key) && !next.includes(key))next.push(key);
          }
+
+         for(const col of routeColumns){
+           if(valid.has(col.key) && !next.includes(col.key))next.push(col.key);
+         }
+
          window.localStorage.setItem(COLUMN_STORAGE_KEY,JSON.stringify(next));
        }
 
@@ -498,7 +587,7 @@ export function PlanningBoardClient({
    return String(v);
  };
 
- const normalized=(v:unknown)=>String(v??"").trim().toUpperCase();
+ function normalized(v:unknown){return String(v??"").trim().toUpperCase();}
 
  const currentPriorityMonth=useMemo(()=>{
    const m=String(today||"").match(/^(\d{4})-(\d{2})-\d{2}$/);
@@ -592,6 +681,8 @@ export function PlanningBoardClient({
 
  const getColumnSortValue=(x:Candidate,key:string):string|number=>{
    switch(key){
+     case "standard_operation":
+       return normalized(x.standard_operation);
      case "job":
        return normalized(x.job_num);
 
@@ -644,6 +735,35 @@ export function PlanningBoardClient({
        return `${normalized(x.last_operation||"START")}\u0001${normalized(x.next_operation||"END")}`;
 
      default:
+       if(key.startsWith("route-main:")){
+         const mainOperation=normalized(key.slice("route-main:".length));
+         const items=(x.route_status||[])
+          .filter(r=>
+           normalized(
+            r.standard_operation ||
+            (normalized(r.source_operation)==="PIONBL"?"PIONBL":"")
+           )===mainOperation
+          )
+          .sort((a,b)=>Number(a.source_seq||0)-Number(b.source_seq||0));
+
+         const statusRank:Record<string,number>={
+          "DONE":10,
+          "COMPLETED":20,
+          "RUNNING":30,
+          "SCHEDULED":40,
+          "PLANNED-UNSCHEDULED":50,
+          "READY":60,
+          "WAITING":70,
+          "HOLD":80
+         };
+
+         const item=
+          items.find(r=>!["DONE","COMPLETED"].includes(String(r.route_status))) ||
+          items[items.length-1];
+
+         return `${String(statusRank[item?.route_status||""]??999).padStart(3,"0")}${normalized(item?.batch_no)}`;
+       }
+
        // Dynamic All Open Job columns are stored as:
        // allColumns key = source:<original Excel column>
        if(key.startsWith("source:")){
@@ -853,6 +973,12 @@ export function PlanningBoardClient({
    ]);
  };
 
+ const selectedOperation=selectedRows.length?selectedRows[0].standard_operation:(standardOperation||"");
+
+ function operationSelectionLocked(row:Candidate){
+   return Boolean(selectedOperation && row.standard_operation!==selectedOperation);
+ }
+
  function toggle(id:number){
    const row=candidates.find(x=>x.id===id);
    if(!row || row.planning_status!=="ELIGIBLE")return;
@@ -862,12 +988,12 @@ export function PlanningBoardClient({
      return;
    }
 
-   if(paintSelectionLocked(row))return;
+   if(operationSelectionLocked(row)||paintSelectionLocked(row))return;
    setSelected(x=>[...x,id]);
  }
 
  function toggleAll(){
-   const compatible=eligibleCandidates.filter(x=>!paintSelectionLocked(x));
+   const compatible=eligibleCandidates.filter(x=>!operationSelectionLocked(x)&&!paintSelectionLocked(x));
    const ids=compatible.map(x=>x.id);
    const all=ids.length>0 && ids.every(id=>selected.includes(id));
    if(all)setSelected(x=>x.filter(id=>!ids.includes(id)));
@@ -875,8 +1001,11 @@ export function PlanningBoardClient({
  }
 
  async function createBatch(){
-   if(!standardOperation)return alert("Chọn Standard Operation.");
    if(!selected.length)return alert("Chọn ít nhất 1 Candidate Job.");
+   const effectiveOperation=standardOperation||selectedRows[0]?.standard_operation||"";
+   if(!effectiveOperation)return alert("Không xác định được Standard Operation.");
+   if(selectedRows.some(x=>x.standard_operation!==effectiveOperation))
+     return alert("Một Batch chỉ được chứa Job của cùng Standard Operation.");
 
    setBusy(true);
    setMessage("");
@@ -887,7 +1016,7 @@ export function PlanningBoardClient({
        headers:{"content-type":"application/json"},
        body:JSON.stringify({
          planning_job_operation_ids:selected,
-         standard_operation:standardOperation,
+         standard_operation:effectiveOperation,
          recipe_key:recipeKey||null
        })
      });
@@ -941,11 +1070,152 @@ export function PlanningBoardClient({
    const col=allColumns.find(c=>c.key===key);
    if(!col)return null;
 
-   const cls=["qty","surface"].includes(key)?"num":col.group==="allopen"?"all-open-source-col":"";
+   const cls=
+    ["qty","surface"].includes(key)
+     ?"num"
+     :col.group==="allopen"
+      ?"all-open-source-col"
+      :col.group==="route"
+       ?"route-status-header"
+       :"";
    return <th key={key} className={cls||undefined}>{col.label}</th>;
  };
 
+ const routeStatusClass=(status:unknown)=>{
+   switch(normalized(status)){
+     case "DONE":
+     case "COMPLETED":
+       return "route-status-done";
+     case "READY":
+       return "route-status-ready";
+     case "PLANNED-UNSCHEDULED":
+       return "route-status-unscheduled";
+     case "SCHEDULED":
+       return "route-status-scheduled";
+     case "RUNNING":
+       return "route-status-running";
+     case "HOLD":
+       return "route-status-hold";
+     case "WAITING":
+     default:
+       return "route-status-waiting";
+   }
+ };
+
+ const routeDateTime=(v:string|null|undefined)=>{
+   if(!v)return "";
+   const d=new Date(v);
+   if(Number.isNaN(d.getTime()))return "";
+   return d.toLocaleString("vi-VN",{
+    timeZone:"Asia/Ho_Chi_Minh",
+    day:"2-digit",
+    month:"2-digit",
+    hour:"2-digit",
+    minute:"2-digit"
+   });
+ };
+
+ const renderRouteStatusCell=(x:Candidate,key:string)=>{
+   const mainOperation=normalized(key.slice("route-main:".length));
+
+   const items=(x.route_status||[])
+    .filter(r=>
+     normalized(
+      r.standard_operation ||
+      (normalized(r.source_operation)==="PIONBL"?"PIONBL":"")
+     )===mainOperation
+    )
+    .sort((a,b)=>Number(a.source_seq||0)-Number(b.source_seq||0));
+
+   if(!items.length){
+    if(mainOperation===normalized(x.standard_operation)){
+     const status=x.batch_no
+      ? "PLANNED-UNSCHEDULED"
+      :x.planning_status==="ELIGIBLE"
+       ? "READY"
+       :String(x.planning_status||"WAITING");
+
+     return <td
+      key={key}
+      className={`route-status-cell ${routeStatusClass(status)} route-status-current`}
+      title={`${mainOperation} · ${status}${x.batch_no?` · ${x.batch_no}`:""}`}
+     >
+      <b>{status}</b>
+      {x.batch_no&&<span className="route-status-batch">{x.batch_no}</span>}
+     </td>;
+    }
+    return <td key={key} className="route-status-cell route-status-na">—</td>;
+   }
+
+   // Normally each Main Operation appears once because repeated paint stages are
+   // already normalized as PRIMER / PRIMER2 / PRIMER3 and TOPCOAT1 / TOPCOAT2.
+   // If legacy data still contains duplicate identical Main Operations, keep them
+   // in the same cell instead of creating extra columns.
+   const displayItem=
+    items.find(r=>["RUNNING","SCHEDULED","PLANNED-UNSCHEDULED","READY","HOLD"].includes(String(r.route_status))) ||
+    items[items.length-1];
+
+   const status=String(displayItem.route_status||"WAITING");
+
+   const activeSeqs=(x.route_status||[])
+    .filter(r=>["READY","PLANNED-UNSCHEDULED","SCHEDULED","RUNNING"].includes(String(r.route_status)))
+    .map(r=>Number(r.source_seq))
+    .filter(Number.isFinite);
+
+   const currentSeq=activeSeqs.length?Math.min(...activeSeqs):Number.POSITIVE_INFINITY;
+   const isCurrent=items.some(r=>Number(r.source_seq)===currentSeq);
+
+   const batchNos=[
+    ...new Set(items.map(r=>String(r.batch_no||"").trim()).filter(Boolean))
+   ];
+
+   const resources=[
+    ...new Set(items.map(r=>String(r.resource_code||"").trim()).filter(Boolean))
+   ];
+
+   const scheduledEnds=items
+    .map(r=>r.planned_end)
+    .filter(Boolean)
+    .map(v=>routeDateTime(v))
+    .filter(Boolean);
+
+   const tooltip=items.map((item,index)=>[
+    items.length>1?`${mainOperation} occurrence ${index+1}`:mainOperation,
+    `Source: ${item.source_operation}`,
+    `Status: ${item.route_status}`,
+    item.batch_no?`Batch: ${item.batch_no}`:"",
+    item.resource_code?`Resource: ${item.resource_code}`:"",
+    item.planned_end?`End: ${routeDateTime(item.planned_end)}`:"",
+    item.recipe_name?`Recipe: ${item.recipe_name}`:""
+   ].filter(Boolean).join(" · ")).join("\n");
+
+   return <td
+    key={key}
+    className={`route-status-cell ${routeStatusClass(status)} ${isCurrent?"route-status-current":""}`}
+    title={tooltip}
+   >
+    <b>{status}</b>
+
+    {batchNos.length>0&&
+     <span className="route-status-batch">
+      {batchNos.join(" / ")}
+     </span>}
+
+    {resources.length>0&&
+     <small>{resources.join(" / ")}</small>}
+
+    {scheduledEnds.length>0&&
+     <small>End {scheduledEnds.join(" / ")}</small>}
+
+    {items.length>1&&
+     <small>{items.length} route occurrences</small>}
+   </td>;
+ };
  const renderCandidateCell=(x:Candidate,key:string)=>{
+   if(key.startsWith("route-main:")){
+     return renderRouteStatusCell(x,key);
+   }
+
    if(key.startsWith("source:")){
      const sourceKey=key.slice("source:".length);
      return <td key={key} className="all-open-source-col">
@@ -954,6 +1224,8 @@ export function PlanningBoardClient({
    }
 
    switch(key){
+     case "standard_operation":
+      return <td key={key}><b>{x.standard_operation||"—"}</b><small className="planning-sub">{x.area_name||"—"}</small></td>;
      case "job":
        return <td key={key}><b>{x.job_num}</b></td>;
 
@@ -1327,8 +1599,8 @@ export function PlanningBoardClient({
           <input
            type="checkbox"
            checked={selected.includes(x.id)}
-           disabled={x.planning_status!=="ELIGIBLE"||paintSelectionLocked(x)}
-           title={paintSelectionLocked(x)?"Khác loại sơn với Job đã chọn hoặc chưa có loại sơn":undefined}
+           disabled={x.planning_status!=="ELIGIBLE"||operationSelectionLocked(x)||paintSelectionLocked(x)}
+           title={operationSelectionLocked(x)?"Khác Standard Operation với Job đã chọn":paintSelectionLocked(x)?"Khác loại sơn với Job đã chọn hoặc chưa có loại sơn":undefined}
            onChange={()=>toggle(x.id)}
           />
          </td>
@@ -1365,7 +1637,7 @@ export function PlanningBoardClient({
 
     <div className="planning-batch-body planning-batch-body-compact">
      <div className="planning-summary-grid planning-summary-grid-compact">
-      <div><span>Operation</span><b>{standardOperation||"—"}</b></div>
+      <div><span>Operation</span><b>{selectedOperation||standardOperation||(areaMode?"Chọn Job để xác định":"—")}</b></div>
       <div><span>Jobs</span><b>{selectedRows.length}</b></div>
       <div><span>Total Qty</span><b>{formatNumber(totalQty)}</b></div>
       <div><span>Total Surface</span><b>{formatNumber(totalSurface)} dm²</b></div>
