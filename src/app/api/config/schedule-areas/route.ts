@@ -6,7 +6,37 @@ const clean=(v:unknown)=>String(v??"").trim();
 export async function GET(){
  const c=await getPool().connect();
  try{
-  const [areas,ops,resources]=await Promise.all([
+  // Backfill Operation Master from existing DIRECT mappings.
+  // This also repairs mappings created before automatic synchronization existed.
+  await c.query(`
+   with latest_direct as (
+    select distinct on (upper(trim(standard_operation_rule)))
+      trim(standard_operation_rule) standard_operation,
+      trim(st_group) st_group
+    from md_st_operation_mapping
+    where is_active=true
+      and mapping_rule='DIRECT'
+      and nullif(trim(standard_operation_rule),'') is not null
+    order by
+      upper(trim(standard_operation_rule)),
+      updated_at desc,
+      id desc
+   )
+   insert into md_operation_master(
+    standard_operation,
+    st_group,
+    is_active
+   )
+   select standard_operation,st_group,true
+   from latest_direct
+   on conflict(standard_operation)
+   do update set
+    st_group=excluded.st_group,
+    is_active=true,
+    updated_at=now()
+  `);
+
+  const [areas,ops,resources,stGroups,operationCodes]=await Promise.all([
    c.query(`
     select a.*,
       coalesce(jsonb_agg(
@@ -19,10 +49,34 @@ export async function GET(){
     group by a.schedule_area_code
     order by a.display_order,a.schedule_area_code
    `),
-   c.query(`select standard_operation from md_operation_master where is_active=true order by standard_operation`),
-   c.query(`select resource_code,resource_name,resource_group from md_schedule_resource where is_active=true order by sort_order,resource_code`)
+   c.query(`select standard_operation,st_group from md_operation_master where is_active=true order by st_group,standard_operation`),
+   c.query(`select resource_code,resource_name,resource_group from md_schedule_resource where is_active=true order by sort_order,resource_code`),
+   c.query(`
+    select g.st_group,a.area_code,a.area_name
+    from md_area_operation_group g
+    join md_area a on a.id=g.area_id and a.is_active=true
+    join md_st_group sg on sg.st_group=g.st_group and sg.is_active=true
+    where g.is_active=true
+    order by a.sort_order,a.area_name,sg.sort_order,g.st_group
+   `),
+   c.query(`
+    select
+     st_group,
+     source_operation_code,
+     standard_operation_rule,
+     mapping_rule
+    from md_st_operation_mapping
+    where is_active=true
+    order by st_group,sort_order,id
+   `)
   ]);
-  return NextResponse.json({areas:areas.rows,operations:ops.rows,resources:resources.rows});
+  return NextResponse.json({
+   areas:areas.rows,
+   operations:ops.rows,
+   resources:resources.rows,
+   st_groups:stGroups.rows,
+   operation_codes:operationCodes.rows
+  });
  }catch(e){
   return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:400});
  }finally{c.release()}

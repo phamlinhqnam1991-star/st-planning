@@ -163,6 +163,8 @@ export default async function Page({
       )
     order by
       coalesce(sr.sort_order,9999),
+      case when coalesce(s.sequence_no,0)>0 then 0 else 1 end,
+      coalesce(s.sequence_no,0),
       coalesce(b.standard_operation,''),
       s.planned_start,
       coalesce(b.batch_no,'LEGACY-'||s.batch_id::text)
@@ -275,6 +277,28 @@ export default async function Page({
 
   const handoverAlerts=handoverAlertsQ.rows as any[];
   const allRows=scheduleTableQ.rows as any[];
+  const plannerScheduleAreas=scheduleAreasQ.rows as any[];
+
+  // Dynamic Planner scope:
+  // Planner ownership comes from Schedule Area assignment + its mapped Standard Operations.
+  // Fall back to the previous fixed Planner operation list only while no Schedule Area
+  // operation mapping has been configured yet.
+  const assignedOperations=[
+   ...new Set(
+    plannerScheduleAreas.flatMap((area:any)=>
+     Array.isArray(area.operations)
+      ? area.operations
+         .map((x:any)=>String(x.standard_operation||"").trim().toUpperCase())
+         .filter(Boolean)
+      : []
+    )
+   )
+  ];
+
+  const effectivePlannerOperationSet=
+   assignedOperations.length
+    ? new Set(assignedOperations)
+    : plannerOperationSet;
 
   const alertCountByBatch=new Map<number,number>();
   for(const alert of handoverAlerts){
@@ -285,7 +309,7 @@ export default async function Page({
 
   const plannerBatches=(batchesQ.rows as any[])
    .filter(
-    (x:any)=>plannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
+    (x:any)=>effectivePlannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
    )
    .map((x:any)=>({
     ...x,
@@ -293,16 +317,16 @@ export default async function Page({
    }));
 
   const rows=(scheduleTableQ.rows as any[]).filter(
-   (x:any)=>plannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
+   (x:any)=>effectivePlannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
   );
 
   const timelineRows=(timelineQ.rows as any[]).filter(
-   (x:any)=>plannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
+   (x:any)=>effectivePlannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
   );
 
   const operationOrder=new Map(plannerOperations.map((op,index)=>[op.toUpperCase(),index]));
   const plannerOperationRows=(operationsQ.rows as any[])
-   .filter((x:any)=>plannerOperationSet.has(String(x.standard_operation||"").toUpperCase()))
+   .filter((x:any)=>effectivePlannerOperationSet.has(String(x.standard_operation||"").toUpperCase()))
    .sort((a:any,b:any)=>(operationOrder.get(String(a.standard_operation).toUpperCase())??999)-(operationOrder.get(String(b.standard_operation).toUpperCase())??999));
 
   // Unified production timeline order.
@@ -422,6 +446,7 @@ export default async function Page({
      resources={resourcesQ.rows as any}
      recipes={recipesQ.rows as any}
      scheduledRows={rows as any}
+     planningBatches={plannerBatches as any}
      date={date}
      planner={planner}
     />
@@ -431,6 +456,7 @@ export default async function Page({
      resources={resourcesQ.rows as any}
      operations={plannerOperationRows as any}
      recipes={recipesQ.rows as any}
+     scheduleAreas={plannerScheduleAreas as any}
      handoverAlerts={handoverAlerts as any}
      planner={planner}
      date={date}
@@ -446,18 +472,23 @@ export default async function Page({
      </div>
 
      <div className="table-wrap">
-      <table className="erp-table schedule-table schedule-table-combined">
-       <thead><tr>
-        <th>Planner</th>
-        <th>SPX<br/>Clean</th><th>Manual<br/>DBL</th><th>Auto<br/>DBL</th><th>Plating</th><th>He-Bake</th>
-        <th>Passivation/<br/>Brightening</th><th>Batch#<br/>ManualSP</th><th>Batch#<br/>AutoSHP</th>
-        <th>Chemical line<br/>Flybar#</th><th>Painting<br/>Batch# CAB1</th><th>Painting<br/>Batch# CAB2</th>
-        <th>Painting<br/>Batch# CAB3</th><th>Painting<br/>Batch# CAB4</th>
-        <th>Painting<br/>Paint Powder</th><th>SP#/FB#/PB#</th>
-        <th>Operation</th><th>Recipe#</th><th>Recipe description</th>
-        <th className="num">Jobs</th><th className="num">pcs</th>
-        <th className="num">dm2</th><th>Start<br/>Time</th><th>End<br/>Time</th><th>Duration</th>
-       </tr></thead>
+      <table className="erp-table schedule-table schedule-table-combined schedule-table-single-batch">
+       <thead>
+        <tr>
+         <th>Planner</th>
+         <th>Batch#</th>
+         <th>Standard Operation</th>
+         <th>Resource</th>
+         <th>Recipe#</th>
+         <th>Recipe description</th>
+         <th className="num">Jobs</th>
+         <th className="num">pcs</th>
+         <th className="num">dm²</th>
+         <th>Start Time</th>
+         <th>End Time</th>
+         <th>Duration</th>
+        </tr>
+       </thead>
 
        <tbody>
         {allRows.map((x:any)=>{
@@ -469,34 +500,51 @@ export default async function Page({
             ?"Planner 2"
             :"—";
 
-         const cell=(group:string,code?:string)=>
-          x.resource_group===group&&(!code||x.resource_code===code)
-           ?<b>{x.batch_no}</b>
-           :"—";
-
-         return <tr key={`all-${x.id}`} className={owner==="Planner 1"?"schedule-row-planner1":owner==="Planner 2"?"schedule-row-planner2":""}>
+         return <tr
+          key={`all-${x.id}`}
+          className={
+           owner==="Planner 1"
+            ?"schedule-row-planner1"
+            :owner==="Planner 2"
+             ?"schedule-row-planner2"
+             :""
+          }
+         >
           <td>
-           <span className={`schedule-planner-badge ${owner==="Planner 1"?"planner1":owner==="Planner 2"?"planner2":""}`}>
+           <span className={`schedule-planner-badge ${
+            owner==="Planner 1"
+             ?"planner1"
+             :owner==="Planner 2"
+              ?"planner2"
+              :""
+           }`}>
             {owner}
            </span>
           </td>
-          <td>{cell("SPX_CLEAN")}</td><td>{cell("MANUAL_DBL")}</td><td>{cell("AUTO_DBL")}</td>
-          <td>{cell("PLATING")}</td><td>{cell("HE_BAKE")}</td>
-          <td>{cell("PASSIVATION")}</td><td>{cell("MANUALSP")}</td><td>{cell("AUTOSHP")}</td>
-          <td>{x.resource_group==="CHEMICAL_LINE"?<><b>{x.batch_no}</b><small className="planning-sub">{x.resource_code}</small></>:"—"}</td>
-          <td>{cell("PAINTING","CAB1")}</td><td>{cell("PAINTING","CAB2")}</td><td>{cell("PAINTING","CAB3")}</td>
-          <td>{cell("PAINTING","CAB4")}</td><td>{cell("PAINT_POWDER")}</td>
-          <td><b>{x.resource_code}</b></td>
+          <td><b>{x.batch_no||"—"}</b></td>
           <td><b>{x.standard_operation||"—"}</b></td>
-          <td>{x.recipe_no||"—"}</td><td>{x.recipe_name||"—"}</td>
-          <td className="num">{x.total_jobs}</td><td className="num">{fmt(x.total_qty)}</td>
+          <td>
+           <b>{x.resource_code||"—"}</b>
+           {x.resource_name&&x.resource_name!==x.resource_code&&
+            <small className="planning-sub">{x.resource_name}</small>}
+          </td>
+          <td>{x.recipe_no||"—"}</td>
+          <td>{x.recipe_name||"—"}</td>
+          <td className="num">{x.total_jobs}</td>
+          <td className="num">{fmt(x.total_qty)}</td>
           <td className="num">{fmt(x.total_surface_dm2)}</td>
-          <td className="mono">{time(x.planned_start)}</td><td className="mono">{time(x.planned_end)}</td>
+          <td className="mono">{time(x.planned_start)}</td>
+          <td className="mono">{time(x.planned_end)}</td>
           <td className="mono">{hhmm(x.duration_minutes)}</td>
          </tr>
         })}
+
         {!allRows.length&&
-         <tr><td colSpan={25} className="muted">Chưa có Batch được xếp lịch cho ngày này.</td></tr>}
+         <tr>
+          <td colSpan={12} className="muted">
+           Chưa có Batch được xếp lịch cho ngày này.
+          </td>
+         </tr>}
        </tbody>
       </table>
      </div>
@@ -507,36 +555,52 @@ export default async function Page({
       <b>Schedule Table · Planner {planner}</b>
       <span>{rows.length} scheduled batches</span>
      </div>
+
      <div className="table-wrap">
-      <table className="erp-table schedule-table">
-       <thead><tr>
-        <th>SPX<br/>Clean</th><th>Manual<br/>DBL</th><th>Auto<br/>DBL</th><th>Plating</th><th>He-Bake</th>
-        <th>Passivation/<br/>Brightening</th><th>Batch#<br/>ManualSP</th><th>Batch#<br/>AutoSHP</th>
-        <th>Chemical line<br/>Flybar#</th><th>Painting<br/>Batch# CAB1</th><th>Painting<br/>Batch# CAB2</th>
-        <th>Painting<br/>Batch# CAB3</th><th>Painting<br/>Batch# CAB4</th>
-        <th>Painting<br/>Paint Powder</th><th>SP#/FB#/PB#</th>
-        <th>Recipe#</th><th>Recipe description</th><th className="num">Jobs</th><th className="num">pcs</th>
-        <th className="num">dm2</th><th>Start<br/>Time</th><th>End<br/>Time</th><th>Duration</th>
-       </tr></thead>
+      <table className="erp-table schedule-table schedule-table-single-batch">
+       <thead>
+        <tr>
+         <th>Batch#</th>
+         <th>Standard Operation</th>
+         <th>Resource</th>
+         <th>Recipe#</th>
+         <th>Recipe description</th>
+         <th className="num">Jobs</th>
+         <th className="num">pcs</th>
+         <th className="num">dm²</th>
+         <th>Start Time</th>
+         <th>End Time</th>
+         <th>Duration</th>
+        </tr>
+       </thead>
+
        <tbody>
-        {rows.map((x:any)=>{
-         const cell=(group:string,code?:string)=>x.resource_group===group&&(!code||x.resource_code===code)?<b>{x.batch_no}</b>:"—";
-         return <tr key={x.id}>
-          <td>{cell("SPX_CLEAN")}</td><td>{cell("MANUAL_DBL")}</td><td>{cell("AUTO_DBL")}</td>
-          <td>{cell("PLATING")}</td><td>{cell("HE_BAKE")}</td>
-          <td>{cell("PASSIVATION")}</td><td>{cell("MANUALSP")}</td><td>{cell("AUTOSHP")}</td>
-          <td>{x.resource_group==="CHEMICAL_LINE"?<><b>{x.batch_no}</b><small className="planning-sub">{x.resource_code}</small></>:"—"}</td>
-          <td>{cell("PAINTING","CAB1")}</td><td>{cell("PAINTING","CAB2")}</td><td>{cell("PAINTING","CAB3")}</td>
-          <td>{cell("PAINTING","CAB4")}</td>
-          <td>{cell("PAINT_POWDER")}</td><td><b>{x.resource_code}</b></td>
-          <td>{x.recipe_no||"—"}</td><td>{x.recipe_name||"—"}</td>
-          <td className="num">{x.total_jobs}</td><td className="num">{fmt(x.total_qty)}</td>
+        {rows.map((x:any)=>
+         <tr key={x.id}>
+          <td><b>{x.batch_no||"—"}</b></td>
+          <td><b>{x.standard_operation||"—"}</b></td>
+          <td>
+           <b>{x.resource_code||"—"}</b>
+           {x.resource_name&&x.resource_name!==x.resource_code&&
+            <small className="planning-sub">{x.resource_name}</small>}
+          </td>
+          <td>{x.recipe_no||"—"}</td>
+          <td>{x.recipe_name||"—"}</td>
+          <td className="num">{x.total_jobs}</td>
+          <td className="num">{fmt(x.total_qty)}</td>
           <td className="num">{fmt(x.total_surface_dm2)}</td>
-          <td className="mono">{time(x.planned_start)}</td><td className="mono">{time(x.planned_end)}</td>
+          <td className="mono">{time(x.planned_start)}</td>
+          <td className="mono">{time(x.planned_end)}</td>
           <td className="mono">{hhmm(x.duration_minutes)}</td>
          </tr>
-        })}
-        {!rows.length&&<tr><td colSpan={23} className="muted">Chưa có Batch được xếp lịch cho ngày này.</td></tr>}
+        )}
+
+        {!rows.length&&
+         <tr>
+          <td colSpan={11} className="muted">
+           Chưa có Batch được xếp lịch cho ngày này.
+          </td>
+         </tr>}
        </tbody>
       </table>
      </div>

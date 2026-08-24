@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect,useState} from "react";
+import {usePopupMessage} from "@/hooks/use-popup-message";
 
 type Area={
  schedule_area_code:string;
@@ -35,6 +36,7 @@ async function readJsonSafe(response:Response){
 export function PlannerWorkAssignmentManager(){
  const [areas,setAreas]=useState<Area[]>([]);
  const [status,setStatus]=useState("");
+ usePopupMessage(status);
  const [loading,setLoading]=useState(true);
  const [busyCode,setBusyCode]=useState("");
 
@@ -180,10 +182,6 @@ export function PlannerWorkAssignmentManager(){
    Routing, Batch hoặc logic công đoạn.
   </div>
 
-  {status&&
-   <div className={status.startsWith("Lỗi:")?"notice danger":"notice"}>
-    {status}
-   </div>}
 
   {loading
    ? <div className="card section">Đang tải phân chia Planner...</div>

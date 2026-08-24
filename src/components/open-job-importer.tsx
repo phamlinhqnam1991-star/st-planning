@@ -1,11 +1,13 @@
 "use client";
 
 import {useState} from "react";
+import {usePopupMessage} from "@/hooks/use-popup-message";
 import {createClient} from "@/lib/supabase/client";
 
 export function OpenJobImporter(){
  const [file,setFile]=useState<File|null>(null);
  const [status,setStatus]=useState("");
+ usePopupMessage(status);
  const [busy,setBusy]=useState(false);
 
  async function run(){
@@ -73,9 +75,5 @@ export function OpenJobImporter(){
      </button>
    </div>
 
-   {status&&
-    <div className={`open-job-import-status ${status.startsWith("Lỗi")?"danger":""}`}>
-      {status}
-    </div>}
  </div>
 }

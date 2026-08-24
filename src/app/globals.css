@@ -2753,3 +2753,161 @@ button,a,input,select,textarea{touch-action:manipulation}
  border:1px dashed #cfd8e3;
  background:#fff;
 }
+
+
+/* v97 - Planning Batches / Unscheduled grouped by Schedule Area */
+.schedule-area-batch-group{
+ border-color:#9fb6cf!important;
+ background:#f8fbff!important;
+}
+.schedule-area-batch-group-head{
+ background:#dceaf7!important;
+ border-bottom:1px solid #9fb6cf!important;
+}
+.schedule-area-batch-group-head>div{
+ display:flex;
+ flex-direction:column;
+ gap:1px;
+ min-width:0;
+}
+.schedule-area-batch-group-head>div>b{
+ font-size:10px;
+ color:#123f6b;
+}
+.schedule-area-batch-group-head>div>small{
+ font-size:8px;
+ color:#536b82;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+ max-width:1000px;
+}
+.schedule-area-unmapped-group{
+ border-color:#d6a84a!important;
+ background:#fffaf0!important;
+}
+.schedule-area-unmapped-group .schedule-area-batch-group-head{
+ background:#fff0c7!important;
+ border-bottom-color:#d6a84a!important;
+}
+.schedule-batch-operation-label{
+ display:inline-block;
+ padding:1px 5px;
+ border:1px solid #b9c6d5;
+ background:#f7f9fc;
+ font-size:8px!important;
+ font-weight:800;
+ color:#344054!important;
+}
+
+
+/* v98 - Unscheduled batches displayed inside their Schedule Area */
+.schedule-area-unscheduled-strip{
+ border-bottom:1px solid #9fb6cf;
+ background:#eef6fd;
+ padding:6px 8px 7px;
+}
+.schedule-area-unscheduled-strip-head{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ margin-bottom:5px;
+}
+.schedule-area-unscheduled-strip-head b{
+ font-size:9px;
+ color:#174a78;
+}
+.schedule-area-unscheduled-strip-head span{
+ font-size:8px;
+ color:#60758b;
+}
+.schedule-area-unscheduled-cards{
+ display:flex;
+ flex-wrap:wrap;
+ gap:5px;
+}
+.schedule-area-unscheduled-card{
+ min-width:165px;
+ max-width:240px;
+ padding:5px 7px;
+ border:1px solid #9db9d5;
+ background:#fff;
+ text-align:left;
+ cursor:pointer;
+ display:flex;
+ flex-direction:column;
+ gap:1px;
+ color:#172b4d;
+}
+.schedule-area-unscheduled-card:hover{
+ background:#e3f0fb;
+ border-color:#4c8bc4;
+}
+.schedule-area-unscheduled-card strong{
+ font-size:9px;
+ color:#0f4f83;
+}
+.schedule-area-unscheduled-card span{
+ font-size:8px;
+ font-weight:700;
+}
+.schedule-area-unscheduled-card small{
+ font-size:8px;
+ color:#60758b;
+}
+/* The old duplicated Planning Batches pool is no longer needed below the area grid. */
+.schedule-batch-list-board{
+ display:none;
+}
+
+
+/* v99 - Schedule batch order/edit/delete controls */
+.schedule-batch-control-actions{
+ display:flex;
+ align-items:center;
+ gap:3px;
+ white-space:nowrap;
+}
+.schedule-order-btn{
+ min-width:25px;
+ padding-left:6px!important;
+ padding-right:6px!important;
+ font-weight:900;
+}
+.schedule-area-existing.is-editing{
+ background:#fff8e8!important;
+}
+.schedule-area-existing.is-editing .input{
+ min-width:80px;
+}
+.schedule-area-entry-table th:last-child,
+.schedule-area-entry-table td:last-child{
+ min-width:245px;
+}
+
+/* v108 - global popup/toast notifications */
+.app-toast-stack{position:fixed;top:18px;right:18px;z-index:99999;display:flex;flex-direction:column;gap:8px;width:min(390px,calc(100vw - 28px));pointer-events:none}
+.app-toast{pointer-events:auto;display:grid;grid-template-columns:28px 1fr 24px;gap:8px;align-items:start;padding:10px 10px;border:1px solid #cbd5e1;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.16);border-left-width:5px;animation:app-toast-in .16s ease-out}
+.app-toast-success{border-left-color:#238636;background:#f2fbf4}.app-toast-warning{border-left-color:#d39b32;background:#fffaf0}.app-toast-error{border-left-color:#b42318;background:#fff5f4}.app-toast-info{border-left-color:#3276b1;background:#f3f8fd}
+.app-toast-icon{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;border:1px solid currentColor}.app-toast-success .app-toast-icon{color:#238636}.app-toast-warning .app-toast-icon{color:#9a6700}.app-toast-error .app-toast-icon{color:#b42318}.app-toast-info .app-toast-icon{color:#3276b1}
+.app-toast-content{display:flex;flex-direction:column;gap:2px;min-width:0}.app-toast-content b{font-size:11px}.app-toast-content span{font-size:10px;line-height:1.35;white-space:pre-wrap;overflow-wrap:anywhere}.app-toast-close{border:0;background:transparent;font-size:18px;line-height:18px;cursor:pointer;color:#64748b;padding:0}.app-toast-close:hover{color:#111827}
+@keyframes app-toast-in{from{opacity:0;transform:translateY(-8px) translateX(8px)}to{opacity:1;transform:none}}
+@media(max-width:640px){.app-toast-stack{top:10px;right:10px;width:calc(100vw - 20px)}}
+
+
+/* v109 - Schedule Table simplified to one Batch# column */
+.schedule-table-single-batch{
+ min-width:980px;
+}
+.schedule-table-single-batch th,
+.schedule-table-single-batch td{
+ white-space:nowrap;
+}
+.schedule-table-single-batch th:nth-child(2),
+.schedule-table-single-batch td:nth-child(2){
+ min-width:135px;
+}
+.schedule-table-single-batch td .planning-sub{
+ display:block;
+ margin-top:1px;
+}

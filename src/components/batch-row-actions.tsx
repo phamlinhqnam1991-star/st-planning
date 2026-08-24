@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import {usePopupMessage} from "@/hooks/use-popup-message";
 
 type Recipe = {
   recipe_key: string;
@@ -26,6 +27,7 @@ export function BatchRowActions({
   const [recipeKey, setRecipeKey] = useState(currentRecipeKey || "");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  usePopupMessage(message);
 
   async function openEdit() {
     setMessage("");
@@ -174,9 +176,6 @@ export function BatchRowActions({
         </div>
       ) : null}
 
-      {message ? (
-        <small className="batch-action-error">{message}</small>
-      ) : null}
     </div>
   );
 }

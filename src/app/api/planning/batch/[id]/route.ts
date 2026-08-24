@@ -149,6 +149,7 @@ export async function PATCH(
  const batchId=Number(id);
  const body=await req.json().catch(()=>({}));
  const recipeKey=clean(body.recipe_key)||null;
+ const allowScheduledRecipeEdit=body.allow_scheduled_recipe_edit===true;
 
  if(!Number.isFinite(batchId))
   return NextResponse.json({error:"Batch không hợp lệ."},{status:400});
@@ -171,8 +172,15 @@ export async function PATCH(
     limit 1
   `,[batchId]).catch(()=>({rowCount:0,rows:[]} as any));
 
-  if(scheduleQ.rowCount)
-   throw new Error("Batch đã được điều độ. Hãy bỏ schedule trước khi đổi Recipe.");
+  if(scheduleQ.rowCount){
+   const scheduleStatus=String(scheduleQ.rows[0]?.status||"");
+
+   if(["RUNNING","COMPLETED"].includes(scheduleStatus))
+    throw new Error("Batch RUNNING/COMPLETED không được sửa Recipe.");
+
+   if(!allowScheduledRecipeEdit)
+    throw new Error("Batch đã được điều độ. Hãy sửa Recipe từ Board Điều Độ.");
+  }
 
   if(recipeKey){
    const rq=await c.query(`

@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect,useMemo,useState} from "react";
+import {usePopupMessage} from "@/hooks/use-popup-message";
 
 const VIEW_STORAGE_KEY="st-planning:candidate-view-by-operation:v1";
 const COLUMN_STORAGE_KEY="st-planning:candidate-columns:v3";
@@ -188,6 +189,7 @@ export function BatchDetailManager({
  const [selected,setSelected]=useState<number[]>([]);
  const [q,setQ]=useState("");
  const [message,setMessage]=useState("");
+ usePopupMessage(message);
  const [viewLoaded,setViewLoaded]=useState(false);
  const [activeColumns,setActiveColumns]=useState<string[]|null>(null);
  const [filterNextMain,setFilterNextMain]=useState(initialNextFilter||"");
@@ -655,10 +657,6 @@ export function BatchDetailManager({
  };
 
  return <div className="section">
-   {message&&
-    <div className={`planning-message ${message.startsWith("Lỗi")?"danger":""}`}>
-     {message}
-    </div>}
 
    <div className="erp-table-panel section">
     <div className="erp-panel-head">

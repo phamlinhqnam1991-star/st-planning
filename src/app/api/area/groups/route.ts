@@ -1,13 +1,83 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {NextRequest,NextResponse} from "next/server";
+import {getPool} from "@/lib/db";
+
 export async function PUT(req:NextRequest){
+ const body=await req.json().catch(()=>({}));
+ const areaId=Number(body.area_id);
+
+ if(!areaId||!Array.isArray(body.groups))
+  return NextResponse.json({error:"Dữ liệu không hợp lệ."},{status:400});
+
+ const groups=[
+  ...new Set(
+   body.groups
+    .map((x:unknown)=>String(x??"").trim().toUpperCase())
+    .filter(Boolean)
+  )
+ ];
+
+ const c=await getPool().connect();
+
  try{
-   const {area_id,groups}=await req.json(); const areaId=Number(area_id); if(!areaId||!Array.isArray(groups))return NextResponse.json({error:"Dữ liệu không hợp lệ."},{status:400});
-  const clean=[...new Set(groups.map((x:unknown)=>String(x).trim()).filter(Boolean))]; const s=createAdminClient();
-  const {data:current,error}=await s.from("md_area_operation_group").select("st_group").eq("area_id",areaId).eq("is_active",true); if(error)throw error;
-  const currentGroups=(current||[]).map(x=>x.st_group); const remove=currentGroups.filter(x=>!clean.includes(x));
-  if(remove.length){const {error:e}=await s.from("md_area_operation_group").delete().eq("area_id",areaId).in("st_group",remove);if(e)throw e}
-  for(const st_group of clean){const {error:e}=await s.from("md_area_operation_group").upsert({area_id:areaId,st_group,is_active:true,updated_at:new Date().toISOString()},{onConflict:"st_group"});if(e)throw e}
+  await c.query("begin");
+
+  const currentQ=await c.query(`
+   select st_group
+   from md_area_operation_group
+   where area_id=$1 and is_active=true
+  `,[areaId]);
+
+  const current=currentQ.rows.map(x=>String(x.st_group));
+  const remove=current.filter(x=>!groups.includes(x));
+
+  if(remove.length){
+   await c.query(`
+    delete from md_area_operation_group
+    where area_id=$1
+      and st_group=any($2::text[])
+   `,[areaId,remove]);
+  }
+
+  for(const stGroup of groups){
+   // One ST Group belongs to one Area: move it from another Area when selected here.
+   await c.query(`
+    delete from md_area_operation_group
+    where st_group=$1
+      and area_id<>$2
+   `,[stGroup,areaId]);
+
+   const existing=await c.query(`
+    select id
+    from md_area_operation_group
+    where area_id=$1 and st_group=$2
+    limit 1
+   `,[areaId,stGroup]);
+
+   if(existing.rowCount){
+    await c.query(`
+     update md_area_operation_group
+     set is_active=true,updated_at=now()
+     where id=$1
+    `,[existing.rows[0].id]);
+   }else{
+    await c.query(`
+     insert into md_area_operation_group(
+      area_id,st_group,is_active
+     )
+     values($1,$2,true)
+    `,[areaId,stGroup]);
+   }
+  }
+
+  await c.query("commit");
   return NextResponse.json({ok:true});
- }catch(e){return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500})}
+ }catch(e){
+  await c.query("rollback");
+  return NextResponse.json(
+   {error:e instanceof Error?e.message:String(e)},
+   {status:500}
+  );
+ }finally{
+  c.release();
+ }
 }

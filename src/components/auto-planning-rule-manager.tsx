@@ -1,6 +1,7 @@
 "use client";
 
 import {useMemo,useState} from "react";
+import {usePopupMessage} from "@/hooks/use-popup-message";
 
 type Rule={
  standard_operation:string;
@@ -87,6 +88,7 @@ export function AutoPlanningRuleManager({
  const [open,setOpen]=useState<string|null>(null);
  const [busy,setBusy]=useState("");
  const [message,setMessage]=useState("");
+ usePopupMessage(message);
 
  const byOperation=useMemo(
   ()=>new Map(rows.map((x,i)=>[x.standard_operation,i])),
@@ -143,7 +145,6 @@ export function AutoPlanningRuleManager({
  }
 
  return <div className="auto-planning-rule-manager">
-  {message&&<div className="notice auto-rule-message">{message}</div>}
 
   <div className="erp-table-panel">
    <div className="erp-panel-head">

@@ -22,10 +22,9 @@ export async function DELETE(req:NextRequest){
  try{const b=await req.json();const code=clean(b.st_group);const c=await getPool().connect();try{
    const used=await c.query(`select
     (select count(*) from md_st_operation_mapping where st_group=$1 and is_active) mapping_count,
-    (select count(*) from md_operation_master where st_group=$1 and is_active) operation_count,
-    (select count(*) from md_area_operation_group where st_group=$1 and is_active) area_count`,[code]);
-   const x=used.rows[0]; if(Number(x.mapping_count)+Number(x.operation_count)+Number(x.area_count)>0)
-    return NextResponse.json({error:`Không thể deactivate: ST Group đang được dùng (Mapping ${x.mapping_count}, Operation Master ${x.operation_count}, Area ${x.area_count}). Hãy chuyển các liên kết trước.`},{status:409});
+    (select count(*) from md_operation_master where st_group=$1 and is_active) operation_count`,[code]);
+   const x=used.rows[0]; if(Number(x.mapping_count)+Number(x.operation_count)>0)
+    return NextResponse.json({error:`Không thể deactivate: ST Group đang được dùng (Mapping ${x.mapping_count}, Operation Master ${x.operation_count}). Hãy chuyển các liên kết trước.`},{status:409});
    await c.query("update md_st_group set is_active=false,updated_at=now() where st_group=$1",[code]);
   }finally{c.release()}return NextResponse.json({ok:true});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500})}

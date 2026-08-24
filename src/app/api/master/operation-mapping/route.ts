@@ -4,7 +4,47 @@ import { getPool } from "@/lib/db";
 const RULES=["DIRECT","OCCURRENCE","SEQUENCE","SEQUENCE/FALLBACK"];
 const clean=(v:unknown)=>String(v??"").trim();
 
+async function syncOperationMaster(client:any){
+  // md_st_operation_mapping is the upstream configuration source.
+  // DIRECT mappings represent one concrete Standard Operation and must be
+  // available in Operation Master so Area/Schedule Area can consume them.
+  //
+  // If a Standard Operation was moved to another ST Group, the newest active
+  // mapping wins. Time-rule columns in md_operation_master are preserved.
+  await client.query(`
+   with latest_direct as (
+    select distinct on (upper(trim(standard_operation_rule)))
+      trim(standard_operation_rule) standard_operation,
+      trim(st_group) st_group
+    from md_st_operation_mapping
+    where is_active=true
+      and mapping_rule='DIRECT'
+      and nullif(trim(standard_operation_rule),'') is not null
+    order by
+      upper(trim(standard_operation_rule)),
+      updated_at desc,
+      id desc
+   )
+   insert into md_operation_master(
+    standard_operation,
+    st_group,
+    is_active
+   )
+   select
+    standard_operation,
+    st_group,
+    true
+   from latest_direct
+   on conflict(standard_operation)
+   do update set
+    st_group=excluded.st_group,
+    is_active=true,
+    updated_at=now()
+  `);
+}
+
 async function refresh(client:any){
+  await syncOperationMaster(client);
   await client.query("select public.refresh_st_operation_mapping(null)");
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import {useState} from "react";
+import {usePopupMessage} from "@/hooks/use-popup-message";
 
 type Row={
  standard_operation:string;
@@ -24,6 +25,7 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
  const [prefixValue,setPrefixValue]=useState("");
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
+ usePopupMessage(message);
 
  function begin(row:Row){
   setEditing(row.standard_operation);
@@ -122,8 +124,6 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
    <b>Operation Master</b>
    <span>{rows.length} active records</span>
   </div>
-
-  {message&&<div className="notice operation-rename-message">{message}</div>}
 
   <div className="table-wrap">
    <table className="erp-table">

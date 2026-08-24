@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {notFound} from "next/navigation";
 import {createAdminClient} from "@/lib/supabase/admin";
+import {getPool} from "@/lib/db";
 import {AppTabs,SubTabs} from "@/components/app-tabs";
 import {OperationMasterManager} from "@/components/operation-master-manager";
 const config:Record<string,{table:string,title:string,search:string[],section:"master"|"config",exactField?:string,uppercaseExact?:boolean}>={
@@ -30,22 +31,77 @@ const configTabs=[
 export const dynamic="force-dynamic";
 export default async function Page({params,searchParams}:{params:Promise<{table:string}>,searchParams:Promise<{q?:string;p?:string}>}){
  const {table:key}=await params;const c=config[key];if(!c)notFound();const sp=await searchParams,q=(sp.q||"").trim(),page=Math.max(1,Number(sp.p)||1),size=50,from=(page-1)*size;
- const admin=createAdminClient();
- let query=admin.from(c.table).select("*",{count:"exact"}).eq("is_active",true).range(from,from+size-1);
+ let data:any[]|null=null;
+ let error:any=null;
+ let count:number|null=0;
 
- // Large Part-related tables use indexed exact PartNum lookup.
- // This avoids ILIKE '%...%' scans across 600k–2M+ rows.
- if(q){
-   if(c.exactField){
-     const exactValue=c.uppercaseExact?q.toUpperCase():q;
-     query=query.eq(c.exactField,exactValue);
-   }else{
-     const safeQ=q.replaceAll(",","");
-     query=query.or(c.search.map(x=>`${x}.ilike.%${safeQ}%`).join(","));
+ // Operation Master is configuration data used heavily by Planning/Scheduling.
+ // Read it directly from PostgreSQL so this page does not depend on Supabase REST API keys.
+ if(key==="operation"){
+  let db:any=null;
+
+  try{
+   db=await getPool().connect();
+
+   const values:any[]=[];
+   let where=`where is_active=true`;
+
+   if(q){
+    values.push(`%${q}%`);
+    const p=`$${values.length}`;
+    where+=` and (${c.search.map(x=>`cast(${x} as text) ilike ${p}`).join(" or ")})`;
    }
- }
 
- const {data,error,count}=await query;
+   const countQ=await db.query(
+    `select count(*)::int count from ${c.table} ${where}`,
+    values
+   );
+
+   values.push(size);
+   const limitParam=`$${values.length}`;
+   values.push(from);
+   const offsetParam=`$${values.length}`;
+
+   const dataQ=await db.query(
+    `select *
+     from ${c.table}
+     ${where}
+     order by standard_operation
+     limit ${limitParam}
+     offset ${offsetParam}`,
+    values
+   );
+
+   data=dataQ.rows;
+   count=Number(countQ.rows[0]?.count||0);
+  }catch(e){
+   error={
+    message:e instanceof Error?e.message:String(e)
+   };
+  }finally{
+   if(db)db.release();
+  }
+ }else{
+  const admin=createAdminClient();
+  let query=admin.from(c.table).select("*",{count:"exact"}).eq("is_active",true).range(from,from+size-1);
+
+  // Large Part-related tables use indexed exact PartNum lookup.
+  // This avoids ILIKE '%...%' scans across 600k–2M+ rows.
+  if(q){
+    if(c.exactField){
+      const exactValue=c.uppercaseExact?q.toUpperCase():q;
+      query=query.eq(c.exactField,exactValue);
+    }else{
+      const safeQ=q.replaceAll(",","");
+      query=query.or(c.search.map(x=>`${x}.ilike.%${safeQ}%`).join(","));
+    }
+  }
+
+  const result=await query;
+  data=result.data;
+  error=result.error;
+  count=result.count;
+ }
  if(error){
    return <main className="erp-shell">
     <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">{c.section==="master"?"MASTER DATA":"CONFIGURATION"}</div></header>

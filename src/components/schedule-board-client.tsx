@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect,useMemo,useState} from "react";
+import {usePopupMessage} from "@/hooks/use-popup-message";
 
 type NextBreakdown={
  operation:string;
@@ -75,6 +76,17 @@ type RecipeOption={
  recipe_no:string|null;
  recipe_name:string|null;
  process_family:string|null;
+};
+
+type ScheduleArea={
+ schedule_area_code:string;
+ schedule_area_name:string;
+ resource_group:string|null;
+ resource_code:string|null;
+ display_order:number;
+ default_rows:number;
+ planner_owner:string;
+ operations:{standard_operation:string}[];
 };
 
 function hhmm(m:any){
@@ -186,13 +198,63 @@ function groupByOperation(items:Batch[]){
   }));
 }
 
+function groupByScheduleArea(items:Batch[],areas:ScheduleArea[]){
+ const operationToArea=new Map<string,ScheduleArea>();
+
+ for(const area of areas){
+  for(const mapping of area.operations||[]){
+   const op=String(mapping.standard_operation||"").trim().toUpperCase();
+   if(op&&!operationToArea.has(op))operationToArea.set(op,area);
+  }
+ }
+
+ const map=new Map<string,{
+  area:ScheduleArea|null;
+  items:Batch[];
+ }>();
+
+ for(const batch of items){
+  const op=String(batch.standard_operation||"").trim().toUpperCase();
+  const area=operationToArea.get(op)||null;
+  const key=area?.schedule_area_code||"UNMAPPED";
+
+  const current=map.get(key)||{area,items:[]};
+  current.items.push(batch);
+  map.set(key,current);
+ }
+
+ return [...map.entries()]
+  .map(([key,value])=>({
+   key,
+   area:value.area,
+   items:[...value.items].sort((a,b)=>
+    String(a.standard_operation).localeCompare(
+     String(b.standard_operation),
+     undefined,
+     {numeric:true}
+    )||
+    String(a.batch_no).localeCompare(
+     String(b.batch_no),
+     undefined,
+     {numeric:true}
+    )
+   )
+  }))
+  .sort((a,b)=>{
+   if(a.key==="UNMAPPED")return 1;
+   if(b.key==="UNMAPPED")return -1;
+   return Number(a.area?.display_order||9999)-Number(b.area?.display_order||9999);
+  });
+}
+
 export default function ScheduleBoardClient({
- batches,resources,operations,recipes,handoverAlerts,planner,date
+ batches,resources,operations,recipes,scheduleAreas,handoverAlerts,planner,date
 }:{
  batches:Batch[];
  resources:Resource[];
  operations:OperationOption[];
  recipes:RecipeOption[];
+ scheduleAreas:ScheduleArea[];
  handoverAlerts:HandoverAlert[];
  planner:"1"|"2";
  date:string;
@@ -203,6 +265,7 @@ export default function ScheduleBoardClient({
  const [durationText,setDurationText]=useState("");
  const [busy,setBusy]=useState(false);
  const [msg,setMsg]=useState("");
+ usePopupMessage(msg);
  const [emptyOperation,setEmptyOperation]=useState("");
  const [emptyRecipe,setEmptyRecipe]=useState("");
  const [creatingEmpty,setCreatingEmpty]=useState(false);
@@ -226,8 +289,8 @@ export default function ScheduleBoardClient({
  );
 
  const unscheduledGroups=useMemo(
-  ()=>groupByOperation(unscheduled),
-  [unscheduled]
+  ()=>groupByScheduleArea(unscheduled,scheduleAreas),
+  [unscheduled,scheduleAreas]
  );
 
  const scheduledGroups=useMemo(
@@ -615,7 +678,6 @@ export default function ScheduleBoardClient({
     {busy?"Scheduling...":batch?.schedule_id?"Move Schedule":"Add Schedule"}
    </button>
 
-   {msg&&<div className="notice schedule-message">{msg}</div>}
   </div>
 
   <div className="schedule-batch-list-board">
@@ -623,7 +685,7 @@ export default function ScheduleBoardClient({
     <div className="schedule-dnd-pool-head">
      <b>Planning Batches</b>
      <small>
-      Chọn Batch để đưa lên form điều độ phía trên. Danh sách chia theo công đoạn chính hiện tại.
+      Chọn Batch để đưa lên form điều độ phía trên. Unscheduled được gom theo Schedule Area và mapping Standard Operation.
      </small>
     </div>
 
@@ -633,13 +695,27 @@ export default function ScheduleBoardClient({
       <span>{unscheduled.length} Batches</span>
      </div>
 
-     {unscheduledGroups.map(group=>
-      <div
-       className={`schedule-operation-group ${operationColorClass(group.operation)}`}
-       key={`u-${group.operation}`}
+     {unscheduledGroups.map(group=>{
+      const areaName=group.area?.schedule_area_name||"UNMAPPED";
+      const areaCode=group.area?.schedule_area_code||"UNMAPPED";
+      const mappedOps=[
+       ...new Set(
+        group.items.map(x=>String(x.standard_operation||"")).filter(Boolean)
+       )
+      ];
+
+      return <div
+       className={`schedule-operation-group schedule-area-batch-group ${group.key==="UNMAPPED"?"schedule-area-unmapped-group":""}`}
+       key={`u-area-${group.key}`}
       >
-       <div className="schedule-operation-group-head">
-        <b>{group.operation}</b>
+       <div className="schedule-operation-group-head schedule-area-batch-group-head">
+        <div>
+         <b>{areaName}</b>
+         <small>
+          {areaCode}
+          {mappedOps.length?` · ${mappedOps.join(" / ")}`:""}
+         </small>
+        </div>
         <span>{group.items.length} Batches</span>
        </div>
 
@@ -647,7 +723,7 @@ export default function ScheduleBoardClient({
         {group.items.map(b=>
          <div
           key={b.id}
-          className={`schedule-operation-batch-card schedule-operation-batch-clickable ${operationColorClass(group.operation)}`}
+          className={`schedule-operation-batch-card schedule-operation-batch-clickable ${operationColorClass(b.standard_operation)}`}
           role="button"
           tabIndex={0}
           onClick={()=>{window.location.href=`/planning/batches/${b.id}?returnTo=schedule&date=${encodeURIComponent(date)}`}}
@@ -660,11 +736,16 @@ export default function ScheduleBoardClient({
           <div className="schedule-operation-batch-head">
            <strong>
             {b.batch_no}
-            {Number(b.total_jobs||0)===0&&<em className="schedule-empty-badge">EMPTY</em>}
+            {Number(b.total_jobs||0)===0&&
+             <em className="schedule-empty-badge">EMPTY</em>}
             {Number(b.handover_alert_count||0)>0&&
              <em className="schedule-impact-badge">⚠ {b.handover_alert_count}</em>}
            </strong>
+
            <div className="schedule-operation-batch-actions">
+            <span className="schedule-batch-operation-label">
+             {b.standard_operation}
+            </span>
             <span>{b.recipe_no||"—"}</span>
             <button
              type="button"
@@ -687,7 +768,10 @@ export default function ScheduleBoardClient({
 
           <div className="schedule-next-breakdown">
            {(b.next_main_breakdown||[]).map((x,index)=>
-            <div className="schedule-next-breakdown-row" key={`${b.id}-${x.operation}-${index}`}>
+            <div
+             className="schedule-next-breakdown-row"
+             key={`${b.id}-${x.operation}-${index}`}
+            >
              <div className="schedule-next-breakdown-op">
               <b>{x.operation||"END"}</b>
               {x.paint&&<small>Paint: {x.paint}</small>}
@@ -708,7 +792,7 @@ export default function ScheduleBoardClient({
         )}
        </div>
       </div>
-     )}
+     })}
 
      {!unscheduled.length&&
       <div className="muted schedule-empty-batches">Không còn Batch chưa điều độ.</div>}

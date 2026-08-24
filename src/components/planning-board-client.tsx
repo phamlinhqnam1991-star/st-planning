@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect,useMemo,useState} from "react";
+import {usePopupMessage} from "@/hooks/use-popup-message";
 
 const formatNumber=(value:unknown, maxDecimals=2)=>{
  const n=Number(value??0);
@@ -199,6 +200,7 @@ export function PlanningBoardClient({
  const [selected,setSelected]=useState<number[]>([]);
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
+ usePopupMessage(message);
  const [columnPickerOpen,setColumnPickerOpen]=useState(false);
  const [columnSearch,setColumnSearch]=useState("");
  const [visibleColumns,setVisibleColumns]=useState<string[]|null>(null);
@@ -1377,10 +1379,6 @@ export function PlanningBoardClient({
       {busy?"Đang xử lý...":"Add Selected to Batch"}
      </button>
 
-     {message&&
-      <div className={`planning-message ${message.startsWith("Lỗi")?"danger":""}`}>
-       {message}
-      </div>}
     </div>
    </aside>
  </div>

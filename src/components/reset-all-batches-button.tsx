@@ -1,10 +1,12 @@
 "use client";
 
 import {useState} from "react";
+import {usePopupMessage} from "@/hooks/use-popup-message";
 
 export function ResetAllBatchesButton(){
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
+ usePopupMessage(message);
 
  async function resetAll(){
   const first=window.confirm(
@@ -52,6 +54,6 @@ export function ResetAllBatchesButton(){
   >
    {busy?"Resetting...":"Reset All Batches"}
   </button>
-  {message?<small className="batch-action-error">{message}</small>:null}
+
  </div>;
 }

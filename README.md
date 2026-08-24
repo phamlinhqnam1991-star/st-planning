@@ -1939,3 +1939,90 @@ No new SQL migration is required beyond migrations already included in v91.
 - Row count remains independent for each Schedule Area.
 - Range remains 1..200 rows.
 - Adding/removing UI rows still does not create planning batches.
+
+
+## v97 - Unscheduled Planning Batches by Schedule Area
+- Planning Batches > Unscheduled is grouped by configured Schedule Area instead of Standard Operation.
+- Example: CHEMICAL_LINE displays every unscheduled Batch whose Standard Operation is mapped to CHEMICAL_LINE.
+- Each Batch card still shows its exact Standard Operation.
+- Batches without a Schedule Area mapping are visible under UNMAPPED.
+- Planner Batch scope now follows current Planner Work Assignment + Schedule Area Operation mapping when configured.
+- Fixed legacy Planner operation lists remain only as fallback while no area-operation mappings exist.
+
+
+## v98 - Unscheduled Batch inside Schedule Area
+- Unscheduled Planning Batches are now rendered directly inside the corresponding Schedule Area block, immediately below the area header and above its planning rows.
+- Example: all unscheduled batches mapped to CHEMICAL_LINE appear inside Flybar#/Chemical Line area.
+- Batch cards show Batch No, exact Standard Operation, Recipe, Qty, Surface and EMPTY state.
+- Clicking a batch opens Fill / Jobs.
+- The previous duplicate Planning Batches pool below the area grids is hidden.
+- Assignment continues to follow Schedule Area Mapping and Planner Work Assignment.
+
+
+## v99 - Schedule Batch controls
+- Scheduled Batch rows inside each Schedule Area now have Up / Down / Edit / Fill Jobs / Delete.
+- Up / Down persists order through `planning_schedule.sequence_no`.
+- Edit supports Recipe, Resource, Date, Start and Duration.
+- Standard Operation is intentionally read-only to protect Planning Chain integrity.
+- Delete reuses the existing safe Batch deletion logic: active Schedule is cancelled and Jobs are returned to Candidate/Eligible when downstream-chain rules allow.
+
+
+## v100 - Fix ST Group Runtime Error
+- `/st-groups` no longer uses the old Supabase admin client; it now reads `md_st_group` through the current PostgreSQL `getPool()` architecture.
+- ST Group Deactivate no longer queries obsolete/optional `md_area_operation_group`.
+- No ST Group planning logic or mappings were changed.
+
+
+## v101 - Fix Area Master
+- `/api/area` migrated from the obsolete Supabase admin client to the current PostgreSQL `getPool()` layer.
+- `/api/area/groups` also migrated to PostgreSQL and keeps the existing rule: one ST Group belongs to one Area.
+- Area Add/Edit/Activate/Deactivate and ST Group assignment are preserved.
+- Area Manager now renders server errors as readable text instead of `[object Object]`.
+
+
+## v102 - Fix ST Operation Mapping
+- `/master/operationmapping` migrated from the obsolete Supabase admin client to PostgreSQL `getPool()`.
+- Reads `md_st_operation_mapping`, `md_st_group`, and `md_operation` directly from the current database.
+- Existing Add / Remove / Move mapping API remains unchanged because it already uses PostgreSQL.
+- No mapping rules, ST Group logic, Area logic, Planning or Schedule logic changed.
+
+
+## v105 - Fix Operation Master Unregistered API key
+- `/master/operation` now reads `md_operation_master` directly through PostgreSQL `getPool()`.
+- Search, pagination and active-record filtering are preserved.
+- Operation rename / batch-prefix APIs already use PostgreSQL and are unchanged.
+- Other Master Data pages are intentionally left unchanged in this fix.
+
+
+## v106 - Operation Code -> ST Group -> Operation Master synchronization
+- Active `DIRECT` mappings in `md_st_operation_mapping` now automatically upsert their concrete Standard Operation into `md_operation_master`.
+- Existing time-rule columns in Operation Master are preserved; only `st_group`, `is_active`, and `updated_at` are synchronized.
+- Add/Edit/Move Operation Code automatically refreshes Operation Master before rebuilding routing mapping.
+- Schedule Area GET performs a defensive backfill so mappings created before v106 (for example POWERCOATING -> SIPOC/SIPT) appear immediately.
+- Schedule Area Mapping now shows Operation Code count/list and resulting Standard Operation count per ST Group.
+- No Planning Board, routing-detail source, Batch, or Schedule logic changed.
+
+## 2026-08-24 - Schedule existing UNSCHEDULED Batch
+- Click an Unscheduled Batch card in its Schedule Area to load the existing Planning Board Batch into the first empty schedule row.
+- Existing Batch keeps the same `planning_batch.id` and Batch No.; Standard Operation is locked and existing Recipe is preserved/locked.
+- Planner only assigns Resource / Date / Start / Duration and clicks `Schedule`.
+- Scheduling uses the shared `/api/schedule` engine; it does not recreate the Batch.
+- Manual new empty Batch remains available through `NEW` rows and `/api/schedule/manual-grid`.
+- Architecture intentionally keeps Manual and future Auto Schedule on the same scheduling engine/API contract.
+
+
+## v108 - Global Popup / Toast Notifications
+- Added one global popup/toast system for operational notifications across the app.
+- Validation, success, warning and error messages from Planning Board, Board Điều Độ, Schedule Area, Planner Assignment, Area, Operation Master, Batch detail/import/reset are shown as popup notifications instead of inline banners.
+- Existing `alert()` calls are routed into the same popup UI.
+- Static instructional/configuration notes remain inline because they are page content, not transient notifications.
+- Popup types: Success, Warning, Error, Info; auto-dismiss with manual close button.
+- No Planning, Batch, Schedule, Mapping or Auto-ready business logic changed.
+
+
+## v109 - Single Batch# Schedule Table
+- Combined Planner 1 + Planner 2 Schedule Table now uses one `Batch#` column.
+- Planner-specific Schedule Table also uses one `Batch#` column.
+- Removed resource-specific Batch columns from these summary tables.
+- Summary columns are now: Planner (combined only), Batch#, Standard Operation, Resource, Recipe#, Recipe description, Jobs, pcs, dm², Start, End, Duration.
+- Schedule Area boards and all Planning/Batch/Schedule/Auto logic are unchanged.
