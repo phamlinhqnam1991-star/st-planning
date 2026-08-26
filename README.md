@@ -2525,3 +2525,10 @@ Applied to every Schedule Area unscheduled Batch card:
 - Candidate enrichment joins remain one-row lookups.
 - Operation Code Order remains the production sort source.
 - Removed temporary Mapping Debug and Duplicate Debug UI/queries after diagnosis.
+
+
+## v171b - Vercel TS2339 build fix
+- Added the missing explicit `source_seq: number | null` field to the `Candidate` type.
+- Server Candidate SQL already returns `p.source_seq`; this change aligns the client type with the actual payload.
+- Fixes Vercel error: `Property 'source_seq' does not exist on type 'Candidate'`.
+- No Planning Chain, Candidate selection, READY, Batch, Schedule, Main Operation, or Operation Code Order logic changed.

@@ -71,6 +71,7 @@ type Candidate={
  priority_type:string|null;
  recipe_required:boolean;
  planning_status:"LOCKED"|"ELIGIBLE"|"PLANNED";
+ source_seq:number|null;
  batch_no:string|null;
  batch_id:number|null;
  batch_status:string|null;
