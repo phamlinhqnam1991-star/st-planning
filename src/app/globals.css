@@ -924,19 +924,6 @@ button,a,input,select,textarea{touch-action:manipulation}
  color:#175cd3;
  border:1px solid #b2ccff;
 }
-.planning-row-planned{
- background:#f7f8fa !important;
- color:#667085;
-}
-.planning-row-planned:hover{
- background:#f1f3f6 !important;
-}
-.planning-row-planned input[type="checkbox"]{
- cursor:not-allowed;
- opacity:.45;
-}
-
-
 /* Scheduling Board v38 */
 .schedule-rule-strip{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #cfd6df;padding:9px 12px;font-size:12px}
 .schedule-rule-strip span{padding:4px 8px;background:#f4f6f8;border:1px solid #e4e7ec}
@@ -1743,18 +1730,6 @@ button,a,input,select,textarea{touch-action:manipulation}
 .paint-selection-lock-banner.is-locked b{
  color:#92400e;
 }
-.planning-candidate-table tr.paint-selection-disabled>td{
- opacity:.32;
- background:#f4f5f7!important;
-}
-.planning-candidate-table tr.paint-selection-disabled{
- cursor:not-allowed!important;
-}
-.planning-candidate-table tr.paint-selection-disabled input[type="checkbox"]{
- cursor:not-allowed;
-}
-
-
 /* Resource box scheduled Batch display v79 */
 .schedule-dnd-resource{
  min-height:86px;
@@ -3041,10 +3016,7 @@ button,a,input,select,textarea{touch-action:manipulation}
  background:#e7f4eb!important;
  color:#25633b;
 }
-.route-status-ready{
- background:#e4effb!important;
- color:#164f82;
-}
+
 .route-status-unscheduled{
  background:#fff3d6!important;
  color:#875900;
@@ -3086,12 +3058,590 @@ button,a,input,select,textarea{touch-action:manipulation}
 
 /* v116 - every Main Operation is a separate fixed Candidate column */
 .planning-candidate-table th.route-status-header{
- min-width:124px;
- border-left:2px solid #7898b8;
+ width:64px;
+ min-width:64px;
+ max-width:64px;
+ padding-left:2px!important;
+ padding-right:2px!important;
+ white-space:normal;
+ overflow-wrap:anywhere;
+ word-break:break-word;
+ line-height:1.05;
+ border-left:1px solid #7898b8;
  border-right:1px solid #b9c9d8;
 }
 .planning-candidate-table td.route-status-cell{
- min-width:124px;
- border-left:2px solid #aebfce;
+ width:64px;
+ min-width:64px;
+ max-width:64px;
+ padding-left:2px!important;
+ padding-right:2px!important;
+ white-space:normal;
+ overflow-wrap:anywhere;
+ word-break:break-word;
+ line-height:1.05;
+ border-left:1px solid #aebfce;
  border-right:1px solid #d4dde5;
 }
+
+/* Candidate Jobs Full View + Excel-like Freeze Panes v122 */
+.candidate-density-select{
+ width:auto!important;
+ min-width:104px;
+ height:28px!important;
+ padding:3px 7px!important;
+ font-size:10px!important;
+}
+.candidate-full-view{
+ position:fixed!important;
+ inset:0!important;
+ z-index:9999!important;
+ width:100vw!important;
+ height:100vh!important;
+ max-width:none!important;
+ margin:0!important;
+ border-radius:0!important;
+ background:#fff!important;
+ display:flex!important;
+ flex-direction:column!important;
+ overflow:hidden!important;
+}
+.candidate-full-view .candidate-sticky-toolbar{
+ flex:0 0 auto;
+ position:sticky;
+ top:0;
+ z-index:80;
+ background:#f8fafc;
+ box-shadow:0 1px 0 #cbd5e1;
+}
+.candidate-full-view .table-wrap{
+ flex:1 1 auto!important;
+ min-height:0!important;
+ overflow:auto!important;
+ overscroll-behavior:contain;
+}
+.candidate-full-view .candidate-display-rules,
+.candidate-full-view .candidate-column-picker,
+.candidate-full-view .paint-selection-lock-banner{
+ flex:0 0 auto;
+ max-height:32vh;
+ overflow:auto;
+}
+
+/* Freeze header row while scrolling vertically. */
+.planning-candidate-table thead th{
+ position:sticky;
+ top:0;
+ z-index:30;
+ background:#eaf2fb;
+ box-shadow:0 1px 0 #9fb4cc;
+}
+
+/* Freeze pane at the boundary before the route matrix (checkbox + first 8 visible columns).
+   Fixed widths make the sticky left offsets deterministic and stable while scrolling. */
+.planning-candidate-table th:nth-child(1),.planning-candidate-table td:nth-child(1){width:30px;min-width:30px;max-width:30px;left:0}
+.planning-candidate-table th:nth-child(2),.planning-candidate-table td:nth-child(2){width:82px;min-width:82px;max-width:82px;left:30px}
+.planning-candidate-table th:nth-child(3),.planning-candidate-table td:nth-child(3){width:112px;min-width:112px;max-width:112px;left:112px}
+.planning-candidate-table th:nth-child(4),.planning-candidate-table td:nth-child(4){width:185px;min-width:185px;max-width:185px;left:224px}
+.planning-candidate-table th:nth-child(5),.planning-candidate-table td:nth-child(5){width:88px;min-width:88px;max-width:88px;left:409px}
+.planning-candidate-table th:nth-child(6),.planning-candidate-table td:nth-child(6){width:70px;min-width:70px;max-width:70px;left:497px}
+.planning-candidate-table th:nth-child(7),.planning-candidate-table td:nth-child(7){width:78px;min-width:78px;max-width:78px;left:567px}
+.planning-candidate-table th:nth-child(8),.planning-candidate-table td:nth-child(8){width:64px;min-width:64px;max-width:64px;left:645px}
+.planning-candidate-table th:nth-child(9),.planning-candidate-table td:nth-child(9){width:70px;min-width:70px;max-width:70px;left:709px}
+.planning-candidate-table th:nth-child(-n+9),
+.planning-candidate-table td:nth-child(-n+9){
+ position:sticky;
+ z-index:20;
+ background:inherit;
+}
+.planning-candidate-table thead th:nth-child(-n+9){z-index:50;background:#eaf2fb}
+.planning-candidate-table th:nth-child(9),.planning-candidate-table td:nth-child(9){
+ box-shadow:2px 0 0 #4d78a8;
+}
+
+/* Density modes: no data/columns are removed. */
+.candidate-density-normal .planning-candidate-table th{padding:6px 7px!important;font-size:9.5px!important}
+.candidate-density-normal .planning-candidate-table td{padding:6px 7px!important;font-size:10px!important}
+.candidate-density-compact .planning-candidate-table th{padding:4px 5px!important;font-size:8.5px!important}
+.candidate-density-compact .planning-candidate-table td{padding:4px 5px!important;font-size:9px!important}
+.candidate-density-ultra .planning-candidate-table th{padding:3px 4px!important;font-size:8px!important}
+.candidate-density-ultra .planning-candidate-table td{padding:3px 4px!important;font-size:8px!important;line-height:1.05!important}
+.candidate-density-ultra .planning-candidate-table .planning-sub{font-size:7px!important;max-width:150px}
+.candidate-density-normal .planning-candidate-table th.route-status-header,
+.candidate-density-normal .planning-candidate-table td.route-status-cell{
+ width:64px!important;min-width:64px!important;max-width:64px!important
+}
+.candidate-density-compact .planning-candidate-table th.route-status-header,
+.candidate-density-compact .planning-candidate-table td.route-status-cell{
+ width:58px!important;min-width:58px!important;max-width:58px!important
+}
+.candidate-density-ultra .planning-candidate-table th.route-status-header,
+.candidate-density-ultra .planning-candidate-table td.route-status-cell{
+ width:52px!important;min-width:52px!important;max-width:52px!important;
+ padding-left:1px!important;padding-right:1px!important
+}
+.candidate-density-ultra .route-status-cell b{font-size:7.5px!important}
+.candidate-density-ultra .route-status-cell small,.candidate-density-ultra .route-status-batch{font-size:6.8px!important}
+
+/* Route Focus keeps every column but visually suppresses N/A cells. */
+.candidate-route-focus .route-status-na{opacity:.18}
+.candidate-route-focus .route-status-waiting{color:#7b8490}
+.candidate-route-focus .route-status-current{opacity:1!important}
+
+@media(max-width:900px){
+ .candidate-full-view .candidate-sticky-toolbar{align-items:flex-start}
+ .candidate-full-view .candidate-sticky-toolbar>.row{flex-wrap:wrap}
+}
+
+/* v131 - click Main Operation cell */
+.planning-candidate-table .route-status-clickable{cursor:pointer}
+.planning-candidate-table .route-status-clickable:hover{outline:2px solid currentColor;outline-offset:-2px}
+.planning-candidate-table .route-status-selected{
+ position:relative;
+ background:#0b6bdc!important;
+ color:#fff!important;
+ box-shadow:
+  inset 0 0 0 3px #084f9f,
+  0 0 0 2px rgba(11,107,220,.28)!important;
+ font-weight:800!important;
+ transform:scale(.97);
+ transition:
+  background .12s ease,
+  color .12s ease,
+  box-shadow .12s ease,
+  transform .12s ease;
+}
+.planning-candidate-table .route-status-selected::after{
+ content:"✓";
+ position:absolute;
+ top:2px;
+ right:4px;
+ width:13px;
+ height:13px;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ border-radius:50%;
+ background:#fff;
+ color:#0b6bdc;
+ font-size:9px;
+ font-weight:900;
+ line-height:1;
+}
+.planning-candidate-table .route-status-selected b,
+.planning-candidate-table .route-status-selected small,
+.planning-candidate-table .route-status-selected span{
+ color:#fff!important;
+}
+.planning-candidate-table .route-status-selected:hover{
+ outline:none!important;
+ box-shadow:
+  inset 0 0 0 3px #063d7a,
+  0 0 0 3px rgba(11,107,220,.34)!important;
+}
+
+/* v132 - Batch Builder target Batch */
+.planning-target-batch{
+ display:flex;
+ flex-direction:column;
+ gap:4px;
+ margin:8px 0;
+}
+.planning-target-batch>span{
+ font-size:11px;
+ font-weight:600;
+}
+.planning-target-batch-info{
+ display:block;
+ font-size:10px;
+ line-height:1.3;
+ opacity:.8;
+}
+
+/* v140 - route sequence verification */
+.planning-candidate-table .route-status-seq{
+ display:block;
+ margin-top:1px;
+ font-size:8px;
+ line-height:1;
+ font-weight:700;
+ opacity:.72;
+ white-space:nowrap;
+}
+.planning-candidate-table .route-status-selected .route-status-seq{
+ color:#fff!important;
+ opacity:.9;
+}
+
+
+/* ============================================================
+   v143 Logic & Guide
+   ============================================================ */
+.guide-page{padding-bottom:48px}
+.guide-head{align-items:flex-start}
+.guide-version{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:11px}
+.guide-version span{opacity:.65}
+.guide-jump{
+ position:sticky;top:0;z-index:20;
+ display:flex;gap:6px;flex-wrap:wrap;
+ padding:8px 10px;margin:0 0 10px;
+ border:1px solid #cbd7e6;background:#f8fbff;
+}
+.guide-jump a{
+ padding:5px 8px;border:1px solid #cbd7e6;border-radius:4px;
+ background:#fff;text-decoration:none;color:#15355f;font-size:11px;font-weight:700;
+}
+.guide-jump a:hover{background:#eaf3ff;border-color:#7aa7dc}
+.guide-section{scroll-margin-top:52px;margin-bottom:12px}
+.guide-section>.erp-panel-head{background:#edf4fb}
+.guide-flow{
+ display:flex;align-items:center;gap:7px;overflow-x:auto;
+ padding:14px 12px;border-bottom:1px solid #d7e0ea;
+}
+.guide-flow-step{
+ min-width:150px;display:flex;align-items:center;gap:8px;
+ padding:9px;border:1px solid #c8d6e5;background:#fff;
+}
+.guide-flow-no{
+ width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
+ background:#173c69;color:#fff;font-weight:800;font-size:11px;flex:none;
+}
+.guide-flow-step b{display:block;font-size:11px}
+.guide-flow-step small{display:block;margin-top:2px;font-size:9px;opacity:.68;line-height:1.25}
+.guide-arrow{font-size:18px;color:#6684a5}
+.guide-key{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:12px}
+.guide-rule{
+ border:1px solid #d7e0ea;border-left:4px solid #8296ad;
+ padding:9px;background:#fff;font-size:10px;line-height:1.45;
+}
+.guide-rule>b{display:block;margin-bottom:4px;font-size:10px}
+.guide-rule-important{border-left-color:#0d68c9;background:#f4f9ff}
+.guide-rule-warning{border-left-color:#d18b00;background:#fff9ea}
+.guide-two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:12px}
+.guide-two-col h3,.guide-dont h3{margin:0 0 8px;font-size:13px}
+.guide-rule-list{display:grid;gap:7px}
+.guide-grid-rules{grid-template-columns:repeat(3,minmax(0,1fr));padding:12px}
+.guide-architecture{
+ display:flex;align-items:center;justify-content:center;gap:10px;
+ flex-wrap:wrap;padding:18px;border-bottom:1px solid #d7e0ea;background:#fbfdff;
+}
+.guide-architecture>div{min-width:170px;text-align:center}
+.guide-architecture small{display:block;margin-top:6px;font-size:9px;opacity:.68}
+.guide-badge{
+ display:inline-flex;align-items:center;padding:4px 7px;border-radius:4px;
+ border:1px solid transparent;font-size:10px;font-weight:800;white-space:nowrap;
+}
+.guide-badge-gray{background:#f0f2f4;border-color:#d1d6db;color:#35414e}
+.guide-badge-blue{background:#e5f2ff;border-color:#90bdea;color:#0d528f}
+.guide-badge-green{background:#e9f7ec;border-color:#8fca9a;color:#246b32}
+.guide-badge-amber{background:#fff5db;border-color:#deb45b;color:#895c00}
+.guide-badge-purple{background:#f2eefe;border-color:#b8a7e6;color:#5b3b9b}
+.guide-route-example{
+ display:flex;align-items:center;justify-content:center;gap:8px;overflow-x:auto;
+ padding:18px 12px 10px;
+}
+.guide-state{
+ min-width:130px;text-align:center;border:2px solid;padding:9px;background:#fff;
+}
+.guide-state b,.guide-state span{display:block}
+.guide-state b{font-size:10px}.guide-state span{margin-top:4px;font-size:9px;font-weight:900}
+.guide-state.done{border-color:#5f8c68;background:#eef8f0}
+.guide-state.ready{border-color:#0b6bdc;background:#eaf4ff}
+.guide-state.waiting{border-color:#b8bec7;background:#f7f8fa}
+.guide-formula{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:8px 12px 12px;
+}
+.guide-formula>div{
+ display:flex;justify-content:space-between;gap:10px;align-items:center;
+ border:1px solid #d7e0ea;padding:9px;background:#fbfcfe;font-size:10px;
+}
+.guide-formula code{font-size:9px}.guide-formula b{font-size:10px}
+.guide-sort-formula>div{justify-content:flex-start}
+.guide-live-table{max-height:520px;overflow:auto}
+.guide-details{border-top:1px solid #d7e0ea}
+.guide-details summary{
+ cursor:pointer;padding:10px 12px;font-size:11px;font-weight:800;background:#fbfcfe;
+}
+.guide-details[open] summary{background:#eef5fc}
+.guide-chip-list{display:flex;flex-wrap:wrap;gap:6px;padding:12px}
+.guide-order-chip{
+ border:1px solid #cbd7e6;background:#fff;padding:5px 7px;font-size:9px;border-radius:3px
+}
+.guide-order-chip b{margin-right:5px;color:#0b5faa}
+.guide-checklist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px}
+.guide-checklist>div{
+ border:1px solid #d7e0ea;padding:9px;background:#fff;display:flex;gap:10px;align-items:flex-start;
+}
+.guide-checklist b{min-width:150px;font-size:10px}
+.guide-checklist span{font-size:10px;line-height:1.4}
+.guide-dont{
+ margin:0 12px 12px;padding:12px;border:1px solid #d7e0ea;background:#f8fbff;
+ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;
+}
+.guide-dont h3{grid-column:1/-1}
+.guide-dont>div{display:flex;gap:7px;align-items:flex-start;font-size:10px}
+.guide-dont>div>span{
+ flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;
+ background:#173c69;color:#fff;font-weight:800;
+}
+.guide-dont b{line-height:1.35}
+@media(max-width:1000px){
+ .guide-key,.guide-grid-rules{grid-template-columns:1fr 1fr}
+ .guide-two-col,.guide-checklist{grid-template-columns:1fr}
+ .guide-dont{grid-template-columns:1fr 1fr}
+}
+@media(max-width:640px){
+ .guide-key,.guide-grid-rules,.guide-formula,.guide-dont{grid-template-columns:1fr}
+ .guide-jump{position:static}
+}
+
+
+/* ============================================================
+   v144 - Candidate Jobs Freeze Pane
+   ============================================================ */
+
+/* Two-direction Candidate viewport = real Excel-like freeze pane. */
+.planning-candidates .table-wrap{
+  position:relative;
+  width:100%;
+  max-height:58vh;
+  min-height:320px;
+  overflow:auto!important;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+
+.planning-candidate-table{
+  border-collapse:separate!important;
+  border-spacing:0!important;
+}
+
+/* Freeze header row. */
+.planning-candidate-table thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:60!important;
+  background:#eaf2fb!important;
+  box-shadow:inset 0 -1px 0 #7898b8,0 2px 3px rgba(31,55,80,.08)!important;
+}
+
+/* Freeze left pane through Priority:
+   checkbox + Job + Part/Rev + PartDescription +
+   NextOperation + CurrentGoodWIP + TotalSurface + Priority. */
+.planning-candidate-table th:nth-child(-n+8),
+.planning-candidate-table td:nth-child(-n+8){
+  position:sticky!important;
+  z-index:40!important;
+}
+.planning-candidate-table thead th:nth-child(-n+8){
+  z-index:80!important;
+  background:#eaf2fb!important;
+}
+
+.planning-candidate-table th:nth-child(1),
+.planning-candidate-table td:nth-child(1){
+  left:0!important;width:30px!important;min-width:30px!important;max-width:30px!important;
+}
+.planning-candidate-table th:nth-child(2),
+.planning-candidate-table td:nth-child(2){
+  left:30px!important;width:82px!important;min-width:82px!important;max-width:82px!important;
+}
+.planning-candidate-table th:nth-child(3),
+.planning-candidate-table td:nth-child(3){
+  left:112px!important;width:112px!important;min-width:112px!important;max-width:112px!important;
+}
+.planning-candidate-table th:nth-child(4),
+.planning-candidate-table td:nth-child(4){
+  left:224px!important;width:185px!important;min-width:185px!important;max-width:185px!important;
+}
+.planning-candidate-table th:nth-child(5),
+.planning-candidate-table td:nth-child(5){
+  left:409px!important;width:88px!important;min-width:88px!important;max-width:88px!important;
+}
+.planning-candidate-table th:nth-child(6),
+.planning-candidate-table td:nth-child(6){
+  left:497px!important;width:70px!important;min-width:70px!important;max-width:70px!important;
+}
+.planning-candidate-table th:nth-child(7),
+.planning-candidate-table td:nth-child(7){
+  left:567px!important;width:78px!important;min-width:78px!important;max-width:78px!important;
+}
+.planning-candidate-table th:nth-child(8),
+.planning-candidate-table td:nth-child(8){
+  left:645px!important;width:64px!important;min-width:64px!important;max-width:64px!important;
+}
+
+
+
+/* Visible freeze divider after Priority. */
+.planning-candidate-table th:nth-child(8),
+.planning-candidate-table td:nth-child(8){
+  box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.10)!important;
+}
+
+/* Full View: use all remaining viewport height. */
+.candidate-full-view .table-wrap{
+  max-height:none!important;
+  min-height:0!important;
+  flex:1 1 auto!important;
+  overflow:auto!important;
+}
+
+@media(max-height:760px){
+  .planning-candidates:not(.candidate-full-view) .table-wrap{
+    max-height:52vh;
+    min-height:260px;
+  }
+}
+
+/* v146 - distinguish the two WAITING reasons */
+.planning-candidate-table .route-status-wait-prev{
+ background:#fff4d6!important;
+ color:#7a5200!important;
+ border-left:2px solid #d49a14!important;
+}
+.planning-candidate-table .route-status-wait-prev b{
+ font-weight:900!important;
+}
+.planning-candidate-table .route-status-wait-future{
+ background:#f5f7f9!important;
+ color:#66717e!important;
+}
+
+
+
+
+
+
+
+/* ============================================================
+   v150 - SINGLE SOURCE READY UI
+   All READY states use only .route-status-ready.
+   No fallback/force/overlay READY classes remain.
+   ============================================================ */
+.planning-candidate-table td.route-status-cell.route-status-ready{
+  background:#dcecff!important;
+  color:#0b4f94!important;
+  border:2px solid #2878c7!important;
+  box-shadow:none!important;
+  opacity:1!important;
+  filter:none!important;
+  text-align:center!important;
+  font-weight:900!important;
+}
+.planning-candidate-table td.route-status-cell.route-status-ready > b{
+  display:block!important;
+  color:#0b4f94!important;
+  font-weight:900!important;
+  opacity:1!important;
+}
+.planning-candidate-table td.route-status-cell.route-status-ready.route-status-clickable{
+  cursor:pointer!important;
+}
+.planning-candidate-table td.route-status-cell.route-status-ready.route-status-clickable:hover{
+  background:#cfe4fb!important;
+  border-color:#1266b5!important;
+}
+.planning-candidate-table td.route-status-cell.route-status-ready.route-status-selected{
+  background:#0b6bdc!important;
+  color:#fff!important;
+  border-color:#084f9f!important;
+  box-shadow:
+    inset 0 0 0 2px #084f9f,
+    0 0 0 2px rgba(11,107,220,.22)!important;
+}
+.planning-candidate-table td.route-status-cell.route-status-ready.route-status-selected > b{
+  color:#fff!important;
+}
+
+
+
+
+
+/* ============================================================
+   v155 - Freeze Pane overlap fix
+   Sticky/frozen cells must be opaque. Otherwise horizontally
+   scrolling columns remain visible underneath and text overlaps.
+   ============================================================ */
+
+/* Base opaque layer for every frozen body cell. */
+.planning-candidate-table tbody td:nth-child(-n+8){
+  background:#fff!important;
+  background-clip:padding-box!important;
+  opacity:1!important;
+  isolation:isolate!important;
+  z-index:45!important;
+}
+
+/* Preserve alternating row readability inside the frozen pane. */
+.planning-candidate-table tbody tr:nth-child(even) td:nth-child(-n+8){
+  background:#fcfdff!important;
+}
+
+/* Preserve hover inside the frozen pane without transparency. */
+.planning-candidate-table tbody tr:hover td:nth-child(-n+8){
+  background:#f2f7ff!important;
+}
+
+/* Priority cell has its own business color and must remain above the pane.
+   Existing priority classes still provide the actual color. */
+.planning-candidate-table tbody td:nth-child(8).candidate-priority-cell{
+  z-index:48!important;
+}
+
+/* Re-assert priority colors after opaque freeze backgrounds. */
+.planning-candidate-table tbody td:nth-child(8).candidate-priority-cell.priority-cat3{
+  background:#ffd6d2!important;
+}
+.planning-candidate-table tbody td:nth-child(8).candidate-priority-cell.priority-cat5{
+  background:#ffefbf!important;
+}
+.planning-candidate-table tbody td:nth-child(8).candidate-priority-cell.priority-sale{
+  background:#d9ebff!important;
+}
+.planning-candidate-table tbody td:nth-child(8).candidate-priority-cell.priority-month{
+  background:#e1f2d7!important;
+}
+
+/* Frozen header cells are fully opaque as well. */
+.planning-candidate-table thead th:nth-child(-n+8){
+  background:#eaf2fb!important;
+  background-clip:padding-box!important;
+  opacity:1!important;
+  z-index:90!important;
+}
+
+/* Solid freeze divider after Priority.
+   The extra pseudo strip masks the first scrolling pixels completely. */
+.planning-candidate-table th:nth-child(8),
+.planning-candidate-table td:nth-child(8){
+  position:sticky!important;
+}
+.planning-candidate-table th:nth-child(8)::after,
+.planning-candidate-table td:nth-child(8)::after{
+  content:"";
+  position:absolute;
+  top:0;
+  right:-5px;
+  width:5px;
+  height:100%;
+  background:linear-gradient(to right,rgba(77,120,168,.38),rgba(77,120,168,0));
+  pointer-events:none;
+  z-index:100;
+}
+
+/* Prevent text from escaping its frozen cell. */
+.planning-candidate-table tbody td:nth-child(-n+8),
+.planning-candidate-table thead th:nth-child(-n+8){
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+/* Route/status columns scroll underneath the pane, never above it. */
+.planning-candidate-table th:nth-child(n+9),
+.planning-candidate-table td:nth-child(n+9){
+  position:relative;
+  z-index:1;
+}
+
+

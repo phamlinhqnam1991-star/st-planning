@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
+import { syncPlanningChains } from "@/lib/planning/sync-planning-chains";
 
 const RULES=["DIRECT","OCCURRENCE","SEQUENCE","SEQUENCE/FALLBACK"];
 const clean=(v:unknown)=>String(v??"").trim();
@@ -46,6 +47,11 @@ async function syncOperationMaster(client:any){
 async function refresh(client:any){
   await syncOperationMaster(client);
   await client.query("select public.refresh_st_operation_mapping(null)");
+
+  // v163: ST Operation Mapping is the membership source for Planning Chain.
+  // Rebuild only future/unplanned rows immediately after ADD / MOVE / REMOVE.
+  // syncPlanningChains preserves actual Batch/PLANNED history.
+  await syncPlanningChains(client);
 }
 
 export async function POST(req:NextRequest){

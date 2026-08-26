@@ -6,6 +6,7 @@ create table if not exists public.md_operation_master(
   st_group text not null,
   time_calc_type text,
   priority integer,
+  planning_sort_order integer,
   qty_min numeric,
   qty_max numeric,
   surface_min_dm2 numeric,

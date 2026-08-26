@@ -2103,3 +2103,425 @@ Applied to every Schedule Area unscheduled Batch card:
 - Historical/future Batch lookup uses `planning_batch_job.source_seq_snapshot` first, with Standard Operation fallback for legacy rows.
 - Existing Planning Chain rows are preferred to preserve PRIMER2/PRIMER3/TOPCOAT2 and other occurrence/sequence mapping.
 - Candidate selection, Batch creation, Schedule and Auto architecture are unchanged.
+
+
+## v123 - Default View by Operation / Area / System
+- `Set Default`, `Load Default`, and `Delete Default` now work in Area mode; Standard Operation is no longer required.
+- Exact save scope:
+  - selected Standard Operation -> `OP:<operation>`
+  - Area selected without Operation -> `AREA:<area_id>`
+  - All Areas without Operation -> `SYSTEM`
+- Load precedence: Operation Default -> Area Default -> System Default.
+- Backward compatible with old Operation presets stored under the raw operation name.
+- Default View now also stores Density (`Normal/Compact/Ultra`) and Route Focus state in addition to Columns, Filters and Sort Priority.
+- Planning, Candidate, Batch, Route Status and Auto logic are unchanged.
+
+
+## v124 - Narrow Main Operation columns
+- Candidate route/Main Operation columns reduced aggressively to save horizontal space.
+- Normal: 64px.
+- Compact: 58px.
+- Ultra Compact: 52px.
+- Header and status text wrap inside the narrow cell.
+- No Planning/Batch/Route logic changed.
+
+
+## v126 - Next Operation follows actual production routing
+- Candidate `Next Operation` sort no longer uses A-Z text order.
+- It now reads each Job's existing `all_operation` routing and sorts by the actual position of `next_operation` in that route.
+- Example: `CPBILP | PIONBL | BSAUNSLD | PPRSLVT` sorts as sequence 1 -> 2 -> 3 -> 4.
+- Unknown/unmatched operations are placed after operations with a valid routing position.
+- No hard-coded ST process order was introduced.
+- Planning, Batch, Schedule, Route Status and Auto logic remain unchanged.
+- The sequence helper is isolated so it can be reused by future Auto Planning.
+
+
+## v127 - Planning Order schema self-heal
+- Fixed PostgreSQL `42703 planning_sort_order does not exist`.
+- `/planning`, Operation Master, and Planning Order save API now call one shared schema guard before using the field.
+- The guard only performs an additive `ADD COLUMN IF NOT EXISTS`, initializes blank values from existing `sort_order`, and creates an index.
+- Migration `032_operation_planning_sort_order.sql` remains included for normal production deployment.
+- No routing, Candidate, Batch, Schedule, Route Status, or Auto logic changed.
+- `planning_sort_order` remains the shared configuration seam for manual sort now and Auto Planning later.
+
+
+## v128 - Remove md_operation_master.sort_order dependency
+- Fixed Operation Master error `column "sort_order" does not exist`.
+- `planning_sort_order` is now fully independent; no attempt is made to initialize it from `sort_order`.
+- Runtime schema guard only adds `planning_sort_order` and its index.
+- Migration 032 now matches the real `md_operation_master` schema.
+- Baseline schema includes `planning_sort_order` for clean installations.
+- Existing ST Group / Mapping / Area `sort_order` fields are untouched.
+- Planning/Batch/Schedule/Route/Auto logic is unchanged.
+
+
+## v129 - Global Planning Order by raw Operation Code
+- Planning Order moved to the raw Operation Code layer (`md_operation.operation_code`) for Candidate `NextOperation`.
+- New Configuration page: `Operation Code Order`.
+- Planner assigns values such as CPBILP=10, PIONBL=20, BSAUNSLD=30.
+- Candidate `NextOperation ASC` reads `open_job_current.next_operation` and its matching `md_operation.planning_sort_order`.
+- This order is global and does not depend on each Job routing.
+- Same-order/unassigned values are grouped by Operation Code so NextOperation does not jump randomly between rows.
+- Existing Standard Operation `planning_sort_order` is left untouched for compatibility; Candidate NextOperation no longer uses it.
+- Schema guard + migration 033 safely add the raw Operation Code order column.
+- Auto Planning can reuse the same `md_operation.planning_sort_order` later; no Auto logic is implemented/changed now.
+- Batch, Schedule, Route Status, Recipe and Planning Chain logic are unchanged.
+
+
+## v130 - Candidate duplicate-key + Settings performance fix
+- Fixed React warnings such as duplicate keys `1197` / `1124`.
+- Root cause fixed in SQL: current Batch lookup now uses a single latest active Batch via LATERAL LIMIT 1 instead of a one-to-many join.
+- Candidate row React key is also composite as a defensive fallback.
+- `/settings` no longer calls the heavy global `getStats()` workflow.
+- Settings now loads only its required configuration counts in one PostgreSQL round-trip.
+- This removes the repeated 17–28 second `/settings` load pattern that could lead to `destination stream closed early`.
+- No Candidate eligibility, Planning Order, Batch, Schedule, Route Status, Recipe or Auto Planning business logic changed.
+
+
+## v131 - Click READY/WAITING cells + schedule handoff
+- Cell selection identifies exact Job + Main Planning Operation.
+- READY can be selected/deselected directly.
+- WAITING click explains that predecessor must be Scheduled.
+- Batch creation no longer unlocks next Main.
+- Scheduling a Batch unlocks the immediate next Main as ELIGIBLE/READY.
+- Existing checkbox remains available for current Candidate.
+- Same-operation and paint lock rules are preserved.
+- Shared unlock helper is reusable by future Auto Schedule.
+
+
+## v132 - Batch Builder Target Batch
+- Batch Builder now offers `Target Batch`.
+- Default is `Create New Batch`.
+- Existing Batch list is filtered to the selected Main / Standard Operation.
+- Unscheduled batches are shown first; scheduled batches include Resource information.
+- Choosing an existing Batch changes the action to `Add Selected to Existing Batch`.
+- Existing Batch membership validates Standard Operation, Recipe, duplicate membership, and paint compatibility.
+- After add, Batch Jobs/Qty/Surface/Process Time are recalculated.
+- If the Batch is already Scheduled, its existing schedule slot/duration is preserved; only Batch totals/process estimate are updated.
+- This membership path is reusable by future Auto Batch without a second data model.
+
+
+## v133 - Target Batch schedule date/time
+- Scheduled Target Batch dropdown now shows Resource + scheduled date + start/end time.
+- Example: `BSA_25AUG_003 · SCHEDULED · FB-01 · 25/08/2026, 07:00–09:30 · 5 jobs`.
+- Unscheduled Batch display is unchanged.
+
+
+## v134 - Clear selected Route Matrix cell
+- Selected READY cell now uses a solid blue background with white text.
+- Added a visible check mark in the selected cell.
+- Added stronger border/glow and a small pressed effect.
+- Hover and selected states are visually distinct.
+- Selection/Batch/Planning logic is unchanged.
+
+
+## v137 - Route Matrix state machine
+- Route cells are normalized per Job using the actual READY source position.
+- Cells entirely before READY render DONE.
+- The current READY position renders READY.
+- Cells after READY render WAITING.
+- Batch/Schedule states remain authoritative: PLANNED-UNSCHEDULED, SCHEDULED, RUNNING, COMPLETED, HOLD.
+- Handles duplicate/legacy Main Operation occurrences that previously caused a later WAITING occurrence to override an earlier DONE occurrence.
+- Planning/Batch/Schedule/Auto architecture is unchanged.
+
+
+## v138 - DONE / READY / WAITING driven by source_seq
+- `ready_source_seq` is resolved per Job from the exact AllOperation occurrence matching `open_job_current.next_operation`.
+- Fallback order: Job NextOperation occurrence -> current Planning Chain `p.source_seq` -> first ELIGIBLE planning operation source_seq.
+- Route state is now deterministic:
+  - `source_seq < ready_source_seq` => DONE
+  - `source_seq = ready_source_seq` => READY or current Batch/Schedule status
+  - `source_seq > ready_source_seq` => WAITING, unless future plan-ahead Batch/Schedule/ELIGIBLE already exists.
+- `planning_sort_order` is NOT used for route status.
+- Client Route Matrix trusts the SQL occurrence states and resolves duplicate Main-operation occurrences nearest to `ready_source_seq`.
+- Existing Batch, Schedule, Target Batch, click-cell selection, and Auto architecture are unchanged.
+
+
+## v140 - Source sequence verification + Schedule gate
+- Route Matrix visibly shows `S<source_seq> / R<ready_source_seq>` in each populated Main cell.
+- This makes DONE/READY/WAITING auditable directly from each Job routing.
+- Chain rebuild no longer unlocks next Main when previous Main is merely PLANNED/in Batch.
+- Next Main becomes ELIGIBLE only when immediate previous Main has a real non-cancelled `planning_schedule`.
+- Existing Batch remains PLANNED but does not open the next Main until scheduled.
+- Same schedule-gate rule remains reusable for future Auto Planning/Schedule.
+- No change to Batch Builder, Target Batch, Recipe, Area, or Operation ordering.
+
+
+## v141 - Full Routing Detail source_seq
+- Route Matrix no longer treats `open_job_current.all_operation` as the primary full routing.
+- Authoritative route is now `md_routing_detailed` for the Job Part + Revision.
+- Original `md_routing_detailed.source_seq` is preserved, including operations before current NextOperation.
+- Standard/Main Operation is resolved from `md_part_routing -> md_st_routing`; this preserves PRIMER2/PRIMER3/TOPCOAT2 and sequence mappings.
+- `ready_source_seq` is resolved from the current Planning Main in the full master route; intermediate NextOperation falls forward to the first mapped Main.
+- DONE / READY / WAITING remains:
+  - source_seq < ready_source_seq => DONE
+  - source_seq = ready_source_seq => READY/current real Batch/Schedule state
+  - source_seq > ready_source_seq => WAITING unless explicit plan-ahead exists
+- `AllOperation` parsing is retained only as a legacy fallback when no master Routing Detail exists.
+- Existing Batch Builder, Target Batch, Schedule Gate and Auto extension path are unchanged.
+
+## v142
+- Removed visible S/R diagnostics only. Internal source_seq and ready_source_seq logic is unchanged.
+
+
+## v143 - Logic & Hướng dẫn tab
+- Added top-level `Logic & Hướng dẫn` tab at `/logic-guide`.
+- Consolidates latest ST Planning architecture, route-state rules, mapping rules, Batch/Schedule handoff, Recipe rules, sorting, and planner workflow.
+- Live sections query current DB configuration for Operation Mapping, Area -> ST Group, Schedule Area -> Standard Operations, Operation Code Planning Order, Recipe groups and active Auto rules.
+- Documentation does not change Planning/Batch/Schedule business logic.
+
+
+## v144 - Candidate Jobs Freeze Pane
+- Freeze Candidate header row.
+- Freeze left pane through Priority.
+- Candidate rows scroll vertically/horizontally inside the table viewport.
+- Full View uses the same freeze behavior.
+- No Planning/Batch/Schedule/status logic changed.
+
+
+## v145 - Schedule Gate immediate-next fix
+- Scheduled Batch now unlocks exactly the immediate next active Main Planning Operation for each Job.
+- Unlock helper no longer relies primarily on stale `planning_seq_snapshot`; it resolves the exact planning operation first.
+- `/planning` self-heals historical Schedule handoffs so already-SCHEDULED previous Main operations immediately expose the next Main as READY.
+- Self-heal uses immediate previous active Main only; it does not unlock later future Main operations.
+- Batch without Schedule still does not unlock next Main.
+- Freeze Pane and all other Planning/Batch/Schedule logic are unchanged.
+
+
+## v146 - Waiting reason labels
+- Internal route status remains `WAITING`.
+- The earliest future WAITING Main for each Job is displayed as `WAIT PREV` with amber highlight.
+- `WAIT PREV` means: Waiting for Previous Main Schedule.
+- Later future Main operations display `WAIT` with neutral gray styling.
+- Tooltip shows the waiting reason.
+- No Batch/Schedule/Auto logic changed.
+- Removed any remaining visible S/R fallback diagnostic.
+
+
+## v147 - Unified READY UI
+- All READY cells now use the same blue border, light-blue background and bold centered text.
+- Applies to normal READY, Schedule-Gate READY, self-healed READY and fallback READY.
+- Selected READY keeps the stronger blue selected state.
+- UI/CSS only; no DONE/READY/WAIT/SCHEDULED, Batch, Schedule or Auto Planning logic changed.
+
+## v148 - Force READY visual
+- Adds `route-ready-force` directly from READY status in JSX.
+- Uses a cell overlay so freeze/table/background rules cannot hide READY color.
+- Applies to normal, Schedule-Gate, self-healed and fallback READY.
+- UI only; no business logic changed.
+
+
+## v150 - Single-source READY renderer/UI
+- Removed READY patch layers from v147/v148/v149.
+- Removed `route-ready-force` and related overlay/opacity workarounds.
+- All READY states now render through one class only: `route-status-ready`.
+- Normal READY, Schedule-Gate READY, self-healed READY and fallback READY share identical UI.
+- Route Focus explicitly keeps READY at full opacity.
+- UI only; Planning/Batch/Schedule/Auto logic unchanged.
+
+
+## v152 TEMP - Route Debug
+- Adds temporary `Debug Route` button next to Route Focus.
+- When enabled, route cells show raw/final status, source_seq, ready_source_seq and current/not-current.
+- Hover tooltip includes planning/batch/schedule/resource/selectable/CSS diagnostic data.
+- Diagnostic UI only; no route/planning/batch/schedule logic changed.
+- IMPORTANT: remove this debug feature after the READY issue is confirmed/fixed.
+
+
+## v153 - Occurrence-first CURRENT/READY fix
+- Route Matrix no longer derives CURRENT from another occurrence in the same Main column.
+- Each route occurrence uses its own `source_seq`, `ready_source_seq`, and `route_status`.
+- Hard invariant: `route_status=READY` + `source_seq=ready_source_seq` => CURRENT + READY + selectable.
+- Duplicate mapped Main operations can no longer make a valid READY display as NOT-CURRENT.
+- Existing SCHEDULED/RUNNING/PLANNED/HOLD/COMPLETED states remain authoritative.
+- Debug Route is intentionally kept for one more verification round.
+- No Batch/Schedule/Auto logic changed.
+
+
+## v154 - Clean Area Candidate UI
+- READY occurrence-first fix from v153 retained as official logic.
+- Temporary Debug Route state/button/tooltips/notes/CSS removed after verification.
+- Candidate rows are no longer visually dimmed when Area/Load Candidates selection rules apply.
+- Filtering/selection behavior remains unchanged; only dimming presentation was removed.
+- No Planning/Batch/Schedule/Auto logic changed.
+
+
+## v155 - Freeze Pane overlap fix
+- Frozen Candidate cells are now fully opaque instead of `background: inherit`.
+- Horizontal scrolling columns can no longer bleed/text-overlap beneath the frozen pane.
+- Header and frozen body cells use explicit z-index layers.
+- Priority business colors are preserved inside the frozen pane.
+- Added a solid visual divider after Priority.
+- Route/status columns remain below the frozen layer while scrolling.
+- No Planning/Batch/Schedule/Route logic changed.
+
+
+## v156 - READY target is selectable even when row is PLANNED
+- Removed the old row-level rule `planning_status must be ELIGIBLE` for checkbox/drag selection.
+- Selection now resolves the actual occurrence-level READY Planning Operation (`route_status=READY` and `source_seq=ready_source_seq`).
+- A row may show a previous Main as PLANNED/SCHEDULED while its immediate next Main is READY; the checkbox now selects that READY operation ID.
+- Header Select All, row checkbox, drag-to-Batch and operation compatibility use the same `selectableTargetFor()` source of truth.
+- Removed obsolete `planning-row-planned` and `paint-selection-disabled` dimming styles.
+- Paint compatibility remains enforced only when the selected READY target is a Paint operation.
+- No Batch/Schedule/Route-state logic changed.
+
+
+## v157 TEMP - Selection Debug
+- Adds temporary `Selection Debug` beside Route Focus.
+- Each Candidate checkbox shows diagnostic reason: SELECTABLE / NO READY TARGET / OPERATION LOCK / PAINT LOCK.
+- Hover checkbox shows row planning status, READY target op/id, route status, source_seq, ready_source_seq and lock flags.
+- Temporarily forces Candidate row/cell opacity=1 and filter=none to expose any remaining dimming source.
+- Diagnostic only; no Planning/Batch/Schedule/Route business logic changed.
+- Remove after root cause is confirmed.
+
+
+## v158 - READY selection source unified
+- Fixed root cause found by Selection Debug: Route Matrix could display READY while checkbox lookup returned NO READY TARGET because it required a duplicated `planning_job_operation_id` in `route_status`.
+- Selection now follows the same sources used by Route rendering:
+  1. persisted READY occurrence ID when available;
+  2. Candidate fallback READY uses `row.id`;
+  3. computed READY matching the Candidate Main also uses `row.id`.
+- Removed the obsolete `source_seq === ready_source_seq` requirement from checkbox target discovery.
+- Removed all temporary Selection Debug UI/CSS after diagnosis.
+- Existing READY occurrence-first route display logic remains unchanged.
+- No Batch/Schedule/Auto Planning business logic changed.
+
+
+## v159 - READY cell click uses displayed occurrence
+- Route Matrix `displayItem` is now the exact interaction target; removed secondary READY re-resolution during click.
+- A displayed READY cell is clickable directly.
+- If a computed READY occurrence lacks `planning_job_operation_id`, click falls back to `candidate.id` when its Main matches the Candidate Main.
+- Selected highlight uses the same fallback ID.
+- WAITING remains clickable only to explain the gate; non-READY states cannot be added.
+- No Schedule/Batch/Auto Planning state transition logic changed.
+
+
+## v160 - Candidate NextOperation production-order sort
+- Removed old Candidate positioning by ELIGIBLE/PLANNED and Batch No.
+- Candidate order now starts from next_operation_planning_sort_order configured in Operation Master.
+- Same order keeps identical RAW NextOperation codes together.
+- Within one NextOperation: CAT3 > CAT5 > Sale > current month > normal.
+- User Sort/Filter is lower-level tie breaking.
+- No READY/Batch/Schedule/Auto Planning logic changed.
+
+
+## v161 - Operation Code inherits Main Operation production order
+- Candidate sorting source of truth:
+  `RAW NextOperation -> ST Operation Mapping -> Main Operation -> md_operation_master.planning_sort_order`.
+- Adding/moving an Operation Code into a Main Operation automatically places its Jobs at that Main's production position.
+- RAW Operation Code `planning_sort_order` is no longer required; it is optional tie-breaker inside the same Main.
+- Within one RAW NextOperation: Job Priority -> user tie-breakers -> Job No.
+- Logic & Guide updated to document the inherited Main Order rule.
+- Existing READY/Batch/Schedule/Auto Planning state logic unchanged.
+
+
+## v162 - Operation Code Order restored as Candidate sort source
+- Removed v161 inherited Main Planning Order logic.
+- Main Operation is used only for membership/scope:
+  Operation Code mapped into a Main => its Jobs belong to that Main/Area view.
+- Candidate production order uses only `next_operation_planning_sort_order`
+  from Operation Code Order (`md_operation.planning_sort_order`).
+- Sort sequence:
+  Operation Code Order -> RAW NextOperation -> Job Priority -> lower tie-break rules -> Job No.
+- Operation Code without Planning Order sorts to the end.
+- READY/Batch/Schedule/Auto Planning logic unchanged.
+
+
+## v163 - Mapping immediately updates Planning Candidate membership
+- ST Operation Mapping remains the source for Main Operation membership.
+- ADD / MOVE / REMOVE mapping now runs `syncPlanningChains()` in the same transaction.
+- Example: mapping `MSKG-PC -> CPBILP` immediately rebuilds future/unplanned chain rows, so an open Job whose NextOperation is `MSKG-PC` can appear under CPBILP without manually pressing Rebuild Chain.
+- Existing actual Batch/PLANNED history remains preserved by `syncPlanningChains`.
+- Candidate order is NOT inherited from Main Operation.
+- Candidate sort source remains RAW NextOperation -> Operation Code Order.
+- READY / Batch / Schedule status logic is otherwise unchanged.
+
+
+## v164 TEMP Mapping/Candidate Debug
+- Adds a temporary `Mapping Debug` button on Candidate Jobs.
+- Default debug search is `MSKG-PC`.
+- Traces Open Job NextOperation -> active ST Operation Mapping -> Operation Code Order -> active Planning Chain row.
+- Reasons shown: MAPPING_NOT_FOUND, CHAIN_MISSING, CHAIN_MAIN_MISMATCH, CHAIN_INACTIVE, CHAIN_STATUS_*, CANDIDATE_SOURCE_OK.
+- This diagnostic UI/query is intentionally temporary and should be removed after the MSKG-PC membership defect is identified and fixed.
+
+
+## v164b - Fix Mapping Debug server scope
+- Fixed `ReferenceError: mappingDebugQ is not defined`.
+- Mapping debug query is now declared exactly once in the same `Page` try-scope before `candidatesQ` and before rendering `PlanningBoardClient`.
+- Debug still defaults to MSKG-PC tracing.
+- No Planning/Batch/Schedule business logic changed.
+
+
+## v165 - Fix CHAIN_MISSING for newly mapped current NextOperation
+- Root cause confirmed by Mapping Debug: MSKG-PC mapping and Operation Code Order existed, but no planning_job_operation row was generated.
+- `open_job_current.next_operation` is now authoritative for the current planning position.
+- If a mapped current NextOperation is missing from the imported `all_operation` string, sync injects it into an in-memory effective route immediately after LastOperation (or at route start when LastOperation cannot be resolved).
+- Source/import data is NOT modified.
+- The injected operation is then standardized through the normal ST Operation Mapping, so `MSKG-PC -> CPBILP` creates a real planning_job_operation and can become Candidate.
+- Existing exact Batch/Schedule history preservation remains unchanged.
+- Operation Code Order remains the Candidate sorting source.
+- TEMP Mapping Debug is intentionally retained for one verification cycle; remove after user confirms the fix.
+
+
+## v166 TEMP - Duplicate Candidate Debug
+- Adds `Duplicate Debug` beside Mapping Debug.
+- Diagnoses duplicate Candidate rows at `planning_job_operation` source level.
+- Shows Job, operation row ID, operation_instance_key, Source Operation, Main Operation, source_seq, planning_seq, status, Batch, Schedule, and duplicate counts.
+- Reasons include `DUPLICATE_ACTIVE_CHAIN`, `SAME_MAIN_DIFFERENT_SOURCE`, and `PLANNED_HISTORY_PLUS_NEW_ACTIVE`.
+- Existing Mapping Debug is retained while MSKG-PC chain fix is being verified.
+- Diagnostic only; no Candidate/Batch/Schedule business logic changed in this version.
+- Remove all temporary debug UI/query after duplicate root cause is fixed.
+
+
+## v167 TEMP - Duplicate Trace
+- Replaces the ineffective active-chain Duplicate Debug with a Candidate JOIN trace.
+- For each suspicious planning operation it counts matches in Material Finish, NextOperation Master, Area Group, Recipe, Batch History, Previous Chain and Previous Batch.
+- `Est.Final` estimates multiplication caused by direct Candidate joins.
+- Rows with direct join count > 1 are highlighted and reason identifies the likely multiplying table.
+- No production planning/candidate logic is changed in this diagnostic build.
+- Remove this temporary trace after the root cause is confirmed and fixed.
+
+
+## v168 - Fix duplicate Candidate rows
+- Root cause confirmed by v167 trace: multiple active `md_operation` rows matched the same `open_job_current.next_operation`.
+- Candidate lookup of Operation Code Order now uses `LEFT JOIN LATERAL ... ORDER BY planning_sort_order, id LIMIT 1`.
+- This preserves Operation Code Order as the Candidate sorting source and does not change Main Operation mapping.
+- Removed the temporary Duplicate Trace query/UI after the root cause was confirmed.
+- Existing Mapping Debug is retained because it is separate from this duplicate investigation.
+
+
+## v168b - Fix md_operation primary key assumption
+- Fixed runtime error `column mo.id does not exist`.
+- `md_operation` uses `operation_code` as its key; it has no `id` column.
+- Candidate lateral lookup now orders by planning_sort_order, updated_at, created_at, operation_code before LIMIT 1.
+- Duplicate Candidate fix remains intact.
+- No Planning/Batch/Schedule business logic changed.
+
+
+## v169 - Enforce one Candidate row per planning operation
+- v168 fixed the `md_operation` multiplier, but Candidate rows could still be multiplied by other ordinary master joins.
+- `md_area_operation_group` is now a deterministic LATERAL lookup because one ST Group can have multiple active Area mappings.
+- `md_material_finish` and `md_process_recipe` enrichment lookups are also LATERAL + LIMIT 1.
+- No `DISTINCT` is used.
+- Candidate identity remains `planning_job_operation.id`; master data may enrich it but may not create extra Candidate rows.
+- Operation Code Order and Main Operation mapping logic are unchanged.
+
+
+## v169b - Production schema compatibility
+- Fixed runtime error `column m.created_at does not exist`.
+- Removed new Candidate LATERAL dependencies on optional `created_at/updated_at` columns.
+- md_operation lookup now uses only planning_sort_order + operation_code.
+- md_material_finish and md_process_recipe lookups use LIMIT 1 without timestamp ordering.
+- One planning_job_operation -> one Candidate row invariant remains unchanged.
+- No Planning/Batch/Schedule/Operation Code Order business logic changed.
+
+
+## v171 - One Candidate row per Job without changing Planning Chain
+- Root cause clarified: multiple active `planning_job_operation` rows for a Job are normally different Main Operations in its Planning Chain, not duplicates.
+- Candidate Board now chooses one representative Planning Operation per open Job:
+  1. earliest `ELIGIBLE` Main Operation;
+  2. if no ELIGIBLE exists, latest `PLANNED` Main Operation.
+- Full planning_job_operation chain is preserved unchanged, so scheduling a Main can still unlock the next Main normally.
+- Candidate enrichment joins remain one-row lookups.
+- Operation Code Order remains the production sort source.
+- Removed temporary Mapping Debug and Duplicate Debug UI/queries after diagnosis.

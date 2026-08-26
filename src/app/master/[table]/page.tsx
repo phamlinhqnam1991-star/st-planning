@@ -2,6 +2,7 @@ import Link from "next/link";
 import {notFound} from "next/navigation";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {getPool} from "@/lib/db";
+import {ensurePlanningSortOrderSchema} from "@/lib/planning-sort-order";
 import {AppTabs,SubTabs} from "@/components/app-tabs";
 import {OperationMasterManager} from "@/components/operation-master-manager";
 const config:Record<string,{table:string,title:string,search:string[],section:"master"|"config",exactField?:string,uppercaseExact?:boolean}>={
@@ -24,7 +25,7 @@ const masterTabs=[
  {key:"partrouting",label:"Part → Routing",href:"/master/partrouting"}
 ];
 const configTabs=[
- {key:"operation",label:"Operation Master",href:"/master/operation"},{key:"operationmapping",label:"ST Operation Mapping",href:"/master/operationmapping"},
+ {key:"operation",label:"Operation Master",href:"/master/operation"},{key:"operationcodeorder",label:"Operation Code Order",href:"/operation-code-order"},{key:"operationmapping",label:"ST Operation Mapping",href:"/master/operationmapping"},
  {key:"stgroup",label:"ST Group Master",href:"/st-groups"},{key:"area",label:"Area Master",href:"/area"},
  {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},{key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"}
 ];
@@ -42,6 +43,7 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
 
   try{
    db=await getPool().connect();
+   await ensurePlanningSortOrderSchema(db);
 
    const values:any[]=[];
    let where=`where is_active=true`;

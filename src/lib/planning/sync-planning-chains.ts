@@ -266,7 +266,13 @@ export async function syncPlanningChains(c:PoolClient){
        bj.operation_instance_key_snapshot,
        bj.standard_operation,
        bj.source_seq_snapshot,
-       b.status batch_status
+       b.status batch_status,
+       exists(
+         select 1
+         from planning_schedule ps
+         where ps.batch_id=b.id
+           and ps.status<>'CANCELLED'
+       ) is_scheduled
      from planning_batch_job bj
      join planning_batch b
        on b.id=bj.batch_id
@@ -316,6 +322,7 @@ export async function syncPlanningChains(c:PoolClient){
  //
  // This prevents a CPBILP Batch from accidentally marking BSAUNSLD as PLANNED.
  const plannedHistoryExactByJob=new Map<string,Set<string>>();
+ const scheduledHistoryExactByJob=new Map<string,Set<string>>();
 
  for(const r of batchHistoryQ.rows){
    const job=clean(r.job_num);
@@ -323,9 +330,17 @@ export async function syncPlanningChains(c:PoolClient){
    const sourceSeq=Number(r.source_seq_snapshot);
 
    if(std && Number.isFinite(sourceSeq)){
-     const set=plannedHistoryExactByJob.get(job)||new Set<string>();
-     set.add(`${std}\u0001${sourceSeq}`);
-     plannedHistoryExactByJob.set(job,set);
+     const key=`${std}\u0001${sourceSeq}`;
+
+     const plannedSet=plannedHistoryExactByJob.get(job)||new Set<string>();
+     plannedSet.add(key);
+     plannedHistoryExactByJob.set(job,plannedSet);
+
+     if(Boolean(r.is_scheduled)){
+       const scheduledSet=scheduledHistoryExactByJob.get(job)||new Set<string>();
+       scheduledSet.add(key);
+       scheduledHistoryExactByJob.set(job,scheduledSet);
+     }
    }
  }
 
@@ -337,6 +352,7 @@ export async function syncPlanningChains(c:PoolClient){
  let nextAnchored=0;
  let fallbackAnchored=0;
  let sequenceCheck=0;
+ let injectedMappedNextOperation=0;
 
  // Rebuild only future/unplanned chain rows. Planned rows are preserved as history/state.
  await c.query(`
@@ -360,15 +376,56 @@ export async function syncPlanningChains(c:PoolClient){
  for(const job of jobsQ.rows){
    jobs++;
 
-   const raw=splitAllOperation(job.all_operation);
+   let raw=splitAllOperation(job.all_operation);
+
+   // v165 - NextOperation from All Open Job is authoritative.
+   //
+   // A newly configured Operation Code (example MSKG-PC -> CPBILP) can already
+   // be the Job's current NextOperation while the imported AllOperation string
+   // does not contain that code. Previously currentAnchor() then fell back to
+   // LastOperation and standardize() never saw MSKG-PC, so no
+   // planning_job_operation row was created => CHAIN_MISSING.
+   //
+   // If the current NextOperation has an active ST mapping but is absent from
+   // AllOperation, inject it at the current route position ONLY for Planning
+   // Chain construction. We do not modify open_job_current / source import.
+   const nextCode=clean(job.next_operation);
+   const nextKey=nextCode.toUpperCase();
+   const rawUpper=raw.map(x=>x.toUpperCase());
+
+   if(
+     nextCode &&
+     mappingBySource.has(nextKey) &&
+     !rawUpper.includes(nextKey)
+   ){
+     injectedMappedNextOperation++;
+     const lastKey=clean(job.last_operation).toUpperCase();
+     let insertAt=0;
+
+     if(lastKey){
+       for(let k=rawUpper.length-1;k>=0;k--){
+         if(rawUpper[k]===lastKey){
+           insertAt=k+1;
+           break;
+         }
+       }
+     }
+
+     raw=[
+       ...raw.slice(0,insertAt),
+       nextCode,
+       ...raw.slice(insertAt)
+     ];
+   }
+
    const anchor=currentAnchor(
      raw,
      clean(job.last_operation),
-     clean(job.next_operation)
+     nextCode
    );
 
    // IMPORTANT:
-   // Standardize the FULL AllOperation first so PRIMER/TOPCOAT occurrence
+   // Standardize the FULL effective route first so PRIMER/TOPCOAT occurrence
    // remains correct even when Planning starts in the middle of the routing.
    const full=standardize(raw,mappingBySource);
 
@@ -395,20 +452,19 @@ export async function syncPlanningChains(c:PoolClient){
    const jobNum=clean(job.job_num);
    const existing=existingByJob.get(jobNum)||new Map();
    const plannedHistoryExact=plannedHistoryExactByJob.get(jobNum)||new Set<string>();
+   const scheduledHistoryExact=scheduledHistoryExactByJob.get(jobNum)||new Set<string>();
    const activeKeys:string[]=[];
 
-   // PLAN-AHEAD STATUS RULE (applies to every Planning Operation):
-   // 1. A row already in a non-cancelled Batch is PLANNED, even after rebuild.
-   // 2. The actual-ready first future Planning Operation is ELIGIBLE.
-   // 3. Any later operation becomes ELIGIBLE only when its immediately
-   //    previous Planning Operation is PLANNED.
-   // 4. Otherwise it remains LOCKED.
+   // PLAN-AHEAD STATUS RULE:
+   // 1. Existing non-cancelled Batch membership => PLANNED.
+   // 2. The actual-ready first Main at/after All Open Job anchor => ELIGIBLE.
+   // 3. A later Main becomes ELIGIBLE ONLY when its immediate previous Main
+   //    has an actual non-cancelled planning_schedule.
+   // 4. Batch creation alone does NOT unlock the next Main.
+   // 5. Otherwise the later Main remains LOCKED.
    //
-   // This means:
-   // CPBILP PLANNED -> BSAUNSLD ELIGIBLE
-   // BSAUNSLD PLANNED -> PRIMER ELIGIBLE
-   // ...without waiting for All Open Job.NextOperation to advance.
-   let previousPlanningIsPlanned=false;
+   // Shared rule for manual now and Auto Planning/Schedule later.
+   let previousPlanningIsScheduled=false;
 
    for(let i=0;i<chain.length;i++){
      const op=chain[i];
@@ -417,28 +473,29 @@ export async function syncPlanningChains(c:PoolClient){
      const old=existing.get(op.instanceKey);
 
      // Exact current-operation Batch membership only.
-     const historicalPlanned=
-       plannedHistoryExact.has(`${op.standardOperation}\u0001${op.sourceSeq}`);
+     const historyKey=`${op.standardOperation}\u0001${op.sourceSeq}`;
+     const historicalPlanned=plannedHistoryExact.has(historyKey);
+     const historicalScheduled=scheduledHistoryExact.has(historyKey);
 
      let status:string;
 
      if(historicalPlanned){
        status="PLANNED";
-       previousPlanningIsPlanned=true;
+       // Only a real Schedule unlocks the immediate next Main.
+       previousPlanningIsScheduled=historicalScheduled;
        preservedPlanned++;
      }else if(i===0){
-       // First Planning operation at/after the actual All Open Job anchor.
+       // First Planning operation at/after actual All Open Job anchor.
        status="ELIGIBLE";
-       previousPlanningIsPlanned=false;
+       previousPlanningIsScheduled=false;
        eligible++;
-     }else if(previousPlanningIsPlanned){
-       // Plan-ahead: previous Planning operation is already in a Batch.
+     }else if(previousPlanningIsScheduled){
        status="ELIGIBLE";
-       previousPlanningIsPlanned=false;
+       previousPlanningIsScheduled=false;
        eligible++;
      }else{
        status="LOCKED";
-       previousPlanningIsPlanned=false;
+       previousPlanningIsScheduled=false;
        locked++;
      }
 
@@ -529,5 +586,9 @@ export async function syncPlanningChains(c:PoolClient){
      )
  `);
 
- return {jobs,operations,eligible,locked,preservedPlanned,nextAnchored,fallbackAnchored,sequenceCheck};
+ return {
+   jobs,operations,eligible,locked,preservedPlanned,
+   nextAnchored,fallbackAnchored,sequenceCheck,
+   injectedMappedNextOperation
+ };
 }

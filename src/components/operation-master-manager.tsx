@@ -9,6 +9,7 @@ type Row={
  batch_prefix:string|null;
  time_calc_type:string|null;
  priority:number|null;
+ planning_sort_order:number|null;
  qty_min:number|null;
  qty_max:number|null;
  surface_min_dm2:number|null;
@@ -24,6 +25,8 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
  const [prefixEditing,setPrefixEditing]=useState<string|null>(null);
  const [prefixValue,setPrefixValue]=useState("");
  const [busy,setBusy]=useState(false);
+ const [sortEditing,setSortEditing]=useState<string|null>(null);
+ const [sortValue,setSortValue]=useState("");
  const [message,setMessage]=useState("");
  usePopupMessage(message);
 
@@ -77,6 +80,18 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
   }finally{
    setBusy(false);
   }
+ }
+
+ async function saveSortOrder(operation:string){
+  setBusy(true);setMessage("");
+  try{
+   const r=await fetch("/api/config/operation-master/sort-order",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({standard_operation:operation,planning_sort_order:sortValue.trim()===""?null:Number(sortValue)})});
+   const d=await r.json();
+   if(!r.ok)throw new Error(d.error||"Không lưu được Planning Order.");
+   setMessage(`Đã lưu thứ tự ${operation}: ${d.row.planning_sort_order??"chưa gán"}.`);
+   setSortEditing(null);setTimeout(()=>location.reload(),500);
+  }catch(e){setMessage(e instanceof Error?e.message:"Không lưu được Planning Order.");}
+  finally{setBusy(false);}
  }
 
  function beginPrefix(row:Row){
@@ -133,6 +148,7 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
       <th>st_group</th>
       <th>batch_prefix</th>
       <th>time_calc_type</th>
+      <th>planning_order</th>
       <th>priority</th>
       <th>qty_min</th>
       <th>qty_max</th>
@@ -192,6 +208,11 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
            </button>}
        </td>
        <td>{row.time_calc_type||""}</td>
+       <td>
+        {sortEditing===row.standard_operation
+         ? <div className="row"><input className="input" type="number" min="0" step="1" style={{width:80}} value={sortValue} onChange={e=>setSortValue(e.target.value)}/><button className="btn primary small" onClick={()=>saveSortOrder(row.standard_operation)} disabled={busy}>Save</button><button className="btn small" onClick={()=>setSortEditing(null)} disabled={busy}>×</button></div>
+         : <button className="btn small mono" type="button" onClick={()=>{setSortEditing(row.standard_operation);setSortValue(row.planning_sort_order==null?"":String(row.planning_sort_order));}} disabled={busy}>{row.planning_sort_order??"SET"}</button>}
+       </td>
        <td>{row.priority??""}</td>
        <td>{row.qty_min??""}</td>
        <td>{row.qty_max??""}</td>

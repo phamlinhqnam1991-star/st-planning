@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
+import { unlockNextAfterScheduledBatch,healScheduledHandoffs } from "@/lib/planning/unlock-next-after-schedule";
 
 function asDate(v:any){const d=new Date(v);return Number.isNaN(d.getTime())?null:d}
 
@@ -127,8 +128,11 @@ export async function POST(req:Request){
     where id=$1
   `,[batchId,start,end]);
 
+  const unlockedNext=await unlockNextAfterScheduledBatch(c,batchId);
+  const healedNext=await healScheduledHandoffs(c);
+
   await c.query("commit");
-  return NextResponse.json({ok:true,schedule:iq.rows[0]});
+  return NextResponse.json({ok:true,schedule:iq.rows[0],unlockedNext,healedNext});
  }catch(e:any){
   await c.query("rollback");
   return NextResponse.json({error:e?.message||"Schedule failed"},{status:400});
@@ -261,8 +265,11 @@ export async function PATCH(req:Request){
     where id=$1
   `,[current.batch_id,start,end]);
 
+  const unlockedNext=await unlockNextAfterScheduledBatch(c,Number(current.batch_id));
+  const healedNext=await healScheduledHandoffs(c);
+
   await c.query("commit");
-  return NextResponse.json({ok:true,schedule:uq.rows[0]});
+  return NextResponse.json({ok:true,schedule:uq.rows[0],unlockedNext,healedNext});
  }catch(e:any){
   await c.query("rollback");
   return NextResponse.json({error:e?.message||"Schedule move failed"},{status:400});

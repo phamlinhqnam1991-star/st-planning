@@ -19,6 +19,9 @@ type RouteStatusItem={
  source_seq:number;
  occurrence:number;
  standard_operation:string|null;
+ planning_job_operation_id:number|null;
+ planning_job_status:string|null;
+ ready_source_seq:number|null;
  route_status:
   |"DONE"
   |"READY"
@@ -87,6 +90,7 @@ type Candidate={
  last_labor_qty:number|null;
  last_operation:string|null;
  next_operation:string|null;
+ next_operation_planning_sort_order:number|null;
  all_operation:string|null;
  total_surface:number|null;
  surface_per_part_dm2:number|null;
@@ -103,6 +107,12 @@ type Candidate={
  source_data:Record<string,unknown>|null;
  route_status:RouteStatusItem[];
 };
+
+
+
+
+
+
 
 type TimeRule={
  calc_type:string;
@@ -159,6 +169,7 @@ type MainOperationMaster={
  area_sort:number|null;
  st_group_sort:number|null;
  operation_sort:number|null;
+ planning_sort_order:number|null;
 };
 
 type CandidateColumn={
@@ -211,6 +222,25 @@ const SORT_STORAGE_KEY="st-planning:candidate-sort:v1";
 const VIEW_STORAGE_KEY="st-planning:candidate-view-by-operation:v1";
 const COLUMN_STORAGE_KEY="st-planning:candidate-columns:v6";
 
+type BatchTargetOption={
+ id:number;
+ batch_no:string;
+ standard_operation:string;
+ recipe_key:string|null;
+ recipe_no:string|null;
+ recipe_name:string|null;
+ total_jobs:number;
+ total_qty:number;
+ total_surface_dm2:number;
+ process_minutes:number|null;
+ status:string|null;
+ schedule_id:number|null;
+ schedule_status:string|null;
+ resource_code:string|null;
+ schedule_start:string|null;
+ schedule_end:string|null;
+};
+
 type CandidateViewPreset={
  columns:string[];
  filters:{
@@ -221,11 +251,14 @@ type CandidateViewPreset={
   primer3:string;
  };
  sortRules:SortRule[];
+ density?:"normal"|"compact"|"ultra";
+ routeFocus?:boolean;
 };
 const LEGACY_COLUMN_STORAGE_KEY="st-planning:candidate-columns:v5";
 
 export function PlanningBoardClient({
  candidates,
+ availableBatches,
  standardOperation,
  areaMode,
  selectedAreaId,
@@ -235,6 +268,7 @@ export function PlanningBoardClient({
  today
 }:{
  candidates:Candidate[];
+ availableBatches:BatchTargetOption[];
  standardOperation:string;
  areaMode:boolean;
  selectedAreaId:string;
@@ -246,6 +280,7 @@ export function PlanningBoardClient({
  const [selected,setSelected]=useState<number[]>([]);
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
+ const [targetBatchId,setTargetBatchId]=useState("");
  usePopupMessage(message);
  const [columnPickerOpen,setColumnPickerOpen]=useState(false);
  const [columnSearch,setColumnSearch]=useState("");
@@ -257,15 +292,30 @@ export function PlanningBoardClient({
  const [filterPrimer2,setFilterPrimer2]=useState("");
  const [filterPrimer3,setFilterPrimer3]=useState("");
  const [sortRules,setSortRules]=useState<SortRule[]>([
-  {field:"next_main",direction:"asc"},
   {field:"next_operation",direction:"asc"},
-  {field:"primer1",direction:"asc"}
+  {field:"priority",direction:"desc"},
+  {field:"job",direction:"asc"}
  ]);
  const [viewLoadedFor,setViewLoadedFor]=useState("");
  const [viewMessage,setViewMessage]=useState("");
  const [dragColumnKey,setDragColumnKey]=useState("");
  const [dragSortIndex,setDragSortIndex]=useState<number|null>(null);
  const [dragCandidateId,setDragCandidateId]=useState<number|null>(null);
+ const [fullView,setFullView]=useState(false);
+ const [candidateDensity,setCandidateDensity]=useState<"normal"|"compact"|"ultra">("compact");
+ const [routeFocus,setRouteFocus]=useState(false);
+
+ useEffect(()=>{
+  if(!fullView)return;
+  const old=document.body.style.overflow;
+  document.body.style.overflow="hidden";
+  const onKey=(e:KeyboardEvent)=>{if(e.key==="Escape")setFullView(false);};
+  window.addEventListener("keydown",onKey);
+  return ()=>{
+   document.body.style.overflow=old;
+   window.removeEventListener("keydown",onKey);
+  };
+ },[fullView]);
 
  // Append every original All Open Job column from source_data.
  // This stays dynamic when the imported Excel adds/removes source columns.
@@ -421,13 +471,30 @@ export function PlanningBoardClient({
    }
  };
 
- const loadOperationView=(operation:string)=>{
-   if(!operation)return false;
+ const selectedAreaName=useMemo(()=>{
+   if(!selectedAreaId)return "";
+   const row=mainOperations.find(x=>String(x.area_id||"")===String(selectedAreaId));
+   return row?.area_name||`Area ${selectedAreaId}`;
+ },[selectedAreaId,mainOperations]);
 
-   const views=readOperationViews();
-   const preset=views[operation];
-   if(!preset)return false;
+ // Default view scope:
+ // OP:<Standard Operation> -> AREA:<Area ID> -> SYSTEM.
+ // Saving always writes to the exact scope currently being viewed.
+ const exactViewKey=
+   standardOperation
+    ?`OP:${standardOperation}`
+    :selectedAreaId
+     ?`AREA:${selectedAreaId}`
+     :"SYSTEM";
 
+ const exactViewLabel=
+   standardOperation
+    ?`Operation ${standardOperation}`
+    :selectedAreaId
+     ?`Area ${selectedAreaName}`
+     :"System";
+
+ const applyViewPreset=(preset:CandidateViewPreset)=>{
    const validColumns=new Set(allColumns.map(x=>x.key));
    const cols=Array.isArray(preset.columns)
     ? preset.columns.filter(x=>validColumns.has(x))
@@ -455,17 +522,71 @@ export function PlanningBoardClient({
        ]
    );
 
+   if(["normal","compact","ultra"].includes(String(preset.density||""))){
+     setCandidateDensity(preset.density as "normal"|"compact"|"ultra");
+   }
+
+   if(typeof preset.routeFocus==="boolean"){
+     setRouteFocus(preset.routeFocus);
+   }
+ };
+
+ const findDefaultView=()=>{
+   const views=readOperationViews();
+
+   // 1. Exact Operation Default
+   if(standardOperation){
+     const opKey=`OP:${standardOperation}`;
+     if(views[opKey])return {key:opKey,preset:views[opKey]};
+
+     // Backward compatibility with previous versions where Operation name itself was the key.
+     if(views[standardOperation])
+       return {key:standardOperation,preset:views[standardOperation]};
+   }
+
+   // 2. Area Default
+   if(selectedAreaId){
+     const areaKey=`AREA:${selectedAreaId}`;
+     if(views[areaKey])return {key:areaKey,preset:views[areaKey]};
+   }
+
+   // 3. System Default
+   if(views.SYSTEM)return {key:"SYSTEM",preset:views.SYSTEM};
+
+   return null;
+ };
+
+ const loadCurrentDefault=()=>{
+   const found=findDefaultView();
+
+   if(!found){
+     setViewLoadedFor("");
+     setViewMessage(`${exactViewLabel}: chưa có Default View.`);
+     setTimeout(()=>setViewMessage(""),1800);
+     return false;
+   }
+
+   applyViewPreset(found.preset);
+   setViewLoadedFor(found.key);
+
+   const label=
+    found.key.startsWith("OP:")
+     ?`Operation ${found.key.slice(3)}`
+     :found.key.startsWith("AREA:")
+      ?`Area Default`
+      :found.key==="SYSTEM"
+       ?"System Default"
+       :`Operation ${found.key}`;
+
+   setViewMessage(`Đã load ${label}.`);
+   setTimeout(()=>setViewMessage(""),1800);
    return true;
  };
 
- const saveCurrentOperationView=()=>{
-   if(!standardOperation){
-     setViewMessage("Chưa chọn Standard Operation.");
-     return;
-   }
-
+ const saveCurrentDefault=()=>{
    const views=readOperationViews();
-   views[standardOperation]={
+
+   views[exactViewKey]={
      columns:[...activeColumns],
      filters:{
       nextMain:filterNextMain,
@@ -474,53 +595,60 @@ export function PlanningBoardClient({
       primer2:filterPrimer2,
       primer3:filterPrimer3
      },
-     sortRules:[...sortRules]
+     sortRules:[...sortRules],
+     density:candidateDensity,
+     routeFocus
    };
 
    try{
      window.localStorage.setItem(VIEW_STORAGE_KEY,JSON.stringify(views));
-     setViewLoadedFor(standardOperation);
-     setViewMessage(`Đã lưu view mặc định cho ${standardOperation}.`);
+     setViewLoadedFor(exactViewKey);
+     setViewMessage(`Đã lưu Default View cho ${exactViewLabel}.`);
      setTimeout(()=>setViewMessage(""),1800);
    }catch{
-     setViewMessage("Không lưu được view mặc định.");
+     setViewMessage("Không lưu được Default View.");
    }
  };
 
- const deleteCurrentOperationView=()=>{
-   if(!standardOperation)return;
-
+ const deleteCurrentDefault=()=>{
    const views=readOperationViews();
-   delete views[standardOperation];
+
+   if(!views[exactViewKey]){
+     setViewMessage(`${exactViewLabel}: không có Default View riêng để xóa.`);
+     setTimeout(()=>setViewMessage(""),1800);
+     return;
+   }
+
+   delete views[exactViewKey];
 
    try{
      window.localStorage.setItem(VIEW_STORAGE_KEY,JSON.stringify(views));
    }catch{}
 
    setViewLoadedFor("");
-   setViewMessage(`Đã xóa view riêng của ${standardOperation}.`);
+   setViewMessage(`Đã xóa Default View của ${exactViewLabel}.`);
    setTimeout(()=>setViewMessage(""),1800);
  };
 
- const resetToOperationDefault=()=>{
-   if(standardOperation && loadOperationView(standardOperation)){
-     setViewLoadedFor(standardOperation);
-     setViewMessage(`Đã nạp lại view mặc định ${standardOperation}.`);
-   }else{
+ const resetToCurrentDefault=()=>{
+   if(!loadCurrentDefault()){
      resetDisplayRules();
-     setViewLoadedFor("");
-     setViewMessage("Operation này chưa có view mặc định.");
    }
-   setTimeout(()=>setViewMessage(""),1800);
  };
 
  useEffect(()=>{
-   if(!standardOperation || !allColumns.length)return;
+   if(!allColumns.length)return;
 
-   const loaded=loadOperationView(standardOperation);
-   setViewLoadedFor(loaded?standardOperation:"");
- },[standardOperation,allColumns]);
-
+   // Auto-load follows the same precedence:
+   // Operation -> Area -> System.
+   const found=findDefaultView();
+   if(found){
+     applyViewPreset(found.preset);
+     setViewLoadedFor(found.key);
+   }else{
+     setViewLoadedFor("");
+   }
+ },[standardOperation,selectedAreaId,allColumns]);
  const saveColumns=(next:string[])=>{
    setVisibleColumns(next);
    try{window.localStorage.setItem(COLUMN_STORAGE_KEY,JSON.stringify(next))}catch{}
@@ -588,6 +716,23 @@ export function PlanningBoardClient({
  };
 
  function normalized(v:unknown){return String(v??"").trim().toUpperCase();}
+
+ function getActualOperationSequence(x:Candidate,operation:unknown){
+   const target=normalized(operation);
+   if(!target)return 999999;
+
+   // all_operation is the real production routing of this Job.
+   // Example: CPBILP | PIONBL | BSAUNSLD | PPRSLVT
+   const route=String(x.all_operation||"")
+    .replace(/^\s*\[|\]\s*$/g,"")
+    .split(/\s*\|\s*/)
+    .map(v=>normalized(v))
+    .filter(Boolean);
+
+   const index=route.findIndex(v=>v===target);
+   return index>=0?index:999999;
+ }
+
 
  const currentPriorityMonth=useMemo(()=>{
    const m=String(today||"").match(/^(\d{4})-(\d{2})-\d{2}$/);
@@ -786,8 +931,14 @@ export function PlanningBoardClient({
      case "next_main":
        return normalized(x.next_standard_operation||"END");
 
-     case "next_operation":
-       return normalized(x.next_operation);
+     case "next_operation": {
+       // Global production priority is configured by RAW Operation Code,
+       // exactly matching All Open Job.next_operation.
+       // This is intentionally independent from Job routing and Standard Operation.
+       const raw=x.next_operation_planning_sort_order;
+       const configured=raw==null?NaN:Number(raw);
+       return Number.isFinite(configured)?configured:999999;
+     }
 
      case "primer1":
        return sourceSortValue(x.part_master_primer1);
@@ -835,20 +986,26 @@ export function PlanningBoardClient({
    );
 
    return [...filtered].sort((a,b)=>{
-     // Fixed business rule: unbatched/ELIGIBLE is always above PLANNED.
-     const sa=a.planning_status==="PLANNED"?1:0;
-     const sb=b.planning_status==="PLANNED"?1:0;
-     if(sa!==sb)return sa-sb;
+     // v163 - Candidate production order comes ONLY from Operation Code Order
+     // of the RAW NextOperation. Main Operation is membership/scope only.
+     const ao=Number(a.next_operation_planning_sort_order);
+     const bo=Number(b.next_operation_planning_sort_order);
+     const aOrder=Number.isFinite(ao)?ao:999999;
+     const bOrder=Number.isFinite(bo)?bo:999999;
+     if(aOrder!==bOrder)return aOrder-bOrder;
 
-     // Existing planned rows remain grouped by Batch after business priority.
-     if(sa===1){
-       const ba=normalized(a.batch_no);
-       const bb=normalized(b.batch_no);
-       const bc=ba.localeCompare(bb,undefined,{numeric:true,sensitivity:"base"});
-       if(bc!==0)return bc;
-     }
+     const nextOpCmp=normalized(a.next_operation).localeCompare(
+      normalized(b.next_operation),
+      undefined,
+      {numeric:true,sensitivity:"base"}
+     );
+     if(nextOpCmp!==0)return nextOpCmp;
+
+     const priorityCmp=priorityRank(b.priority_type)-priorityRank(a.priority_type);
+     if(priorityCmp!==0)return priorityCmp;
 
      for(const rule of sortRules){
+       if(rule.field==="next_operation" || rule.field==="priority")continue;
        const av=getSortValue(a,rule.field);
        const bv=getSortValue(b,rule.field);
        let cmp=0;
@@ -857,7 +1014,11 @@ export function PlanningBoardClient({
        if(cmp!==0)return rule.direction==="desc"?-cmp:cmp;
      }
 
-     return normalized(a.job_num).localeCompare(normalized(b.job_num),undefined,{numeric:true});
+     return normalized(a.job_num).localeCompare(
+      normalized(b.job_num),
+      undefined,
+      {numeric:true}
+     );
    });
  },[
    candidates,filterNextMain,filterNextOperation,
@@ -887,8 +1048,8 @@ export function PlanningBoardClient({
    }
  };
 
- const paintSelectionKey=(x:Candidate)=>{
-   switch(normalized(standardOperation)){
+ const paintSelectionKey=(x:Candidate,operation=standardOperation)=>{
+   switch(normalized(operation)){
      case "PRIMER": return normalized(x.part_master_primer1||x.recipe_no);
      case "PRIMER2": return normalized(x.part_master_primer2||x.recipe_no);
      case "PRIMER3": return normalized(x.part_master_primer3||x.recipe_no);
@@ -902,16 +1063,65 @@ export function PlanningBoardClient({
 
  const isPaintSelectionOperation=Boolean(paintSelectionField(standardOperation));
 
+ const selectedTargets=useMemo(()=>{
+   const out:{
+    id:number;
+    candidate:Candidate;
+    standardOperation:string;
+    sourceOperation:string;
+    routeItem:RouteStatusItem|null;
+   }[]=[];
+
+   for(const id of selected){
+     const direct=candidates.find(x=>x.id===id);
+     if(direct){
+      out.push({
+       id,
+       candidate:direct,
+       standardOperation:direct.standard_operation,
+       sourceOperation:direct.source_operation_code,
+       routeItem:null
+      });
+      continue;
+     }
+
+     for(const candidate of candidates){
+      const item=(candidate.route_status||[]).find(
+       r=>Number(r.planning_job_operation_id)===id
+      );
+      if(!item)continue;
+      out.push({
+       id,
+       candidate,
+       standardOperation:String(item.standard_operation||""),
+       sourceOperation:String(item.source_operation||""),
+       routeItem:item
+      });
+      break;
+     }
+   }
+
+   const seen=new Set<number>();
+   return out.filter(x=>{
+    if(seen.has(x.id))return false;
+    seen.add(x.id);
+    return true;
+   });
+ },[candidates,selected]);
+
  const selectedRows=useMemo(
-   ()=>candidates.filter(x=>selected.includes(x.id) && x.planning_status==="ELIGIBLE"),
-   [candidates,selected]
+   ()=>selectedTargets.map(x=>x.candidate),
+   [selectedTargets]
  );
 
  const selectedPaintKey=useMemo(()=>{
-   if(!isPaintSelectionOperation)return "";
-   const first=selectedRows.find(x=>paintSelectionKey(x));
-   return first?paintSelectionKey(first):"";
- },[selectedRows,isPaintSelectionOperation,standardOperation]);
+   const firstTarget=selectedTargets[0];
+   if(!firstTarget)return "";
+   const op=firstTarget.standardOperation;
+   if(!paintSelectionField(op))return "";
+   const first=selectedTargets.find(x=>paintSelectionKey(x.candidate,op));
+   return first?paintSelectionKey(first.candidate,op):"";
+ },[selectedTargets,standardOperation]);
 
  const paintSelectionLocked=(x:Candidate)=>{
    if(!isPaintSelectionOperation)return false;
@@ -920,8 +1130,88 @@ export function PlanningBoardClient({
    return Boolean(selectedPaintKey && key!==selectedPaintKey);
  };
 
- const totalQty=selectedRows.reduce((a,x)=>a+Number(x.plan_qty||0),0);
- const totalSurface=selectedRows.reduce((a,x)=>a+Number(x.plan_surface||0),0);
+ // Single source for row/checkbox/drag selection:
+ // a Candidate row may be PLANNED at its previous/current Main while a later
+ // immediate Main is already READY after Schedule Gate.
+ const selectableTargetFor=(row:Candidate)=>{
+   const route=(row.route_status||[])
+    .filter(r=>r.standard_operation&&normalized(r.standard_operation)!=="PIONBL")
+    .sort((a,b)=>Number(a.source_seq||0)-Number(b.source_seq||0));
+
+   // 1) Exact persisted READY occurrence with a Planning Operation ID.
+   const persistedReady=route.find(r=>
+    normalized(r.route_status)==="READY" &&
+    Number.isFinite(Number(r.planning_job_operation_id))
+   );
+
+   if(persistedReady){
+    return {
+     id:Number(persistedReady.planning_job_operation_id),
+     standardOperation:String(persistedReady.standard_operation||""),
+     sourceOperation:String(persistedReady.source_operation||""),
+     routeItem:persistedReady
+    };
+   }
+
+   // 2) Same fallback READY source used by renderRouteStatusCell().
+   // Candidate itself is the Planning Operation and therefore row.id is the
+   // selectable operation ID. Do NOT require a duplicated route_status ID.
+   if(
+    row.planning_status==="ELIGIBLE" &&
+    Number.isFinite(Number(row.id)) &&
+    row.standard_operation
+   ){
+    return {
+     id:Number(row.id),
+     standardOperation:String(row.standard_operation||""),
+     sourceOperation:String(row.source_operation_code||""),
+     routeItem:null as RouteStatusItem|null
+    };
+   }
+
+   // 3) Recovery for rows whose previous Main is already planned/scheduled:
+   // the first READY route occurrence may be computed by the Route Matrix but
+   // its planning_job_operation_id is absent. If that READY Main is the
+   // candidate's own standard_operation, row.id is still the correct Planning
+   // Operation target.
+   const computedReady=route.find(r=>normalized(r.route_status)==="READY");
+   if(
+    computedReady &&
+    normalized(computedReady.standard_operation)===normalized(row.standard_operation) &&
+    Number.isFinite(Number(row.id))
+   ){
+    return {
+     id:Number(row.id),
+     standardOperation:String(row.standard_operation||computedReady.standard_operation||""),
+     sourceOperation:String(row.source_operation_code||computedReady.source_operation||""),
+     routeItem:computedReady
+    };
+   }
+
+   return null;
+ };
+
+ const paintSelectionLockedForTarget=(row:Candidate)=>{
+   const target=selectableTargetFor(row);
+   if(!target)return false;
+   const op=target.standardOperation;
+   if(!paintSelectionField(op))return false;
+
+   const key=paintSelectionKey(row,op);
+   if(!key)return true;
+
+   const selectedPaint=selectedTargets.length
+    ?paintSelectionKey(selectedTargets[0].candidate,op)
+    :"";
+
+   return Boolean(selectedPaint && selectedPaint!==key);
+ };
+
+
+
+
+ const totalQty=selectedTargets.reduce((a,x)=>a+Number(x.candidate.plan_qty||0),0);
+ const totalSurface=selectedTargets.reduce((a,x)=>a+Number(x.candidate.plan_surface||0),0);
  const estimatedMinutes=estimateMinutes(timeRules,totalQty,totalSurface);
 
  const saveSortRules=(next:SortRule[])=>{
@@ -954,10 +1244,18 @@ export function PlanningBoardClient({
    saveSortRules(next);
  };
 
- const addCandidateToSelection=(id:number)=>{
-   const row=candidates.find(x=>x.id===id);
-   if(!row || row.planning_status!=="ELIGIBLE" || paintSelectionLocked(row))return;
-   setSelected(prev=>prev.includes(id)?prev:[...prev,id]);
+ const addCandidateToSelection=(rowId:number)=>{
+   const row=candidates.find(x=>x.id===rowId);
+   if(!row)return;
+
+   const target=selectableTargetFor(row);
+   if(!target)return;
+
+   const existingOperation=selectedTargets[0]?.standardOperation||"";
+   if(existingOperation && normalized(existingOperation)!==normalized(target.standardOperation))return;
+   if(paintSelectionLockedForTarget(row))return;
+
+   setSelected(prev=>prev.includes(target.id)?prev:[...prev,target.id]);
  };
 
  const resetDisplayRules=()=>{
@@ -973,38 +1271,75 @@ export function PlanningBoardClient({
    ]);
  };
 
- const selectedOperation=selectedRows.length?selectedRows[0].standard_operation:(standardOperation||"");
+ const selectedOperation=selectedTargets.length?selectedTargets[0].standardOperation:(standardOperation||"");
+
+ const compatibleTargetBatches=useMemo(()=>{
+   const op=normalized(selectedOperation||standardOperation);
+   if(!op)return [];
+
+   return availableBatches
+    .filter(b=>
+      normalized(b.standard_operation)===op &&
+      !["CANCELLED","COMPLETED"].includes(normalized(b.status))
+    )
+    .sort((a,b)=>{
+      const as=a.schedule_id?1:0;
+      const bs=b.schedule_id?1:0;
+      if(as!==bs)return as-bs; // unscheduled first
+      return String(b.batch_no||"").localeCompare(String(a.batch_no||""),undefined,{numeric:true});
+    });
+ },[availableBatches,selectedOperation,standardOperation]);
+
+ useEffect(()=>{
+   if(!targetBatchId)return;
+   if(!compatibleTargetBatches.some(b=>String(b.id)===targetBatchId)){
+     setTargetBatchId("");
+   }
+ },[targetBatchId,compatibleTargetBatches]);
 
  function operationSelectionLocked(row:Candidate){
-   return Boolean(selectedOperation && row.standard_operation!==selectedOperation);
+   const target=selectableTargetFor(row);
+   if(!target)return true;
+   return Boolean(
+    selectedOperation &&
+    normalized(target.standardOperation)!==normalized(selectedOperation)
+   );
  }
 
- function toggle(id:number){
-   const row=candidates.find(x=>x.id===id);
-   if(!row || row.planning_status!=="ELIGIBLE")return;
+ function toggle(rowId:number){
+   const row=candidates.find(x=>x.id===rowId);
+   if(!row)return;
 
-   if(selected.includes(id)){
-     setSelected(x=>x.filter(y=>y!==id));
+   const target=selectableTargetFor(row);
+   if(!target)return;
+
+   if(selected.includes(target.id)){
+     setSelected(x=>x.filter(y=>y!==target.id));
      return;
    }
 
-   if(operationSelectionLocked(row)||paintSelectionLocked(row))return;
-   setSelected(x=>[...x,id]);
+   if(operationSelectionLocked(row)||paintSelectionLockedForTarget(row))return;
+   setSelected(x=>[...new Set([...x,target.id])]);
  }
 
  function toggleAll(){
-   const compatible=eligibleCandidates.filter(x=>!operationSelectionLocked(x)&&!paintSelectionLocked(x));
-   const ids=compatible.map(x=>x.id);
+   const selectableRows=displayCandidates
+    .map(row=>({row,target:selectableTargetFor(row)}))
+    .filter(x=>x.target)
+    .filter(x=>!operationSelectionLocked(x.row)&&!paintSelectionLockedForTarget(x.row));
+
+   const ids=selectableRows.map(x=>Number(x.target!.id));
    const all=ids.length>0 && ids.every(id=>selected.includes(id));
+
    if(all)setSelected(x=>x.filter(id=>!ids.includes(id)));
    else setSelected(x=>[...new Set([...x,...ids])]);
  }
 
  async function createBatch(){
    if(!selected.length)return alert("Chọn ít nhất 1 Candidate Job.");
-   const effectiveOperation=standardOperation||selectedRows[0]?.standard_operation||"";
+   const effectiveOperation=selectedTargets[0]?.standardOperation||standardOperation||"";
    if(!effectiveOperation)return alert("Không xác định được Standard Operation.");
-   if(selectedRows.some(x=>x.standard_operation!==effectiveOperation))
+   if(selectedTargets.some(x=>x.standardOperation!==effectiveOperation))
      return alert("Một Batch chỉ được chứa Job của cùng Standard Operation.");
 
    setBusy(true);
@@ -1017,7 +1352,8 @@ export function PlanningBoardClient({
        body:JSON.stringify({
          planning_job_operation_ids:selected,
          standard_operation:effectiveOperation,
-         recipe_key:recipeKey||null
+         recipe_key:recipeKey||null,
+         target_batch_id:targetBatchId?Number(targetBatchId):null
        })
      });
 
@@ -1025,7 +1361,7 @@ export function PlanningBoardClient({
      if(!r.ok)throw new Error(d.error||"Create Batch failed");
 
      setMessage(
-       `${d.batchNo} created · ${d.totalJobs} Jobs · `+
+       `${d.batchNo} ${d.addedToExisting?"updated":"created"} · ${d.totalJobs} Jobs · `+
        `Qty ${formatNumber(d.totalQty)} · `+
        `Surface ${formatNumber(d.totalSurface)} dm² · `+
        `Process ${minutesToHHMM(d.processMinutes)}`
@@ -1115,6 +1451,112 @@ export function PlanningBoardClient({
    });
  };
 
+ const routeCellSelected=(item:RouteStatusItem)=>{
+   const id=Number(item.planning_job_operation_id);
+   return Number.isFinite(id)&&selected.includes(id);
+ };
+
+ const toggleRouteCell=(candidate:Candidate,item:RouteStatusItem)=>{
+   const op=String(item.standard_operation||candidate.standard_operation||"");
+   const status=normalized(item.route_status);
+
+   // The displayed READY cell is authoritative. Some computed Route Matrix
+   // occurrences do not carry planning_job_operation_id; when the READY Main
+   // matches the Candidate Main, candidate.id is the Planning Operation ID.
+   const itemId=Number(item.planning_job_operation_id);
+   const candidateId=Number(candidate.id);
+   const id=Number.isFinite(itemId)
+    ?itemId
+    :(
+      normalized(op)===normalized(candidate.standard_operation) &&
+      Number.isFinite(candidateId)
+       ?candidateId
+       :NaN
+     );
+
+   if(!op){
+    setMessage("Công đoạn này chưa xác định được Main Operation.");
+    return;
+   }
+
+   if(status==="WAITING"){
+    setMessage(
+     `${candidate.job_num} · ${op}: WAITING. `+
+     `Main trước phải được Schedule trước khi công đoạn này mở READY.`
+    );
+    return;
+   }
+
+   if(status!=="READY"){
+    setMessage(`${candidate.job_num} · ${op}: ${status} không thể thêm vào Batch mới.`);
+    return;
+   }
+
+   if(!Number.isFinite(id)){
+    setMessage(`${candidate.job_num} · ${op}: READY nhưng chưa resolve được Planning Operation ID.`);
+    return;
+   }
+
+   if(selected.includes(id)){
+    setSelected(prev=>prev.filter(x=>x!==id));
+    return;
+   }
+
+   const existingOperation=selectedTargets[0]?.standardOperation||"";
+   if(existingOperation && normalized(existingOperation)!==normalized(op)){
+    setMessage(`Đang chọn ${existingOperation}. Một Batch chỉ chứa cùng Main Operation.`);
+    return;
+   }
+
+   if(paintSelectionField(op)){
+    const keyValue=paintSelectionKey(candidate,op);
+    if(!keyValue){
+     setMessage(`${candidate.job_num} chưa có ${paintSelectionField(op)}.`);
+     return;
+    }
+
+    const selectedPaint=selectedTargets.length
+     ? paintSelectionKey(selectedTargets[0].candidate,op)
+     :"";
+
+    if(selectedPaint && selectedPaint!==keyValue){
+     setMessage(`Không thể trộn loại sơn khác nhau trong cùng Batch ${op}.`);
+     return;
+    }
+   }
+
+   setMessage("");
+   setSelected(prev=>[...new Set([...prev,id])]);
+ };
+
+ const waitingDisplayFor=(candidate:Candidate,item:RouteStatusItem)=>{
+   if(normalized(item.route_status)!=="WAITING")
+    return {label:String(item.route_status||""),reason:"",kind:""};
+
+   const route=(candidate.route_status||[])
+    .filter(r=>r.standard_operation&&normalized(r.standard_operation)!=="PIONBL")
+    .sort((a,b)=>Number(a.source_seq||0)-Number(b.source_seq||0));
+
+   const waitingFuture=route.filter(r=>normalized(r.route_status)==="WAITING");
+   const immediate=waitingFuture.length
+    ?Math.min(...waitingFuture.map(r=>Number(r.source_seq||Number.POSITIVE_INFINITY)))
+    :Number.POSITIVE_INFINITY;
+
+   if(Number(item.source_seq)===immediate){
+    return {
+     label:"WAIT PREV",
+     reason:"Waiting for Previous Main Schedule",
+     kind:"route-status-wait-prev"
+    };
+   }
+
+   return {
+    label:"WAIT",
+    reason:"Future Main Operation",
+    kind:"route-status-wait-future"
+   };
+ };
+
  const renderRouteStatusCell=(x:Candidate,key:string)=>{
    const mainOperation=normalized(key.slice("route-main:".length));
 
@@ -1135,35 +1577,131 @@ export function PlanningBoardClient({
        ? "READY"
        :String(x.planning_status||"WAITING");
 
+     const fallbackItem:RouteStatusItem={
+      route_key:`fallback-${x.id}`,
+      source_operation:x.source_operation_code,
+      source_seq:0,
+      occurrence:1,
+      standard_operation:x.standard_operation,
+      planning_job_operation_id:x.id,
+      planning_job_status:x.planning_status,
+      ready_source_seq:Number(x.source_seq||0)||null,
+      route_status:status,
+      batch_id:x.batch_id,
+      batch_no:x.batch_no,
+      batch_status:x.batch_status,
+      schedule_id:null,
+      schedule_status:null,
+      resource_code:null,
+      planned_start:null,
+      planned_end:null,
+      recipe_no:x.recipe_no,
+      recipe_name:x.recipe_name
+     };
+
+     const fallbackWaiting=waitingDisplayFor(x,fallbackItem);
+     const fallbackDisplay=normalized(status)==="WAITING"?fallbackWaiting.label:status;
      return <td
       key={key}
-      className={`route-status-cell ${routeStatusClass(status)} route-status-current`}
-      title={`${mainOperation} · ${status}${x.batch_no?` · ${x.batch_no}`:""}`}
+      className={`route-status-cell ${routeStatusClass(status)} ${normalized(status)==="WAITING"?fallbackWaiting.kind:""} route-status-current ${routeCellSelected(fallbackItem)?"route-status-selected":""} ${status==="READY"?"route-status-clickable":""}`}
+      title={`${mainOperation} · ${fallbackDisplay}${fallbackWaiting.reason?` · ${fallbackWaiting.reason}`:""}${x.batch_no?` · ${x.batch_no}`:""}`}
+      onClick={()=>toggleRouteCell(x,fallbackItem)}
      >
-      <b>{status}</b>
+      <b>{fallbackDisplay}</b>
       {x.batch_no&&<span className="route-status-batch">{x.batch_no}</span>}
      </td>;
     }
     return <td key={key} className="route-status-cell route-status-na">—</td>;
    }
 
-   // Normally each Main Operation appears once because repeated paint stages are
-   // already normalized as PRIMER / PRIMER2 / PRIMER3 and TOPCOAT1 / TOPCOAT2.
-   // If legacy data still contains duplicate identical Main Operations, keep them
-   // in the same cell instead of creating extra columns.
-   const displayItem=
-    items.find(r=>["RUNNING","SCHEDULED","PLANNED-UNSCHEDULED","READY","HOLD"].includes(String(r.route_status))) ||
-    items[items.length-1];
+   // v153 - occurrence-first route renderer
+   // Each route occurrence owns its own route_status + ready_source_seq.
+   // Do not derive CURRENT from another occurrence in the same Main column.
+   //
+   // Required invariant:
+   //   route_status=READY AND source_seq=ready_source_seq
+   //   => CURRENT + READY + selectable
+   //
+   // This fixes cases where duplicate/mapped Main operations carried different
+   // ready_source_seq values and a READY occurrence was incorrectly marked NOT-CURRENT.
+   const normalizedItems=items.map(item=>{
+    const sourceSeq=Number(item.source_seq);
+    const readySeq=Number(item.ready_source_seq);
+    const rawStatus=normalized(item.route_status);
+    const current=
+     Number.isFinite(sourceSeq) &&
+     Number.isFinite(readySeq) &&
+     sourceSeq===readySeq;
 
-   const status=String(displayItem.route_status||"WAITING");
+    return {
+     item,
+     sourceSeq,
+     readySeq,
+     rawStatus,
+     current
+    };
+   });
 
-   const activeSeqs=(x.route_status||[])
-    .filter(r=>["READY","PLANNED-UNSCHEDULED","SCHEDULED","RUNNING"].includes(String(r.route_status)))
-    .map(r=>Number(r.source_seq))
-    .filter(Number.isFinite);
+   // First priority: an explicit READY occurrence at its own ready_source_seq.
+   const explicitCurrentReady=normalizedItems.find(x=>
+    x.rawStatus==="READY" && x.current
+   );
 
-   const currentSeq=activeSeqs.length?Math.min(...activeSeqs):Number.POSITIVE_INFINITY;
-   const isCurrent=items.some(r=>Number(r.source_seq)===currentSeq);
+   // Second: any authoritative current occurrence.
+   const explicitCurrentAuthoritative=normalizedItems.find(x=>
+    x.current &&
+    ["RUNNING","SCHEDULED","PLANNED-UNSCHEDULED","HOLD","COMPLETED"].includes(x.rawStatus)
+   );
+
+   // Third: any current occurrence at all.
+   const explicitCurrent=normalizedItems.find(x=>x.current);
+
+   // Historical/actual states remain authoritative even when not current.
+   const authoritative=normalizedItems.find(x=>
+    ["RUNNING","SCHEDULED","PLANNED-UNSCHEDULED","HOLD","COMPLETED"].includes(x.rawStatus)
+   );
+
+   // DONE occurrence before its own ready pivot.
+   const doneItem=normalizedItems
+    .filter(x=>x.rawStatus==="DONE")
+    .sort((a,b)=>b.sourceSeq-a.sourceSeq)[0];
+
+   // Future WAITING occurrence.
+   const waitingItem=normalizedItems
+    .filter(x=>x.rawStatus==="WAITING")
+    .sort((a,b)=>a.sourceSeq-b.sourceSeq)[0];
+
+   const chosen=
+    explicitCurrentReady ||
+    explicitCurrentAuthoritative ||
+    explicitCurrent ||
+    authoritative ||
+    doneItem ||
+    waitingItem ||
+    normalizedItems[0];
+
+   const displayItem=chosen.item;
+   let status=String(displayItem.route_status||"WAITING");
+
+   // Enforce READY/current invariant directly.
+   if(chosen.rawStatus==="READY" && chosen.current){
+    status="READY";
+   }
+
+   const readySourceSeq=chosen.readySeq;
+   const currentSeq=Number.isFinite(readySourceSeq)
+    ?readySourceSeq
+    :Number.POSITIVE_INFINITY;
+
+   const isCurrent=chosen.current;
+
+   const waitingDisplay=waitingDisplayFor(x,displayItem);
+   const displayStatus=normalized(status)==="WAITING"
+    ?waitingDisplay.label
+    :status;
+   const waitingClass=normalized(status)==="WAITING"
+    ?waitingDisplay.kind
+    :"";
 
    const batchNos=[
     ...new Set(items.map(r=>String(r.batch_no||"").trim()).filter(Boolean))
@@ -1182,19 +1720,36 @@ export function PlanningBoardClient({
    const tooltip=items.map((item,index)=>[
     items.length>1?`${mainOperation} occurrence ${index+1}`:mainOperation,
     `Source: ${item.source_operation}`,
-    `Status: ${item.route_status}`,
+    `Status: ${normalized(item.route_status)==="WAITING"?waitingDisplayFor(x,item).label:item.route_status}`,
+    normalized(item.route_status)==="WAITING"?waitingDisplayFor(x,item).reason:"",
     item.batch_no?`Batch: ${item.batch_no}`:"",
     item.resource_code?`Resource: ${item.resource_code}`:"",
     item.planned_end?`End: ${routeDateTime(item.planned_end)}`:"",
     item.recipe_name?`Recipe: ${item.recipe_name}`:""
    ].filter(Boolean).join(" · ")).join("\n");
 
+   // v159: one source of truth for interaction.
+   // What the cell displays is exactly what the user clicks/selects.
+   const selectableItem=displayItem;
+   const clickable=
+    normalized(status)==="READY" ||
+    normalized(status)==="WAITING";
+
    return <td
     key={key}
-    className={`route-status-cell ${routeStatusClass(status)} ${isCurrent?"route-status-current":""}`}
+    className={`route-status-cell ${routeStatusClass(status)} ${waitingClass} ${isCurrent?"route-status-current":""} ${(
+     routeCellSelected(selectableItem) ||
+     (
+      normalized(status)==="READY" &&
+      !Number.isFinite(Number(selectableItem.planning_job_operation_id)) &&
+      normalized(selectableItem.standard_operation)===normalized(x.standard_operation) &&
+      selected.includes(Number(x.id))
+     )
+    )?"route-status-selected":""} ${clickable?"route-status-clickable":""}`}
     title={tooltip}
+    onClick={()=>clickable&&toggleRouteCell(x,selectableItem)}
    >
-    <b>{status}</b>
+    <b>{displayStatus}</b>
 
     {batchNos.length>0&&
      <span className="route-status-batch">
@@ -1325,8 +1880,8 @@ export function PlanningBoardClient({
  };
 
  return <div className="planning-board-grid">
-   <section className="erp-table-panel planning-candidates">
-    <div className="erp-panel-head">
+   <section className={`erp-table-panel planning-candidates ${fullView?"candidate-full-view":""} candidate-density-${candidateDensity} ${routeFocus?"candidate-route-focus":""}`}>
+    <div className="erp-panel-head candidate-sticky-toolbar">
      <b>Candidate Jobs</b>
      <div className="row">
       <span>{eligibleCandidates.length} ELIGIBLE · {plannedCandidates.length} PLANNED</span>
@@ -1335,6 +1890,15 @@ export function PlanningBoardClient({
       </button>
       <button className="btn small" type="button" onClick={()=>setColumnPickerOpen(x=>!x)}>
        Columns ({activeColumns.length}/{allColumns.length})
+      </button>
+      <select className="input candidate-density-select" value={candidateDensity} onChange={e=>setCandidateDensity(e.target.value as "normal"|"compact"|"ultra")} title="Mật độ hiển thị">
+       <option value="normal">Normal</option>
+       <option value="compact">Compact</option>
+       <option value="ultra">Ultra Compact</option>
+      </select>
+      <button className={`btn small ${routeFocus?"primary":""}`} type="button" onClick={()=>setRouteFocus(x=>!x)} title="Làm mờ các ô không thuộc route">Route Focus</button>
+      <button className="btn small" type="button" onClick={()=>setFullView(x=>!x)} title="ESC để thoát Full View">
+       {fullView?"Exit Full View":"Full View"}
       </button>
       <button className="btn small" disabled={busy} onClick={rebuild}>
        Rebuild Chain
@@ -1358,19 +1922,17 @@ export function PlanningBoardClient({
        <div>
         <b>Candidate Display Rules</b>
         <small>
-         {standardOperation
-          ? `View cho ${standardOperation}${viewLoadedFor===standardOperation?" · DEFAULT SAVED":""}`
-          : "Chỉ thay đổi thứ tự/hiển thị, không thay đổi Planning logic."}
+         {`${exactViewLabel}${viewLoadedFor===exactViewKey?" · DEFAULT SAVED":""} · Thứ tự ưu tiên Load: Operation → Area → System.`}
         </small>
        </div>
        <div className="row">
-        <button className="btn small" type="button" onClick={saveCurrentOperationView} disabled={!standardOperation}>
+        <button className="btn small" type="button" onClick={saveCurrentDefault}>
          Set Default
         </button>
-        <button className="btn small" type="button" onClick={resetToOperationDefault} disabled={!standardOperation}>
+        <button className="btn small" type="button" onClick={resetToCurrentDefault}>
          Load Default
         </button>
-        <button className="btn small" type="button" onClick={deleteCurrentOperationView} disabled={!standardOperation||viewLoadedFor!==standardOperation}>
+        <button className="btn small" type="button" onClick={deleteCurrentDefault} disabled={viewLoadedFor!==exactViewKey}>
          Delete Default
         </button>
         <button className="btn small" type="button" onClick={resetDisplayRules}>Reset</button>
@@ -1571,10 +2133,13 @@ export function PlanningBoardClient({
         <th>
          <input
           type="checkbox"
-          checked={
-           eligibleCandidates.filter(x=>!paintSelectionLocked(x)).length>0 &&
-           eligibleCandidates.filter(x=>!paintSelectionLocked(x)).every(x=>selected.includes(x.id))
-          }
+          checked={(()=>{
+           const rows=displayCandidates
+            .map(row=>({row,target:selectableTargetFor(row)}))
+            .filter(x=>x.target)
+            .filter(x=>!operationSelectionLocked(x.row)&&!paintSelectionLockedForTarget(x.row));
+           return rows.length>0 && rows.every(x=>selected.includes(Number(x.target!.id)));
+          })()}
           onChange={toggleAll}
          />
         </th>
@@ -1582,13 +2147,14 @@ export function PlanningBoardClient({
        </tr>
       </thead>
       <tbody>
-       {displayCandidates.map(x=>
+       {displayCandidates.map((x,rowIndex)=>
         <tr
-         key={x.id}
-         className={`${selected.includes(x.id)?"planning-row-selected ":""}${x.planning_status==="PLANNED"?"planning-row-planned ":""}${dragCandidateId===x.id?"planning-row-dragging ":""}${paintSelectionLocked(x)?"paint-selection-disabled ":""}${priorityClass(x.priority_type)}`.trim()}
-         draggable={x.planning_status==="ELIGIBLE"&&!paintSelectionLocked(x)}
+         key={`${x.id}-${x.job_num}-${x.standard_operation}-${x.source_operation_code}-${rowIndex}`}
+         className={`${selectableTargetFor(x)&&selected.includes(selectableTargetFor(x)!.id)?"planning-row-selected ":""}${dragCandidateId===x.id?"planning-row-dragging ":""}${priorityClass(x.priority_type)}`.trim()}
+         draggable={Boolean(selectableTargetFor(x))&&!operationSelectionLocked(x)&&!paintSelectionLockedForTarget(x)}
          onDragStart={e=>{
-          if(x.planning_status!=="ELIGIBLE"||paintSelectionLocked(x))return;
+          const target=selectableTargetFor(x);
+          if(!target||operationSelectionLocked(x)||paintSelectionLockedForTarget(x))return;
           setDragCandidateId(x.id);
           e.dataTransfer.effectAllowed="copy";
           e.dataTransfer.setData("application/x-st-candidate",String(x.id));
@@ -1598,9 +2164,15 @@ export function PlanningBoardClient({
          <td>
           <input
            type="checkbox"
-           checked={selected.includes(x.id)}
-           disabled={x.planning_status!=="ELIGIBLE"||operationSelectionLocked(x)||paintSelectionLocked(x)}
-           title={operationSelectionLocked(x)?"Khác Standard Operation với Job đã chọn":paintSelectionLocked(x)?"Khác loại sơn với Job đã chọn hoặc chưa có loại sơn":undefined}
+           checked={Boolean(selectableTargetFor(x)&&selected.includes(selectableTargetFor(x)!.id))}
+           disabled={!selectableTargetFor(x)||operationSelectionLocked(x)||paintSelectionLockedForTarget(x)}
+           title={!selectableTargetFor(x)
+              ?"Job chưa có Main READY để thêm Batch"
+              :operationSelectionLocked(x)
+               ?"Khác Standard Operation với Job đã chọn"
+               :paintSelectionLockedForTarget(x)
+                ?"Khác loại sơn với Job đã chọn hoặc chưa có loại sơn"
+                :`Chọn ${selectableTargetFor(x)!.standardOperation} READY`}
            onChange={()=>toggle(x.id)}
           />
          </td>
@@ -1644,11 +2216,67 @@ export function PlanningBoardClient({
       <div className="planning-process-time"><span>Process Time</span><b>{minutesToHHMM(estimatedMinutes)}</b></div>
      </div>
 
+     <label className="planning-target-batch">
+      <span>Target Batch</span>
+      <select
+       className="input"
+       value={targetBatchId}
+       onChange={e=>setTargetBatchId(e.target.value)}
+       disabled={busy||!selectedOperation}
+      >
+       <option value="">Create New Batch</option>
+       {compatibleTargetBatches.map(b=>{
+        const scheduleDateTime=b.schedule_id&&b.schedule_start
+         ?new Date(b.schedule_start).toLocaleString("vi-VN",{
+           timeZone:"Asia/Ho_Chi_Minh",
+           day:"2-digit",month:"2-digit",year:"numeric",
+           hour:"2-digit",minute:"2-digit",
+           hour12:false
+          })
+         :"";
+        const scheduleEndTime=b.schedule_id&&b.schedule_end
+         ?new Date(b.schedule_end).toLocaleTimeString("vi-VN",{
+           timeZone:"Asia/Ho_Chi_Minh",
+           hour:"2-digit",minute:"2-digit",
+           hour12:false
+          })
+         :"";
+        const scheduleText=b.schedule_id
+         ?[
+           "SCHEDULED",
+           b.resource_code||"",
+           scheduleDateTime
+            ?`${scheduleDateTime}${scheduleEndTime?`–${scheduleEndTime}`:""}`
+            :""
+          ].filter(Boolean).join(" · ")
+         :"UNSCHEDULED";
+        return <option key={b.id} value={b.id}>
+         {b.batch_no} · {scheduleText} · {b.total_jobs||0} jobs
+        </option>;
+       })}
+      </select>
+      {targetBatchId&&(()=>{
+       const b=compatibleTargetBatches.find(x=>String(x.id)===targetBatchId);
+       if(!b)return null;
+       return <small className="planning-target-batch-info">
+        {b.recipe_no?`Recipe ${b.recipe_no} · `:""}
+        Qty {formatNumber(b.total_qty)} · Surface {formatNumber(b.total_surface_dm2)} dm²
+        {b.schedule_id&&b.schedule_start
+         ? ` · ${b.resource_code||""} ${new Date(b.schedule_start).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})}`
+         : ""}
+       </small>;
+      })()}
+     </label>
+
      <button
       className="btn primary planning-create-batch"
       disabled={busy||!selected.length}
       onClick={createBatch}>
-      {busy?"Đang xử lý...":"Add Selected to Batch"}
+      {busy
+       ?"Đang xử lý..."
+       :targetBatchId
+        ?"Add Selected to Existing Batch"
+        :"Create New Batch"}
      </button>
 
     </div>

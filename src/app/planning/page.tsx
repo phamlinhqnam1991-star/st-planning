@@ -5,6 +5,9 @@ import {PlanningAreaOperationFilter} from "@/components/planning-area-operation-
 import {BatchRowActions} from "@/components/batch-row-actions";
 import {ResetAllBatchesButton} from "@/components/reset-all-batches-button";
 import {getPool} from "@/lib/db";
+import {healScheduledHandoffs} from "@/lib/planning/unlock-next-after-schedule";
+import {ensurePlanningSortOrderSchema} from "@/lib/planning-sort-order";
+import {ensureOperationCodePlanningOrderSchema} from "@/lib/operation-code-planning-order";
 
 export const dynamic="force-dynamic";
 
@@ -38,6 +41,15 @@ export default async function Page({
 
  const c=await getPool().connect();
  try{
+   // Self-heal additive config schema so /planning never crashes when
+   // application code is deployed before migration 032.
+   await ensurePlanningSortOrderSchema(c);
+   await ensureOperationCodePlanningOrderSchema(c);
+
+   // Self-heal historical/new Schedule handoffs before Candidate query.
+   // A scheduled Main unlocks ONLY its immediate next Main.
+   await healScheduledHandoffs(c);
+
    const [areasQ,opsQ,batchesQ,matrixOpsQ]=await Promise.all([
      c.query(`
        select id,area_name
@@ -68,18 +80,37 @@ export default async function Page({
         b.total_jobs,b.total_qty,b.total_surface_dm2,b.process_minutes,
         b.planned_start,b.planned_end,b.status,b.priority,
         a.area_name,
-        r.recipe_no,r.recipe_name
+        r.recipe_no,r.recipe_name,
+        sch.schedule_id,
+        sch.schedule_status,
+        sch.resource_code,
+        sch.schedule_start,
+        sch.schedule_end
        from planning_batch b
        left join md_area a on a.id=b.area_id
        left join md_process_recipe r on r.recipe_key=b.recipe_key
-       where b.status<>'CANCELLED'
+       left join lateral (
+        select
+         ps.id schedule_id,
+         ps.status schedule_status,
+         ps.resource_code,
+         ps.planned_start schedule_start,
+         ps.planned_end schedule_end
+        from planning_schedule ps
+        where ps.batch_id=b.id
+          and ps.status<>'CANCELLED'
+        order by ps.planned_start desc,ps.id desc
+        limit 1
+       ) sch on true
+       where b.status not in ('CANCELLED','COMPLETED')
        order by b.created_at desc
-       limit 50
+       limit 100
      `),
      c.query(`
        select
          s.standard_operation,
          s.sort_order operation_sort,
+         om.planning_sort_order,
          om.st_group,
          a.id area_id,
          a.area_name,
@@ -151,6 +182,7 @@ export default async function Page({
      select
        p.id,p.job_num,p.source_operation_code,p.standard_operation,p.st_group,p.recipe_key,
        p.status planning_status,
+       p.source_seq,
        pb.batch_no,
        pb.id batch_id,
        pb.status batch_status,
@@ -183,6 +215,7 @@ export default async function Page({
        j.part_cluster,j.part_description,
        j.prod_qty,j.current_good_wip_qty,j.last_labor_qty,
        j.last_operation,j.next_operation,j.all_operation,
+       nextopmaster.planning_sort_order next_operation_planning_sort_order,
        j.total_surface,j.surface_per_part_dm2,
        j.open_dmr,j.st,j.st_wip_area,j.wip_sequence,
        j.cat35_transit,j.impact_sale_value,
@@ -226,22 +259,75 @@ export default async function Page({
          prevp.standard_operation,
          p.previous_standard_operation_snapshot
        ) previous_standard_operation
-     from planning_job_operation p
-     join open_job_current j
-       on j.job_num=p.job_num
+     from open_job_current j
+     join lateral (
+       select p0.*
+       from planning_job_operation p0
+       where p0.job_num=j.job_num
+         and p0.is_active=true
+         and p0.status in ('ELIGIBLE','PLANNED')
+       order by
+         -- Current actionable Main wins.
+         case when p0.status='ELIGIBLE' then 0 else 1 end,
 
-     left join md_material_finish mf
-       on mf.part_num=j.part_num
-      and mf.revision_num=j.revision_num
-      and mf.is_active=true
+         -- If more than one ELIGIBLE exists, show the earliest next Main.
+         case when p0.status='ELIGIBLE' then p0.planning_seq end asc nulls last,
 
-     -- Current Batch of this exact planning operation.
-     -- Keep this separate from route-history lookup below.
-     left join planning_batch_job pbj
-       on pbj.planning_job_operation_id=p.id
-     left join planning_batch pb
-       on pb.id=pbj.batch_id
-      and pb.status<>'CANCELLED'
+         -- If no ELIGIBLE exists, show the latest PLANNED Main as history/current state.
+         case when p0.status='PLANNED' then p0.planning_seq end desc nulls last,
+
+         p0.id desc
+       limit 1
+     ) p on true
+
+     -- v169 invariant: master lookups may enrich a Candidate but must never
+     -- multiply it. Select one active material-finish record deterministically.
+     left join lateral (
+       select m.*
+       from md_material_finish m
+       where m.part_num=j.part_num
+         and m.revision_num=j.revision_num
+         and m.is_active=true
+       limit 1
+     ) mf on true
+
+     -- v168: md_operation can contain more than one active row for the same
+     -- Operation Code. Pick exactly one deterministic row so this lookup
+     -- cannot multiply Candidate rows. Operation Code Order remains the
+     -- sorting source; Main Operation mapping logic is unchanged.
+     left join lateral (
+       select mo.planning_sort_order
+       from public.md_operation mo
+       where mo.is_active=true
+         and upper(trim(mo.operation_code))=upper(trim(j.next_operation))
+       order by
+         mo.planning_sort_order asc nulls last,
+         mo.operation_code asc
+       limit 1
+     ) nextopmaster on true
+
+     -- Current/latest active Batch of this exact planning operation.
+     -- Use LATERAL + LIMIT 1 so one planning operation can never duplicate
+     -- the Candidate row even if historical planning_batch_job rows exist.
+     left join lateral (
+       select
+         hb.id,
+         hb.batch_no,
+         hb.status
+       from planning_batch_job pbj
+       join planning_batch hb
+         on hb.id=pbj.batch_id
+        and hb.status<>'CANCELLED'
+       where pbj.planning_job_operation_id=p.id
+       order by
+         case
+          when upper(coalesce(hb.status,'')) in ('SCHEDULED','PLANNED','UNSCHEDULED') then 0
+          else 1
+         end,
+         hb.created_at desc,
+         pbj.id desc
+       limit 1
+     ) pb on true
 
      -- Previous planning operation for Candidate display/filter.
      left join lateral (
@@ -288,6 +374,9 @@ export default async function Page({
            'source_seq',r.source_seq,
            'occurrence',r.occurrence,
            'standard_operation',r.standard_operation,
+           'planning_job_operation_id',r.planning_job_operation_id,
+           'planning_job_status',r.planning_job_status,
+           'ready_source_seq',r.ready_source_seq,
            'route_status',r.route_status,
            'batch_id',r.batch_id,
            'batch_no',r.batch_no,
@@ -303,51 +392,127 @@ export default async function Page({
          order by r.source_seq
        ) route_status
        from (
-         with raw_route as (
+         with master_route_base as (
+           -- Full Routing Detail is the authoritative source of source_seq.
+           -- Unlike All Open Job.AllOperation, this contains operations before
+           -- the current NextOperation as well.
+           select
+             d.operation_code source_operation,
+             d.source_seq::int source_seq,
+             row_number() over(
+               partition by upper(trim(d.operation_code))
+               order by d.source_seq
+             ) source_occurrence,
+             pr.routing_code
+           from md_routing_detailed d
+           left join md_part_routing pr
+             on pr.part_num=d.part_num
+            and pr.revision_num=d.revision_num
+            and pr.is_active=true
+           where d.part_num=j.part_num
+             and d.revision_num=j.revision_num
+             and d.is_active=true
+         ),
+
+         master_route as (
+           select
+             mb.source_operation,
+             mb.source_seq,
+             mb.source_occurrence occurrence,
+             sr.standard_operation master_standard_operation,
+             sr.planning_group master_st_group,
+             true from_master
+           from master_route_base mb
+
+           -- Match the standardized ST Routing occurrence to the original
+           -- Routing Detail occurrence while preserving original source_seq.
+           left join lateral (
+             select x.standard_operation,x.planning_group
+             from md_st_routing x
+             where x.routing_code=mb.routing_code
+               and x.is_active=true
+               and upper(trim(x.operation_code))=upper(trim(mb.source_operation))
+             order by x.seq
+             offset greatest(mb.source_occurrence-1,0)
+             limit 1
+           ) sr on true
+
+           where sr.standard_operation is not null
+              or upper(trim(mb.source_operation))='PIONBL'
+         ),
+
+         fallback_route as (
+           -- Legacy fallback only when Part/Revision has no Routing Detail.
            select
              trim(both '[] ' from token) source_operation,
              ordinality::int source_seq,
              row_number() over(
                partition by upper(trim(both '[] ' from token))
                order by ordinality
-             ) occurrence
+             ) occurrence,
+             null::text master_standard_operation,
+             null::text master_st_group,
+             false from_master
            from regexp_split_to_table(
              regexp_replace(coalesce(j.all_operation,''),'^\s*\[|\]\s*$','','g'),
              '\s*\|\s*'
            ) with ordinality as parts(token,ordinality)
            where trim(both '[] ' from token)<>''
+             and not exists(select 1 from master_route)
+         ),
+
+         raw_route as (
+           select * from master_route
+           union all
+           select * from fallback_route
          ),
 
          mapped_route as (
            select
              rr.*,
 
-             -- Prefer the exact Planning Chain operation at this source sequence.
-             -- This preserves occurrence rules such as PRIMER2/PRIMER3/TOPCOAT2.
              coalesce(
+               rr.master_standard_operation,
+
+               -- Exact current/future Planning Chain status. Match by
+               -- Operation Code + standardized Main instead of source_seq,
+               -- because planning_job_operation source_seq may originate from
+               -- the current AllOperation slice while master source_seq comes
+               -- from full Routing Detail.
                exact_po.standard_operation,
 
-               -- For source codes already completed and no longer active in
-               -- planning_job_operation, reuse historical Batch snapshot.
                hist_op.standard_operation,
 
-               -- Fallback to DIRECT mapping.
                direct_map.standard_operation_rule,
 
                case when upper(rr.source_operation)='PIONBL' then 'PIONBL' end
-             ) standard_operation
+             ) standard_operation,
+
+             exact_po.id planning_job_operation_id,
+             exact_po.status planning_job_status,
+             exact_po.planning_seq
 
            from raw_route rr
 
            left join lateral (
-             select po.standard_operation
+             select po.id,po.standard_operation,po.status,po.planning_seq
              from planning_job_operation po
              where po.job_num=p.job_num
-               and po.source_seq=rr.source_seq
+               and po.is_active=true
+               and upper(trim(po.source_operation_code))=upper(trim(rr.source_operation))
+               and (
+                 rr.master_standard_operation is null
+                 or po.standard_operation=rr.master_standard_operation
+               )
              order by
-               po.is_active desc,
-               po.updated_at desc,
-               po.id desc
+               case
+                 when po.id=p.id then 0
+                 when po.status='ELIGIBLE' then 1
+                 when po.status='PLANNED' then 2
+                 else 3
+               end,
+               po.planning_seq,
+               po.id
              limit 1
            ) exact_po on true
 
@@ -355,7 +520,11 @@ export default async function Page({
              select hbj.standard_operation
              from planning_batch_job hbj
              where hbj.job_num=p.job_num
-               and hbj.source_seq_snapshot=rr.source_seq
+               and upper(trim(hbj.source_operation_code))=upper(trim(rr.source_operation))
+               and (
+                 rr.master_standard_operation is null
+                 or hbj.standard_operation=rr.master_standard_operation
+               )
              order by hbj.id desc
              limit 1
            ) hist_op on true
@@ -364,16 +533,50 @@ export default async function Page({
              select m.standard_operation_rule
              from md_st_operation_mapping m
              where m.is_active=true
-               and upper(trim(m.source_operation_code))=upper(rr.source_operation)
+               and upper(trim(m.source_operation_code))=upper(trim(rr.source_operation))
                and m.mapping_rule='DIRECT'
              order by m.sort_order,m.id
              limit 1
            ) direct_map on true
          ),
 
+         ready_position as (
+           select coalesce(
+             -- Primary: exact current Planning Main in full master routing.
+             (
+               select min(mr.source_seq)
+               from mapped_route mr
+               where upper(trim(mr.source_operation))=
+                     upper(trim(p.source_operation_code))
+                 and mr.standard_operation=p.standard_operation
+             ),
+
+             -- If NextOperation is intermediate/non-planning, find the first
+             -- mapped Main at/after its true Routing Detail source_seq.
+             (
+               select min(mr.source_seq)
+               from mapped_route mr
+               where mr.standard_operation is not null
+                 and mr.source_seq>=coalesce(
+                   (
+                     select min(mb.source_seq)
+                     from master_route_base mb
+                     where upper(trim(mb.source_operation))=
+                           upper(trim(j.next_operation))
+                   ),
+                   1
+                 )
+             ),
+
+             -- Legacy fallback when master routing is unavailable.
+             p.source_seq
+           )::int ready_source_seq
+         ),
+
          enriched as (
            select
              mr.*,
+             rp.ready_source_seq,
 
              hist_batch.batch_id,
              hist_batch.batch_no,
@@ -388,6 +591,7 @@ export default async function Page({
              hist_schedule.planned_end
 
            from mapped_route mr
+           cross join ready_position rp
 
            left join lateral (
              select
@@ -405,10 +609,21 @@ export default async function Page({
               and pr.is_active=true
              where hbj.job_num=p.job_num
                and (
-                 hbj.source_seq_snapshot=mr.source_seq
+                 (
+                   mr.from_master
+                   and upper(trim(hbj.source_operation_code))=
+                       upper(trim(mr.source_operation))
+                   and hbj.standard_operation=mr.standard_operation
+                 )
                  or (
-                   hbj.standard_operation=mr.standard_operation
-                   and hbj.source_seq_snapshot is null
+                   not mr.from_master
+                   and (
+                     hbj.source_seq_snapshot=mr.source_seq
+                     or (
+                       hbj.standard_operation=mr.standard_operation
+                       and hbj.source_seq_snapshot is null
+                     )
+                   )
                  )
                )
              order by hb.created_at desc,hbj.id desc
@@ -440,43 +655,71 @@ export default async function Page({
            source_seq,
            occurrence,
            standard_operation,
+           planning_job_operation_id,
+           planning_job_status,
+           ready_source_seq,
 
            case
-             -- Any operation physically before current AllOperation source position
-             -- is completed, even when no historical Batch record exists.
-             when source_seq < p.source_seq
+             -- Position state is determined ONLY by source_seq vs ready_source_seq.
+             -- Historical Batch/Schedule is shown only at/after current position;
+             -- everything before current is already passed and therefore DONE.
+             when ready_source_seq is not null
+              and source_seq < ready_source_seq
                then 'DONE'
 
-             -- Existing Batch/Schedule always overrides generic READY/WAITING.
-             when batch_id is not null
-              and schedule_id is not null
+             -- Current exact operation.
+             when ready_source_seq is not null
+              and source_seq = ready_source_seq
                then case
-                 when upper(coalesce(schedule_status,'')) in ('COMPLETED','DONE')
-                   then 'COMPLETED'
-                 when upper(coalesce(schedule_status,''))='RUNNING'
-                   then 'RUNNING'
-                 when upper(coalesce(schedule_status,''))='HOLD'
-                   then 'HOLD'
-                 else 'SCHEDULED'
+                 when batch_id is not null
+                  and schedule_id is not null
+                   then case
+                     when upper(coalesce(schedule_status,'')) in ('COMPLETED','DONE')
+                       then 'COMPLETED'
+                     when upper(coalesce(schedule_status,''))='RUNNING'
+                       then 'RUNNING'
+                     when upper(coalesce(schedule_status,''))='HOLD'
+                       then 'HOLD'
+                     else 'SCHEDULED'
+                   end
+                 when batch_id is not null
+                   then 'PLANNED-UNSCHEDULED'
+                 when upper(coalesce(planning_job_status,''))='PLANNED'
+                   then 'PLANNED-UNSCHEDULED'
+                 else 'READY'
                end
 
+             -- Future operations: if plan-ahead already exists, preserve it;
+             -- otherwise WAITING.
+             when ready_source_seq is not null
+              and source_seq > ready_source_seq
+               then case
+                 when batch_id is not null
+                  and schedule_id is not null
+                   then case
+                     when upper(coalesce(schedule_status,'')) in ('COMPLETED','DONE')
+                       then 'COMPLETED'
+                     when upper(coalesce(schedule_status,''))='RUNNING'
+                       then 'RUNNING'
+                     when upper(coalesce(schedule_status,''))='HOLD'
+                       then 'HOLD'
+                     else 'SCHEDULED'
+                   end
+                 when batch_id is not null
+                   then 'PLANNED-UNSCHEDULED'
+                 when upper(coalesce(planning_job_status,''))='ELIGIBLE'
+                   then 'READY'
+                 else 'WAITING'
+               end
+
+             -- Legacy fallback only if a ready position cannot be found.
+             when upper(coalesce(planning_job_status,''))='ELIGIBLE'
+               then 'READY'
+             when batch_id is not null and schedule_id is not null
+               then 'SCHEDULED'
              when batch_id is not null
                then 'PLANNED-UNSCHEDULED'
-
-             -- Current planning position
-             when source_seq = p.source_seq
-              and p.status='PLANNED'
-               then 'PLANNED-UNSCHEDULED'
-
-             when source_seq = p.source_seq
-               then 'READY'
-
-             -- Every mapped operation after current position remains visible
-             -- as WAITING until it gets its own Batch/Schedule.
-             when source_seq > p.source_seq
-               then 'WAITING'
-
-             else 'DONE'
+             else 'WAITING'
            end route_status,
 
            batch_id,
@@ -496,15 +739,40 @@ export default async function Page({
        ) r
      ) routeinfo on true
 
-     left join md_area_operation_group ag
-       on ag.st_group=p.st_group and ag.is_active=true
+     -- v169: one ST Group may have more than one active Area mapping.
+     -- Candidate is one row per planning_job_operation, so Area lookup must
+     -- never multiply the row. Pick one deterministic active Area only.
+     left join lateral (
+       select ag.area_id
+       from md_area_operation_group ag
+       join md_area ax
+         on ax.id=ag.area_id
+        and ax.is_active=true
+       where ag.st_group=p.st_group
+         and ag.is_active=true
+       order by
+         ax.sort_order asc nulls last,
+         ax.area_name asc,
+         ag.area_id asc
+       limit 1
+     ) candidate_area on true
      left join md_area a
-       on a.id=ag.area_id and a.is_active=true
-     left join md_process_recipe r
-       on r.recipe_key=p.recipe_key and r.is_active=true
-     left join md_process_recipe selected_r
-       on selected_r.recipe_key=${recipeKey?`$${params.findIndex(x=>x===recipeKey)+1}`:"null"}
-      and selected_r.is_active=true
+       on a.id=candidate_area.area_id
+      and a.is_active=true
+     left join lateral (
+       select rr.recipe_no,rr.recipe_name
+       from md_process_recipe rr
+       where rr.recipe_key=p.recipe_key
+         and rr.is_active=true
+       limit 1
+     ) r on true
+     left join lateral (
+       select rr.recipe_no,rr.recipe_name
+       from md_process_recipe rr
+       where rr.recipe_key=${recipeKey?`$${params.findIndex(x=>x===recipeKey)+1}`:"null"}
+         and rr.is_active=true
+       limit 1
+     ) selected_r on true
      where ${conditions.join(" and ")}
      order by
        -- 1) Unplanned / ELIGIBLE first, PLANNED last.
@@ -635,6 +903,7 @@ export default async function Page({
      <div className="section">
       <PlanningBoardClient
        candidates={candidatesQ.rows as any}
+       availableBatches={batchesQ.rows as any}
        standardOperation={op}
        areaMode={Boolean(areaId&&!op)}
        selectedAreaId={areaId}

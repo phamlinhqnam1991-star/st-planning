@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export type AppTab="master"|"config"|"tracker"|"jobs"|"planning"|"schedule"|"import";
+export type AppTab="master"|"config"|"tracker"|"jobs"|"planning"|"schedule"|"import"|"guide";
 
 export function AppTabs({active}:{active:AppTab}){
  const tabs=[
@@ -11,6 +11,7 @@ export function AppTabs({active}:{active:AppTab}){
   {key:"planning",label:"Planning Board",href:"/planning"},
   {key:"schedule",label:"Board Điều Độ",href:"/schedule"},
   {key:"import",label:"Import Master",href:"/import-master"},
+  {key:"guide",label:"Logic & Hướng dẫn",href:"/logic-guide"},
  ] as const;
  return <nav className="erp-modules" aria-label="ST Planning modules">
   {tabs.map(t=><Link key={t.key} href={t.href} className={`erp-module ${active===t.key?"active":""}`}>{t.label}</Link>)}

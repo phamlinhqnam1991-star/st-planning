@@ -117,6 +117,7 @@ export async function POST(req:NextRequest){
    ? body.planning_job_operation_ids.map(Number).filter(Number.isFinite)
    : [];
  const createEmpty=body.create_empty===true;
+ const targetBatchId=Number(body.target_batch_id||0);
 
  if(!ids.length && !createEmpty)
    return NextResponse.json({error:"Chọn ít nhất 1 Candidate Job."},{status:400});
@@ -290,6 +291,50 @@ export async function POST(req:NextRequest){
        throw new Error(`Job ${r.job_num} không cùng Standard Operation.`);
    }
 
+   let targetBatch:any=null;
+   if(targetBatchId){
+     const targetQ=await c.query(`
+      select
+       b.id,b.batch_no,b.standard_operation,b.recipe_key,b.status,
+       b.total_jobs,b.total_qty,b.total_surface_dm2,b.process_minutes,
+       b.planned_start,b.planned_end,
+       ps.id schedule_id,ps.status schedule_status,
+       ps.duration_minutes,ps.planned_start schedule_start,ps.planned_end schedule_end,
+       ps.resource_code
+      from planning_batch b
+      left join lateral (
+       select s.*
+       from planning_schedule s
+       where s.batch_id=b.id
+         and s.status<>'CANCELLED'
+       order by s.planned_start desc,s.id desc
+       limit 1
+      ) ps on true
+      where b.id=$1
+      for update of b
+     `,[targetBatchId]);
+
+     if(!targetQ.rowCount)
+       throw new Error("Target Batch không tồn tại.");
+
+     targetBatch=targetQ.rows[0];
+
+     if(["CANCELLED","COMPLETED"].includes(String(targetBatch.status||"").toUpperCase()))
+       throw new Error(`Batch ${targetBatch.batch_no} đã ${targetBatch.status}, không thể thêm Job.`);
+
+     if(targetBatch.standard_operation!==standardOperation)
+       throw new Error(
+        `Batch ${targetBatch.batch_no} thuộc ${targetBatch.standard_operation}, `+
+        `không phải ${standardOperation}.`
+       );
+
+     if(targetBatch.recipe_key){
+       if(recipeKey && recipeKey!==targetBatch.recipe_key)
+        throw new Error(`Recipe đang chọn khác Recipe của ${targetBatch.batch_no}.`);
+       recipeKey=targetBatch.recipe_key;
+     }
+   }
+
    validateSamePaint(q.rows,standardOperation);
 
    const resolved=[...new Set(q.rows.map((r:any)=>r.recipe_key).filter(Boolean))];
@@ -321,6 +366,122 @@ export async function POST(req:NextRequest){
            );
        }
      }
+   }
+
+   // Add selected Jobs to an existing Batch when requested.
+   // Manual and future Auto Batch can share the same membership rules.
+   if(targetBatch){
+     const duplicateQ=await c.query(`
+      select bj.job_num,bj.standard_operation
+      from planning_batch_job bj
+      join planning_batch b on b.id=bj.batch_id
+      where bj.planning_job_operation_id=any($1::bigint[])
+        and b.status<>'CANCELLED'
+     `,[ids]);
+
+     if(duplicateQ.rowCount)
+       throw new Error(
+        `Một số Job đã nằm trong Batch của công đoạn này: `+
+        duplicateQ.rows.map((x:any)=>x.job_num).join(", ")
+       );
+
+     // Paint compatibility must include existing members, not only newly selected Jobs.
+     if(paintFieldName(standardOperation)){
+       const existingPaintQ=await c.query(`
+        select
+         mf.primer1 part_master_primer1,
+         mf.primer2 part_master_primer2,
+         mf.primer3 part_master_primer3,
+         mf.topcoat1 part_master_topcoat1,
+         mf.topcoat2 part_master_topcoat2,
+         mf.antiabration part_master_antiabration,
+         mf.varinish_name part_master_varnish,
+         pr.recipe_no
+        from planning_batch_job bj
+        join open_job_current j on j.job_num=bj.job_num
+        left join md_material_finish mf
+          on mf.part_num=j.part_num
+         and mf.revision_num=j.revision_num
+         and mf.is_active=true
+        left join planning_job_operation p on p.id=bj.planning_job_operation_id
+        left join md_process_recipe pr on pr.recipe_key=p.recipe_key and pr.is_active=true
+        where bj.batch_id=$1
+       `,[targetBatch.id]);
+
+       validateSamePaint([...existingPaintQ.rows,...q.rows],standardOperation);
+     }
+
+     for(const r of q.rows){
+       await c.query(`
+        insert into planning_batch_job(
+         batch_id,planning_job_operation_id,job_num,
+         source_operation_code,standard_operation,
+         source_seq_snapshot,planning_seq_snapshot,operation_instance_key_snapshot,
+         qty,surface_dm2
+        )
+        values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       `,[
+        targetBatch.id,r.id,r.job_num,r.source_operation_code,r.standard_operation,
+        r.source_seq,r.planning_seq,r.operation_instance_key,
+        r.plan_qty,r.plan_surface
+       ]);
+
+       await c.query(`
+        update planning_job_operation
+           set status='PLANNED',
+               recipe_key=coalesce(recipe_key,$2),
+               updated_at=now()
+         where id=$1
+       `,[r.id,recipeKey]);
+     }
+
+     const totalsQ=await c.query(`
+      select
+       count(*)::int total_jobs,
+       coalesce(sum(qty),0)::numeric total_qty,
+       coalesce(sum(surface_dm2),0)::numeric total_surface
+      from planning_batch_job
+      where batch_id=$1
+     `,[targetBatch.id]);
+
+     const newTotalJobs=Number(totalsQ.rows[0]?.total_jobs||0);
+     const newTotalQty=Number(totalsQ.rows[0]?.total_qty||0);
+     const newTotalSurface=Number(totalsQ.rows[0]?.total_surface||0);
+     const newProcessMinutes=await resolveProcessMinutes(
+      c,recipeKey,newTotalQty,newTotalSurface
+     );
+
+     await c.query(`
+      update planning_batch
+         set total_jobs=$2,
+             total_qty=$3,
+             total_surface_dm2=$4,
+             process_minutes=$5,
+             recipe_key=coalesce(recipe_key,$6),
+             updated_at=now()
+       where id=$1
+     `,[
+      targetBatch.id,newTotalJobs,newTotalQty,newTotalSurface,
+      newProcessMinutes,recipeKey
+     ]);
+
+     // If Batch is already scheduled, keep its existing scheduled slot/duration.
+     // We update Batch totals/process estimate only; planner may explicitly edit
+     // the schedule when required. This prevents an automatic move of a live plan.
+     await c.query("commit");
+
+     return NextResponse.json({
+      ok:true,
+      addedToExisting:true,
+      batchId:targetBatch.id,
+      batchNo:targetBatch.batch_no,
+      scheduled:Boolean(targetBatch.schedule_id),
+      scheduleId:targetBatch.schedule_id||null,
+      totalJobs:newTotalJobs,
+      totalQty:newTotalQty,
+      totalSurface:newTotalSurface,
+      processMinutes:newProcessMinutes
+     });
    }
 
    const totalQty=q.rows.reduce((a:number,r:any)=>a+Number(r.plan_qty||0),0);
@@ -469,26 +630,8 @@ export async function POST(req:NextRequest){
        where id=$1
      `,[r.id,recipeKey]);
 
-     const nextQ=await c.query(`
-       select id
-       from planning_job_operation
-       where job_num=$1
-         and is_active=true
-         and planning_seq>(
-           select planning_seq from planning_job_operation where id=$2
-         )
-         and status='LOCKED'
-       order by planning_seq
-       limit 1
-     `,[r.job_num,r.id]);
-
-     if(nextQ.rowCount){
-       await c.query(`
-         update planning_job_operation
-         set status='ELIGIBLE',updated_at=now()
-         where id=$1
-       `,[nextQ.rows[0].id]);
-     }
+     // Do not unlock the next Main at Batch creation.
+     // The next Main becomes ELIGIBLE only after this Batch is SCHEDULED.
    }
 
    await c.query("commit");
