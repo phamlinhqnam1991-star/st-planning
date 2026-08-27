@@ -1,5 +1,6 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {assertResourceAndChemicalCapacity,chemicalScheduleColumns,resolveChemicalScheduleWindow} from "@/lib/chemical-line-schedule-server";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const validBatchPrefix=(v:unknown)=>{
@@ -89,14 +90,16 @@ export async function POST(req:Request){
   const batchPrefix=validBatchPrefix(op.batch_prefix);
   if(!batchPrefix)throw new Error(`${standardOperation} chưa có Batch Prefix 3 ký tự.`);
 
+  let recipeNo:string|null=null;
   if(recipeKey){
    const rq=await c.query(`
-    select recipe_key
+    select recipe_key,recipe_no
     from md_process_recipe
     where recipe_key=$1 and is_active=true
     limit 1
    `,[recipeKey]);
    if(!rq.rowCount)throw new Error("Recipe không hợp lệ hoặc đã ngưng sử dụng.");
+   recipeNo=rq.rows[0].recipe_no;
   }
 
   const resourceQ=await c.query(`
@@ -140,9 +143,20 @@ export async function POST(req:Request){
   `,[op.st_group||""]);
   const areaId=areaQ.rows[0]?.id||null;
 
-  const end=new Date(start.getTime()+Math.round(duration)*60000);
+  const chemicalWindow=resource.resource_group==="CHEMICAL_LINE"
+   ?await resolveChemicalScheduleWindow(c,{
+     loadingStart:start,processMinutes:Math.round(duration),totalQty:0,totalSurfaceDm2:0,recipeNo
+    })
+   :null;
+  const end=chemicalWindow?.unloadingEnd||new Date(start.getTime()+Math.round(duration)*60000);
+  if(chemicalWindow){
+   await assertResourceAndChemicalCapacity(c,{
+    resourceCode,resourceGroup:resource.resource_group,window:chemicalWindow,
+    maxConcurrent:Number(resource.max_concurrent||3)
+   });
+  }
 
-  const overlap=await c.query(`
+  const overlap=chemicalWindow?{rowCount:0}:await c.query(`
    select 1
    from planning_schedule
    where resource_code=$1
@@ -152,47 +166,6 @@ export async function POST(req:Request){
    limit 1
   `,[resourceCode,start,end]);
   if(overlap.rowCount)throw new Error(`${resourceCode} is occupied in this time range`);
-
-  if(resource.resource_group==="CHEMICAL_LINE"){
-   const concurrency=await c.query(`
-    with events as (
-     select planned_start t,1 delta
-     from planning_schedule s
-     join md_schedule_resource r on r.resource_code=s.resource_code
-     where r.resource_group='CHEMICAL_LINE'
-       and s.status<>'CANCELLED'
-       and s.planned_start<$2 and s.planned_end>$1
-     union all
-     select planned_end t,-1 delta
-     from planning_schedule s
-     join md_schedule_resource r on r.resource_code=s.resource_code
-     where r.resource_group='CHEMICAL_LINE'
-       and s.status<>'CANCELLED'
-       and s.planned_start<$2 and s.planned_end>$1
-     union all select $1::timestamptz,1
-     union all select $2::timestamptz,-1
-    ), timeline as (
-     select t,sum(sum(delta)) over(order by t,delta) active
-     from events group by t,delta
-    )
-    select coalesce(max(active),0) max_active from timeline
-   `,[start,end]);
-   if(Number(concurrency.rows[0]?.max_active||0)>3)
-    throw new Error("Chemical Line allows maximum 3 Flybars running at the same time");
-
-   const spacing=Number(resource.launch_interval_minutes||60);
-   const launch=await c.query(`
-    select 1
-    from planning_schedule s
-    join md_schedule_resource r on r.resource_code=s.resource_code
-    where r.resource_group='CHEMICAL_LINE'
-      and s.status<>'CANCELLED'
-      and abs(extract(epoch from (s.planned_start-$1::timestamptz))/60)<$2
-    limit 1
-   `,[start,spacing]);
-   if(launch.rowCount)
-    throw new Error(`Chemical Line Flybar starts must normally be at least ${spacing} minutes apart`);
-  }
 
   const batchQ=await c.query(`
    insert into planning_batch(
@@ -207,15 +180,24 @@ export async function POST(req:Request){
   `,[batchNo,effectiveDate,areaId,op.standard_operation,recipeKey,Math.round(duration),start,end,note||'MANUAL SCHEDULE GRID']);
 
   const batchId=Number(batchQ.rows[0].id);
+  const columns=chemicalWindow?chemicalScheduleColumns(chemicalWindow):null;
   const scheduleQ=await c.query(`
    insert into planning_schedule(
     batch_id,resource_code,schedule_date,planned_start,planned_end,
-    duration_minutes,status,note,plan_source
+    duration_minutes,status,note,plan_source,
+    loading_start,loading_end,loading_duration_minutes,
+    process_start,process_end,process_duration_minutes,
+    ndt_start,ndt_end,ndt_duration_minutes,
+    unloading_start,unloading_end,unloading_duration_minutes
    ) values(
     $1,$2,($3 at time zone 'Asia/Ho_Chi_Minh')::date,$3,$4,
-    $5,'SCHEDULED',$6,'MANUAL_GRID'
+    $5,'SCHEDULED',$6,'MANUAL_GRID',$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
    ) returning *
-  `,[batchId,resourceCode,start,end,Math.round(duration),note]);
+  `,[batchId,resourceCode,start,end,columns?.durationMinutes||Math.round(duration),note,
+    columns?.loadingStart||null,columns?.loadingEnd||null,columns?.loadingDurationMinutes||null,
+    columns?.processStart||null,columns?.processEnd||null,columns?.processDurationMinutes||null,
+    columns?.ndtStart||null,columns?.ndtEnd||null,columns?.ndtDurationMinutes||null,
+    columns?.unloadingStart||null,columns?.unloadingEnd||null,columns?.unloadingDurationMinutes||null]);
 
   await c.query("commit");
   return NextResponse.json({

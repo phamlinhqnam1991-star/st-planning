@@ -96,7 +96,13 @@ function detailOps(ops:{seq:number,code:string}[]){
  const seen=new Map<string,number>(); return base.map(x=>{let code=x.base,name=x.use?`${x.code} before ${x.next}`:x.code; const n=baseCounts.get(x.base)||0;if(x.use&&n>1){const k=(seen.get(x.base)||0)+1;seen.set(x.base,k);code+=`_${String(k).padStart(2,"0")}`;name+=` ${String(k).padStart(2,"0")}`}return {...x,detailCode:code,detailName:name}})
 }
 export async function seedRoutingConfig(c:PoolClient){
- await upsertRows(c,"public.md_st_operation_scope",["operation_code","is_active"],ST_OPERATION_SCOPE.map(x=>[x,true]),["operation_code"]);
+ // ST Scope is user-managed configuration. Master import may seed missing legacy
+ // codes, but must NEVER reactivate a code the planner explicitly removed.
+ if(ST_OPERATION_SCOPE.length){
+  const params:string[]=[];
+  const values=ST_OPERATION_SCOPE.map((x,i)=>{params.push(x);return `($${i+1},true)`}).join(",");
+  await c.query(`insert into public.md_st_operation_scope(operation_code,is_active) values ${values} on conflict(operation_code) do nothing`,params);
+ }
  const rows=LEGACY_ROUTING_SUMMARIES.map(x=>[x.routingCode,x.routingName,0,0,x.signature,true]);
  for(let i=0;i<rows.length;i+=1000)await upsertRows(c,"public.md_st_routing_summary",["routing_code","routing_name","operation_count","part_revision_count","routing_signature","is_active"],rows.slice(i,i+1000),["routing_code"]);
 }

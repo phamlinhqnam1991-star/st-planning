@@ -1,6 +1,7 @@
 "use client";
 import {useMemo,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
+import {calculatedScheduleEndTime} from "@/lib/schedule-time";
 
 type OperationOption={standard_operation:string;st_group:string;batch_prefix:string|null};
 type ResourceOption={resource_code:string;resource_name:string;resource_group:string};
@@ -14,6 +15,10 @@ type ScheduledRow={
  id:number;batch_id:number;batch_no:string;standard_operation:string;recipe_key:string|null;recipe_no:string|null;
  recipe_name:string|null;resource_code:string;resource_group:string;total_jobs:number;total_qty:number;
  total_surface_dm2:number;planned_start:string;planned_end:string;duration_minutes:number;sequence_no:number;
+ loading_start?:string|null;loading_end?:string|null;loading_duration_minutes?:number|null;
+ process_start?:string|null;process_end?:string|null;process_duration_minutes?:number|null;
+ ndt_start?:string|null;ndt_end?:string|null;ndt_duration_minutes?:number|null;
+ unloading_start?:string|null;unloading_end?:string|null;unloading_duration_minutes?:number|null;
  plan_source?:string|null;
 };
 type PreviousMainBatch={
@@ -42,7 +47,13 @@ const blank=(date:string,resourceCode=""):Draft=>({
 });
 function parseHHMM(v:string){const m=v.trim().match(/^(\d{1,3}):(\d{2})$/);if(!m)return null;const n=Number(m[1])*60+Number(m[2]);return Number(m[2])<60&&n>0?n:null}
 function fmt(v:unknown,d=2){const n=Number(v||0);return Number.isFinite(n)?new Intl.NumberFormat("vi-VN",{maximumFractionDigits:d}).format(n):"0"}
-function time(v:string){const d=new Date(v);return Number.isNaN(d.getTime())?"—":d.toLocaleTimeString("en-GB",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit"})}
+function time(v:string|null|undefined){if(!v)return "—";const d=new Date(v);return Number.isNaN(d.getTime())?"—":d.toLocaleTimeString("en-GB",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit"})}
+function durationHHMM(v:number){return `${String(Math.floor(v/60)).padStart(2,"0")}:${String(v%60).padStart(2,"0")}`}
+function previewEnd(date:string,startTime:string,durationText:string){
+ const duration=parseHHMM(durationText);
+ if(!date||!startTime||!duration)return "—";
+ return calculatedScheduleEndTime(`${date}T${startTime}:00+07:00`,duration);
+}
 function dateTime(v:string|null|undefined){
  if(!v)return "—";
  const d=new Date(v);
@@ -247,7 +258,7 @@ export function ManualScheduleGrid({
    resourceCode:row.resource_code||"",
    date:localDate,
    startTime:localTime,
-   duration:`${String(Math.floor(Number(row.duration_minutes||0)/60)).padStart(2,"0")}:${String(Number(row.duration_minutes||0)%60).padStart(2,"0")}`
+   duration:durationHHMM(Number(row.process_duration_minutes||row.duration_minutes||0))
   });
   setMessage("");
  }
@@ -398,6 +409,19 @@ export function ManualScheduleGrid({
   }catch(e){setMessage(e instanceof Error?e.message:"Save failed")}finally{setBusy("")}
  }
 
+ async function suggestFlybar(a:ScheduleArea,i:number){
+  const r=draft(a,i),duration=parseHHMM(r.duration);
+  if(!r.date||!r.startTime||!duration){setMessage("Nhập Date, Loading Start và Process Duration trước khi đề xuất Flybar.");return}
+  const k=key(a.schedule_area_code,i);setBusy(k);setMessage("");
+  try{
+   const plannedStart=new Date(`${r.date}T${r.startTime}:00+07:00`).toISOString();
+   const res=await fetch("/api/schedule/chemical-suggestion",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({batch_id:r.batchId,recipe_key:r.recipeKey||null,planned_start:plannedStart,duration_minutes:duration})});
+   const d=await res.json();if(!res.ok)throw new Error(d.error||"Không đề xuất được Flybar.");
+   const suggested=new Date(d.planned_start);patch(a,i,{resourceCode:d.resource_code,date:suggested.toLocaleDateString("en-CA",{timeZone:"Asia/Ho_Chi_Minh"}),startTime:suggested.toLocaleTimeString("en-GB",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit"})});
+   setMessage(d.delayed_minutes?`${d.resource_code} available sớm nhất sau ${d.delayed_minutes} phút; Loading Start đã tự điều chỉnh.`:`Đề xuất ${d.resource_code}: available trong toàn bộ Loading → Unloading.`);
+  }catch(e){setMessage(e instanceof Error?e.message:"Không đề xuất được Flybar.")}finally{setBusy("")}
+ }
+
  return <section className="erp-table-panel section schedule-area-direct-grid">
   <div className="erp-panel-head">
    <div><b>Direct Schedule Grid · Planner {planner} · Schedule Area</b>
@@ -406,7 +430,8 @@ export function ManualScheduleGrid({
   </div>
   <div className="schedule-area-grid-stack">
    {scheduleAreas.map(a=>{
-    const aOps=areaOps(a),aResources=areaResources(a),actual=scheduledFor(a),unscheduledArea=unscheduledFor(a),count=rowCounts[a.schedule_area_code]||20;
+   const aOps=areaOps(a),aResources=areaResources(a),actual=scheduledFor(a),unscheduledArea=unscheduledFor(a),count=rowCounts[a.schedule_area_code]||20;
+    const chemical=a.resource_group==="CHEMICAL_LINE"||aResources.some(x=>x.resource_group==="CHEMICAL_LINE");
     return <div className="schedule-area-grid-block" key={a.schedule_area_code}>
      <div className="schedule-area-grid-title">
       <div><b>{a.schedule_area_name}</b><small>{a.schedule_area_code} · {aOps.length?aOps.map(x=>x.standard_operation).join(" / "):"CHƯA MAP OPERATION"}</small></div>
@@ -503,7 +528,7 @@ export function ManualScheduleGrid({
      {!aOps.length&&<div className="schedule-area-unmapped">Khu vực chưa có Standard Operation. Vào Cấu hình → Schedule Area Mapping để thêm.</div>}
      <div className="table-wrap">
       <table className="erp-table schedule-area-entry-table">
-       <thead><tr><th>#</th><th>Batch</th><th>Standard Operation</th><th>Recipe / Paint</th><th>Resource</th><th>Date</th><th>Start</th><th>Duration</th><th>Jobs</th><th>pcs</th><th>dm²</th><th>Actions</th></tr></thead>
+       <thead><tr><th>#</th><th>Batch</th><th>Standard Operation</th><th>Recipe / Paint</th><th>Resource</th><th>Date</th><th>Start</th><th>End</th><th>Duration</th>{chemical&&<><th>Loading<br/>Start · End · Duration</th><th>Process<br/>Start · End · Duration</th><th>NDT<br/>Start · End · Duration</th><th>Unloading<br/>Start · End · Duration</th></>}<th>Jobs</th><th>pcs</th><th>dm²</th><th>Actions</th></tr></thead>
        <tbody>
         {actual.map((x,i)=>{
          const editing=editingScheduleId===x.id;
@@ -570,6 +595,12 @@ export function ManualScheduleGrid({
             : time(x.planned_start)}
           </td>
 
+          <td className="mono schedule-calculated-end">
+           {editing
+            ? previewEnd(editDraft.date,editDraft.startTime,editDraft.duration)
+            : calculatedScheduleEndTime(x.planned_start,x.duration_minutes)}
+          </td>
+
           <td className="mono">
            {editing
             ? <input
@@ -584,6 +615,13 @@ export function ManualScheduleGrid({
                {String(Number(x.duration_minutes||0)%60).padStart(2,"0")}
               </>}
           </td>
+
+          {chemical&&<>
+           <td className="mono chemical-phase-cell">{x.loading_start?<>{time(x.loading_start)}–{time(x.loading_end)}<small>{durationHHMM(Number(x.loading_duration_minutes||0))}</small></>:"—"}</td>
+           <td className="mono chemical-phase-cell">{x.process_start?<>{time(x.process_start)}–{time(x.process_end)}<small>{durationHHMM(Number(x.process_duration_minutes||0))}</small></>:"—"}</td>
+           <td className="mono chemical-phase-cell">{x.ndt_start?<>{time(x.ndt_start)}–{time(x.ndt_end)}<small>{durationHHMM(Number(x.ndt_duration_minutes||0))}</small></>:"—"}</td>
+           <td className="mono chemical-phase-cell">{x.unloading_start?<>{time(x.unloading_start)}–{time(x.unloading_end)}<small>{durationHHMM(Number(x.unloading_duration_minutes||0))}</small></>:"—"}</td>
+          </>}
 
           <td>{x.total_jobs}</td>
           <td>{fmt(x.total_qty,0)}</td>
@@ -666,10 +704,12 @@ export function ManualScheduleGrid({
          </select></td>
          <td><select className="input" value={r.resourceCode} onChange={e=>patch(a,i,{resourceCode:e.target.value})}>
           <option value="">Resource...</option>{aResources.map(x=><option key={x.resource_code} value={x.resource_code}>{x.resource_code}</option>)}
-         </select></td>
+         </select>{chemical&&<button type="button" className="btn small chemical-suggest-btn" disabled={busy===k} onClick={()=>suggestFlybar(a,i)}>Suggest FB</button>}</td>
          <td><input className="input" type="date" value={r.date} onChange={e=>patch(a,i,{date:e.target.value})}/></td>
          <td><input className="input mono" type="time" value={r.startTime} onChange={e=>patch(a,i,{startTime:e.target.value})}/></td>
+         <td className="mono schedule-calculated-end">{previewEnd(r.date,r.startTime,r.duration)}</td>
          <td><input className="input mono" placeholder="HH:MM" value={r.duration} onChange={e=>patch(a,i,{duration:e.target.value})}/></td>
+         {chemical&&<><td className="muted">Auto after Save</td><td className="muted">Auto after Save</td><td className="muted">Recipe rule</td><td className="muted">Auto after Save</td></>}
          <td>{r.batchId?r.totalJobs:0}</td><td>{r.batchId?fmt(r.totalQty,0):0}</td><td>{r.batchId?fmt(r.totalSurfaceDm2):0}</td>
          <td><div className="schedule-row-actions">
           <button className="btn small primary" disabled={busy===k||!aOps.length} onClick={()=>save(a,i)}>{busy===k?"...":r.batchId?"Schedule":"Save"}</button>

@@ -1,32 +1,12 @@
-import Link from "next/link";
 import {AppTabs} from "@/components/app-tabs";
 import {PlanningBoardClient} from "@/components/planning-board-client";
 import {PlanningAreaOperationFilter} from "@/components/planning-area-operation-filter";
-import {BatchRowActions} from "@/components/batch-row-actions";
-import {ResetAllBatchesButton} from "@/components/reset-all-batches-button";
+import {PlanningViewTabs} from "@/components/planning-view-tabs";
 import {getPool} from "@/lib/db";
+import {getRecentPlanningBatches} from "@/lib/planning/recent-batches";
 import {healScheduledHandoffs} from "@/lib/planning/unlock-next-after-schedule";
-import {ensurePlanningSortOrderSchema} from "@/lib/planning-sort-order";
-import {ensureOperationCodePlanningOrderSchema} from "@/lib/operation-code-planning-order";
 
 export const dynamic="force-dynamic";
-
-const formatNumber=(value:unknown, maxDecimals=2)=>{
- const n=Number(value??0);
- if(!Number.isFinite(n))return "0";
- const fixed=n.toFixed(maxDecimals);
- let [whole,decimal]=fixed.split(".");
- whole=whole.replace(/\B(?=(\d{3})+(?!\d))/g,".");
- decimal=(decimal||"").replace(/0+$/,"");
- return decimal?`${whole},${decimal}`:whole;
-};
-
-const hhmm=(minutes:number|null)=>{
- if(minutes==null)return "—";
- const h=Math.floor(minutes/60);
- const m=minutes%60;
- return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
-};
 
 export default async function Page({
  searchParams
@@ -41,11 +21,6 @@ export default async function Page({
 
  const c=await getPool().connect();
  try{
-   // Self-heal additive config schema so /planning never crashes when
-   // application code is deployed before migration 032.
-   await ensurePlanningSortOrderSchema(c);
-   await ensureOperationCodePlanningOrderSchema(c);
-
    // Self-heal historical/new Schedule handoffs before Candidate query.
    // A scheduled Main unlocks ONLY its immediate next Main.
    await healScheduledHandoffs(c);
@@ -74,38 +49,7 @@ export default async function Page({
        where s.is_active=true
        order by s.sort_order
      `),
-     c.query(`
-       select
-        b.id,b.batch_no,b.planning_date,b.standard_operation,b.recipe_key,
-        b.total_jobs,b.total_qty,b.total_surface_dm2,b.process_minutes,
-        b.planned_start,b.planned_end,b.status,b.priority,
-        a.area_name,
-        r.recipe_no,r.recipe_name,
-        sch.schedule_id,
-        sch.schedule_status,
-        sch.resource_code,
-        sch.schedule_start,
-        sch.schedule_end
-       from planning_batch b
-       left join md_area a on a.id=b.area_id
-       left join md_process_recipe r on r.recipe_key=b.recipe_key
-       left join lateral (
-        select
-         ps.id schedule_id,
-         ps.status schedule_status,
-         ps.resource_code,
-         ps.planned_start schedule_start,
-         ps.planned_end schedule_end
-        from planning_schedule ps
-        where ps.batch_id=b.id
-          and ps.status<>'CANCELLED'
-        order by ps.planned_start desc,ps.id desc
-        limit 1
-       ) sch on true
-       where b.status not in ('CANCELLED','COMPLETED')
-       order by b.created_at desc
-       limit 100
-     `),
+     getRecentPlanningBatches(c,100),
      c.query(`
        select
          s.standard_operation,
@@ -214,7 +158,14 @@ export default async function Page({
        j.source_data,
        j.part_cluster,j.part_description,
        j.prod_qty,j.current_good_wip_qty,j.last_labor_qty,
-       j.last_operation,j.next_operation,j.all_operation,
+       j.last_operation,
+
+       -- RAW NextOperation shown on Candidate Board.
+       -- Source: open_job_current.next_operation <- All Open Job Excel.NextOperation.
+       -- This is intentionally independent from ST Operation Mapping.
+       j.next_operation,
+
+       j.all_operation,
        nextopmaster.planning_sort_order next_operation_planning_sort_order,
        j.total_surface,j.surface_per_part_dm2,
        j.open_dmr,j.st,j.st_wip_area,j.wip_sequence,
@@ -267,10 +218,19 @@ export default async function Page({
          and p0.is_active=true
          and p0.status in ('ELIGIBLE','PLANNED')
        order by
-         -- Current actionable Main wins.
-         case when p0.status='ELIGIBLE' then 0 else 1 end,
+         -- v173: the shop-floor NextOperation is the authoritative current position.
+         -- If its exact Planning Chain row exists, it MUST represent the Candidate.
+         -- This fixes NextOperation=CMSA being visually replaced by a later ELIGIBLE Main.
+         case
+           when upper(trim(coalesce(p0.source_operation_code,'')))=
+                upper(trim(coalesce(j.next_operation,'')))
+            and p0.status='ELIGIBLE'
+           then 0
+           else 1
+         end,
 
-         -- If more than one ELIGIBLE exists, show the earliest next Main.
+         -- Otherwise choose the earliest actionable Main.
+         case when p0.status='ELIGIBLE' then 0 else 1 end,
          case when p0.status='ELIGIBLE' then p0.planning_seq end asc nulls last,
 
          -- If no ELIGIBLE exists, show the latest PLANNED Main as history/current state.
@@ -298,6 +258,9 @@ export default async function Page({
      left join lateral (
        select mo.planning_sort_order
        from public.md_operation mo
+       join public.md_st_operation_scope scope
+         on upper(trim(scope.operation_code))=upper(trim(mo.operation_code))
+        and scope.is_active=true
        where mo.is_active=true
          and upper(trim(mo.operation_code))=upper(trim(j.next_operation))
        order by
@@ -432,6 +395,13 @@ export default async function Page({
              where x.routing_code=mb.routing_code
                and x.is_active=true
                and upper(trim(x.operation_code))=upper(trim(mb.source_operation))
+               and exists(
+                 select 1
+                 from md_st_operation_scope scope
+                 where scope.is_active=true
+                   and scope.operation_type='PLANNING_OPERATION'
+                   and upper(trim(scope.operation_code))=upper(trim(mb.source_operation))
+               )
              order by x.seq
              offset greatest(mb.source_occurrence-1,0)
              limit 1
@@ -439,6 +409,11 @@ export default async function Page({
 
            where sr.standard_operation is not null
               or upper(trim(mb.source_operation))='PIONBL'
+              or exists(
+                select 1 from md_st_operation_scope scope
+                where scope.is_active=true
+                  and upper(trim(scope.operation_code))=upper(trim(mb.source_operation))
+              )
          ),
 
          fallback_route as (
@@ -532,6 +507,10 @@ export default async function Page({
            left join lateral (
              select m.standard_operation_rule
              from md_st_operation_mapping m
+             join md_st_operation_scope scope
+               on upper(trim(scope.operation_code))=upper(trim(m.source_operation_code))
+              and scope.is_active=true
+              and scope.operation_type='PLANNING_OPERATION'
              where m.is_active=true
                and upper(trim(m.source_operation_code))=upper(trim(rr.source_operation))
                and m.mapping_rule='DIRECT'
@@ -854,13 +833,15 @@ export default async function Page({
 
     <AppTabs active="planning"/>
 
-    <section className="erp-content erp-content-full planning-page">
+    <section className="erp-content erp-content-full planning-page planning-candidate-page">
      <div className="erp-page-head">
       <div>
        <h2>Planning Board</h2>
        <p>AllOperation sequence → Eligible Jobs → Candidate selection → Production Batch</p>
       </div>
      </div>
+
+     <PlanningViewTabs active="candidates"/>
 
      <form className="erp-form-panel planning-filter" method="get">
       <PlanningAreaOperationFilter
@@ -912,58 +893,6 @@ export default async function Page({
        timeRules={timeRules as any}
        today={today}
       />
-     </div>
-
-     <div className="erp-table-panel section">
-      <div className="erp-panel-head">
-       <b>Recent Planning Batches</b>
-       <div className="batch-panel-tools">
-        <span>{batchesQ.rows.length} latest batches</span>
-        <ResetAllBatchesButton/>
-       </div>
-      </div>
-      <div className="table-wrap">
-       <table className="erp-table planning-batch-table">
-        <thead>
-         <tr>
-          <th>Batch</th><th>Date</th><th>Area</th><th>Operation</th>
-          <th>Recipe</th><th className="num">Jobs</th><th className="num">Qty</th>
-          <th className="num">Surface</th><th>Process</th>
-          <th>Start</th><th>End</th><th>Status</th><th></th>
-         </tr>
-        </thead>
-        <tbody>
-         {batchesQ.rows.map((b:any)=>
-          <tr key={b.id}>
-           <td><b>{b.batch_no||"—"}</b></td>
-           <td>{String(b.planning_date).slice(0,10)}</td>
-           <td>{b.area_name||"—"}</td>
-           <td>{b.standard_operation}</td>
-           <td>{b.recipe_no?<><b>{b.recipe_no}</b><small className="planning-sub">{b.recipe_name||"—"}</small></>:"—"}</td>
-           <td className="num">{b.total_jobs}</td>
-           <td className="num">{formatNumber(b.total_qty)}</td>
-           <td className="num">{formatNumber(b.total_surface_dm2)}</td>
-           <td className="mono">{hhmm(b.process_minutes)}</td>
-           <td>{b.planned_start?new Date(b.planned_start).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—"}</td>
-           <td>{b.planned_end?new Date(b.planned_end).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—"}</td>
-           <td><span className="job-state state-new">{b.status}</span></td>
-           <td>
-            <div className="batch-list-actions">
-             <Link className="erp-link" href={`/planning/batches/${b.id}`}>View →</Link>
-             <BatchRowActions
-              batchId={Number(b.id)}
-              batchNo={b.batch_no||"—"}
-              currentRecipeKey={b.recipe_key||null}
-             />
-            </div>
-           </td>
-          </tr>
-         )}
-         {!batchesQ.rows.length&&
-          <tr><td colSpan={13} className="muted">Chưa có Planning Batch.</td></tr>}
-        </tbody>
-       </table>
-      </div>
      </div>
     </section>
    </main>

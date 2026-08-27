@@ -17,15 +17,8 @@ type RawPlanningOp={
  instanceKey:string;
 };
 
-const PLANNING_SCOPE=new Set([
- "CMSA","CHEMMILL","CPBILP","CPBILP-A","RWK","V_A-SHPN","MANUALSP",
- "CLASP","BSAUNSLD","TSAUNSLD","BSASLD","TSASLD","CCNV-IM","CCNV-IA",
- "V_PASS/BRTG","FMSKG-CM","SIPC","SI-SEAL","STRIP",
- "HE-BAKE after plating","HE-BAKE before blasting",
- "A-DBLST","M-DBLST","PLA-ZiNi","HE-BAKE","PLA-CC",
- "PRIMER","PRIMER2","PRIMER3","TOPCOAT1","TOPCOAT2",
- "ANTI-ABRASION","PAINT MARKING","VARNISH"
-]);
+// Planning scope is dynamic and loaded from md_planning_operation_scope.
+
 
 const clean=(v:unknown)=>String(v??"").trim();
 
@@ -126,7 +119,8 @@ function currentAnchor(
 
 function standardize(
  raw:string[],
- mappingBySource:Map<string,Mapping[]>
+ mappingBySource:Map<string,Mapping[]>,
+ planningScope:Set<string>
 ):RawPlanningOp[]{
  const primerCodes=new Set<string>();
  const topcoatCodes=new Set<string>();
@@ -182,7 +176,7 @@ function standardize(
      stGroup=direct.st_group;
    }
 
-   if(!PLANNING_SCOPE.has(standardOperation))continue;
+   if(!planningScope.has(standardOperation))continue;
 
    const occ=(stdOccurrence.get(standardOperation)||0)+1;
    stdOccurrence.set(standardOperation,occ);
@@ -202,7 +196,7 @@ function standardize(
 
 /**
  * Planning only works with MAIN operations that survive standardize()
- * and belong to PLANNING_SCOPE.
+ * and belong to the active md_planning_operation_scope.
  *
  * NextOperation is still the actual shop-floor position marker, even when it
  * is an intermediate operation such as MASKING / UNMASKING / inspection /
@@ -231,12 +225,22 @@ function planningChainFromAnchor(
 }
 
 export async function syncPlanningChains(c:PoolClient){
- const [mappingQ,jobsQ,paintQ,chemicalQ,existingQ,batchHistoryQ]=await Promise.all([
+ const [mappingQ,scopeQ,jobsQ,paintQ,chemicalQ,existingQ,batchHistoryQ]=await Promise.all([
    c.query(`
-     select source_operation_code,st_group,standard_operation_rule,mapping_rule,sort_order
-     from md_st_operation_mapping
+     select m.source_operation_code,m.st_group,m.standard_operation_rule,m.mapping_rule,m.sort_order
+     from md_st_operation_mapping m
+     join md_st_operation_scope scope
+       on upper(trim(scope.operation_code))=upper(trim(m.source_operation_code))
+      and scope.is_active=true
+      and scope.operation_type='PLANNING_OPERATION'
+     where m.is_active=true
+     order by m.source_operation_code,m.sort_order
+   `),
+   c.query(`
+     select standard_operation
+     from md_planning_operation_scope
      where is_active=true
-     order by source_operation_code,sort_order
+     order by sort_order,standard_operation
    `),
    c.query(`
      select job_num,part_num,revision_num,last_operation,next_operation,all_operation
@@ -279,6 +283,10 @@ export async function syncPlanningChains(c:PoolClient){
       and b.status<>'CANCELLED'
    `)
  ]);
+
+ const planningScope=new Set<string>(
+   scopeQ.rows.map((r:any)=>clean(r.standard_operation)).filter(Boolean)
+ );
 
  const mappingBySource=new Map<string,Mapping[]>();
  for(const r of mappingQ.rows){
@@ -354,7 +362,24 @@ export async function syncPlanningChains(c:PoolClient){
  let sequenceCheck=0;
  let injectedMappedNextOperation=0;
 
- // Rebuild only future/unplanned chain rows. Planned rows are preserved as history/state.
+ // ST_SCOPE_ONLY is never an active Planning row, including old PLANNED rows.
+ // Actual Batch/Schedule history remains preserved in planning_batch_job and
+ // planning_schedule and can still be viewed as historical production data.
+ await c.query(`
+   update planning_job_operation p
+   set is_active=false,updated_at=now()
+   where p.is_active=true
+     and exists(
+       select 1
+       from md_st_operation_scope scope
+       where scope.is_active=true
+         and scope.operation_type='ST_SCOPE_ONLY'
+         and upper(trim(scope.operation_code))=upper(trim(p.source_operation_code))
+     )
+ `);
+
+ // Rebuild only future/unplanned chain rows. Planned rows for actual Planning
+ // Operations are preserved as history/state.
  await c.query(`
    update planning_job_operation
    set is_active=false,updated_at=now()
@@ -427,7 +452,7 @@ export async function syncPlanningChains(c:PoolClient){
    // IMPORTANT:
    // Standardize the FULL effective route first so PRIMER/TOPCOAT occurrence
    // remains correct even when Planning starts in the middle of the routing.
-   const full=standardize(raw,mappingBySource);
+   const full=standardize(raw,mappingBySource,planningScope);
 
    if(anchor.mode==="NEXT_OPERATION")nextAnchored++;
    else if(anchor.mode==="LAST_OPERATION_FALLBACK")fallbackAnchored++;

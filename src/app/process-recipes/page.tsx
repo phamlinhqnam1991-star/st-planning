@@ -2,14 +2,15 @@ import {AppTabs,SubTabs} from "@/components/app-tabs";
 import {ProcessRecipeManager} from "@/components/process-recipe-manager";
 import {ChemicalRecipeMappingManager} from "@/components/chemical-recipe-mapping-manager";
 import {ProcessTimeRuleManager} from "@/components/process-time-rule-manager";
+import {ChemicalHandlingTimeManager} from "@/components/chemical-handling-time-manager";
 import {getPool} from "@/lib/db";
 export const dynamic="force-dynamic";
 
 const tabs=[
- {key:"operation",label:"Operation Master",href:"/master/operation"},
- {key:"operationmapping",label:"ST Operation Mapping",href:"/master/operationmapping"},
+ {key:"flow",label:"ST Operation Flow",href:"/st-operation-flow"},{key:"operation",label:"Main Operation Master",href:"/master/operation"},{key:"operationcodeorder",label:"ST Scope & Operation Order",href:"/operation-code-order"},
+ {key:"operationmapping",label:"Source → Main Mapping",href:"/master/operationmapping"},
  {key:"stgroup",label:"ST Group Master",href:"/st-groups"},
- {key:"area",label:"Area Master",href:"/area"},
+ {key:"area",label:"Physical Area Master",href:"/area"},
  {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
  {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
  {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},{key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"},
@@ -19,7 +20,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
  const sp=await searchParams,part=(sp.part||"").trim().toUpperCase();
  const c=await getPool().connect();
  try{
-  const [recipesQ,mapsQ,opsQ,partQ,sourceOpsQ,chemicalRecipesQ,chemicalMapsQ,timeRulesQ]=await Promise.all([
+  const [recipesQ,mapsQ,opsQ,partQ,sourceOpsQ,chemicalRecipesQ,chemicalMapsQ,timeRulesQ,handlingRulesQ]=await Promise.all([
    c.query(`select recipe_key,process_family,recipe_group,recipe_no,recipe_name,batch_key,source_system,note,is_active
             from md_process_recipe where is_active=true
             order by process_family,recipe_group,recipe_no nulls last,recipe_name limit 3000`),
@@ -61,7 +62,9 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
             from md_recipe_time_rule t
             join md_process_recipe r on r.recipe_key=t.recipe_key
             where t.is_active=true and r.is_active=true
-            order by r.process_family,r.recipe_group,r.recipe_no,t.priority,t.id`)
+            order by r.process_family,r.recipe_group,r.recipe_no,t.priority,t.id`),
+   c.query(`select id,phase,priority,qty_min,qty_max,surface_min_dm2,surface_max_dm2,duration_minutes,note
+            from md_chemical_handling_time_rule where is_active=true order by phase,priority,id`)
   ]);
   return <main className="erp-shell">
    <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION</div></header>
@@ -77,6 +80,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
        recipes={chemicalRecipesQ.rows as any}
        mappings={chemicalMapsQ.rows as any}
      />
+     <ChemicalHandlingTimeManager rules={handlingRulesQ.rows as any}/>
      <ProcessTimeRuleManager
        recipes={recipesQ.rows as any}
        rules={timeRulesQ.rows as any}

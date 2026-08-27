@@ -2532,3 +2532,123 @@ Applied to every Schedule Area unscheduled Batch card:
 - Server Candidate SQL already returns `p.source_seq`; this change aligns the client type with the actual payload.
 - Fixes Vercel error: `Property 'source_seq' does not exist on type 'Candidate'`.
 - No Planning Chain, Candidate selection, READY, Batch, Schedule, Main Operation, or Operation Code Order logic changed.
+
+
+## v172 - Operation Code Add / Remove + Remap All
+- Operation Code Order screen now supports Add Operation, Remove Operation and Set Order.
+- Every Add / Remove / Set Order runs `refresh_st_operation_mapping(null)` and `syncPlanningChains()`.
+- Add reactivates an existing inactive code or inserts a new md_operation row.
+- Remove is soft-delete only: md_operation becomes inactive and Planning Order clears.
+- Remove also deactivates active ST Operation Mapping rows for that source code and writes mapping history.
+- Existing Batch/Schedule history is never deleted; syncPlanningChains preserves actual PLANNED history.
+- A brand-new Operation Code still needs an active ST Operation Mapping to belong to a Main Operation.
+
+
+## v173 - CMSA READY representative fix
+- CMSA Debug confirmed Mapping and Planning Chain were correct: CMSA was active ELIGIBLE.
+- Root cause was Candidate representative selection: another ELIGIBLE Main could be selected instead of the exact open_job_current.NextOperation row.
+- Candidate lateral selection now prioritizes an ELIGIBLE planning_job_operation whose source_operation_code exactly matches open_job_current.next_operation.
+- Therefore NextOperation=CMSA selects the CMSA planning row; existing route-cell fallback renders CMSA as READY even when route_status does not contain a CMSA item.
+- Full Planning Chain remains unchanged; future Main Operations remain intact.
+- CMSA Debug is intentionally retained for one verification cycle.
+
+
+## v176 - NextOperation source trace (no logic change)
+Confirmed data lineage for raw NextOperation shown in Candidate Jobs:
+
+`All Open Job Excel.NextOperation`
+→ `src/lib/import/open-job-import.ts`
+→ `public.open_job_current.next_operation`
+→ `src/app/planning/page.tsx` (`j.next_operation`)
+→ Candidate payload `next_operation`
+→ `src/components/planning-board-client.tsx` (`x.next_operation`).
+
+Important:
+- ST Operation Mapping is NOT the source of the raw NextOperation text.
+- Therefore a code such as `MSKG-AND` can be displayed in Candidate Jobs even when it has no active ST Operation Mapping.
+- ST Operation Mapping is used later to determine Main Operation / Planning Chain / READY behavior.
+- This version only adds source-of-truth comments/documentation; no Planning logic changed.
+
+
+## TEMP v177 - All Open Job NextOperation Debug
+- Added a temporary expandable debug panel to `/all-open-jobs`.
+- It enumerates every distinct active `open_job_current.next_operation`.
+- It compares each code against `md_operation` and active `md_st_operation_mapping`.
+- States:
+  - `RAW_NEXTOP_ONLY`: present in All Open Job/current DB only; no Operation Master and no active Mapping.
+  - `MASTER_ONLY_NO_MAPPING`: active Operation Master exists, but no active ST Mapping.
+  - `MAPPED`: active ST Operation Mapping exists.
+- This is diagnostic only. No import, All Open Job display, Mapping, Candidate, or Planning Chain logic changed.
+
+## v178 - Unified ST Operation Flow architecture
+
+The configuration architecture is now canonical and directional:
+
+`Raw Operation (md_operation)`
+→ `ST Scope (md_st_operation_scope)`
+→ `Source → Main Mapping (md_st_operation_mapping)`
+→ `Main Operation (md_operation_master + md_planning_operation_scope)`
+→ `ST Group (md_st_group)`
+→ `Physical Area (md_area_operation_group → md_area)`
+→ `Schedule Area (md_schedule_area_operation → md_schedule_area)`
+→ `Planning Chain (planning_job_operation)`
+→ `Planning Board`
+→ `Board Điều Độ`.
+
+Key changes:
+- `/st-operation-flow` is the one-step configuration screen. One Save writes Source Operation, ST Scope, Source→Main Mapping, Main Operation, ST Group, Physical Area and Schedule Area in one database transaction.
+- After Save/Remove, all derived ST Routing is rebuilt from the current ST Scope, `refresh_st_operation_mapping(null)` runs, then future Planning Chains are synchronized. Existing actual Batch/Schedule history is preserved by `syncPlanningChains()`.
+- `syncPlanningChains()` no longer contains a hard-coded Main Operation list. Active `md_planning_operation_scope` is the runtime planning scope.
+- All Open Jobs in the ST application are filtered by `md_st_operation_scope`, NOT by ST Mapping. Therefore an ST intermediate code such as `MSKG-AND` is visible even before it is mapped to a Main Operation.
+- Operation Code Order now represents only ST Scope source operations. Removing a code removes it from ST Scope but does not delete/deactivate it from the global raw Operation catalog.
+- Master import no longer reactivates an ST Scope code that a planner explicitly disabled; it only seeds missing legacy scope codes.
+- Planning Board route matrix recognizes the canonical ST Scope and Source→Main mapping.
+
+- Board Điều Độ planner ownership is dynamic through `Schedule Area → Planner Assignment → Main Operation`; hard-coded Planner 1/2 Main Operation lists are no longer the runtime source.
+- Cross-planner handover events resolve planner ownership from the same Schedule Area mapping instead of a hard-coded list.
+- Supabase runtime connection architecture remains `Next.js/Vercel → Supavisor Transaction Pooler :6543 → PostgreSQL`, with a small Node pg pool.
+
+Configuration responsibility:
+1. **ST Operation Flow** – primary screen for adding/moving an Operation through the complete chain.
+2. **Main Operation Master** – advanced Main Operation properties, batch prefix and process-time settings.
+3. **ST Scope & Operation Order** – ST membership and raw NextOperation production order.
+4. **Source → Main Mapping** – advanced mapping rule maintenance (DIRECT/OCCURRENCE/SEQUENCE).
+5. **ST Group Master** – group catalog.
+6. **Physical Area Master** – ST Group → physical production area.
+7. **Schedule Area Mapping** – Main Operation → scheduling lane/resources.
+8. **Planner Work Assignment** – Schedule Area → Planner 1/2.
+
+## v179 - ST_SCOPE_ONLY vs Planning Operation
+
+Migration: `supabase/migrations/035_st_scope_only_operation_type.sql`
+
+`md_st_operation_scope.operation_type` is now the canonical Operation classification:
+
+- `ST_SCOPE_ONLY`: requires only Operation Code + active ST Scope; raw Planning Order is optional. Main Operation, Main Planning Order, ST Group, Physical Area, Schedule Area and Planner Owner may remain blank.
+- `PLANNING_OPERATION`: requires the full Main Operation → ST Group → Physical Area → Schedule Area → Planner chain.
+
+An active `ST_SCOPE_ONLY` Operation continues to appear in All Open Jobs when it is the current `NextOperation`, because All Open Jobs is filtered only by active ST Scope. It is excluded from standardized Planning Chain rows, Candidate Jobs, Batch membership candidates, Planning Board and Board Điều Độ. Changing an existing Planning Operation to `ST_SCOPE_ONLY` deactivates its Source → Main mapping and active Planning rows while preserving actual Batch/Schedule history.
+
+## v180 - Normalize duplicate Operation Code rows in ST Flow
+
+Production data may contain more than one active `md_operation` or ST Scope row whose codes differ only by case/spacing, for example `UNMSKG-S` and `unmskg-s`. ST Operation Flow and ST Scope Order now normalize by `upper(trim(operation_code))`, select one deterministic Operation Master record, and calculate Open Job counts through a single lateral aggregate. The UI therefore receives exactly one row per normalized Operation Code instead of duplicate React rows/keys.
+
+## v181 - Stabilize PostgreSQL pool for Planning
+
+The Node PostgreSQL pool is now stored on `globalThis`, so Next.js/Turbopack module reloads reuse the same pool instead of leaving multiple stale pools connected to Supavisor. The default local capacity increases from 2 to 5 lightweight slots so one slow Planning query does not starve concurrent Server Component requests. Runtime remains `Next.js/Vercel → Supavisor Transaction Pooler :6543 → PostgreSQL`; no Planning logic or database migration changed. Optional `DB_POOL_MAX` and `DB_CONNECT_TIMEOUT_MS` environment variables allow bounded server-side tuning.
+
+## v182 - Remove request-time schema DDL
+
+Application requests no longer execute `ALTER TABLE`, `CREATE TABLE` or `CREATE INDEX`. Those self-heal guards could wait for an exclusive PostgreSQL table lock and hit Supabase `statement_timeout` while loading `/planning`. Migrations 031, 032 and 033 remain the single schema source of truth. Planning, Operation Order, Main Operation Order and Planner Assignment now perform only their normal data reads/writes; no Planning/ST Scope behavior changed and no new migration was added.
+
+## v183 - Planning Candidate React keys
+
+The Candidate table now assigns stable keys to the keyed fragments that insert `Priority + Current Main` headers and cells. The `Current Main` cell also carries its own stable key. Column drag/reorder behavior is unchanged, while React no longer emits repeated `Each child in a list should have a unique key` warnings from `PlanningBoardClient` and its table rows.
+
+## v184 - Separate Recent Planning Batches tab
+
+Planning now has two dedicated views: `/planning` for Candidate Jobs and `/planning/batches` for Recent Planning Batches. The Candidate page no longer renders the batch-history table below the board, so its scrollable table expands to the available viewport height while retaining the Batch Builder on the right. Both views use one shared active-batch query, and Batch Detail returns to the Recent Planning Batches tab by default. Batch creation, editing, deletion, reset, scheduling and Planning/ST Scope logic are unchanged.
+
+## v185 - Calculated End column on every Scheduling table
+
+Every Scheduling table now places `End` immediately after `Start` and uses one canonical formula: `End = Start + Duration`. Direct Schedule Grid rows show a live End preview while adding or editing Start/Duration. The combined Planner 1+2 table and each individual Planner table calculate End from the same source instead of independently displaying a stored end value. Scheduling API persistence, overlap validation and the shared Manual/Auto scheduling engine remain unchanged.

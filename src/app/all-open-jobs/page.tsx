@@ -19,7 +19,13 @@ export default async function Page({
 
  const c=await getPool().connect();
  try{
-   const conditions:string[]=[];
+   // Canonical ST filter: All Open Jobs in this ST application are selected
+   // ONLY by md_st_operation_scope. ST Mapping is NOT the visibility filter.
+   const conditions:string[]=[`exists(
+     select 1 from md_st_operation_scope scope
+     where scope.is_active=true
+       and upper(trim(scope.operation_code))=upper(trim(open_job_current.next_operation))
+   )`];
    const args:any[]=[];
 
    if(status==="OPEN")conditions.push("is_open=true");
@@ -53,6 +59,11 @@ export default async function Page({
          count(*) filter(where is_open and last_import_status='CHANGED') changed_jobs,
          count(*) filter(where is_open and last_import_status='UNCHANGED') unchanged_jobs
        from open_job_current
+       where exists(
+        select 1 from md_st_operation_scope scope
+        where scope.is_active=true
+          and upper(trim(scope.operation_code))=upper(trim(open_job_current.next_operation))
+       )
      `),
      c.query(`
        select
@@ -105,11 +116,16 @@ export default async function Page({
      <div className="erp-page-head">
       <div>
        <h2>All Open Jobs</h2>
-       <p>Dynamic Planning Input · Job status from the latest imported snapshot</p>
+       <p>ST Scope Jobs · nguồn từ latest imported snapshot · lọc bằng ST Operation Scope</p>
       </div>
      </div>
 
      <OpenJobImporter/>
+
+     <div className="notice section">
+      <b>ST Scope filter:</b> Trang này chỉ hiển thị Job có <code>NextOperation</code> nằm trong <code>md_st_operation_scope</code> active.
+      <code>ST_SCOPE_ONLY</code> vẫn được hiển thị tại đây nhưng không tham gia Planning Chain, Batch hoặc Board Điều Độ. Cấu hình tập trung tại <a href="/st-operation-flow">ST Operation Flow</a>.
+     </div>
 
      <div className="open-job-status-tabs section">
       {statusTabs.map(([key,label])=>

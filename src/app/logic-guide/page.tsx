@@ -40,9 +40,13 @@ export default async function Page(){
      m.sort_order,
      m.source_operation_code,
      m.st_group,
-     m.standard_operation_rule,
+    m.standard_operation_rule,
      m.mapping_rule
     from md_st_operation_mapping m
+    join md_st_operation_scope scope
+      on upper(trim(scope.operation_code))=upper(trim(m.source_operation_code))
+     and scope.is_active=true
+     and scope.operation_type='PLANNING_OPERATION'
     where m.is_active=true
     order by m.st_group,m.sort_order,m.source_operation_code
    `),
@@ -87,10 +91,12 @@ export default async function Page(){
     order by a.display_order,a.schedule_area_code
    `),
    db.query(`
-    select operation_code,planning_sort_order
-    from md_operation
-    where is_active=true and planning_sort_order is not null
-    order by planning_sort_order,operation_code
+    select o.operation_code,o.planning_sort_order
+    from md_operation o
+    join md_st_operation_scope s
+      on upper(trim(s.operation_code))=upper(trim(o.operation_code)) and s.is_active=true
+    where o.is_active=true and o.planning_sort_order is not null
+    order by o.planning_sort_order,o.operation_code
    `),
    db.query(`
     select process_family,recipe_group,count(*)::int recipes
@@ -143,7 +149,7 @@ export default async function Page(){
     </div>
     <div className="guide-version">
      <b>Logic hiện tại</b>
-     <span>v143 Guide / nền v142</span>
+     <span>v179 Operation Type</span>
     </div>
    </div>
 
@@ -174,9 +180,11 @@ export default async function Page(){
      <span className="guide-arrow">→</span>
      <FlowStep n="2" title="Master Data" sub="Routing Detail + ST Routing + Recipe Master"/>
      <span className="guide-arrow">→</span>
-     <FlowStep n="3" title="Operation Mapping" sub="Operation Code → ST Group → Standard Operation"/>
+     <FlowStep n="3" title="ST Operation Scope" sub="PLANNING_OPERATION hoặc ST_SCOPE_ONLY"/>
      <span className="guide-arrow">→</span>
-     <FlowStep n="4" title="Area" sub="ST Group → Area"/>
+     <FlowStep n="4" title="Source → Main" sub="Operation Code → Main Operation → ST Group"/>
+     <span className="guide-arrow">→</span>
+     <FlowStep n="6" title="Area / Schedule" sub="ST Group → Physical Area; Main → Schedule Area"/>
      <span className="guide-arrow">→</span>
      <FlowStep n="5" title="Planning Board" sub="Candidate → chọn Job/Main → Batch"/>
      <span className="guide-arrow">→</span>
@@ -192,6 +200,9 @@ export default async function Page(){
      </Rule>
      <Rule title="PIONBL">
       Có thể tồn tại trong routing để biết vị trí thực tế, nhưng <b>skip khỏi Planning Main chain</b>.
+     </Rule>
+     <Rule title="ST_SCOPE_ONLY">
+      Vẫn thuộc ST Scope và xuất hiện trong All Open Jobs theo NextOperation, nhưng không map Main Operation và không tham gia Planning Chain, Batch hoặc Board Điều Độ.
      </Rule>
      <Rule title="Không trộn 3 loại thứ tự">
       <b>source_seq</b> = thứ tự trong routing từng Job ·
@@ -251,6 +262,10 @@ export default async function Page(){
      <div>
       <h3>Nguyên tắc thay đổi cấu hình</h3>
       <div className="guide-rule-list">
+       <Rule title="Chọn Operation Type">
+        <b>ST_SCOPE_ONLY</b> chỉ cần Operation Code + ST Scope ON; Planning Order có thể để trống.
+        <b> Planning Operation</b> bắt buộc đủ Main → Group → Physical Area → Schedule Area → Planner.
+       </Rule>
        <Rule title="Thêm Operation Code">
         Thêm/đảm bảo Operation Code ở Source Operation → map trong ST Operation Mapping.
        </Rule>

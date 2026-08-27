@@ -17,10 +17,14 @@ async function syncOperationMaster(client:any){
     select distinct on (upper(trim(standard_operation_rule)))
       trim(standard_operation_rule) standard_operation,
       trim(st_group) st_group
-    from md_st_operation_mapping
-    where is_active=true
-      and mapping_rule='DIRECT'
-      and nullif(trim(standard_operation_rule),'') is not null
+    from md_st_operation_mapping m
+    join md_st_operation_scope scope
+      on upper(trim(scope.operation_code))=upper(trim(m.source_operation_code))
+     and scope.is_active=true
+     and scope.operation_type='PLANNING_OPERATION'
+    where m.is_active=true
+      and m.mapping_rule='DIRECT'
+      and nullif(trim(m.standard_operation_rule),'') is not null
     order by
       upper(trim(standard_operation_rule)),
       updated_at desc,
@@ -44,6 +48,20 @@ async function syncOperationMaster(client:any){
   `);
 }
 
+async function requirePlanningSource(client:any,source:string){
+  const q=await client.query(`
+    select operation_type
+    from md_st_operation_scope
+    where upper(trim(operation_code))=$1
+      and is_active=true
+    limit 1
+  `,[source]);
+  if(!q.rowCount)
+    throw new Error(`${source} chưa thuộc ST Scope.`);
+  if(q.rows[0].operation_type!=="PLANNING_OPERATION")
+    throw new Error(`${source} là ST_SCOPE_ONLY nên không được tạo Source → Main Mapping.`);
+}
+
 async function refresh(client:any){
   await syncOperationMaster(client);
   await client.query("select public.refresh_st_operation_mapping(null)");
@@ -63,6 +81,7 @@ export async function POST(req:NextRequest){
     const c=await getPool().connect();
     try{
       await c.query("begin");
+      await requirePlanningSource(c,source);
       // One active source operation belongs to one ST group. Old active mapping is deactivated, never deleted.
       const old=await c.query("select * from md_st_operation_mapping where upper(trim(source_operation_code))=$1 and is_active for update",[source]);
       for(const r of old.rows){
@@ -98,6 +117,7 @@ export async function PATCH(req:NextRequest){
       const oldQ=await c.query("select * from md_st_operation_mapping where id=$1 for update",[id]); if(!oldQ.rowCount) throw new Error("Không tìm thấy mapping.");
       const old=oldQ.rows[0], stGroup=clean(b.st_group), label=clean(b.source_label)||old.source_operation_code, standard=clean(b.standard_operation_rule), rule=clean(b.mapping_rule).toUpperCase();
       if(!stGroup||!standard||!RULES.includes(rule)) throw new Error("Dữ liệu mapping không hợp lệ.");
+      await requirePlanningSource(c,clean(old.source_operation_code).toUpperCase());
       if(stGroup!==old.st_group){
         await c.query("update md_st_operation_mapping set is_active=false,updated_at=now() where upper(trim(source_operation_code))=upper(trim($1)) and id<>$2 and is_active",[old.source_operation_code,id]);
       }

@@ -240,7 +240,13 @@ export async function importOpenJobsXlsx(
        num(o,"LastLaborQty"),
 
        val(o,"LastLaborOp"),
+
+       // SOURCE OF TRUTH FOR RAW NextOperation:
+       // Imported directly from the All Open Job Excel column "NextOperation".
+       // Example: MSKG-AND can appear here even when it has NO ST Operation Mapping.
+       // Mapping is NOT the source of this value.
        val(o,"NextOperation"),
+
        val(o,"AllOperation"),
 
        num(o,"TotalSurface"),

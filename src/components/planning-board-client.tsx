@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect,useMemo,useState} from "react";
+import {Fragment,useEffect,useMemo,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 
 const formatNumber=(value:unknown, maxDecimals=2)=>{
@@ -687,7 +687,9 @@ export function PlanningBoardClient({
  };
 
  const orderedColumnChoices=useMemo(()=>{
-   const byKey=new Map(allColumns.map(c=>[c.key,c]));
+   const byKey=new Map<string,CandidateColumn>(
+    allColumns.map((c:CandidateColumn)=>[c.key,c] as [string,CandidateColumn])
+   );
    const ordered:CandidateColumn[]=[];
 
    for(const key of activeColumns){
@@ -791,6 +793,8 @@ export function PlanningBoardClient({
  ].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:"base"}));
 
  const nextMainOptions=useMemo(()=>distinctValues(x=>x.next_standard_operation),[candidates]);
+ // Raw shop-floor NextOperation comes from All Open Job/imported open_job_current.
+ // It may contain codes that are not yet configured in ST Operation Mapping.
  const nextOperationOptions=useMemo(()=>distinctValues(x=>x.next_operation),[candidates]);
  const primer1Options=useMemo(()=>distinctValues(x=>x.part_master_primer1),[candidates]);
  const primer2Options=useMemo(()=>distinctValues(x=>x.part_master_primer2),[candidates]);
@@ -1401,6 +1405,61 @@ export function PlanningBoardClient({
 
  const columnLabel=(key:string)=>{
    return allColumns.find(c=>c.key===key)?.label||key;
+ };
+
+ const currentMainView=(x:Candidate)=>{
+   const target=selectableTargetFor(x);
+   if(target){
+    const item=target.routeItem;
+    const status=item?.route_status||(
+      x.planning_status==="ELIGIBLE" ? "READY" :
+      x.planning_status==="PLANNED" ? "PLANNED-UNSCHEDULED" :
+      "WAITING"
+    );
+    return {
+     operation:target.standardOperation||x.standard_operation||"—",
+     status:String(status||"—"),
+     item
+    };
+   }
+
+   // No selectable READY target: show the Candidate representative Main
+   // instead of depending on whichever route column happens to be first.
+   return {
+    operation:x.standard_operation||x.next_standard_operation||"—",
+    status:
+      x.planning_status==="PLANNED"
+       ? (x.batch_no?"PLANNED-UNSCHEDULED":"PLANNED")
+       : x.planning_status==="LOCKED"
+        ? "WAIT PREV"
+        : x.planning_status==="ELIGIBLE"
+         ? "READY"
+         : String(x.planning_status||"—"),
+    item:null as RouteStatusItem|null
+   };
+ };
+
+ const renderCurrentMainCell=(x:Candidate)=>{
+   const view=currentMainView(x);
+   const status=normalized(view.status);
+   const canSelect=Boolean(selectableTargetFor(x));
+   const display=
+    status==="PLANNED-UNSCHEDULED"?"PLANNED":
+    status==="WAITING"?"WAIT PREV":
+    view.status;
+
+   return <td
+    key="__current_main"
+    className={`candidate-current-main ${routeStatusClass(status)} ${canSelect?"candidate-current-main-selectable":""}`}
+    title={`${view.operation} · ${display}${canSelect?" · Click để chọn Job":""}`}
+    onClick={()=>{
+     if(!canSelect)return;
+     toggle(x.id);
+    }}
+   >
+    <b>{view.operation}</b>
+    <small className="planning-sub">{display}</small>
+   </td>;
  };
 
  const renderCandidateHeader=(key:string)=>{
@@ -2144,7 +2203,15 @@ export function PlanningBoardClient({
           onChange={toggleAll}
          />
         </th>
-        {activeColumns.map(renderCandidateHeader)}
+        {activeColumns.map(key=>
+          key==="priority"
+           ? <Fragment key={`candidate-header-${key}`}>
+              {renderCandidateHeader(key)}
+              <th key="__current_main" className="candidate-current-main-head">Current Main</th>
+             </Fragment>
+           : renderCandidateHeader(key)
+        )}
+        {!activeColumns.includes("priority")&&<th className="candidate-current-main-head">Current Main</th>}
        </tr>
       </thead>
       <tbody>
@@ -2177,11 +2244,19 @@ export function PlanningBoardClient({
            onChange={()=>toggle(x.id)}
           />
          </td>
-         {activeColumns.map(key=>renderCandidateCell(x,key))}
+         {activeColumns.map(key=>
+           key==="priority"
+            ? <Fragment key={`candidate-cell-${key}`}>
+               {renderCandidateCell(x,key)}
+               {renderCurrentMainCell(x)}
+              </Fragment>
+            : renderCandidateCell(x,key)
+         )}
+         {!activeColumns.includes("priority")&&renderCurrentMainCell(x)}
         </tr>
        )}
        {!displayCandidates.length&&
-        <tr><td colSpan={1+activeColumns.length} className="muted">
+        <tr><td colSpan={2+activeColumns.length} className="muted">
          Không có Candidate phù hợp với filter hiện tại.
         </td></tr>}
       </tbody>

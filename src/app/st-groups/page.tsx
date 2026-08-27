@@ -1,6 +1,6 @@
 import {getPool} from "@/lib/db";import {StGroupManager} from "@/components/st-group-manager";import {AppTabs,SubTabs} from "@/components/app-tabs";
 export const dynamic="force-dynamic";
-const tabs=[{key:"operation",label:"Operation Master",href:"/master/operation"},{key:"operationmapping",label:"ST Operation Mapping",href:"/master/operationmapping"},{key:"stgroup",label:"ST Group Master",href:"/st-groups"},{key:"area",label:"Area Master",href:"/area"},
+const tabs=[{key:"flow",label:"ST Operation Flow",href:"/st-operation-flow"},{key:"operation",label:"Main Operation Master",href:"/master/operation"},{key:"operationcodeorder",label:"ST Scope & Operation Order",href:"/operation-code-order"},{key:"operationmapping",label:"Source → Main Mapping",href:"/master/operationmapping"},{key:"stgroup",label:"ST Group Master",href:"/st-groups"},{key:"area",label:"Physical Area Master",href:"/area"},
  {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
  {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
  {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},{key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"}];

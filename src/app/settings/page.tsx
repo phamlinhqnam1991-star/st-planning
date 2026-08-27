@@ -3,10 +3,10 @@ import {getPool} from "@/lib/db";
 import {AppTabs,SubTabs} from "@/components/app-tabs";
 export const dynamic="force-dynamic";
 const sub=[
- {key:"operation",label:"Operation Master",href:"/master/operation"},
- {key:"operationmapping",label:"ST Operation Mapping",href:"/master/operationmapping"},
+ {key:"flow",label:"ST Operation Flow",href:"/st-operation-flow"},{key:"operation",label:"Main Operation Master",href:"/master/operation"},{key:"operationcodeorder",label:"ST Scope & Operation Order",href:"/operation-code-order"},
+ {key:"operationmapping",label:"Source → Main Mapping",href:"/master/operationmapping"},
  {key:"stgroup",label:"ST Group Master",href:"/st-groups"},
- {key:"area",label:"Area Master",href:"/area"},
+ {key:"area",label:"Physical Area Master",href:"/area"},
  {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
  {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
  {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},{key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"},
@@ -14,6 +14,7 @@ const sub=[
 export default async function Page(){
  const db=await getPool().connect();
  let counts:any={
+  md_st_operation_scope:0,
   md_operation_master:0,
   md_st_operation_mapping:0,
   md_st_group:0,
@@ -29,6 +30,7 @@ export default async function Page(){
   // which made many sequential Supabase Data API requests and could take 20–30s.
   const q=await db.query(`
    select
+    (select count(*)::int from md_st_operation_scope where is_active=true) md_st_operation_scope,
     (select count(*)::int from md_operation_master where is_active=true) md_operation_master,
     (select count(*)::int from md_st_operation_mapping where is_active=true) md_st_operation_mapping,
     (select count(*)::int from md_st_group where is_active=true) md_st_group,
@@ -46,10 +48,12 @@ export default async function Page(){
 
  const c=counts;
  const rows=[
-  ["Operation Master","Standard Operation + Time Rules",c.md_operation_master,"/master/operation"],
-  ["ST Operation Mapping","Operation Code → ST Group / Standard Operation",c.md_st_operation_mapping,"/master/operationmapping"],
+  ["ST Operation Flow","Nguồn chuẩn: ST Scope → Source/Main → Group → Area → Schedule",c.md_st_operation_scope||0,"/st-operation-flow"],
+  ["Main Operation Master","Standard/Main Operation + Time Rules",c.md_operation_master,"/master/operation"],
+  ["ST Scope & Operation Order","Operation Code thuộc ST + thứ tự RAW NextOperation",c.md_st_operation_scope||0,"/operation-code-order"],
+  ["Source → Main Mapping","Operation Code → ST Group / Main Operation",c.md_st_operation_mapping,"/master/operationmapping"],
   ["ST Group Master","Danh mục nhóm công đoạn ST",c.md_st_group,"/st-groups"],
-  ["Area Master","Danh mục Area + gán ST Group",c.md_area,"/area"],
+  ["Physical Area Master","Danh mục Area + gán ST Group",c.md_area,"/area"],
   ["Schedule Area Mapping","Khu vực điều độ + số dòng + Standard Operation",c.md_schedule_area||0,"/schedule-areas"],
   ["Phân chia Planner","Chuyển khu vực điều độ giữa Planner 1 / Planner 2",0,"/planner-work-assignment"],
   ["Process Recipe","Recipe theo process; Phase 1 Paint",c.md_process_recipe,"/process-recipes"],

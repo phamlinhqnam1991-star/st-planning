@@ -1,7 +1,25 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {plannerForOperation} from "@/lib/planner-ownership";
+
 import {refreshBatchTotals,recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
+
+async function plannerForOperationDb(c:any,operation:unknown):Promise<"1"|"2"|null>{
+ const op=String(operation??"").trim();
+ if(!op)return null;
+ const q=await c.query(`
+  select w.planner_owner
+  from md_schedule_area_operation m
+  join md_schedule_area a
+    on a.schedule_area_code=m.schedule_area_code and a.is_active=true
+  left join md_planner_work_assignment w
+    on w.schedule_area_code=a.schedule_area_code and w.is_active=true
+  where m.is_active=true and upper(trim(m.standard_operation))=upper(trim($1))
+  order by a.display_order
+  limit 1
+ `,[op]);
+ const owner=String(q.rows[0]?.planner_owner||"");
+ return owner==="1"||owner==="2"?owner:null;
+}
 
 const clean=(v:unknown)=>String(v??"").trim();
 
@@ -137,9 +155,9 @@ async function createCrossPlannerEvent(
   jobSurface:number;
  }
 ){
- const sourcePlanner=plannerForOperation(args.sourceOperation);
+ const sourcePlanner=await plannerForOperationDb(c,args.sourceOperation);
  const nextOperation=await nextMainOperationForJob(c,args.jobNum,args.planningSeq);
- const affectedPlanner=plannerForOperation(nextOperation);
+ const affectedPlanner=await plannerForOperationDb(c,nextOperation);
 
  if(!sourcePlanner||!affectedPlanner||sourcePlanner===affectedPlanner)return;
 

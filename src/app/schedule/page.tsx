@@ -2,10 +2,7 @@ import {getPool} from "@/lib/db";
 import {AppTabs} from "@/components/app-tabs";
 import ScheduleBoardClient from "@/components/schedule-board-client";
 import {ManualScheduleGrid} from "@/components/manual-schedule-grid";
-import {
- PLANNER_1_OPERATIONS,
- PLANNER_2_OPERATIONS
-} from "@/lib/planner-ownership";
+import {calculateScheduleEnd} from "@/lib/schedule-time";
 
 export const dynamic="force-dynamic";
 
@@ -28,10 +25,31 @@ export default async function Page({
  const today=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Ho_Chi_Minh"});
  const date=sp.date||today;
  const planner=sp.planner==="2"?"2":"1";
- const plannerOperations=planner==="2"?PLANNER_2_OPERATIONS:PLANNER_1_OPERATIONS;
- const plannerOperationSet=new Set(plannerOperations.map(x=>x.toUpperCase()));
  const c=await getPool().connect();
  try{
+  // Planner ownership is fully dynamic: Schedule Area -> Planner Assignment -> Main Operation.
+  const plannerScopeQ=await c.query(`
+   select
+    coalesce(w.planner_owner,'UNASSIGNED') planner_owner,
+    m.standard_operation,
+    a.display_order
+   from md_schedule_area a
+   join md_schedule_area_operation m
+     on m.schedule_area_code=a.schedule_area_code and m.is_active=true
+   left join md_planner_work_assignment w
+     on w.schedule_area_code=a.schedule_area_code and w.is_active=true
+   where a.is_active=true
+   order by a.display_order,m.standard_operation
+  `);
+  const planner1Operations:string[]=[...new Set<string>(plannerScopeQ.rows.filter((x:any)=>x.planner_owner==='1').map((x:any)=>String(x.standard_operation)))];
+  const planner2Operations:string[]=[...new Set<string>(plannerScopeQ.rows.filter((x:any)=>x.planner_owner==='2').map((x:any)=>String(x.standard_operation)))];
+  const plannerOperations=planner==='2'?planner2Operations:planner1Operations;
+  const plannerOperationSet=new Set(plannerOperations.map(x=>x.toUpperCase()));
+  const plannerOwnerByOperation=new Map<string,string>();
+  for(const x of plannerScopeQ.rows){
+   const op=String(x.standard_operation||'').toUpperCase();
+   if(op && ['1','2'].includes(String(x.planner_owner)))plannerOwnerByOperation.set(op,String(x.planner_owner));
+  }
   const [
    resourcesQ,batchesQ,scheduleTableQ,timelineQ,operationsQ,recipesQ,handoverAlertsQ,scheduleAreasQ
   ]=await Promise.all([
@@ -405,10 +423,7 @@ export default async function Page({
    )
   ];
 
-  const effectivePlannerOperationSet=
-   assignedOperations.length
-    ? new Set(assignedOperations)
-    : plannerOperationSet;
+  const effectivePlannerOperationSet=new Set(assignedOperations.length?assignedOperations:[...plannerOperationSet]);
 
   const alertCountByBatch=new Map<number,number>();
   for(const alert of handoverAlerts){
@@ -466,7 +481,9 @@ export default async function Page({
 
   const productionResources=timelineResourceOrder
    .map(code=>resourceByCode.get(code))
-   .filter((r:any)=>Boolean(r)&&usedResourceCodes.has(String(r.resource_code))) as any[];
+   .filter((r:any)=>Boolean(r)&&(
+    String(r.resource_group)==="CHEMICAL_LINE"||usedResourceCodes.has(String(r.resource_code))
+   )) as any[];
 
   // Future resources not explicitly ordered are appended only when this Planner View uses them.
   for(const r of resourcesQ.rows as any[]){
@@ -528,14 +545,14 @@ export default async function Page({
       href={`/schedule?date=${encodeURIComponent(date)}&planner=1`}
      >
       Planner 1
-      <small>{PLANNER_1_OPERATIONS.length} operations</small>
+      <small>{planner1Operations.length} operations</small>
      </a>
      <a
       className={`schedule-planner-view-tab ${planner==="2"?"active":""}`}
       href={`/schedule?date=${encodeURIComponent(date)}&planner=2`}
      >
       Planner 2
-      <small>{PLANNER_2_OPERATIONS.length} operations</small>
+      <small>{planner2Operations.length} operations</small>
      </a>
     </div>
 
@@ -603,12 +620,8 @@ export default async function Page({
        <tbody>
         {allRows.map((x:any)=>{
          const op=String(x.standard_operation||"").toUpperCase();
-         const owner=
-          PLANNER_1_OPERATIONS.some(v=>v.toUpperCase()===op)
-           ?"Planner 1"
-           :PLANNER_2_OPERATIONS.some(v=>v.toUpperCase()===op)
-            ?"Planner 2"
-            :"—";
+         const ownerCode=plannerOwnerByOperation.get(op);
+         const owner=ownerCode==="1"?"Planner 1":ownerCode==="2"?"Planner 2":"—";
 
          return <tr
           key={`all-${x.id}`}
@@ -644,7 +657,7 @@ export default async function Page({
           <td className="num">{fmt(x.total_qty)}</td>
           <td className="num">{fmt(x.total_surface_dm2)}</td>
           <td className="mono">{time(x.planned_start)}</td>
-          <td className="mono">{time(x.planned_end)}</td>
+          <td className="mono schedule-calculated-end">{time(calculateScheduleEnd(x.planned_start,x.duration_minutes))}</td>
           <td className="mono">{hhmm(x.duration_minutes)}</td>
          </tr>
         })}
@@ -700,7 +713,7 @@ export default async function Page({
           <td className="num">{fmt(x.total_qty)}</td>
           <td className="num">{fmt(x.total_surface_dm2)}</td>
           <td className="mono">{time(x.planned_start)}</td>
-          <td className="mono">{time(x.planned_end)}</td>
+          <td className="mono schedule-calculated-end">{time(calculateScheduleEnd(x.planned_start,x.duration_minutes))}</td>
           <td className="mono">{hhmm(x.duration_minutes)}</td>
          </tr>
         )}
@@ -754,6 +767,23 @@ export default async function Page({
           {items.map((x:any)=>{
            const style=timelineStyle(x.planned_start,x.planned_end);
            if(!style)return null;
+
+           if(r.resource_group==="CHEMICAL_LINE"&&x.loading_start){
+            const segments=[
+             {key:"loading",label:"Loading",start:x.loading_start,end:x.loading_end},
+             {key:"process",label:"Process",start:x.process_start,end:x.process_end},
+             ...(x.ndt_start?[{key:"ndt",label:"NDT",start:x.ndt_start,end:x.ndt_end}]:[]),
+             {key:"unloading",label:"Unloading",start:x.unloading_start,end:x.unloading_end}
+            ];
+            return segments.map(segment=>{
+             const segmentStyle=timelineStyle(segment.start,segment.end);if(!segmentStyle)return null;
+             return <div className={`schedule-chip production-timeline-batch chemical chemical-${segment.key}`}
+              key={`${x.id}-${segment.key}`} style={segmentStyle}
+              title={`${x.batch_no} · ${segment.label} · ${time(segment.start)}–${time(segment.end)}`}>
+              <b>{time(segment.start)}–{time(segment.end)}</b><span>{segment.label}</span><span>{x.batch_no}</span>
+             </div>;
+            });
+           }
 
            return <div
             className={`schedule-chip production-timeline-batch ${

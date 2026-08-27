@@ -381,10 +381,10 @@ export default async function Page({
        href={
         sp.returnTo==="schedule"
          ? `/schedule${sp.date?`?date=${encodeURIComponent(sp.date)}`:""}`
-         : "/planning"
+         : "/planning/batches"
        }
       >
-       ← {sp.returnTo==="schedule"?"Board Điều Độ":"Planning Board"}
+       ← {sp.returnTo==="schedule"?"Board Điều Độ":"Recent Planning Batches"}
       </Link>
      </div>
 
