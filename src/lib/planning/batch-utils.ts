@@ -8,50 +8,38 @@ export async function resolveProcessMinutes(
 ){
  if(!recipeKey)return null;
 
- const recipe=await c.query(`
-   select process_family
-   from md_process_recipe
-   where recipe_key=$1 and is_active=true
+ // Generic rule cho MỌI công đoạn:
+ // 1) FIXED_HOURS (priority,id) — thời gian cố định.
+ // 2) QTY_SURFACE — khoảng Qty + Surface (priority,id).
+ const fixed=await c.query(`
+   select fixed_hours
+   from md_recipe_time_rule
+   where recipe_key=$1
+     and is_active=true
+     and calc_type='FIXED_HOURS'
+   order by priority,id
+   limit 1
  `,[recipeKey]);
 
- if(!recipe.rowCount)return null;
- const family=String(recipe.rows[0].process_family||"");
+ const fixedHours=Number(fixed.rows[0]?.fixed_hours);
+ if(Number.isFinite(fixedHours))return Math.round(fixedHours*60);
 
- if(family==="CHEMICAL_LINE"){
-   const q=await c.query(`
-     select fixed_hours
-     from md_recipe_time_rule
-     where recipe_key=$1
-       and is_active=true
-       and calc_type='FIXED_HOURS'
-     order by priority,id
-     limit 1
-   `,[recipeKey]);
+ const qtySurface=await c.query(`
+   select standard_hours
+   from md_recipe_time_rule
+   where recipe_key=$1
+     and is_active=true
+     and calc_type='QTY_SURFACE'
+     and (qty_min is null or $2 >= qty_min)
+     and (qty_max is null or $2 <= qty_max)
+     and (surface_min_dm2 is null or $3 >= surface_min_dm2)
+     and (surface_max_dm2 is null or $3 <= surface_max_dm2)
+   order by priority,id
+   limit 1
+ `,[recipeKey,totalQty,totalSurface]);
 
-   const hours=Number(q.rows[0]?.fixed_hours);
-   return Number.isFinite(hours)?Math.round(hours*60):null;
- }
-
- if(family==="PAINT"){
-   const q=await c.query(`
-     select standard_hours
-     from md_recipe_time_rule
-     where recipe_key=$1
-       and is_active=true
-       and calc_type='QTY_SURFACE'
-       and (qty_min is null or $2 >= qty_min)
-       and (qty_max is null or $2 <= qty_max)
-       and (surface_min_dm2 is null or $3 >= surface_min_dm2)
-       and (surface_max_dm2 is null or $3 <= surface_max_dm2)
-     order by priority,id
-     limit 1
-   `,[recipeKey,totalQty,totalSurface]);
-
-   const hours=Number(q.rows[0]?.standard_hours);
-   return Number.isFinite(hours)?Math.round(hours*60):null;
- }
-
- return null;
+ const hours=Number(qtySurface.rows[0]?.standard_hours);
+ return Number.isFinite(hours)?Math.round(hours*60):null;
 }
 
 export async function refreshBatchTotals(c:PoolClient,batchId:number){

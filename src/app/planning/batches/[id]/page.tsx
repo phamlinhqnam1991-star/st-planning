@@ -40,6 +40,7 @@ export default async function Page({
        b.id,b.batch_no,b.planning_date,b.standard_operation,b.recipe_key,
        b.total_jobs,b.total_qty,b.total_surface_dm2,b.process_minutes,
        b.planned_start,b.planned_end,b.status,b.priority,b.note,
+       b.batch_key,
        a.area_name,
        r.recipe_no,r.recipe_name
      from planning_batch b
@@ -119,7 +120,7 @@ export default async function Page({
            p.recipe_key is not null
            or exists(
              select 1
-             from md_operation_code_recipe ocr0
+             from md_main_operation_recipe ocr0
              where ocr0.operation_code=p.source_operation_code
                and ocr0.is_active=true
            )
@@ -267,7 +268,7 @@ export default async function Page({
            p.recipe_key is not null
            or exists(
              select 1
-             from md_operation_code_recipe ocr0
+             from md_main_operation_recipe ocr0
              where ocr0.operation_code=p.source_operation_code
                and ocr0.is_active=true
            )
@@ -350,7 +351,7 @@ export default async function Page({
              p.recipe_key is null
              and exists(
                select 1
-               from md_operation_code_recipe ocr
+               from md_main_operation_recipe ocr
                where ocr.operation_code=p.source_operation_code
                  and ocr.recipe_key=$1::text
                  and ocr.is_active=true
@@ -392,6 +393,7 @@ export default async function Page({
       <div className="planning-batch-detail-summary">
        <div><span>Operation</span><b>{batch.standard_operation}</b></div>
        <div><span>Recipe</span><b>{batch.recipe_no?`${batch.recipe_no} · ${batch.recipe_name||""}`:"—"}</b></div>
+       <div><span>Batch Key</span><b className="mono">{batch.batch_key||"—"}</b></div>
        <div><span>Jobs</span><b>{batch.total_jobs}</b></div>
        <div><span>Total Qty</span><b>{formatNumber(batch.total_qty)}</b></div>
        <div><span>Total Surface</span><b>{formatNumber(batch.total_surface_dm2)} dm²</b></div>

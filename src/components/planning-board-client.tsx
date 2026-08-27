@@ -84,6 +84,16 @@ type Candidate={
  previous_batch_source_operation:string|null;
  previous_batch_source_seq:number|null;
 
+ // Batch Key / Recipe Rule suggestion (enriched server-side).
+ rule_matched:boolean;
+ rule_ambiguous:boolean;
+ rule_name:string|null;
+ suggested_recipe_key:string|null;
+ suggested_recipe_no:string|null;
+ suggested_recipe_name:string|null;
+ batch_key_suggest:string|null;
+ batch_prefix_suggest:string|null;
+
  part_cluster:string|null;
  part_description:string|null;
  prod_qty:number|null;
@@ -266,6 +276,7 @@ export function PlanningBoardClient({
  mainOperations,
  recipeKey,
  timeRules,
+ rules,
  today
 }:{
  candidates:Candidate[];
@@ -276,6 +287,7 @@ export function PlanningBoardClient({
  mainOperations:MainOperationMaster[];
  recipeKey:string;
  timeRules:TimeRule[];
+ rules:any[];
  today:string;
 }){
  const [selected,setSelected]=useState<number[]>([]);
@@ -1119,6 +1131,29 @@ export function PlanningBoardClient({
    [selectedTargets]
  );
 
+ // Tổng hợp đề xuất Batch Key / Recipe Rule cho các Job đang chọn.
+ const suggestionSummary=useMemo(()=>{
+   if(!selectedRows.length)return null;
+   const matched=selectedRows.filter(x=>x.rule_matched&&!x.rule_ambiguous);
+   const ambiguous=selectedRows.filter(x=>x.rule_ambiguous);
+   const unmatched=selectedRows.filter(x=>!x.rule_matched);
+   const recipes=[...new Set(matched.map(x=>x.suggested_recipe_key).filter(Boolean))];
+   const keys=[...new Set(matched.map(x=>x.batch_key_suggest).filter(Boolean))];
+   const prefixes=[...new Set(matched.map(x=>x.batch_prefix_suggest).filter(Boolean))];
+   const names=[...new Set(matched.map(x=>x.suggested_recipe_name).filter(Boolean))];
+   const ruleNames=[...new Set(matched.map(x=>x.rule_name).filter(Boolean))];
+   return {
+     matchedCount:matched.length,
+     ambiguousCount:ambiguous.length,
+     unmatchedCount:unmatched.length,
+     unanimousRecipe:recipes.length===1?recipes[0]:null,
+     unanimousRecipeName:names.length===1?names[0]:null,
+     unanimousKey:keys.length===1?keys[0]:null,
+     unanimousPrefix:prefixes.length===1?prefixes[0]:null,
+     ruleNames
+   };
+ },[selectedRows]);
+
  const selectedPaintKey=useMemo(()=>{
    const firstTarget=selectedTargets[0];
    if(!firstTarget)return "";
@@ -1357,7 +1392,7 @@ export function PlanningBoardClient({
        body:JSON.stringify({
          planning_job_operation_ids:selected,
          standard_operation:effectiveOperation,
-         recipe_key:recipeKey||null,
+         recipe_key:recipeKey||suggestionSummary?.unanimousRecipe||null,
          target_batch_id:targetBatchId?Number(targetBatchId):null
        })
      });
@@ -1369,7 +1404,9 @@ export function PlanningBoardClient({
        `${d.batchNo} ${d.addedToExisting?"updated":"created"} · ${d.totalJobs} Jobs · `+
        `Qty ${formatNumber(d.totalQty)} · `+
        `Surface ${formatNumber(d.totalSurface)} dm² · `+
-       `Process ${minutesToHHMM(d.processMinutes)}`
+       `Process ${minutesToHHMM(d.processMinutes)}`+
+       (d.batchKey?` · Batch Key ${d.batchKey}`:"")+
+       (d.ruleName?` · Rule: ${d.ruleName}`:"")
      );
 
      setTimeout(()=>location.reload(),1200);
@@ -2281,6 +2318,7 @@ export function PlanningBoardClient({
    >
     <div className="erp-panel-head planning-batch-head">
      <b>Batch Builder</b>
+     {rules.length>0&&<small className="muted">· {rules.length} rules</small>}
     </div>
 
     <div className="planning-batch-body planning-batch-body-compact">
@@ -2291,6 +2329,29 @@ export function PlanningBoardClient({
       <div><span>Total Surface</span><b>{formatNumber(totalSurface)} dm²</b></div>
       <div className="planning-process-time"><span>Process Time</span><b>{minutesToHHMM(estimatedMinutes)}</b></div>
      </div>
+
+     {suggestionSummary&&selectedRows.length>0&&
+      <div className={`planning-rule-suggestion ${suggestionSummary.unanimousRecipe?"ok":suggestionSummary.ambiguousCount?"warn":""}`}>
+       {suggestionSummary.unanimousRecipe?(
+        <>
+         <b>✓ Rule khớp:</b> {suggestionSummary.ruleNames.join(", ")}
+         <span>Recipe: <b>{suggestionSummary.unanimousRecipeName||suggestionSummary.unanimousRecipe}</b></span>
+         {suggestionSummary.unanimousKey&&<span className="mono">Batch Key: {suggestionSummary.unanimousKey}</span>}
+         {suggestionSummary.unanimousPrefix&&<span className="mono">Prefix: {suggestionSummary.unanimousPrefix}</span>}
+        </>
+       ):(
+        <>
+         <b>{suggestionSummary.ambiguousCount?"⚠ Nhiều rule cùng ưu tiên khớp":"✕ Chưa có rule khớp"}</b>
+         <span>
+          {suggestionSummary.unmatchedCount} Job chưa khớp rule · chọn Recipe tay
+          hoặc{" "}
+          <a href={`/batch-key-recipe-rules?op=${encodeURIComponent(selectedOperation||"")}`}>
+           tạo rule
+          </a>
+         </span>
+        </>
+       )}
+      </div>}
 
      <label className="planning-target-batch">
       <span>Target Batch</span>

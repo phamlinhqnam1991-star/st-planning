@@ -8,12 +8,13 @@ export const dynamic="force-dynamic";
 export default async function Page({
  searchParams
 }:{
- searchParams:Promise<{q?:string;status?:string;p?:string}>
+ searchParams:Promise<{q?:string;status?:string;p?:string;all?:string}>
 }){
  const sp=await searchParams;
  const q=(sp.q||"").trim();
  const status=(sp.status||"OPEN").toUpperCase();
  const page=Math.max(1,Number(sp.p)||1);
+ const all=(sp.all||"")==="1";
  const size=50;
  const offset=(page-1)*size;
 
@@ -71,7 +72,8 @@ export default async function Page({
          prod_qty,current_good_wip_qty,last_labor_qty,
          last_operation,next_operation,total_surface,
          st,st_wip_area,wip_sequence,open_dmr,
-         priority_type,last_import_status,is_open,last_seen_at
+         priority_type,last_import_status,is_open,last_seen_at,
+         source_data
        from open_job_current
        ${where}
        order by
@@ -94,6 +96,29 @@ export default async function Page({
    const stats=statsQ.rows[0]||{};
    const total=Number(countQ.rows[0]?.n||0);
    const pages=Math.max(1,Math.ceil(total/size));
+   const rows=rowsQ.rows as any[];
+
+   // Chế độ "Xem tất cả cột": union mọi key trong source_data của các Job
+   // đang hiển thị (source_data giữ nguyên 140+ cột của file All Open Job).
+   let allColumns:string[]=[];
+   if(all){
+    const seen=new Set<string>();
+    for(const r of rows){
+     const sd=r.source_data||{};
+     for(const k of Object.keys(sd)){
+      const key=String(k||"").trim();
+      if(key&&!seen.has(key)){seen.add(key);allColumns.push(key);}
+     }
+    }
+    allColumns.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+   }
+
+   const cell=(r:any,col:string)=>{
+    const v=r[col];
+    if(v!=null&&v!=="")return v;
+    const sv=r.source_data?.[col];
+    return sv==null?"—":sv;
+   };
 
    const statusTabs=[
      ["OPEN",`Open (${Number(stats.open_jobs||0).toLocaleString()})`],
@@ -148,57 +173,85 @@ export default async function Page({
       />
       <button className="btn primary">Search</button>
       <Link className="btn" href="/all-open-jobs/history">Change History</Link>
+      {all
+       ? <Link className="btn" href={`/all-open-jobs?status=${status}&q=${encodeURIComponent(q)}`}>Xem gọn (12 cột)</Link>
+       : <Link className="btn" href={`/all-open-jobs?status=${status}&q=${encodeURIComponent(q)}&all=1`}>Xem tất cả cột</Link>}
      </form>
 
      <div className="erp-table-panel section">
       <div className="erp-panel-head">
        <b>Current Jobs</b>
-       <span>{total.toLocaleString()} records</span>
+       <span>{total.toLocaleString()} records{all?` · ${allColumns.length+2} cột (cuộn ngang để xem hết)`:" · 12 cột"}</span>
       </div>
 
       <div className="table-wrap">
-       <table className="erp-table open-job-table">
-        <thead>
-         <tr>
-          <th>Status</th>
-          <th>Job</th>
-          <th>Part</th>
-          <th>Rev</th>
-          <th>Program</th>
-          <th className="num">Prod Qty</th>
-          <th className="num">WIP Qty</th>
-          <th>Last Operation</th>
-          <th>Next Operation</th>
-          <th>ST Area</th>
-          <th className="num">Total Surface</th>
-          <th>Priority</th>
-          <th></th>
-         </tr>
-        </thead>
-        <tbody>
-         {rowsQ.rows.map((r:any)=>
-          <tr key={r.job_num}>
-           <td><span className={`job-state state-${String(r.last_import_status).toLowerCase()}`}>{r.last_import_status}</span></td>
-           <td><b>{r.job_num}</b></td>
-           <td>{r.part_num||"—"}</td>
-           <td>{r.revision_num||"—"}</td>
-           <td>{r.program||"—"}</td>
-           <td className="num mono">{r.prod_qty??"—"}</td>
-           <td className="num mono">{r.current_good_wip_qty??"—"}</td>
-           <td>{r.last_operation||"—"}</td>
-           <td><b>{r.next_operation||"—"}</b></td>
-           <td>{r.st_wip_area||r.st||"—"}</td>
-           <td className="num mono">{r.total_surface??"—"}</td>
-           <td>{r.priority_type||"—"}</td>
-           <td className="action">
-            <Link className="erp-link" href={`/all-open-jobs/${encodeURIComponent(r.job_num)}`}>Open →</Link>
-           </td>
+       {all ? (
+        <table className="erp-table open-job-table open-job-all-columns">
+         <thead>
+          <tr>
+           <th>Status</th>
+           <th>Job</th>
+           {allColumns.map(col=><th key={col}>{col}</th>)}
           </tr>
-         )}
-         {!rowsQ.rows.length&&
-          <tr><td colSpan={13} className="muted">Không có Job phù hợp.</td></tr>}
-        </tbody>
-       </table>
+         </thead>
+         <tbody>
+          {rows.map((r:any)=>
+           <tr key={r.job_num}>
+            <td><span className={`job-state state-${String(r.last_import_status).toLowerCase()}`}>{r.last_import_status}</span></td>
+            <td><b>{r.job_num}</b></td>
+            {allColumns.map(col=>
+             <td key={col} className="open-job-cell" title={String(cell(r,col)??"")}>{cell(r,col)}</td>
+            )}
+           </tr>
+          )}
+          {!rows.length&&
+           <tr><td colSpan={2+allColumns.length} className="muted">Không có Job phù hợp.</td></tr>}
+         </tbody>
+        </table>
+       ) : (
+        <table className="erp-table open-job-table">
+         <thead>
+          <tr>
+           <th>Status</th>
+           <th>Job</th>
+           <th>Part</th>
+           <th>Rev</th>
+           <th>Program</th>
+           <th className="num">Prod Qty</th>
+           <th className="num">WIP Qty</th>
+           <th>Last Operation</th>
+           <th>Next Operation</th>
+           <th>ST Area</th>
+           <th className="num">Total Surface</th>
+           <th>Priority</th>
+           <th></th>
+          </tr>
+         </thead>
+         <tbody>
+          {rows.map((r:any)=>
+           <tr key={r.job_num}>
+            <td><span className={`job-state state-${String(r.last_import_status).toLowerCase()}`}>{r.last_import_status}</span></td>
+            <td><b>{r.job_num}</b></td>
+            <td>{r.part_num||"—"}</td>
+            <td>{r.revision_num||"—"}</td>
+            <td>{r.program||"—"}</td>
+            <td className="num mono">{r.prod_qty??"—"}</td>
+            <td className="num mono">{r.current_good_wip_qty??"—"}</td>
+            <td>{r.last_operation||"—"}</td>
+            <td><b>{r.next_operation||"—"}</b></td>
+            <td>{r.st_wip_area||r.st||"—"}</td>
+            <td className="num mono">{r.total_surface??"—"}</td>
+            <td>{r.priority_type||"—"}</td>
+            <td className="action">
+             <Link className="erp-link" href={`/all-open-jobs/${encodeURIComponent(r.job_num)}`}>Open →</Link>
+            </td>
+           </tr>
+          )}
+          {!rows.length&&
+           <tr><td colSpan={13} className="muted">Không có Job phù hợp.</td></tr>}
+         </tbody>
+        </table>
+       )}
       </div>
      </div>
 

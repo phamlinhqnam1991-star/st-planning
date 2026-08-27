@@ -50,13 +50,8 @@ export async function POST(req:NextRequest){
    if(!recipe.rowCount)
     return NextResponse.json({error:"Recipe không tồn tại hoặc đã inactive."},{status:400});
 
-   const family=String(recipe.rows[0].process_family||"");
-
-   if(family==="CHEMICAL_LINE" && calcType!=="FIXED_HOURS")
-    return NextResponse.json({error:"Chemical Line chỉ sử dụng FIXED_HOURS."},{status:400});
-
-   if(family==="PAINT" && calcType!=="QTY_SURFACE")
-    return NextResponse.json({error:"Paint chỉ sử dụng QTY_SURFACE."},{status:400});
+   // Process Time áp dụng cho MỌI công đoạn chính: calc type do người dùng chọn,
+   // không còn khóa cứng theo Chemical Line / Paint nữa.
 
    await c.query(`
      insert into md_recipe_time_rule(
@@ -117,11 +112,7 @@ export async function PATCH(req:NextRequest){
    if(!current.rowCount)
     return NextResponse.json({error:"Không tìm thấy Time Rule."},{status:404});
 
-   const family=String(current.rows[0].process_family||"");
-   if(family==="CHEMICAL_LINE" && calcType!=="FIXED_HOURS")
-    return NextResponse.json({error:"Chemical Line chỉ sử dụng FIXED_HOURS."},{status:400});
-   if(family==="PAINT" && calcType!=="QTY_SURFACE")
-    return NextResponse.json({error:"Paint chỉ sử dụng QTY_SURFACE."},{status:400});
+   // Process Time áp dụng cho MỌI công đoạn chính; calc type do người dùng chọn.
 
    await c.query(`
      update md_recipe_time_rule

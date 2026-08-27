@@ -28,12 +28,10 @@ type Rule={
  note:string|null;
 };
 
-export function ProcessTimeRuleManager({
- recipes,rules
-}:{recipes:Recipe[];rules:Rule[]}){
+export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:Rule[]}){
  const [busy,setBusy]=useState(false);
- const [family,setFamily]=useState<"PAINT"|"CHEMICAL_LINE">("CHEMICAL_LINE");
- const familyRecipes=useMemo(()=>recipes.filter(x=>x.process_family===family),[recipes,family]);
+ const [calcType,setCalcType]=useState<"FIXED_HOURS"|"QTY_SURFACE">("FIXED_HOURS");
+ const [familyFilter,setFamilyFilter]=useState("ALL");
  const [recipeKey,setRecipeKey]=useState("");
  const [edit,setEdit]=useState<Rule|null>(null);
  const [filter,setFilter]=useState("");
@@ -48,19 +46,26 @@ export function ProcessTimeRuleManager({
    note:""
  });
 
+ const families=useMemo(()=>[...new Set(recipes.map(r=>r.process_family))].sort(),[recipes]);
+ const familyRecipes=useMemo(()=>{
+   const q=familyFilter==="ALL"?recipes:recipes.filter(x=>x.process_family===familyFilter);
+   const qt=calcType==="FIXED_HOURS"?q:q;
+   return qt;
+ },[recipes,familyFilter,calcType]);
+
  const selectedRecipeKey=recipeKey || familyRecipes[0]?.recipe_key || "";
- const calcType=family==="CHEMICAL_LINE"?"FIXED_HOURS":"QTY_SURFACE";
 
  const visible=useMemo(()=>{
    const q=filter.trim().toUpperCase();
    return rules.filter(x=>{
-     if(x.process_family!==family)return false;
+     if(familyFilter!=="ALL"&&x.process_family!==familyFilter)return false;
+     if(x.calc_type!==calcType)return false;
      if(!q)return true;
      return (x.recipe_no||"").toUpperCase().includes(q) ||
             (x.recipe_name||"").toUpperCase().includes(q) ||
             x.recipe_group.toUpperCase().includes(q);
    });
- },[rules,family,filter]);
+ },[rules,familyFilter,calcType,filter]);
 
  function clear(){
    setEdit(null);
@@ -72,9 +77,9 @@ export function ProcessTimeRuleManager({
  }
 
  function start(r:Rule){
-   setFamily(r.process_family as "PAINT"|"CHEMICAL_LINE");
    setRecipeKey(r.recipe_key);
    setEdit(r);
+   setCalcType(r.calc_type);
    setF({
      priority:String(r.priority??100),
      qty_min:r.qty_min==null?"":String(r.qty_min),
@@ -140,23 +145,27 @@ export function ProcessTimeRuleManager({
    <div className="erp-table-panel">
     <div className="erp-panel-head">
       <b>Process Time by Recipe</b>
-      <span>Chemical Line = Fixed · Paint = Qty + Surface</span>
+      <span>Áp dụng cho MỌI công đoạn · FIXED_HOURS = thời gian cố định · QTY_SURFACE = theo khoảng Qty + Surface</span>
     </div>
 
     <div className="time-family-tabs">
       <button
-       className={`btn ${family==="CHEMICAL_LINE"?"primary":""}`}
-       onClick={()=>{setFamily("CHEMICAL_LINE");setRecipeKey("");clear()}}>
-       Chemical Line
+       className={`btn ${calcType==="FIXED_HOURS"?"primary":""}`}
+       onClick={()=>{setCalcType("FIXED_HOURS");setRecipeKey("");clear()}}>
+       FIXED_HOURS
       </button>
       <button
-       className={`btn ${family==="PAINT"?"primary":""}`}
-       onClick={()=>{setFamily("PAINT");setRecipeKey("");clear()}}>
-       Paint
+       className={`btn ${calcType==="QTY_SURFACE"?"primary":""}`}
+       onClick={()=>{setCalcType("QTY_SURFACE");setRecipeKey("");clear()}}>
+       QTY_SURFACE (Qty + dm²)
       </button>
+      <select className="input" value={familyFilter} onChange={e=>{setFamilyFilter(e.target.value);setRecipeKey("")}}>
+       <option value="ALL">Tất cả Process Family</option>
+       {families.map(fm=><option key={fm} value={fm}>{fm}</option>)}
+      </select>
     </div>
 
-    <div className={`process-time-form ${family==="CHEMICAL_LINE"?"fixed":"paint"}`}>
+    <div className={`process-time-form ${calcType==="FIXED_HOURS"?"fixed":"paint"}`}>
       <label>
        Recipe
        <select
@@ -166,7 +175,7 @@ export function ProcessTimeRuleManager({
         onChange={e=>setRecipeKey(e.target.value)}>
         {familyRecipes.map(r=>
          <option key={r.recipe_key} value={r.recipe_key}>
-          {r.recipe_no||"—"} · {r.recipe_name||"CHƯA KHAI BÁO"}
+          [{r.process_family}] {r.recipe_no||"—"} · {r.recipe_name||"CHƯA KHAI BÁO"}
          </option>
         )}
        </select>
@@ -184,7 +193,7 @@ export function ProcessTimeRuleManager({
         onChange={e=>setF({...f,priority:e.target.value})}/>
       </label>
 
-      {family==="CHEMICAL_LINE" ? <>
+      {calcType==="FIXED_HOURS" ? <>
        <label>
         Fixed Hours
         <input className="input" type="number" step="0.01" min="0"
@@ -243,7 +252,7 @@ export function ProcessTimeRuleManager({
 
    <div className="erp-table-panel section">
     <div className="erp-panel-head">
-      <b>{family==="CHEMICAL_LINE"?"Chemical Line Fixed Time":"Paint Qty / Surface Time Rules"}</b>
+      <b>Time Rules · {calcType}</b>
       <div className="row">
        <span>{visible.length} active rules</span>
        <input
@@ -258,32 +267,34 @@ export function ProcessTimeRuleManager({
      <table className="erp-table">
       <thead>
        <tr>
+        <th>Family</th>
         <th>Recipe No</th>
         <th>Recipe Name</th>
         <th>Calc Type</th>
         <th>Priority</th>
-        {family==="PAINT"&&<>
+        {calcType==="QTY_SURFACE"&&<>
          <th>Qty Min</th><th>Qty Max</th>
          <th>Surface Min</th><th>Surface Max</th>
         </>}
-        <th>{family==="CHEMICAL_LINE"?"Fixed Hours":"Standard Hours"}</th>
+        <th>{calcType==="FIXED_HOURS"?"Fixed Hours":"Standard Hours"}</th>
         <th>Note</th>
         <th></th>
        </tr>
       </thead>
       <tbody>
        {visible.map(r=><tr key={r.id}>
+        <td><b>{r.process_family}</b></td>
         <td className="mono">{r.recipe_no||"—"}</td>
         <td><b>{r.recipe_name||"CHƯA KHAI BÁO"}</b></td>
         <td>{r.calc_type}</td>
         <td className="num mono">{r.priority}</td>
-        {family==="PAINT"&&<>
+        {calcType==="QTY_SURFACE"&&<>
          <td className="num">{r.qty_min??"—"}</td>
          <td className="num">{r.qty_max??"—"}</td>
          <td className="num">{r.surface_min_dm2??"—"}</td>
          <td className="num">{r.surface_max_dm2??"—"}</td>
         </>}
-        <td className="num mono">{family==="CHEMICAL_LINE"?r.fixed_hours??"—":r.standard_hours??"—"}</td>
+        <td className="num mono">{calcType==="FIXED_HOURS"?r.fixed_hours??"—":r.standard_hours??"—"}</td>
         <td>{r.note||"—"}</td>
         <td className="action">
          <div className="row">
@@ -293,7 +304,7 @@ export function ProcessTimeRuleManager({
         </td>
        </tr>)}
        {!visible.length&&
-        <tr><td colSpan={family==="PAINT"?11:7} className="muted">Chưa có Time Rule.</td></tr>}
+        <tr><td colSpan={calcType==="QTY_SURFACE"?13:8} className="muted">Chưa có Time Rule kiểu {calcType}.</td></tr>}
       </tbody>
      </table>
     </div>

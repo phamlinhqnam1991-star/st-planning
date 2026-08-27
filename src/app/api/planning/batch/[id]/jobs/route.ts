@@ -2,6 +2,8 @@ import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 
 import {refreshBatchTotals,recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
+import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
+import {evaluateRulesForJob,parseRules,RULES_SQL} from "@/lib/batch-key-recipe";
 
 async function plannerForOperationDb(c:any,operation:unknown):Promise<"1"|"2"|null>{
  const op=String(operation??"").trim();
@@ -230,10 +232,14 @@ export async function POST(
    if(!["PLANNED","RELEASED"].includes(batch.status))
      throw new Error("Batch hiện tại không cho phép thêm Job.");
 
+   const rulesRowsQ=await c.query(`${RULES_SQL}`);
+   const rules=parseRules(rulesRowsQ.rows);
+
    const q=await c.query(`
      select
        p.id,p.job_num,p.source_operation_code,p.standard_operation,p.recipe_key,p.status,p.planning_seq,
        j.part_num,j.revision_num,
+       j.source_data,
        mf.primer1 part_master_primer1,
        mf.primer2 part_master_primer2,
        mf.primer3 part_master_primer3,
@@ -320,9 +326,22 @@ export async function POST(
          throw new Error(`Job ${r.job_num} có Recipe khác Batch.`);
 
        if(!r.recipe_key){
+         // Batch Key / Recipe Rule kiểm tra trước: nếu rule khớp và đề xuất
+         // recipe khác Batch → chặn (không gom sai nhóm).
+         const suggestion=evaluateRulesForJob(rules,batch.standard_operation,r.source_data);
+
+         if(suggestion.matched && !suggestion.ambiguous && suggestion.recipeKey){
+           if(suggestion.recipeKey!==batch.recipe_key)
+             throw new Error(
+              `Job ${r.job_num} khớp rule "${suggestion.rule?.rule_name||""}" đề xuất `+
+              `Recipe khác Batch (${batch.recipe_key}). Không thể gom chung.`
+             );
+           continue; // rule xác nhận đúng Batch Recipe
+         }
+
          const allowed=await c.query(`
            select 1
-           from md_operation_code_recipe
+           from md_main_operation_recipe
            where operation_code=$1
              and recipe_key=$2
              and is_active=true
@@ -360,6 +379,12 @@ export async function POST(
    }
 
    const totals=await refreshBatchTotals(c,batchId);
+
+   // v193: Batch đã Schedule trên Chemical Line → tự tính lại Loading/Process/
+   // NDT/Unloading theo Qty/Surface mới và kéo dãn lịch (giữ Loading Start).
+   await autoAdjustChemicalSchedule(c,batchId,totals.processMinutes).catch((e:any)=>{
+     throw new Error(`Thêm Job làm thay đổi thời gian Chemical Line: ${e instanceof Error?e.message:String(e)}`);
+   });
 
    for(const r of q.rows){
      await createCrossPlannerEvent(c,{
@@ -467,6 +492,11 @@ export async function DELETE(
    await recomputeJobPlanningStatus(c,row.job_num);
 
    const totals=await refreshBatchTotals(c,batchId);
+
+   // v193: bớt Job → thu lại thời gian Chemical Line theo Qty/Surface mới.
+   await autoAdjustChemicalSchedule(c,batchId,totals.processMinutes).catch((e:any)=>{
+     throw new Error(`Bỏ Job làm thay đổi thời gian Chemical Line: ${e instanceof Error?e.message:String(e)}`);
+   });
 
    await createCrossPlannerEvent(c,{
      sourceBatchId:batchId,

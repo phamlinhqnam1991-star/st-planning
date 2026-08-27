@@ -32,6 +32,14 @@ export type ChemicalScheduleWindow={
  totalMinutes:number;
 };
 
+// Planner có thể chủ động chỉnh giờ bắt đầu của Process / NDT / Unloading.
+// Loading Start luôn là điểm neo (không override). Giá trị null = tự động.
+export type ChemicalScheduleOverrides={
+ processStart?:Date|null;
+ ndtStart?:Date|null;
+ unloadingStart?:Date|null;
+};
+
 const finite=(value:unknown)=>{
  const number=Number(value);
  return Number.isFinite(number)?number:0;
@@ -75,7 +83,8 @@ export function buildChemicalScheduleWindow({
  loadingMinutes,
  unloadingMinutes,
  recipeNo,
- previousNdtStart
+ previousNdtStart,
+ overrides
 }:{
  loadingStart:Date;
  processMinutes:number;
@@ -83,19 +92,23 @@ export function buildChemicalScheduleWindow({
  unloadingMinutes:number;
  recipeNo:unknown;
  previousNdtStart?:Date|null;
+ overrides?:ChemicalScheduleOverrides|null;
 }):ChemicalScheduleWindow{
  const loadingEnd=addMinutes(loadingStart,loadingMinutes);
- const processStart=loadingEnd;
+ const processStart=overrides?.processStart||loadingEnd;
  const processEnd=addMinutes(processStart,processMinutes);
  const preclean=isPrecleanRecipe(recipeNo);
  const minimumNdtStart=previousNdtStart
   ?addMinutes(previousNdtStart,CHEMICAL_NDT_START_GAP_MINUTES)
   :null;
+ // Override NDT Start được áp dụng theo đúng giá trị planner nhập;
+ // ràng buộc tối thiểu (sau Process End, cách NDT trước ≥ 01:30) được kiểm
+ // tra ở tầng server (resolveChemicalScheduleWindow).
  const ndtStart=preclean
-  ?new Date(Math.max(processEnd.getTime(),minimumNdtStart?.getTime()||0))
+  ?(overrides?.ndtStart||new Date(Math.max(processEnd.getTime(),minimumNdtStart?.getTime()||0)))
   :null;
  const ndtEnd=ndtStart?addMinutes(ndtStart,CHEMICAL_NDT_DURATION_MINUTES):null;
- const unloadingStart=ndtEnd||processEnd;
+ const unloadingStart=overrides?.unloadingStart||ndtEnd||processEnd;
  const unloadingEnd=addMinutes(unloadingStart,unloadingMinutes);
 
  return {

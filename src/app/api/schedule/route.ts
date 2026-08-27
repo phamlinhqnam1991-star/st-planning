@@ -4,6 +4,14 @@ import { unlockNextAfterScheduledBatch,healScheduledHandoffs } from "@/lib/plann
 import {assertResourceAndChemicalCapacity,chemicalScheduleColumns,resolveChemicalScheduleWindow} from "@/lib/chemical-line-schedule-server";
 
 function asDate(v:any){const d=new Date(v);return Number.isNaN(d.getTime())?null:d}
+// Planner override giờ bắt đầu Process/NDT/Unloading (ISO hoặc null = tự động).
+function parseOverrides(body:any){
+ return {
+  processStart:body.process_start_override?asDate(body.process_start_override):null,
+  ndtStart:body.ndt_start_override?asDate(body.ndt_start_override):null,
+  unloadingStart:body.unloading_start_override?asDate(body.unloading_start_override):null
+ };
+}
 
 export async function POST(req:Request){
  const body=await req.json().catch(()=>({}));
@@ -28,7 +36,7 @@ export async function POST(req:Request){
     from planning_batch b
     left join md_process_recipe r on r.recipe_key=b.recipe_key and r.is_active=true
     where b.id=$1
-    for update
+    for update of b
   `,[batchId]);
   if(!bq.rowCount) throw new Error("Batch not found");
 
@@ -55,7 +63,8 @@ export async function POST(req:Request){
   const chemicalWindow=resource.resource_group==="CHEMICAL_LINE"
    ?await resolveChemicalScheduleWindow(c,{
      loadingStart:start,processMinutes:duration,totalQty:Number(batch.total_qty||0),
-     totalSurfaceDm2:Number(batch.total_surface_dm2||0),recipeNo:batch.recipe_no
+     totalSurfaceDm2:Number(batch.total_surface_dm2||0),recipeNo:batch.recipe_no,
+     overrides:parseOverrides(body)
     })
    :null;
   const end=chemicalWindow?.unloadingEnd||new Date(start.getTime()+duration*60000);
@@ -63,7 +72,8 @@ export async function POST(req:Request){
   if(chemicalWindow){
    await assertResourceAndChemicalCapacity(c,{
     resourceCode,resourceGroup:resource.resource_group,window:chemicalWindow,
-    maxConcurrent:Number(resource.max_concurrent||3)
+    maxConcurrent:Number(resource.max_concurrent||3),
+    excludeScheduleId:null
    });
   }
 
@@ -166,7 +176,7 @@ export async function PATCH(req:Request){
    ?await resolveChemicalScheduleWindow(c,{
      loadingStart:start,processMinutes:duration,totalQty:Number(current.total_qty||0),
      totalSurfaceDm2:Number(current.total_surface_dm2||0),recipeNo:current.recipe_no,
-     excludeScheduleId:scheduleId
+     excludeScheduleId:scheduleId,overrides:parseOverrides(body)
     })
    :null;
   const end=chemicalWindow?.unloadingEnd||new Date(start.getTime()+duration*60000);

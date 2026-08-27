@@ -1,5 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {evaluateRulesForJob,parseRules,RULES_SQL} from "@/lib/batch-key-recipe";
+import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const num=(v:unknown)=>{
@@ -65,50 +67,36 @@ async function resolveProcessMinutes(
 ){
  if(!recipeKey)return null;
 
- const recipe=await c.query(`
-   select process_family
-   from md_process_recipe
-   where recipe_key=$1 and is_active=true
+ // Generic: FIXED_HOURS trước, rồi QTY_SURFACE theo khoảng — cho mọi công đoạn.
+ const fixed=await c.query(`
+   select fixed_hours
+   from md_recipe_time_rule
+   where recipe_key=$1
+     and is_active=true
+     and calc_type='FIXED_HOURS'
+   order by priority,id
+   limit 1
  `,[recipeKey]);
 
- if(!recipe.rowCount)return null;
- const family=String(recipe.rows[0].process_family||"");
+ const fixedHours=Number(fixed.rows[0]?.fixed_hours);
+ if(Number.isFinite(fixedHours))return Math.round(fixedHours*60);
 
- if(family==="CHEMICAL_LINE"){
-   const q=await c.query(`
-     select fixed_hours
-     from md_recipe_time_rule
-     where recipe_key=$1
-       and is_active=true
-       and calc_type='FIXED_HOURS'
-     order by priority,id
-     limit 1
-   `,[recipeKey]);
+ const qtySurface=await c.query(`
+   select standard_hours
+   from md_recipe_time_rule
+   where recipe_key=$1
+     and is_active=true
+     and calc_type='QTY_SURFACE'
+     and (qty_min is null or $2 >= qty_min)
+     and (qty_max is null or $2 <= qty_max)
+     and (surface_min_dm2 is null or $3 >= surface_min_dm2)
+     and (surface_max_dm2 is null or $3 <= surface_max_dm2)
+   order by priority,id
+   limit 1
+ `,[recipeKey,totalQty,totalSurface]);
 
-   const hours=Number(q.rows[0]?.fixed_hours);
-   return Number.isFinite(hours)?Math.round(hours*60):null;
- }
-
- if(family==="PAINT"){
-   const q=await c.query(`
-     select standard_hours
-     from md_recipe_time_rule
-     where recipe_key=$1
-       and is_active=true
-       and calc_type='QTY_SURFACE'
-       and (qty_min is null or $2 >= qty_min)
-       and (qty_max is null or $2 <= qty_max)
-       and (surface_min_dm2 is null or $3 >= surface_min_dm2)
-       and (surface_max_dm2 is null or $3 <= surface_max_dm2)
-     order by priority,id
-     limit 1
-   `,[recipeKey,totalQty,totalSurface]);
-
-   const hours=Number(q.rows[0]?.standard_hours);
-   return Number.isFinite(hours)?Math.round(hours*60):null;
- }
-
- return null;
+ const hours=Number(qtySurface.rows[0]?.standard_hours);
+ return Number.isFinite(hours)?Math.round(hours*60):null;
 }
 
 export async function POST(req:NextRequest){
@@ -254,6 +242,7 @@ export async function POST(req:NextRequest){
        p.id,p.job_num,p.source_operation_code,p.standard_operation,p.st_group,p.recipe_key,p.status,
        p.source_seq,p.planning_seq,p.operation_instance_key,
        j.part_num,j.revision_num,
+       j.source_data,
        mf.primer1 part_master_primer1,
        mf.primer2 part_master_primer2,
        mf.primer3 part_master_primer3,
@@ -339,7 +328,59 @@ export async function POST(req:NextRequest){
 
    const resolved=[...new Set(q.rows.map((r:any)=>r.recipe_key).filter(Boolean))];
 
-   if(!recipeKey){
+   // =====================================================================
+   // Batch Key / Recipe Rule — đề xuất Recipe + Batch Key + Prefix khi
+   // planner chưa chọn Recipe tay. Áp dụng cho MỌI Main Operation.
+   // =====================================================================
+   const rulesRowsQ=await c.query(`${RULES_SQL}`);
+   const rules=parseRules(rulesRowsQ.rows);
+   const rulesForOp=rules.filter(r=>r.standard_operation===standardOperation && r.is_active!==false);
+
+   let suggestedBatchKey:string|null=null;
+   let rulePrefix:string|null=null;
+   let ruleName:string|null=null;
+
+   if(!recipeKey && rulesForOp.length){
+     const suggestions=q.rows.map((r:any)=>({
+       job:r.job_num,
+       row:r,
+       suggestion:evaluateRulesForJob(rules,standardOperation,r.source_data)
+     }));
+
+     const unmatched=suggestions.filter(x=>!x.suggestion.matched);
+     const ambiguous=suggestions.filter(x=>x.suggestion.ambiguous);
+     const matched=suggestions.filter(x=>x.suggestion.matched && !x.suggestion.ambiguous);
+
+     if(ambiguous.length){
+       throw new Error(
+        `Nhiều rule cùng ưu tiên khớp cho Job ${ambiguous.map(x=>x.job).join(", ")}. `+
+        `Hãy chọn Recipe tay hoặc chỉnh Priority rule trong Cấu hình.`
+       );
+     }
+
+     if(unmatched.length && !resolved.length){
+       throw new Error(
+        `Không có rule nào khớp cho Job: ${unmatched.map(x=>x.job).join(", ")}. `+
+        `Hãy chọn Recipe tay hoặc tạo rule tại Cấu hình → Batch Key / Recipe Rules.`
+       );
+     }
+
+     const distinctRecipes=[...new Set(matched.map(x=>x.suggestion.recipeKey).filter(Boolean))];
+     const distinctBatchKeys=[...new Set(matched.map(x=>x.suggestion.batchKey).filter(Boolean))];
+
+     if(matched.length){
+       if(distinctRecipes.length>1 || distinctBatchKeys.length>1){
+         throw new Error(
+          `Các Job khớp rule nhưng thuộc nhóm Batch Key khác nhau `+
+          `(${distinctBatchKeys.join(" | ")}). Một Batch chỉ gom Job cùng Batch Key / Recipe.`
+         );
+       }
+       if(distinctRecipes.length===1)recipeKey=distinctRecipes[0];
+       if(distinctBatchKeys.length===1)suggestedBatchKey=distinctBatchKeys[0];
+       rulePrefix=matched[0].suggestion.prefix||null;
+       ruleName=matched[0].suggestion.rule?.rule_name||null;
+     }
+   }else if(!recipeKey){
      if(resolved.length===1)recipeKey=resolved[0];
      else if(resolved.length>1)
        throw new Error("Các Job đang có Recipe khác nhau. Hãy chọn đúng Recipe.");
@@ -353,7 +394,7 @@ export async function POST(req:NextRequest){
        if(!r.recipe_key){
          const allowed=await c.query(`
            select 1
-           from md_operation_code_recipe
+           from md_main_operation_recipe
            where operation_code=$1
              and recipe_key=$2
              and is_active=true
@@ -458,16 +499,22 @@ export async function POST(req:NextRequest){
              total_surface_dm2=$4,
              process_minutes=$5,
              recipe_key=coalesce(recipe_key,$6),
+             batch_key=coalesce(batch_key,$7),
              updated_at=now()
        where id=$1
      `,[
       targetBatch.id,newTotalJobs,newTotalQty,newTotalSurface,
-      newProcessMinutes,recipeKey
+      newProcessMinutes,recipeKey,suggestedBatchKey
      ]);
 
-     // If Batch is already scheduled, keep its existing scheduled slot/duration.
-     // We update Batch totals/process estimate only; planner may explicitly edit
-     // the schedule when required. This prevents an automatic move of a live plan.
+     // v193: Batch đã Schedule trên Chemical Line → tự tính lại Loading/Process/
+     // NDT/Unloading theo Qty/Surface mới và kéo dãn lịch (giữ Loading Start).
+     if(targetBatch.schedule_id){
+      await autoAdjustChemicalSchedule(c,targetBatch.id,newProcessMinutes).catch((e:any)=>{
+       throw new Error(`Thêm Job làm thay đổi thời gian Chemical Line: ${e instanceof Error?e.message:String(e)}`);
+      });
+     }
+
      await c.query("commit");
 
      return NextResponse.json({
@@ -532,7 +579,9 @@ export async function POST(req:NextRequest){
    if(!prefixQ.rowCount)
      throw new Error(`Operation Master chưa có ${standardOperation}.`);
 
-   const batchPrefix=validBatchPrefix(prefixQ.rows[0].batch_prefix);
+   // Rule đề xuất Prefix có quyền ưu tiên; nếu không có/không hợp lệ thì dùng
+   // Batch Prefix của Operation Master.
+   const batchPrefix=validBatchPrefix(rulePrefix)||validBatchPrefix(prefixQ.rows[0].batch_prefix);
 
    if(!batchPrefix)
      throw new Error(
@@ -590,17 +639,17 @@ export async function POST(req:NextRequest){
 
    const batchQ=await c.query(`
      insert into planning_batch(
-       batch_no,planning_date,area_id,standard_operation,recipe_key,
+       batch_no,planning_date,area_id,standard_operation,recipe_key,batch_key,
        total_jobs,total_qty,total_surface_dm2,process_minutes,
        planned_start,planned_end,priority,status,note,plan_source
      )
      values(
-       $1,$2::date,$3,$4,$5,$6,$7,$8,$9,
-       $10::timestamptz,$11::timestamptz,$12,'PLANNED',$13,'PLANNING_BOARD'
+       $1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,
+       $11::timestamptz,$12::timestamptz,$13,'PLANNED',$14,'PLANNING_BOARD'
      )
      returning id,batch_no,planning_date
    `,[
-     batchNo,effectivePlanningDate,areaId,standardOperation,recipeKey,
+     batchNo,effectivePlanningDate,areaId,standardOperation,recipeKey,suggestedBatchKey,
      q.rows.length,totalQty,totalSurface,processMinutes,
      startTimestamp,endTimestamp,priority,note
    ]);
@@ -640,6 +689,8 @@ export async function POST(req:NextRequest){
      ok:true,
      batchId,
      batchNo,
+     batchKey:suggestedBatchKey,
+     ruleName,
      totalJobs:q.rows.length,
      totalQty,
      totalSurface,

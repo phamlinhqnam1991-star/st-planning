@@ -3755,3 +3755,147 @@ button,a,input,select,textarea{touch-action:manipulation}
     min-height:380px!important;
   }
 }
+
+/* ============ v188: Batch Key / Recipe Rules ============ */
+.planning-rule-suggestion{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  padding:8px 10px;
+  margin-bottom:10px;
+  border:1px solid var(--border,#d0d5dc);
+  border-left:4px solid #b45309;
+  border-radius:4px;
+  background:#fffaf0;
+  font-size:12px;
+  line-height:1.45;
+}
+.planning-rule-suggestion.ok{
+  border-left-color:#15803d;
+  background:#f0fdf4;
+}
+.planning-rule-suggestion.warn{
+  border-left-color:#b45309;
+  background:#fffaf0;
+}
+.planning-rule-suggestion span{
+  display:block;
+  word-break:break-word;
+}
+.rule-form{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:10px;
+  padding:12px;
+  border-bottom:1px solid var(--border,#d0d5dc);
+}
+.rule-form label{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  font-size:12px;
+  font-weight:600;
+}
+.rule-form label.row{
+  flex-direction:row;
+  align-items:center;
+  gap:6px;
+}
+.rule-conditions{
+  padding:12px;
+  border-bottom:1px solid var(--border,#d0d5dc);
+}
+.rule-condition-row{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  margin-bottom:8px;
+  flex-wrap:wrap;
+}
+.rule-condition-row .input{
+  flex:1 1 180px;
+}
+.rule-form-actions{
+  gap:8px;
+  padding:12px;
+}
+.rule-filter{
+  max-width:220px;
+}
+.erp-filter-row{
+  gap:8px;
+  flex-wrap:wrap;
+  padding:10px 12px;
+  border-bottom:1px solid var(--border,#d0d5dc);
+}
+.erp-pager{
+  gap:12px;
+  align-items:center;
+  justify-content:center;
+  padding:10px;
+  font-size:12px;
+}
+
+/* ============ v189: All Open Jobs - xem tất cả cột ============ */
+.open-job-all-columns{
+  min-width:max-content;
+}
+.open-job-all-columns th{
+  white-space:nowrap;
+  position:sticky;
+  top:0;
+  z-index:2;
+}
+.open-job-all-columns th:first-child,
+.open-job-all-columns th:nth-child(2),
+.open-job-all-columns td:first-child,
+.open-job-all-columns td:nth-child(2){
+  position:sticky;
+  left:0;
+  background:inherit;
+  z-index:3;
+}
+.open-job-all-columns th:first-child{
+  z-index:4;
+}
+.open-job-cell{
+  max-width:220px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+/* ============ v190: Timeline Chemical Line — xung đột đỏ ============ */
+.production-timeline-batch.conflict,
+.schedule-chip.conflict{
+  outline:2px solid #dc2626!important;
+  outline-offset:-1px;
+  box-shadow:0 0 0 1px #dc2626 inset;
+  z-index:5;
+}
+.production-timeline-batch.conflict b,
+.schedule-chip.conflict b{
+  color:#b91c1c!important;
+}
+
+/* ============ v191: Chemical phase override inputs ============ */
+.chemical-phase-edit{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  align-items:flex-start;
+}
+.chemical-phase-edit input{
+  max-width:84px;
+  font-size:12px;
+  padding:2px 4px;
+}
+.chemical-phase-edit small{
+  color:var(--muted,#6b7280);
+  font-size:10px;
+}
+.chemical-phase-cell small{
+  display:block;
+  color:var(--muted,#6b7280);
+  font-size:10px;
+}

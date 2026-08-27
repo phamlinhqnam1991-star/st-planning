@@ -11,6 +11,7 @@ export async function POST(req:NextRequest){
  try{
   const b=await req.json();
   const operationCode=clean(b.operation_code);
+  const standardOperation=clean(b.standard_operation)||null;
   const recipeKey=clean(b.recipe_key);
   const note=clean(b.note)||null;
   const priority=Math.max(1,toInt(b.priority,100));
@@ -28,39 +29,51 @@ export async function POST(req:NextRequest){
      select recipe_key
      from md_process_recipe
      where recipe_key=$1
-       and process_family='CHEMICAL_LINE'
        and is_active=true
    `,[recipeKey]);
 
    if(!recipe.rowCount){
     await c.query("rollback");
-    return NextResponse.json({error:"Recipe Chemical Line không hợp lệ."},{status:400});
+    return NextResponse.json({error:"Recipe không hợp lệ."},{status:400});
    }
 
-   // Keep only one default Recipe per Operation Code.
+   if(standardOperation){
+    const opQ=await c.query(`
+      select standard_operation from md_operation_master
+      where standard_operation=$1 and is_active=true limit 1
+    `,[standardOperation]);
+    if(!opQ.rowCount){
+     await c.query("rollback");
+     return NextResponse.json({error:`Main Operation ${standardOperation} chưa có trong Operation Master.`},{status:400});
+    }
+   }
+
+   // Keep only one default Recipe per Operation Code (+ Standard Operation when given).
    if(isDefault){
     await c.query(`
-      update md_operation_code_recipe
+      update md_main_operation_recipe
       set is_default=false,updated_at=now()
       where operation_code=$1
         and is_active=true
-    `,[operationCode]);
+        and ($2::text is null or standard_operation=$2)
+    `,[operationCode,standardOperation]);
    }
 
    await c.query(`
-     insert into md_operation_code_recipe(
-       operation_code,recipe_key,priority,selection_rule,is_default,note,is_active
+     insert into md_main_operation_recipe(
+       operation_code,standard_operation,recipe_key,priority,selection_rule,is_default,note,is_active
      )
-     values($1,$2,$3,$4,$5,$6,true)
+     values($1,$2,$3,$4,$5,$6,$7,true)
      on conflict(operation_code,recipe_key)
      do update set
+       standard_operation=excluded.standard_operation,
        priority=excluded.priority,
        selection_rule=excluded.selection_rule,
        is_default=excluded.is_default,
        note=excluded.note,
        is_active=true,
        updated_at=now()
-   `,[operationCode,recipeKey,priority,selectionRule,isDefault,note]);
+   `,[operationCode,standardOperation,recipeKey,priority,selectionRule,isDefault,note]);
 
    await c.query("commit");
   }catch(e){
@@ -88,7 +101,7 @@ export async function DELETE(req:NextRequest){
   const c=await getPool().connect();
   try{
    await c.query(`
-     update md_operation_code_recipe
+     update md_main_operation_recipe
      set is_active=false,is_default=false,updated_at=now()
      where operation_code=$1
        and recipe_key=$2

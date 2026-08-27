@@ -8,6 +8,11 @@ export async function POST(req:Request){
  const manualDuration=Number(b.duration_minutes||0);const recipeKey=String(b.recipe_key||"").trim();
  if(Number.isNaN(requested.getTime())||manualDuration<=0)
   return NextResponse.json({error:"Start và Process Duration hợp lệ là bắt buộc."},{status:400});
+ const overrides={
+  processStart:b.process_start_override?new Date(String(b.process_start_override)):null,
+  ndtStart:b.ndt_start_override?new Date(String(b.ndt_start_override)):null,
+  unloadingStart:b.unloading_start_override?new Date(String(b.unloading_start_override)):null
+ };
  const c=await getPool().connect();
  try{
   await c.query("begin");
@@ -20,7 +25,7 @@ export async function POST(req:Request){
   for(let offset=0;offset<=7*24*60;offset+=15){
    const loadingStart=new Date(requested.getTime()+offset*60000);
    const window=await resolveChemicalScheduleWindow(c,{loadingStart,processMinutes:manualDuration,
-    totalQty:Number(batch.total_qty||0),totalSurfaceDm2:Number(batch.total_surface_dm2||0),recipeNo});
+    totalQty:Number(batch.total_qty||0),totalSurfaceDm2:Number(batch.total_surface_dm2||0),recipeNo,overrides});
    for(const resource of resources){
     try{
      await assertResourceAndChemicalCapacity(c,{resourceCode:resource.resource_code,resourceGroup:"CHEMICAL_LINE",window,maxConcurrent:Number(resource.max_concurrent||3)});

@@ -5,6 +5,7 @@ import {PlanningViewTabs} from "@/components/planning-view-tabs";
 import {getPool} from "@/lib/db";
 import {getRecentPlanningBatches} from "@/lib/planning/recent-batches";
 import {healScheduledHandoffs} from "@/lib/planning/unlock-next-after-schedule";
+import {evaluateRulesForJob,parseRules,RULES_SQL} from "@/lib/batch-key-recipe";
 
 export const dynamic="force-dynamic";
 
@@ -108,7 +109,7 @@ export default async function Page({
          p.recipe_key is null
          and exists(
            select 1
-           from md_operation_code_recipe ocr
+           from md_main_operation_recipe ocr
            where ocr.operation_code=p.source_operation_code
              and ocr.recipe_key=$${n}
              and ocr.is_active=true
@@ -186,7 +187,7 @@ export default async function Page({
          p.recipe_key is not null
          or exists(
            select 1
-           from md_operation_code_recipe ocr0
+           from md_main_operation_recipe ocr0
            where ocr0.operation_code=p.source_operation_code
              and ocr0.is_active=true
          )
@@ -797,7 +798,7 @@ export default async function Page({
            or exists(
              select 1
              from planning_job_operation p
-             join md_operation_code_recipe ocr
+             join md_main_operation_recipe ocr
                on ocr.operation_code=p.source_operation_code
               and ocr.recipe_key=r.recipe_key
               and ocr.is_active=true
@@ -822,6 +823,38 @@ export default async function Page({
      `,[recipeKey]);
      timeRules=rulesQ.rows;
    }
+
+   // =====================================================================
+   // Batch Key / Recipe Rule — đề xuất Recipe + Batch Key cho từng Candidate.
+   // =====================================================================
+   const rulesRowsQ=await c.query(`${RULES_SQL}`);
+   const rules=parseRules(rulesRowsQ.rows);
+
+   const recipeNameMap=new Map<string,{recipe_no:string|null;recipe_name:string|null}>();
+   const recipeMetaQ=await c.query(`
+     select recipe_key,recipe_no,recipe_name
+     from md_process_recipe
+     where is_active=true
+   `);
+   for(const r of recipeMetaQ.rows){
+     recipeNameMap.set(r.recipe_key,{recipe_no:r.recipe_no,recipe_name:r.recipe_name});
+   }
+
+   const candidates=(candidatesQ.rows as any[]).map((row:any)=>{
+     const suggestion=evaluateRulesForJob(rules,row.standard_operation||"",row.source_data||null);
+     const meta=recipeNameMap.get(suggestion.recipeKey||"");
+     return {
+       ...row,
+       rule_matched:suggestion.matched,
+       rule_ambiguous:suggestion.ambiguous,
+       rule_name:suggestion.rule?.rule_name||null,
+       suggested_recipe_key:suggestion.recipeKey,
+       suggested_recipe_no:meta?.recipe_no||null,
+       suggested_recipe_name:meta?.recipe_name||null,
+       batch_key_suggest:suggestion.batchKey,
+       batch_prefix_suggest:suggestion.prefix
+     };
+   });
 
    const today=new Date().toISOString().slice(0,10);
 
@@ -883,7 +916,7 @@ export default async function Page({
 
      <div className="section">
       <PlanningBoardClient
-       candidates={candidatesQ.rows as any}
+       candidates={candidates as any}
        availableBatches={batchesQ.rows as any}
        standardOperation={op}
        areaMode={Boolean(areaId&&!op)}
@@ -891,6 +924,7 @@ export default async function Page({
        mainOperations={matrixOpsQ.rows as any}
        recipeKey={recipeKey}
        timeRules={timeRules as any}
+       rules={rules as any}
        today={today}
       />
      </div>

@@ -1,7 +1,14 @@
 "use client";
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
-import {calculatedScheduleEndTime} from "@/lib/schedule-time";
+import {calculatedScheduleEndTime,getProductionDay} from "@/lib/schedule-time";
+import {
+ buildChemicalScheduleWindow,
+ isPrecleanRecipe,
+ normalizeChemicalRecipeNo,
+ selectChemicalHandlingRule,
+ type ChemicalHandlingRule
+} from "@/lib/chemical-line-schedule";
 
 type OperationOption={standard_operation:string;st_group:string;batch_prefix:string|null};
 type ResourceOption={resource_code:string;resource_name:string;resource_group:string};
@@ -39,15 +46,17 @@ type PlanningBatch={
 type Draft={
  standardOperation:string;recipeKey:string;resourceCode:string;date:string;startTime:string;duration:string;
  batchId:number|null;batchNo:string;totalJobs:number;totalQty:number;totalSurfaceDm2:number;
+ overrides:{processStart:string;ndtStart:string;unloadingStart:string};
 };
 
 const blank=(date:string,resourceCode=""):Draft=>({
  standardOperation:"",recipeKey:"",resourceCode,date,startTime:"",duration:"",
- batchId:null,batchNo:"",totalJobs:0,totalQty:0,totalSurfaceDm2:0
+ batchId:null,batchNo:"",totalJobs:0,totalQty:0,totalSurfaceDm2:0,
+ overrides:{processStart:"",ndtStart:"",unloadingStart:""}
 });
 function parseHHMM(v:string){const m=v.trim().match(/^(\d{1,3}):(\d{2})$/);if(!m)return null;const n=Number(m[1])*60+Number(m[2]);return Number(m[2])<60&&n>0?n:null}
 function fmt(v:unknown,d=2){const n=Number(v||0);return Number.isFinite(n)?new Intl.NumberFormat("vi-VN",{maximumFractionDigits:d}).format(n):"0"}
-function time(v:string|null|undefined){if(!v)return "—";const d=new Date(v);return Number.isNaN(d.getTime())?"—":d.toLocaleTimeString("en-GB",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit"})}
+function time(v:string|Date|null|undefined){if(!v)return "—";const d=new Date(v);return Number.isNaN(d.getTime())?"—":d.toLocaleTimeString("en-GB",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit"})}
 function durationHHMM(v:number){return `${String(Math.floor(v/60)).padStart(2,"0")}:${String(v%60).padStart(2,"0")}`}
 function previewEnd(date:string,startTime:string,durationText:string){
  const duration=parseHHMM(durationText);
@@ -69,10 +78,11 @@ function dateTime(v:string|null|undefined){
 }
 
 export function ManualScheduleGrid({
- scheduleAreas,operations,resources,recipes,scheduledRows,planningBatches,date,planner
+ scheduleAreas,operations,resources,recipes,scheduledRows,planningBatches,handlingRules,date,planner
 }:{
  scheduleAreas:ScheduleArea[];operations:OperationOption[];resources:ResourceOption[];recipes:RecipeOption[];
- scheduledRows:ScheduledRow[];planningBatches:PlanningBatch[];date:string;planner:"1"|"2";
+ scheduledRows:ScheduledRow[];planningBatches:PlanningBatch[];handlingRules:ChemicalHandlingRule[];
+ date:string;planner:"1"|"2";
 }){
  const [rowCounts,setRowCounts]=useState<Record<string,number>>(()=>Object.fromEntries(
   scheduleAreas.map(a=>[a.schedule_area_code,Math.max(1,Number(a.default_rows)||20)])
@@ -154,6 +164,35 @@ export function ManualScheduleGrid({
  function patch(a:ScheduleArea,i:number,x:Partial<Draft>){
   const k=key(a.schedule_area_code,i);
   setDrafts(p=>({...p,[k]:{...(p[k]||blank(date,a.resource_code||"")),...x}}));
+ }
+ function toTimeInput(v:Date){
+  return v.toLocaleTimeString("en-GB",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit"});
+ }
+ // Dựng trước toàn bộ khoảng chiếm dụng Flybar: Loading → Process → NDT → Unloading.
+ // Dùng Loading/Unloading Duration từ cấu hình Qty/Surface và Process Duration đã nhập.
+ function phaseWindow(a:ScheduleArea,i:number){
+  const r=draft(a,i);
+  const duration=parseHHMM(r.duration);
+  if(!r.date||!r.startTime||!duration)return null;
+  const recipe=recipes.find(x=>x.recipe_key===r.recipeKey);
+  const loading=selectChemicalHandlingRule(handlingRules,"LOADING",0,0);
+  const unloading=selectChemicalHandlingRule(handlingRules,"UNLOADING",0,0);
+  if(!loading||!unloading)return null;
+  const loadingStart=new Date(`${r.date}T${r.startTime}:00+07:00`);
+  try{
+   return buildChemicalScheduleWindow({
+    loadingStart,
+    processMinutes:duration,
+    loadingMinutes:Number(loading.duration_minutes),
+    unloadingMinutes:Number(unloading.duration_minutes),
+    recipeNo:recipe?.recipe_no||null,
+    overrides:{
+     processStart:r.overrides.processStart?new Date(`${r.date}T${r.overrides.processStart}:00+07:00`):null,
+     ndtStart:r.overrides.ndtStart?new Date(`${r.date}T${r.overrides.ndtStart}:00+07:00`):null,
+     unloadingStart:r.overrides.unloadingStart?new Date(`${r.date}T${r.overrides.unloadingStart}:00+07:00`):null
+    }
+   });
+  }catch{return null}
  }
  function selectUnscheduledBatch(a:ScheduleArea,b:PlanningBatch){
   // Use the first empty input row in this Schedule Area. This is the same
@@ -395,10 +434,15 @@ export function ManualScheduleGrid({
    // the existing-Batch /api/schedule contract later.
    const existingBatch=Boolean(r.batchId);
    const endpoint=existingBatch?"/api/schedule":"/api/schedule/manual-grid";
+   const overrides={
+    process_start_override:r.overrides.processStart?new Date(`${r.date}T${r.overrides.processStart}:00+07:00`).toISOString():null,
+    ndt_start_override:r.overrides.ndtStart?new Date(`${r.date}T${r.overrides.ndtStart}:00+07:00`).toISOString():null,
+    unloading_start_override:r.overrides.unloadingStart?new Date(`${r.date}T${r.overrides.unloadingStart}:00+07:00`).toISOString():null
+   };
    const payload=existingBatch
-    ?{batchId:r.batchId,resourceCode:r.resourceCode,plannedStart,durationMinutes:duration,planSource:"MANUAL_EXISTING_BATCH"}
+    ?{batchId:r.batchId,resourceCode:r.resourceCode,plannedStart,durationMinutes:duration,planSource:"MANUAL_EXISTING_BATCH",...overrides}
     :{schedule_area_code:a.schedule_area_code,standard_operation:r.standardOperation,recipe_key:r.recipeKey||null,
-      resource_code:r.resourceCode,planning_date:r.date,planned_start:plannedStart,duration_minutes:duration,plan_source:"MANUAL_GRID"};
+      resource_code:r.resourceCode,planning_date:r.date,planned_start:plannedStart,duration_minutes:duration,plan_source:"MANUAL_GRID",...overrides};
    const res=await fetch(endpoint,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
    const d=await res.json();if(!res.ok)throw new Error(d.error||"Save failed");
    setMessage(existingBatch
@@ -415,12 +459,67 @@ export function ManualScheduleGrid({
   const k=key(a.schedule_area_code,i);setBusy(k);setMessage("");
   try{
    const plannedStart=new Date(`${r.date}T${r.startTime}:00+07:00`).toISOString();
-   const res=await fetch("/api/schedule/chemical-suggestion",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({batch_id:r.batchId,recipe_key:r.recipeKey||null,planned_start:plannedStart,duration_minutes:duration})});
+   const overrides={
+    process_start_override:r.overrides.processStart?new Date(`${r.date}T${r.overrides.processStart}:00+07:00`).toISOString():null,
+    ndt_start_override:r.overrides.ndtStart?new Date(`${r.date}T${r.overrides.ndtStart}:00+07:00`).toISOString():null,
+    unloading_start_override:r.overrides.unloadingStart?new Date(`${r.date}T${r.overrides.unloadingStart}:00+07:00`).toISOString():null
+   };
+   const res=await fetch("/api/schedule/chemical-suggestion",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({batch_id:r.batchId,recipe_key:r.recipeKey||null,planned_start:plannedStart,duration_minutes:duration,...overrides})});
    const d=await res.json();if(!res.ok)throw new Error(d.error||"Không đề xuất được Flybar.");
    const suggested=new Date(d.planned_start);patch(a,i,{resourceCode:d.resource_code,date:suggested.toLocaleDateString("en-CA",{timeZone:"Asia/Ho_Chi_Minh"}),startTime:suggested.toLocaleTimeString("en-GB",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit"})});
    setMessage(d.delayed_minutes?`${d.resource_code} available sớm nhất sau ${d.delayed_minutes} phút; Loading Start đã tự điều chỉnh.`:`Đề xuất ${d.resource_code}: available trong toàn bộ Loading → Unloading.`);
   }catch(e){setMessage(e instanceof Error?e.message:"Không đề xuất được Flybar.")}finally{setBusy("")}
  }
+
+ // =====================================================================
+ // v188 — TỰ ĐỀ XUẤT FLYBAR:
+ // Nhập Loading Start (chemical area, chưa chọn Resource) → tự gọi gợi ý
+ // và điền FB trống sớm nhất (debounce 500ms). Không cần bấm từng dòng.
+ // =====================================================================
+ useEffect(()=>{
+  const timers:ReturnType<typeof setTimeout>[]=[];
+  for(const a of scheduleAreas){
+   const chemical=a.resource_group==="CHEMICAL_LINE"||areaResources(a).some(x=>x.resource_group==="CHEMICAL_LINE");
+   if(!chemical)continue;
+   const count=rowCounts[a.schedule_area_code]||Math.max(1,Number(a.default_rows)||20);
+   for(let i=0;i<count;i++){
+    const k=key(a.schedule_area_code,i);
+    const r=drafts[k];
+    if(!r||r.resourceCode||r.batchId)continue;
+    if(!r.date||!r.startTime)continue;
+    const duration=parseHHMM(r.duration);
+    if(!duration)continue;
+    timers.push(setTimeout(async()=>{
+     try{
+      const plannedStart=new Date(`${r.date}T${r.startTime}:00+07:00`).toISOString();
+      const res=await fetch("/api/schedule/chemical-suggestion",{
+       method:"POST",headers:{"content-type":"application/json"},
+       body:JSON.stringify({
+        batch_id:null,recipe_key:r.recipeKey||null,planned_start:plannedStart,duration_minutes:duration,
+        process_start_override:r.overrides.processStart?new Date(`${r.date}T${r.overrides.processStart}:00+07:00`).toISOString():null,
+        ndt_start_override:r.overrides.ndtStart?new Date(`${r.date}T${r.overrides.ndtStart}:00+07:00`).toISOString():null,
+        unloading_start_override:r.overrides.unloadingStart?new Date(`${r.date}T${r.overrides.unloadingStart}:00+07:00`).toISOString():null
+       })
+      });
+      if(!res.ok)return;
+      const d=await res.json();
+      const suggested=new Date(d.planned_start);
+      setDrafts(p=>{
+       const cur=p[k];
+       if(!cur||cur.resourceCode||cur.batchId)return p; // người dùng đã tự chọn FB khác
+       return {...p,[k]:{
+        ...cur,
+        resourceCode:d.resource_code,
+        date:suggested.toLocaleDateString("en-CA",{timeZone:"Asia/Ho_Chi_Minh"}),
+        startTime:suggested.toLocaleTimeString("en-GB",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit"})
+       }};
+      });
+     }catch{/* bỏ qua lỗi mạng nhỏ */}
+    },500));
+   }
+  }
+  return ()=>timers.forEach(clearTimeout);
+ },[drafts,rowCounts,scheduleAreas,date]);
 
  return <section className="erp-table-panel section schedule-area-direct-grid">
   <div className="erp-panel-head">
@@ -528,7 +627,7 @@ export function ManualScheduleGrid({
      {!aOps.length&&<div className="schedule-area-unmapped">Khu vực chưa có Standard Operation. Vào Cấu hình → Schedule Area Mapping để thêm.</div>}
      <div className="table-wrap">
       <table className="erp-table schedule-area-entry-table">
-       <thead><tr><th>#</th><th>Batch</th><th>Standard Operation</th><th>Recipe / Paint</th><th>Resource</th><th>Date</th><th>Start</th><th>End</th><th>Duration</th>{chemical&&<><th>Loading<br/>Start · End · Duration</th><th>Process<br/>Start · End · Duration</th><th>NDT<br/>Start · End · Duration</th><th>Unloading<br/>Start · End · Duration</th></>}<th>Jobs</th><th>pcs</th><th>dm²</th><th>Actions</th></tr></thead>
+       <thead><tr><th>#</th><th>Batch</th><th>Standard Operation</th><th>Recipe / Paint</th><th>Resource</th><th>Date</th><th>{chemical?"Loading Start":"Start"}</th><th>End</th><th>Duration</th>{chemical&&<><th>Loading<br/>Start · End · Duration</th><th>Process<br/>Start (sửa được) · End · Duration</th><th>NDT<br/>Start (sửa được) · End · Duration</th><th>Unloading<br/>Start (sửa được) · End · Duration</th></>}<th>Jobs</th><th>pcs</th><th>dm²</th><th>Actions</th></tr></thead>
        <tbody>
         {actual.map((x,i)=>{
          const editing=editingScheduleId===x.id;
@@ -709,7 +808,49 @@ export function ManualScheduleGrid({
          <td><input className="input mono" type="time" value={r.startTime} onChange={e=>patch(a,i,{startTime:e.target.value})}/></td>
          <td className="mono schedule-calculated-end">{previewEnd(r.date,r.startTime,r.duration)}</td>
          <td><input className="input mono" placeholder="HH:MM" value={r.duration} onChange={e=>patch(a,i,{duration:e.target.value})}/></td>
-         {chemical&&<><td className="muted">Auto after Save</td><td className="muted">Auto after Save</td><td className="muted">Recipe rule</td><td className="muted">Auto after Save</td></>}
+         {chemical&&(()=>{
+          const w=phaseWindow(a,i);
+          const preclean=isPrecleanRecipe(recipes.find(x=>x.recipe_key===r.recipeKey)?.recipe_no);
+          return <>
+           <td className="mono chemical-phase-cell">
+            {w
+             ? <><b>{time(w.loadingStart)}</b>–{time(w.loadingEnd)}<small>{durationHHMM(w.loadingMinutes)}</small></>
+             : <span className="muted">Nhập Date + Giờ + Duration</span>}
+           </td>
+           <td className="mono chemical-phase-cell">
+            {w
+             ? <div className="chemical-phase-edit">
+                <input className="input mono" type="time"
+                 value={r.overrides.processStart||toTimeInput(w.processStart)}
+                 onChange={e=>patch(a,i,{overrides:{...r.overrides,processStart:e.target.value}})}/>
+                <small>→ {time(w.processEnd)} · {durationHHMM(w.processMinutes)}</small>
+               </div>
+             : <span className="muted">—</span>}
+           </td>
+           <td className="mono chemical-phase-cell">
+            {w&&preclean
+             ? <div className="chemical-phase-edit">
+                <input className="input mono" type="time"
+                 value={r.overrides.ndtStart||toTimeInput(w.ndtStart!)}
+                 onChange={e=>patch(a,i,{overrides:{...r.overrides,ndtStart:e.target.value}})}/>
+                <small>→ {time(w.ndtEnd)} · 05:00</small>
+               </div>
+             : w
+              ? <span className="muted">—</span>
+              : <span className="muted">—</span>}
+           </td>
+           <td className="mono chemical-phase-cell">
+            {w
+             ? <div className="chemical-phase-edit">
+                <input className="input mono" type="time"
+                 value={r.overrides.unloadingStart||toTimeInput(w.unloadingStart)}
+                 onChange={e=>patch(a,i,{overrides:{...r.overrides,unloadingStart:e.target.value}})}/>
+                <small>→ {time(w.unloadingEnd)} · {durationHHMM(w.unloadingMinutes)}</small>
+               </div>
+             : <span className="muted">—</span>}
+           </td>
+          </>;
+         })()}
          <td>{r.batchId?r.totalJobs:0}</td><td>{r.batchId?fmt(r.totalQty,0):0}</td><td>{r.batchId?fmt(r.totalSurfaceDm2):0}</td>
          <td><div className="schedule-row-actions">
           <button className="btn small primary" disabled={busy===k||!aOps.length} onClick={()=>save(a,i)}>{busy===k?"...":r.batchId?"Schedule":"Save"}</button>

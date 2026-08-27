@@ -1,6 +1,6 @@
 import {AppTabs,SubTabs} from "@/components/app-tabs";
 import {ProcessRecipeManager} from "@/components/process-recipe-manager";
-import {ChemicalRecipeMappingManager} from "@/components/chemical-recipe-mapping-manager";
+import {MainOperationRecipeMappingManager} from "@/components/main-operation-recipe-mapping-manager";
 import {ProcessTimeRuleManager} from "@/components/process-time-rule-manager";
 import {ChemicalHandlingTimeManager} from "@/components/chemical-handling-time-manager";
 import {getPool} from "@/lib/db";
@@ -13,7 +13,10 @@ const tabs=[
  {key:"area",label:"Physical Area Master",href:"/area"},
  {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
  {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
- {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},{key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"},
+ {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},
+ {key:"openjobcolumnvalues",label:"Open Job Column Values",href:"/open-job-column-values"},
+ {key:"batchkeyrules",label:"Batch Key / Recipe Rules",href:"/batch-key-recipe-rules"},
+ {key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"},
 ];
 
 export default async function Page({searchParams}:{searchParams:Promise<{part?:string}>}){
@@ -43,14 +46,14 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
             order by operation_code`),
    c.query(`select recipe_key,process_family,recipe_group,recipe_no,recipe_name,batch_key
             from md_process_recipe
-            where is_active=true and process_family='CHEMICAL_LINE'
-            order by
+            where is_active=true
+            order by process_family,
               case when recipe_no ~ '^[0-9]+$' then recipe_no::int else 9999 end,
               recipe_no`),
-   c.query(`select m.operation_code,o.operation_name,m.recipe_key,m.note,
+   c.query(`select m.operation_code,o.operation_name,m.standard_operation,m.recipe_key,m.note,
                    m.priority,m.selection_rule,m.is_default,
                    r.recipe_no,r.recipe_name,r.batch_key
-            from md_operation_code_recipe m
+            from md_main_operation_recipe m
             left join md_operation o on o.operation_code=m.operation_code
             join md_process_recipe r on r.recipe_key=m.recipe_key
             where m.is_active=true and r.is_active=true
@@ -72,11 +75,12 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
    <div className="erp-workspace">
     <aside className="erp-sidebar"><div className="erp-sidebar-title">CẤU HÌNH</div><SubTabs items={tabs} active="processrecipe"/></aside>
     <section className="erp-content">
-     <div className="erp-page-head"><div><h2>Process Recipe Master</h2><p>Kiến trúc dùng chung cho mọi công đoạn · Phase 1 tự động hóa Paint Recipe</p></div></div>
-     <div className="notice recipe-note"><b>Phase 1 – Painting:</b> Master List chỉ cung cấp Recipe No. Paint: Recipe Name resolve từ Process Recipe Master. Chemical Line: mỗi Operation Code có thể cấu hình nhiều Recipe; Auto Select sẽ dùng Priority/Selection Rule khi có All Open Job.</div>
+     <div className="erp-page-head"><div><h2>Process Recipe Master</h2><p>Recipe + Process Time + Recipe Mapping dùng chung cho mọi công đoạn chính</p></div></div>
+     <div className="notice recipe-note"><b>Kiến trúc dùng chung:</b> Recipe Name resolve từ Process Recipe Master. Mỗi Operation Code / Main Operation có thể cấu hình nhiều Recipe; Process Time không còn giới hạn Chemical/Paint. Batch Key / Recipe Rules điều khiển đề xuất Recipe trên Planning Board.</div>
      <ProcessRecipeManager recipes={recipesQ.rows as any} mappings={mapsQ.rows as any} operations={opsQ.rows as any} partRows={partQ.rows as any} partQuery={part}/>
-     <ChemicalRecipeMappingManager
+     <MainOperationRecipeMappingManager
        operations={sourceOpsQ.rows as any}
+       mainOperations={(opsQ.rows as any[]).map((x:any)=>x.standard_operation)}
        recipes={chemicalRecipesQ.rows as any}
        mappings={chemicalMapsQ.rows as any}
      />

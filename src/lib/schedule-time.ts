@@ -36,3 +36,20 @@ export function calculatedScheduleEndTime(
 ){
  return formatScheduleTime(calculateScheduleEnd(startValue,durationMinutes));
 }
+
+// v187: Production day boundary (06:00 → 06:00 next day)
+export function getProductionDay(date:Date):Date{
+ const d=new Date(date);
+ d.setHours(6,0,0,0);
+ return d;
+}
+
+export function isNextProductionDay(currentDate:Date,compareDate:Date):boolean{
+ const currentDay=getProductionDay(currentDate);
+ const compareDay=getProductionDay(compareDate);
+ return compareDay.getTime()>currentDay.getTime();
+}
+
+export function formatProductionDay(date:Date):string{
+ return date.toLocaleDateString("vi-VN",{timeZone:SCHEDULE_TIME_ZONE});
+}

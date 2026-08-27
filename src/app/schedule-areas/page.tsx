@@ -9,6 +9,8 @@ const tabs=[
  {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
  {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
  {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},
+ {key:"openjobcolumnvalues",label:"Open Job Column Values",href:"/open-job-column-values"},
+ {key:"batchkeyrules",label:"Batch Key / Recipe Rules",href:"/batch-key-recipe-rules"},
  {key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"}
 ];
 export default function Page(){return <main className="erp-shell">

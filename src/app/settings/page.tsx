@@ -9,7 +9,10 @@ const sub=[
  {key:"area",label:"Physical Area Master",href:"/area"},
  {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
  {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
- {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},{key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"},
+ {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},
+ {key:"openjobcolumnvalues",label:"Open Job Column Values",href:"/open-job-column-values"},
+ {key:"batchkeyrules",label:"Batch Key / Recipe Rules",href:"/batch-key-recipe-rules"},
+ {key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"},
 ];
 export default async function Page(){
  const db=await getPool().connect();
@@ -21,6 +24,8 @@ export default async function Page(){
   md_area:0,
   md_schedule_area:0,
   md_process_recipe:0,
+  md_open_job_column_value:0,
+  md_batch_key_recipe_rule:0,
   md_auto_planning_rule:0
  };
  let issues:string[]=[];
@@ -37,6 +42,8 @@ export default async function Page(){
     (select count(*)::int from md_area where is_active=true) md_area,
     (select count(*)::int from md_schedule_area where is_active=true) md_schedule_area,
     (select count(*)::int from md_process_recipe where is_active=true) md_process_recipe,
+    (select count(*)::int from md_open_job_column_value where is_active=true) md_open_job_column_value,
+    (select count(*)::int from md_batch_key_recipe_rule where is_active=true) md_batch_key_recipe_rule,
     (select count(*)::int from md_auto_planning_rule where is_active=true) md_auto_planning_rule
   `);
   counts=q.rows[0]||counts;
@@ -56,7 +63,9 @@ export default async function Page(){
   ["Physical Area Master","Danh mục Area + gán ST Group",c.md_area,"/area"],
   ["Schedule Area Mapping","Khu vực điều độ + số dòng + Standard Operation",c.md_schedule_area||0,"/schedule-areas"],
   ["Phân chia Planner","Chuyển khu vực điều độ giữa Planner 1 / Planner 2",0,"/planner-work-assignment"],
-  ["Process Recipe","Recipe theo process; Phase 1 Paint",c.md_process_recipe,"/process-recipes"],
+  ["Process Recipe","Recipe theo process; dùng chung cho mọi công đoạn",c.md_process_recipe,"/process-recipes"],
+  ["Open Job Column Values","Tổng hợp giá trị unique theo từng cột All Open Job",c.md_open_job_column_value||0,"/open-job-column-values"],
+  ["Batch Key / Recipe Rules","Rule đề xuất Recipe + Batch Key + Prefix cho mọi Main Operation",c.md_batch_key_recipe_rule||0,"/batch-key-recipe-rules"],
   ["Auto Planning Rules","Rule tự động gom Batch theo từng Standard Operation",c.md_auto_planning_rule||0,"/auto-planning-rules"],
  ];
  return <main className="erp-shell">

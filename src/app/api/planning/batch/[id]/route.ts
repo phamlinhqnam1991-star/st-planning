@@ -45,7 +45,7 @@ async function recipeAllowedForBatch(c:any,batchId:number,recipeKey:string){
        )
        or exists(
          select 1
-         from md_operation_code_recipe ocr
+         from md_main_operation_recipe ocr
          where ocr.operation_code=$3
            and ocr.recipe_key=$2
            and ocr.is_active=true
@@ -104,7 +104,7 @@ export async function GET(
         or exists(
           select 1
           from planning_batch_job bj
-          join md_operation_code_recipe ocr
+          join md_main_operation_recipe ocr
             on ocr.operation_code=bj.source_operation_code
            and ocr.recipe_key=r.recipe_key
            and ocr.is_active=true

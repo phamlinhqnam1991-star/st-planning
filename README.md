@@ -2652,3 +2652,101 @@ Planning now has two dedicated views: `/planning` for Candidate Jobs and `/plann
 ## v185 - Calculated End column on every Scheduling table
 
 Every Scheduling table now places `End` immediately after `Start` and uses one canonical formula: `End = Start + Duration`. Direct Schedule Grid rows show a live End preview while adding or editing Start/Duration. The combined Planner 1+2 table and each individual Planner table calculate End from the same source instead of independently displaying a stored end value. Scheduling API persistence, overlap validation and the shared Manual/Auto scheduling engine remain unchanged.
+
+## v188 - Batch Key / Recipe Rules cho MỌI công đoạn chính + sửa lỗi đổi tên bảng
+
+Migration mới: `supabase/migrations/038_batch_key_column.sql` (chạy sau 037).
+
+### Sửa lỗi nghiêm trọng
+- Migration 037 đổi tên `md_operation_code_recipe` → `md_main_operation_recipe`; toàn bộ 8 chỗ trong code đã chuyển sang tên mới. Trước đây nếu chạy 037, trang Planning / tạo Batch / Process Recipe sẽ báo lỗi "relation does not exist".
+
+### Tính năng mới (theo đề xuất đã chốt)
+1. **Open Job Column Values** (`/open-job-column-values`): quét mọi cột All Open Job, liệt kê giá trị unique; thêm/sửa display name/bật tắt; tự quét lại sau mỗi lần import All Open Job.
+2. **Batch Key / Recipe Rules** (`/batch-key-recipe-rules`): rule = Main Operation + điều kiện (cột All Open Job + toán tử + giá trị) → đề xuất Recipe + Batch Key + Batch No Prefix. Hỗ trợ ALL/ANY, Priority, template Batch Key với `{COT}` lấy giá trị thật của Job.
+3. **Planning Board nối rule**: bấm READY / chọn Job → hệ thống đề xuất Recipe + Batch Key + Prefix ngay trên Batch Builder; tạo Batch dùng đúng Recipe/Batch Key của rule; prefix rule ưu tiên hơn Operation Master; chặn gom lô khi các Job thuộc Batch Key khác nhau; nhiều rule cùng ưu tiên khớp → báo để planner chọn tay; chưa có rule → chọn Recipe tay + link tạo rule.
+4. **syncPlanningChains** ưu tiên rule khi gán Recipe cho chuỗi planning (fallback Paint/Chemical như cũ).
+5. **Process Time + Recipe Mapping cho mọi công đoạn**: không còn khóa FIXED_HOURS cho Chemical / QTY_SURFACE cho Paint; Operation Code → Recipe mở rộng mọi Operation + Standard Operation (đổi tên màn hình thành Main Operation · Operation Code → Recipe).
+6. **Chemical Line**: nhập Loading Start (vùng Chemical, chưa chọn FB) → tự đề xuất FB trống sớm nhất (debounce 500ms), không cần bấm từng dòng.
+7. **Timeline mở rộng**: nếu Batch/NDT/Unloading kéo dài qua 06:00 hôm sau, Timeline tự kéo dài tới khi xong (tối đa 48h) để thấy Resource còn bận.
+8. Batch Detail hiển thị **Batch Key** của lô.
+
+### Sửa 6 lỗi trong migration 037 (quan trọng — phải dùng file 037 mới)
+File 037 gốc chạy bị lỗi "syntax error at or near insert". Đã sửa:
+1. `rebuild_open_job_column_values()` dùng `$$` lồng `$$` → đổi delimiter ngoài thành `$rebuild$`.
+2. Hàm `get_production_day(p_timestamp)` thân hàm gọi biến `t` không tồn tại → sửa thành `p_timestamp`.
+3. `return query next` (cú pháp sai) → `return query select`.
+4. Hàm `suggest_recipe_and_batch_key()` thiếu `r.match_mode` trong CTE `ranked_rules`.
+5. `on conflict (source_column, source_value)` trùng tên OUT parameter → dùng tên constraint.
+6. Câu thống kê `where source_column = col_name` bị ambiguous → thêm alias bảng.
+- Đã kiểm chứng bằng cách chạy thật 037 + 038 trên PostgreSQL 14 (database sạch): 0 lỗi; hàm suggest + rebuild + production_day đều trả kết quả đúng.
+- `rename to md_main_operation_recipe` thêm `IF EXISTS` để không vỡ nếu DB đã chạy một phần trước đó.
+
+### Triển khai
+1. Chạy lại `supabase/migrations/037_production_day_recipe_routing.sql` (file MỚI, đã sửa) rồi `supabase/migrations/038_batch_key_column.sql`.
+2. Deploy code lên Vercel.
+3. Bấm **Rebuild Planning Chain** một lần trên Planning Board (hoặc import lại All Open Job).
+4. Vào Cấu hình → Open Job Column Values → bấm **Scan / Rebuild**, rồi tạo rule tại Batch Key / Recipe Rules.
+
+## v189 - Open Job Column Values lấy TẤT CẢ cột All Open Job (140+ cột)
+
+Migration mới: `supabase/migrations/039_open_job_column_values_all_columns.sql`.
+
+- Trước đây hàm `rebuild_open_job_column_values()` chỉ quét ~25 cột chuẩn hoá của `open_job_current`, bỏ sót phần lớn cột nguồn (mặc dù toàn bộ 140+ cột đã được lưu đầy đủ trong `source_data` JSONB).
+- Hàm mới quét **mọi key trong `source_data` của mọi Job** (một câu lệnh duy nhất) + bổ sung cột chuẩn hoá → Open Job Column Values hiển thị đủ 140+ cột.
+- Đã kiểm chứng trên PostgreSQL 14 với job mô phỏng 150 cột: quét được 155 cột, tất cả giá trị đều active.
+- Trang **All Open Jobs** thêm nút **"Xem tất cả cột"**: hiển thị toàn bộ cột của file All Open Job (cuộn ngang, 2 cột đầu cố định), nút **"Xem gọn"** để về chế độ 12 cột như cũ.
+- Cài mới: file 037 đã được cập nhật hàm mới luôn; DB đang chạy chỉ cần chạy thêm 039.
+
+## v190 - Chemical Line Timeline + Flybar logic chốt (không cần migration mới)
+
+Logic đã chốt và xác nhận trong code:
+- **Pre-cleaning (Recipe 001/009/016/025):** Loading → Process → NDT → Unloading → Flybar Available.
+- **Mọi Recipe khác:** Loading → Process → Unloading → Flybar Available.
+- Công thức: Loading End = Loading Start + Loading Duration; Process Start = Loading End; Process End = Process Start + Process Duration; Preclean: NDT Start = MAX(Process End, NDT Start trước + 01:30), NDT End = NDT Start + 05:00, Unloading Start = NDT End; còn lại: Unloading Start = Process End; Unloading End = Unloading Start + Unloading Duration. **Flybar bận toàn bộ Loading → Unloading End**, chỉ available sau đó.
+- Loading/Unloading Duration lấy từ `md_chemical_handling_time_rule` theo khoảng Qty/Surface (ưu tiên nhỏ chạy trước); Process Duration từ Process Time của Recipe.
+
+Cải tiến giao diện/API:
+- **Timeline Chemical Line luôn hiển thị đủ 6 dòng FB-01..FB-06** (kể cả khi chưa có lịch hoặc resource chưa active trong DB).
+- Mỗi Batch trên Flybar hiển thị **4 đoạn màu**: Loading (xanh), Process (teal), NDT (vàng, chỉ recipe preclean), Unloading (tím); rê chuột thấy Batch No + Recipe + giờ từng đoạn.
+- **Xung đột được đánh dấu đỏ** (viền đỏ + ⚠ XUNG ĐỘT trong tooltip) khi hai lịch cùng Flybar chồng thời gian.
+- **Chặn Schedule khi bị cấn** kèm thông báo chi tiết: Flybar nào bị trùng với lịch nào (Batch No + khoảng giờ Loading→Unloading), gợi ý đổi Flybar hoặc đổi Loading Start.
+- Tự đề xuất FB kiểm tra **toàn bộ chuỗi Loading→Unloading** (không chỉ Process); nếu không FB nào trống tại giờ mong muốn → đề xuất FB + Loading Start sớm nhất (quét từng 15 phút, tối đa 7 ngày).
+- Kiểm chứng: unit test công thức thời gian (preclean có/không có NDT trước, recipe thường, rule Qty/Surface) đều đúng; TypeScript + build sạch.
+
+## v191 - Nhập Loading Start + xem/chỉnh giờ từng đoạn Chemical Line (không cần migration)
+
+Khắc phục: trước đây 4 ô Loading/Process/NDT/Unloading chỉ hiện "Auto after Save" khiến planner tưởng không nhập được Loading Start.
+
+- Cột **"Start"** ở vùng Chemical Line đổi tên thành **"Loading Start"** — đây là ô nhập giờ bắt đầu (nhập Date + Loading Start + Duration + Recipe).
+- Ngay khi nhập đủ thông tin, **4 ô hiển thị ngay kết quả tính trước khi Save** (không còn "Auto after Save"):
+  - **Loading:** Start–End (tự động, theo cấu hình Loading Time Qty/Surface).
+  - **Process / NDT / Unloading:** ô **chỉnh giờ được** (mặc định = giá trị tự tính; đổi được nếu cần), kèm End + Duration.
+  - NDT chỉ hiện với Recipe Pre-cleaning 001/009/016/025; recipe khác hiện "—".
+- Khi Save, các giờ đã chỉnh được gửi lên server; server **kiểm tra ràng buộc**:
+  - Process Start ≥ Loading End; NDT Start ≥ Process End và cách NDT trước ≥ 01:30; Unloading Start ≥ NDT/Process End.
+  - Nếu vi phạm → báo lỗi rõ ràng kèm giờ tối thiểu, không cho Save.
+- Tự đề xuất Flybar (nhập Loading Start → tự chọn FB) vẫn chạy và **tính luôn các giờ đã chỉnh**.
+- Áp dụng cho cả 3 đường: lưới điều độ thủ công (manual-grid), schedule Batch có sẵn, và di chuyển lịch (PATCH).
+- Kiểm tra: TypeScript + build sạch.
+
+## v192 - Fix lỗi "FOR UPDATE cannot be applied to the nullable side of an outer join"
+
+- Khi Schedule một Batch có Recipe, API `/api/schedule` dùng `for update` trên câu query có `LEFT JOIN` sang bảng recipe → PostgreSQL báo lỗi trên.
+- Sửa: khóa đúng bảng chủ `for update of b` (chỉ khóa `planning_batch`, không khóa phía nullable của LEFT JOIN).
+- Đã xác nhận trên PostgreSQL thật: query cũ lỗi đúng thông báo, query mới chạy bình thường. Các query `for update` khác đều single-table nên an toàn.
+- Không cần migration; chỉ deploy lại code.
+
+## v193 - Tự động điều chỉnh lịch Chemical Line khi thêm/bớt Job trong Batch đã Schedule
+
+Trước đây: thêm job vào Batch đã Schedule chỉ cập nhật tổng pcs/dm², lịch giữ nguyên (không đổi thời gian).
+
+Giờ đây, khi thêm/bớt Job (cả từ Batch Detail Fill/Jobs lẫn thêm vào Batch từ Planning Board):
+1. Tính lại tổng Qty/Surface của Batch.
+2. **Loading/Unloading Duration** lấy lại từ cấu hình Qty/Surface Min–Max (`md_chemical_handling_time_rule`).
+3. **Process Duration** lấy lại từ Process Time của Recipe.
+4. **NDT** (nếu recipe preclean) đặt lại theo queue (cách NDT trước ≥ 01:30).
+5. Cập nhật toàn bộ segment Loading→Process→NDT→Unloading trên `planning_schedule`, **giữ nguyên Loading Start**, kéo dãn/may ra Planned End; cập nhật `planning_batch.planned_end`.
+6. Nếu window mới **bị cấn** với lịch khác trên cùng Flybar → chặn (rollback) kèm thông báo rõ lịch nào đang chiếm khoảng nào → planner đổi FB/giờ.
+
+Kiểm chứng trên PostgreSQL thật: batch 49 pcs (Loading 30' / Process 120' / Unloading 20', tổng 170') → thêm job thành 150 pcs → tự thành Loading 60' / Process 120' / Unloading 30' (tổng 210'), Loading Start giữ nguyên, DB lưu đúng.
+Không cần migration; deploy lại code.

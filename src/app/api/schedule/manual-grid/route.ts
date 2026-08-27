@@ -11,6 +11,14 @@ const asDate=(v:unknown)=>{
  const d=new Date(String(v??""));
  return Number.isNaN(d.getTime())?null:d;
 };
+// Planner override giờ bắt đầu Process/NDT/Unloading (ISO hoặc null = tự động).
+function parseOverrides(body:any){
+ return {
+  processStart:body.process_start_override?asDate(body.process_start_override):null,
+  ndtStart:body.ndt_start_override?asDate(body.ndt_start_override):null,
+  unloadingStart:body.unloading_start_override?asDate(body.unloading_start_override):null
+ };
+}
 
 export async function POST(req:Request){
  const body=await req.json().catch(()=>({}));
@@ -145,7 +153,8 @@ export async function POST(req:Request){
 
   const chemicalWindow=resource.resource_group==="CHEMICAL_LINE"
    ?await resolveChemicalScheduleWindow(c,{
-     loadingStart:start,processMinutes:Math.round(duration),totalQty:0,totalSurfaceDm2:0,recipeNo
+     loadingStart:start,processMinutes:Math.round(duration),totalQty:0,totalSurfaceDm2:0,recipeNo,
+     overrides:parseOverrides(body)
     })
    :null;
   const end=chemicalWindow?.unloadingEnd||new Date(start.getTime()+Math.round(duration)*60000);

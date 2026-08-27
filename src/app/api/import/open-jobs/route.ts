@@ -48,6 +48,10 @@ export async function POST(req:Request){
      const result=await importOpenJobsXlsx(temp,client,batchId);
      const planning=await syncPlanningChains(client);
 
+     // v188: quét lại Open Job Column Values sau mỗi lần import để bảng
+     // cấu hình Batch Key / Recipe Rules luôn mới.
+     await client.query(`select public.rebuild_open_job_column_values()`);
+
      await client.query(`
        update open_job_import_batch
        set status='SUCCESS',

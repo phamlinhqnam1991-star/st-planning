@@ -1,4 +1,5 @@
 import type {PoolClient} from "pg";
+import {evaluateRulesForJob,parseRules,RULES_SQL} from "@/lib/batch-key-recipe";
 
 type Mapping={
  source_operation_code:string;
@@ -225,7 +226,7 @@ function planningChainFromAnchor(
 }
 
 export async function syncPlanningChains(c:PoolClient){
- const [mappingQ,scopeQ,jobsQ,paintQ,chemicalQ,existingQ,batchHistoryQ]=await Promise.all([
+ const [mappingQ,scopeQ,jobsQ,paintQ,chemicalQ,rulesQ,existingQ,batchHistoryQ]=await Promise.all([
    c.query(`
      select m.source_operation_code,m.st_group,m.standard_operation_rule,m.mapping_rule,m.sort_order
      from md_st_operation_mapping m
@@ -243,7 +244,7 @@ export async function syncPlanningChains(c:PoolClient){
      order by sort_order,standard_operation
    `),
    c.query(`
-     select job_num,part_num,revision_num,last_operation,next_operation,all_operation
+     select job_num,part_num,revision_num,last_operation,next_operation,all_operation,source_data
      from open_job_current
      where is_open=true
      order by job_num
@@ -255,10 +256,11 @@ export async function syncPlanningChains(c:PoolClient){
    `),
    c.query(`
      select operation_code,recipe_key
-     from md_operation_code_recipe
+     from md_main_operation_recipe
      where is_active=true
      order by operation_code,priority,is_default desc,updated_at desc
    `),
+   c.query(`${RULES_SQL}`),
    c.query(`
      select job_num,operation_instance_key,status,recipe_key
      from planning_job_operation
@@ -311,6 +313,9 @@ export async function syncPlanningChains(c:PoolClient){
    arr.push(clean(r.recipe_key));
    chemicalLists.set(k,arr);
  }
+
+ // Batch Key / Recipe Rules — nguồn ưu tiên cho Recipe trên chuỗi planning.
+ const batchKeyRules=parseRules(rulesQ.rows);
 
  const existingByJob=new Map<string,Map<string,{status:string;recipeKey:string|null}>>();
  for(const r of existingQ.rows){
@@ -526,7 +531,11 @@ export async function syncPlanningChains(c:PoolClient){
 
      let recipeKey:string|null=null;
 
-     if(
+     // 1) Batch Key / Recipe Rule (ưu tiên cao nhất, áp dụng cho MỌI công đoạn).
+     const suggestion=evaluateRulesForJob(batchKeyRules,op.standardOperation,job.source_data);
+     if(suggestion.matched && !suggestion.ambiguous && suggestion.recipeKey){
+       recipeKey=suggestion.recipeKey;
+     }else if(
        ["PRIMER","PRIMER2","PRIMER3","TOPCOAT1","TOPCOAT2","ANTI-ABRASION","VARNISH"]
        .includes(op.standardOperation)
      ){

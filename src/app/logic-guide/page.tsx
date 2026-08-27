@@ -439,6 +439,22 @@ export default async function Page(){
         Recipe số được chuẩn hóa 3 chữ số: 1 → 001, 12 → 012.
        </Rule>
       </div>
+
+      <h3>Batch Key / Recipe Rules (v188)</h3>
+      <div className="guide-rule-list">
+       <Rule title="Nguồn dữ liệu">
+        All Open Job là nguồn gốc. <b>Open Job Column Values</b> tổng hợp giá trị từng cột; <b>Batch Key / Recipe Rules</b> dùng các giá trị đó để đề xuất Recipe + Batch Key + Prefix.
+       </Rule>
+       <Rule title="Batch Key ≠ Prefix">
+        Batch Key là khóa gom lô (vd PAINT|PRIMER|20-T3-10 EPOXY PRIMER); Prefix là 3 ký tự sinh số lô (vd PRI_27AUG_001). Template Batch Key có thể chứa {'{COT}'} để lấy giá trị thật của Job.
+       </Rule>
+       <Rule title="Áp dụng mọi công đoạn">
+        Mọi Main Operation đều dùng chung cơ chế rule; không hard-code Chemical/Paint. Nếu chưa có rule khớp, planner chọn Recipe tay; nhiều rule cùng ưu tiên khớp → hệ thống báo để planner chọn, không tự chọn bừa.
+       </Rule>
+       <Rule title="Process Time mọi công đoạn">
+        Process Time Rule không còn giới hạn Chemical (FIXED_HOURS) / Paint (QTY_SURFACE): mọi công đoạn đều có thể dùng cả hai kiểu.
+       </Rule>
+      </div>
      </div>
 
      <div>
