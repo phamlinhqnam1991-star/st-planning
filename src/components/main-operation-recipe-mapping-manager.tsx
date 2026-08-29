@@ -1,7 +1,7 @@
 "use client";
 
 import {safeJson} from "@/lib/fetch-json";
-import {useEffect,useMemo,useState} from "react";
+import {useMemo,useState} from "react";
 import {parseSelectionRule} from "@/lib/batch-key-recipe";
 
 type Operation={operation_code:string;operation_name:string|null};
@@ -93,14 +93,16 @@ const renderConditionColumns=(selectionRule:string|null)=>{
 // Main Operation → Recipe Mapping (md_main_operation_recipe).
 // Mở rộng từ "Chemical Line only" sang mọi Operation Code / Main Operation.
 export function MainOperationRecipeMappingManager({
- operations,mainOperations,recipes,mappings,sourceColumns,masterColumns,timeRules,unmapped
+ operations,mainOperations,recipes,mappings,sourceColumns,columnValues,masterColumns,masterValues,timeRules,unmapped
 }:{
  operations:Operation[];
  mainOperations:string[];
  recipes:Recipe[];
  mappings:Mapping[];
  sourceColumns:string[];
+ columnValues:{column:string;value:string}[];
  masterColumns:{key:string;label:string}[];
+ masterValues:{column:string;value:string}[];
  timeRules:{recipe_key:string;calc_type:string;priority:number;fixed_hours:number|null;standard_hours:number|null}[];
  unmapped:{operation_code:string;operation_name:string|null}[];
 }){
@@ -120,32 +122,23 @@ export function MainOperationRecipeMappingManager({
    return map;
  },[timeRules]);
 
- const [valuesByColumn,setValuesByColumn]=useState<Map<string,string[]>>(new Map());
- const [valuesLoading,setValuesLoading]=useState<string>("");
- const [valuesError,setValuesError]=useState("");
-
- async function loadValues(column:string){
-  if(!column||valuesByColumn.has(column))return;
-  setValuesLoading(column);setValuesError("");
-  try{
-   const r=await fetch(`/api/config/recipe-condition-values?column=${encodeURIComponent(column)}`);
-   const d=await safeJson<{values?:string[];error?:string}>(r);
-   if(!r.ok)throw new Error(d.error||"Không tải được danh sách giá trị.");
-   setValuesByColumn(prev=>{const next=new Map(prev);next.set(column,Array.isArray(d.values)?d.values:[]);return next;});
-  }catch(e){setValuesError(e instanceof Error?e.message:String(e));}
-  finally{setValuesLoading("");}
- }
-
+ const valuesByColumn=useMemo(()=>{
+   const map=new Map<string,string[]>();
+   for(const v of [...columnValues,...masterValues]){
+     if(v==null||v.value==null||!String(v.value).trim())continue; // giá trị trống xử lý bằng toán tử "trống / rỗng"
+     const arr=map.get(v.column)||[];
+     if(!arr.includes(v.value))arr.push(v.value);
+     map.set(v.column,arr);
+   }
+   for(const arr of map.values())arr.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:"base"}));
+   return map;
+ },[columnValues,masterValues]);
  const [busy,setBusy]=useState(false);
  const [operationCode,setOperationCode]=useState("");
  const [standardOperation,setStandardOperation]=useState("");
  const [recipeKey,setRecipeKey]=useState(recipes[0]?.recipe_key||"");
  const [priority,setPriority]=useState("100");
  const [conditions,setConditions]=useState<Cond[]>([{column:"",operator:"equals",value:""}]);
- useEffect(()=>{
-  for(const c of conditions){if(c.column&&c.operator==="equals")void loadValues(c.column);}
- // eslint-disable-next-line react-hooks/exhaustive-deps
- },[conditions]);
  const [isDefault,setIsDefault]=useState(false);
  const [note,setNote]=useState("");
  const [batchKeyTemplate,setBatchKeyTemplate]=useState("");
@@ -384,11 +377,9 @@ export function MainOperationRecipeMappingManager({
            <select
             className="input"
             value={c.value}
-            disabled={valuesLoading===c.column}
-            onFocus={()=>void loadValues(c.column)}
             onChange={e=>updateCondition(i,"value",e.target.value)}
            >
-            <option value="">{valuesLoading===c.column?"Đang tải giá trị...":"— Chọn giá trị unique —"}</option>
+            <option value="">— Chọn giá trị unique —</option>
             {[...new Set([...(valuesByColumn.get(c.column)||[]),...(c.value?[c.value]:[])])].map(v=>
              <option key={v} value={v}>{v}</option>
             )}
@@ -408,7 +399,6 @@ export function MainOperationRecipeMappingManager({
           >✕</button>
          </div>
         ))}
-        {valuesError&&<div className="muted">Không tải được danh sách giá trị: {valuesError}</div>}
         {conditions.length<8&&
          <button className="btn small" type="button" onClick={addCondition}>
           + Thêm điều kiện

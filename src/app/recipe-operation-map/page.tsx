@@ -15,7 +15,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
  const part=(sp.part||"").trim().toUpperCase();
  const c=await getPool().connect();
  try{
-  const [sourceOpsQ,opsQ,chemicalRecipesQ,chemicalMapsQ,recipesQ,mapsQ,columnsQ,unmappedQ,masterReqCodesQ,timeRulesQ,partQ]=await Promise.all([
+  const [sourceOpsQ,opsQ,chemicalRecipesQ,chemicalMapsQ,recipesQ,mapsQ,columnsQ,columnValuesQ,unmappedQ,masterValuesQ,masterReqCodesQ,timeRulesQ,partQ]=await Promise.all([
    c.query(`select operation_code,operation_name
             from md_operation
             where is_active=true
@@ -50,6 +50,11 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
             where is_active=true
             group by source_column
             order by source_column`),
+   c.query(`select source_column,source_value
+            from md_open_job_column_value
+            where is_active=true
+              and nullif(trim(source_value),'') is not null
+            order by source_column,source_value`),
    c.query(`select o.operation_code,o.operation_name
             from md_operation o
             where o.is_active=true
@@ -58,6 +63,28 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
                 where m.operation_code=o.operation_code and m.is_active=true
               )
             order by o.operation_code`),
+   // v269: cột MASTER DATA (file Master Data) cho điều kiện "Áp dụng cho Job".
+   c.query(`
+     select 'PROGRAM' k, program v from md_part where is_active=true and nullif(trim(program),'') is not null
+     union all select 'PART_CLUSTER', part_cluster from md_part where is_active=true and nullif(trim(part_cluster),'') is not null
+     union all select 'PART_DESCRIPTION', part_description from md_part where is_active=true and nullif(trim(part_description),'') is not null
+     union all select 'SURFACE_DM2', surface_dm2::text from md_part where is_active=true and nullif(trim(surface_dm2::text),'') is not null
+     union all select 'ALLOY', alloy from md_material_finish where is_active=true and nullif(trim(alloy),'') is not null
+     union all select 'TEMPER', temper from md_material_finish where is_active=true and nullif(trim(temper),'') is not null
+     union all select 'TSA', tsa from md_material_finish where is_active=true and nullif(trim(tsa),'') is not null
+     union all select 'CHEMCONV_AIRBUS', chemicalconv_airbus from md_material_finish where is_active=true and nullif(trim(chemicalconv_airbus),'') is not null
+     union all select 'PRIMER1', primer1 from md_material_finish where is_active=true and nullif(trim(primer1),'') is not null
+     union all select 'PRIMER2', primer2 from md_material_finish where is_active=true and nullif(trim(primer2),'') is not null
+     union all select 'PRIMER3', primer3 from md_material_finish where is_active=true and nullif(trim(primer3),'') is not null
+     union all select 'TOPCOAT1', topcoat1 from md_material_finish where is_active=true and nullif(trim(topcoat1),'') is not null
+     union all select 'TOPCOAT2', topcoat2 from md_material_finish where is_active=true and nullif(trim(topcoat2),'') is not null
+     union all select 'ANTIABRASION', antiabration from md_material_finish where is_active=true and nullif(trim(antiabration),'') is not null
+     union all select 'PRIMER1_NAME', primer1_name from md_material_finish where is_active=true and nullif(trim(primer1_name),'') is not null
+     union all select 'TOPCOAT_NAME', topcoat_name from md_material_finish where is_active=true and nullif(trim(topcoat_name),'') is not null
+     union all select 'ANTIABRASION_NAME', antiabrasion_name from md_material_finish where is_active=true and nullif(trim(antiabrasion_name),'') is not null
+     union all select 'VARINISH_NAME', varinish_name from md_material_finish where is_active=true and nullif(trim(varinish_name),'') is not null
+     union all select 'REQ:'||requirement_code, requirement_value from md_process_requirement where is_active=true and nullif(trim(requirement_value),'') is not null
+   `),
    c.query(`
      select distinct requirement_code
      from md_process_requirement
@@ -113,13 +140,16 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
        ];
        const mdReq=(masterReqCodesQ.rows as any[]).map((x:any)=>({key:`MD:REQ:${String(x.requirement_code).trim().toUpperCase()}`,label:`Yêu cầu (Req): ${String(x.requirement_code).trim().toUpperCase()} (Master)`}));
        const masterColumns=[...mdFixed,...mdReq];
-              return <MainOperationRecipeMappingManager
+       const masterValues=(masterValuesQ.rows as any[]).map((x:any)=>({column:`MD:${String(x.k).trim().toUpperCase()}`,value:String(x.v)}));
+       return <MainOperationRecipeMappingManager
         operations={sourceOpsQ.rows as any}
         mainOperations={(opsQ.rows as any[]).map((x:any)=>x.standard_operation)}
         recipes={chemicalRecipesQ.rows as any}
         mappings={chemicalMapsQ.rows as any}
         sourceColumns={(columnsQ.rows as any[]).map((x:any)=>x.source_column)}
+        columnValues={(columnValuesQ.rows as any[]).map((x:any)=>({column:x.source_column,value:x.source_value}))}
         masterColumns={masterColumns}
+        masterValues={masterValues}
         timeRules={timeRulesQ.rows as any}
         unmapped={unmappedQ.rows as any}
        />;
