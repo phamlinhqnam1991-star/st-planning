@@ -15,41 +15,19 @@
 export type BatchKeyRuleCondition={
   id:number;
   source_column:string;
-  operator:"equals"|"contains"|"not_empty"|"starts_with"|"ends_with";
+  operator:"equals"|"contains"|"not_empty"|"is_empty"|"starts_with"|"ends_with";
   source_value:string|null;
   is_active:boolean;
 };
 
-export type BatchKeyRule={
-  id:number;
-  rule_name:string;
-  standard_operation:string;
-  match_mode:"ALL"|"ANY";
-  priority:number;
-  suggested_recipe_key:string|null;
-  batch_key_template:string|null;
-  batch_no_prefix:string|null;
-  is_active:boolean;
-  note:string|null;
-  conditions:BatchKeyRuleCondition[];
-};
-
-export type RuleSuggestion={
-  matched:boolean;
-  ambiguous:boolean;
-  rule:BatchKeyRule|null;
-  recipeKey:string|null;
-  batchKey:string|null;
-  prefix:string|null;
-};
-
 const str=(v:unknown):string=>v==null?"":String(v);
 
-function matchCondition(cond:BatchKeyRuleCondition,sourceData:Record<string,unknown>|null|undefined):boolean{
+export function matchCondition(cond:BatchKeyRuleCondition,sourceData:Record<string,unknown>|null|undefined):boolean{
   const val=str(sourceData?.[cond.source_column]);
   const expect=str(cond.source_value);
   switch(cond.operator){
     case "not_empty": return val.trim()!=="";
+    case "is_empty": return val.trim()==="";
     case "equals": return val===expect;
     case "contains": return val.toLowerCase().includes(expect.toLowerCase());
     case "starts_with": return val.toLowerCase().startsWith(expect.toLowerCase());
@@ -58,11 +36,128 @@ function matchCondition(cond:BatchKeyRuleCondition,sourceData:Record<string,unkn
   }
 }
 
-export function ruleMatches(rule:BatchKeyRule,sourceData:Record<string,unknown>|null|undefined):boolean{
-  const conds=(rule.conditions||[]).filter(c=>c.is_active!==false);
-  if(!conds.length)return false; // rule không có điều kiện thì không tự khớp
-  const results=conds.map(c=>matchCondition(c,sourceData));
-  return rule.match_mode==="ALL"?results.every(Boolean):results.some(Boolean);
+
+// =====================================================================
+// v262/v264/v266: TỰ CHỌN Recipe khi 1 Operation Code có NHIỀU Recipe.
+// Thứ tự (đã chốt với user): ĐIỀU KIỆN của Job → Ưu tiên (số nhỏ) → Mặc định → cập nhật cũ.
+// v266: GỘP Rule vào mapping — mỗi mapping mang theo batch_key_template +
+// batch_no_prefix (trước đây nằm ở màn hình Batch Key / Recipe Rules).
+// =====================================================================
+export type RecipeCandidateItem={
+  recipe_key:string;
+  priority?:number|null;
+  is_default?:boolean|null;
+  updated_at?:string|number|Date|null;
+  selection_rule?:string|null;
+  batch_key_template?:string|null;
+  batch_no_prefix?:string|null;
+};
+
+export function pickBestRecipe(items:RecipeCandidateItem[]|null|undefined):string|null{
+  if(!items||!items.length)return null;
+  const sorted=[...items].sort((a,b)=>{
+    const pa=a.priority==null?Number.MAX_SAFE_INTEGER:Number(a.priority);
+    const pb=b.priority==null?Number.MAX_SAFE_INTEGER:Number(b.priority);
+    if(pa!==pb)return pa-pb;
+
+    const da=a.is_default?1:0;
+    const db=b.is_default?1:0;
+    if(da!==db)return db-da;
+
+    const ua=String(a.updated_at??"");
+    const ub=String(b.updated_at??"");
+    if(ua!==ub)return ua<ub?-1:1;
+
+    return String(a.recipe_key).localeCompare(String(b.recipe_key));
+  });
+  return sorted[0].recipe_key;
+}
+
+// Giải mã selection_rule (JSON conditions) của mapping recipe.
+// v277: chấp nhận CẢ format cũ {column,value} lẫn format chuẩn
+// {source_column,source_value} — các mapping lỡ lưu bằng form bị lệch key
+// (trước v277) tự hiển thị + hoạt động lại mà không cần sửa tay trong DB.
+export function parseSelectionRule(json:string|null|undefined):BatchKeyRuleCondition[]{
+  if(!json)return [];
+  try{
+    const arr=JSON.parse(json);
+    if(!Array.isArray(arr))return [];
+    return arr
+      .map((x:any)=>({
+        id:Number(x?.id)||0,
+        source_column:String(x?.source_column??x?.column??"").trim(),
+        operator:(x?.operator as BatchKeyRuleCondition["operator"])||"equals",
+        source_value:(x?.source_value??x?.value)==null?null:String(x?.source_value??x?.value),
+        is_active:x?.is_active!==false
+      }))
+      .filter(c=>c.source_column);
+  }catch{
+    return [];
+  }
+}
+
+/**
+ * v264: chọn recipe "đúng nhất" cho 1 Job cụ thể.
+ * Ưu tiên: (1) recipe có ĐIỀU KIỆN khớp Job — chọn theo priority/is_default/updated_at;
+ *          (2) nếu không có recipe điều kiện nào khớp → recipe không điều kiện
+ *              (fallback) — chọn theo priority/is_default/updated_at.
+ * Mapping có điều kiện nhưng KHÔNG khớp → bỏ qua (không dùng cho Job này).
+ */
+export function pickBestRecipeForJob(
+  items:RecipeCandidateItem[]|null|undefined,
+  sourceData:Record<string,unknown>|null|undefined
+):string|null{
+  if(!items||!items.length)return null;
+  const hasConditions=(item:RecipeCandidateItem)=>
+    parseSelectionRule(item.selection_rule).length>0;
+
+  const eligible=items.filter(item=>{
+    const conds=parseSelectionRule(item.selection_rule);
+    if(!conds.length)return true; // không điều kiện → luôn hợp lệ (fallback)
+    return conds.every(c=>matchCondition(c,sourceData));
+  });
+
+  const conditional=eligible.filter(hasConditions);
+  const unconditional=eligible.filter(item=>!hasConditions(item));
+
+  return pickBestRecipe(conditional.length?conditional:unconditional);
+}
+
+// Chuyển hàng SQL md_main_operation_recipe thành RecipeCandidateItem[].
+export function toRecipeCandidates(rows:any[]):RecipeCandidateItem[]{
+  return (rows||[]).map(r=>({
+    recipe_key:String(r.recipe_key),
+    priority:r.priority==null?null:Number(r.priority),
+    is_default:!!r.is_default,
+    updated_at:r.updated_at,
+    selection_rule:r.selection_rule?String(r.selection_rule):null,
+    batch_key_template:r.batch_key_template?String(r.batch_key_template):null,
+    batch_no_prefix:r.batch_no_prefix?String(r.batch_no_prefix):null
+  }));
+}
+
+// Chuyển hàng SQL md_main_operation_recipe thành Map<operation_code, items>.
+export function groupRecipeCandidates(
+  rows:any[],
+  codeColumn:string="operation_code"
+):Map<string,RecipeCandidateItem[]>{
+  const map=new Map<string,RecipeCandidateItem[]>();
+  for(const r of rows||[]){
+    const k=String(r[codeColumn]??"").trim().toUpperCase();
+    if(!k)continue;
+    const arr=map.get(k)||[];
+    arr.push({
+      recipe_key:String(r.recipe_key),
+      priority:r.priority==null?null:Number(r.priority),
+      is_default:!!r.is_default,
+      updated_at:r.updated_at,
+      selection_rule:r.selection_rule?String(r.selection_rule):null,
+      batch_key_template:r.batch_key_template?String(r.batch_key_template):null,
+      batch_no_prefix:r.batch_no_prefix?String(r.batch_no_prefix):null
+    });
+    map.set(k,arr);
+  }
+  return map;
 }
 
 // Thay {COLUMN_NAME} trong template bằng giá trị thật của Job.
@@ -78,91 +173,4 @@ export function substituteTemplate(
   return out||null;
 }
 
-export function evaluateRulesForJob(
-  rules:BatchKeyRule[],
-  standardOperation:string,
-  sourceData:Record<string,unknown>|null|undefined
-):RuleSuggestion{
-  const candidates=(rules||[])
-    .filter(r=>r.is_active!==false && r.standard_operation===standardOperation && ruleMatches(r,sourceData));
 
-  if(!candidates.length)
-    return {matched:false,ambiguous:false,rule:null,recipeKey:null,batchKey:null,prefix:null};
-
-  // Ưu tiên nhỏ chạy trước → rule cụ thể (nhiều điều kiện) trước → id ổn định.
-  candidates.sort((a,b)=>
-    (a.priority-b.priority) ||
-    ((b.conditions||[]).length-(a.conditions||[]).length) ||
-    (a.id-b.id)
-  );
-
-  const top=candidates[0];
-  const sameRank=candidates.filter(r=>
-    r.priority===top.priority &&
-    (r.conditions||[]).length===(top.conditions||[]).length
-  );
-  const distinctRecipes=new Set(sameRank.map(r=>r.suggested_recipe_key||"")).size;
-
-  if(sameRank.length>1 && distinctRecipes>1){
-    // Nhiều rule cùng ưu tiên đề xuất recipe khác nhau → báo AMBIGUOUS.
-    return {matched:true,ambiguous:true,rule:null,recipeKey:null,batchKey:null,prefix:null};
-  }
-
-  return {
-    matched:true,
-    ambiguous:false,
-    rule:top,
-    recipeKey:top.suggested_recipe_key||null,
-    batchKey:substituteTemplate(top.batch_key_template,sourceData),
-    prefix:top.batch_no_prefix||null
-  };
-}
-
-// Chuyển hàng SQL (jsonb_agg conditions) thành BatchKeyRule[].
-export function parseRules(rows:any[]):BatchKeyRule[]{
-  return (rows||[]).map(r=>({
-    id:Number(r.id),
-    rule_name:str(r.rule_name),
-    standard_operation:str(r.standard_operation),
-    match_mode:String(r.match_mode||"ALL").toUpperCase()==="ANY"?"ANY":"ALL",
-    priority:Number(r.priority||100),
-    suggested_recipe_key:r.suggested_recipe_key?str(r.suggested_recipe_key):null,
-    batch_key_template:r.batch_key_template?str(r.batch_key_template):null,
-    batch_no_prefix:r.batch_no_prefix?str(r.batch_no_prefix):null,
-    is_active:r.is_active!==false,
-    note:r.note?str(r.note):null,
-    conditions:Array.isArray(r.conditions)
-      ? r.conditions.map((x:any)=>({
-          id:Number(x.id),
-          source_column:str(x.source_column),
-          operator:(x.operator as any)||"equals",
-          source_value:x.source_value==null?null:str(x.source_value),
-          is_active:x.is_active!==false
-        }))
-      : []
-  }));
-}
-
-// Câu SQL chuẩn lấy rule + conditions (dùng cho API và trang Planning).
-export const RULES_SQL=`
-  select
-    r.id,r.rule_name,r.standard_operation,r.match_mode,r.priority,
-    r.suggested_recipe_key,r.batch_key_template,r.batch_no_prefix,r.is_active,r.note,
-    coalesce(jsonb_agg(
-      jsonb_build_object(
-        'id',c.id,
-        'source_column',c.source_column,
-        'operator',c.operator,
-        'source_value',c.source_value,
-        'is_active',c.is_active
-      )
-      order by c.id
-    ) filter (where c.id is not null),'[]'::jsonb) conditions
-  from md_batch_key_recipe_rule r
-  left join md_batch_key_recipe_rule_condition c
-    on c.rule_id=r.id
-   and c.is_active=true
-  where r.is_active=true
-  group by r.id
-  order by r.standard_operation,r.priority,r.id
-`;

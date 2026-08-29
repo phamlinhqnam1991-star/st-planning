@@ -40,39 +40,53 @@ export async function resolveChemicalScheduleWindow(
  if(!unloading)
   throw new Error(`Chưa cấu hình Unloading Time phù hợp Qty ${totalQty} / Surface ${totalSurfaceDm2} dm².`);
 
+ // v221.15: NDT bám sát Process End (không đẩy giờ vô lý). v221.21: thêm ràng buộc
+ // KHÔNG QUÁ 2 FB NDT CÙNG LÚC — nếu tại NDT Start đang có 2 NDT chạy, đẩy NDT sang lúc
+ // chỉ còn ≤1 NDT (giữ nguyên Loading/Process; lô nối tiếp bám NDT End mới).
  let previousNdtStart:Date|null=null;
- if(isPrecleanRecipe(recipeNo)){
-  // Serialize the NDT queue so two concurrent requests cannot receive the same slot.
+
+ const effectiveLoadingMinutes=Number(overrides?.loadingMinutes ?? loading.duration_minutes);
+ let window=buildChemicalScheduleWindow({
+  loadingStart,
+  processMinutes,
+  loadingMinutes:effectiveLoadingMinutes,
+  unloadingMinutes:Number(unloading.duration_minutes),
+  recipeNo,
+  previousNdtStart,
+  overrides
+ });
+ if(isPrecleanRecipe(recipeNo)&&window.ndtStart){
+  // Khóa serial để 2 yêu cầu lưu đồng thời không nhận cùng slot NDT.
   await client.query(`select pg_advisory_xact_lock(hashtext('CHEMICAL_LINE_NDT_QUEUE'))`);
-  const existingQ=await client.query(`
-   select ndt_start
+  const ndtQ=await client.query(`
+   select ndt_start,ndt_end
    from planning_schedule
    where status<>'CANCELLED'
      and ndt_start is not null
      and ($1::bigint is null or id<>$1)
    order by ndt_start
   `,[excludeScheduleId||null]);
-  const base=buildChemicalScheduleWindow({loadingStart,processMinutes,
-   loadingMinutes:Number(loading.duration_minutes),unloadingMinutes:Number(unloading.duration_minutes),recipeNo});
-  let candidate=base.processEnd;
-  for(const row of existingQ.rows){
-   const occupied=new Date(row.ndt_start);
-   if(candidate.getTime()<=occupied.getTime()-90*60000)break;
-   if(candidate.getTime()<occupied.getTime()+90*60000)
-    candidate=new Date(occupied.getTime()+90*60000);
+  const ndtWindows=ndtQ.rows.map((row:any)=>(
+   {s:new Date(String(row.ndt_start)).getTime(),e:row.ndt_end?new Date(String(row.ndt_end)).getTime():new Date(String(row.ndt_start)).getTime()+300*60000}
+  )).filter((w:any)=>Number.isFinite(w.s)&&Number.isFinite(w.e));
+  let t=window.ndtStart.getTime();
+  for(let iter=0;iter<60;iter++){
+   const act=ndtWindows.filter(n=>n.s<=t&&t<n.e);
+   if(act.length<2)break;
+   t=Math.min(...act.map(n=>n.e));
   }
-  previousNdtStart=new Date(candidate.getTime()-90*60000);
+  if(t>window.ndtStart.getTime()){
+   window=buildChemicalScheduleWindow({
+    loadingStart,
+    processMinutes,
+    loadingMinutes:effectiveLoadingMinutes,
+    unloadingMinutes:Number(unloading.duration_minutes),
+    recipeNo,
+    previousNdtStart:null,
+    overrides:{...(overrides||{}),ndtStart:new Date(t)}
+   });
+  }
  }
-
- const window=buildChemicalScheduleWindow({
-  loadingStart,
-  processMinutes,
-  loadingMinutes:Number(loading.duration_minutes),
-  unloadingMinutes:Number(unloading.duration_minutes),
-  recipeNo,
-  previousNdtStart,
-  overrides
- });
 
  // Kiểm tra ràng buộc tối thiểu khi planner override giờ từng đoạn.
  if(overrides?.processStart){
@@ -84,8 +98,6 @@ export async function resolveChemicalScheduleWindow(
    throw new Error("Recipe không phải Pre-cleaning nên không có NDT.");
   if(overrides.ndtStart.getTime()<window.processEnd.getTime())
    throw new Error(`NDT Start phải sau Process End (${fmt(window.processEnd)}).`);
-  if(previousNdtStart && overrides.ndtStart.getTime()<previousNdtStart.getTime()+90*60000)
-   throw new Error(`NDT Start phải cách NDT trước (${fmt(previousNdtStart)}) ít nhất 01:30 — tối thiểu ${fmt(new Date(previousNdtStart.getTime()+90*60000))}.`);
  }
  if(overrides?.unloadingStart){
   const chainEnd=window.ndtEnd||window.processEnd;
@@ -99,27 +111,36 @@ export async function resolveChemicalScheduleWindow(
 export async function assertResourceAndChemicalCapacity(
  client:PoolClient,
  {
-  resourceCode,resourceGroup,window,maxConcurrent,excludeScheduleId
+  resourceCode,resourceGroup,window,maxConcurrent,excludeScheduleId,excludeScheduleIds
  }:{
   resourceCode:string;
   resourceGroup:string;
   window:ChemicalScheduleWindow;
   maxConcurrent:number;
   excludeScheduleId?:number|null;
+  excludeScheduleIds?:(number|null)[];
  }
 ){
+ // Có thể loại nhiều schedule khỏi kiểm tra (vd đang xử lý hàng loạt lô cũ:
+ // các lô chưa xử lý được loại ra để lô sớm hơn được ưu tiên giữ vị trí).
+ const excluded=(excludeScheduleIds||[])
+  .map(x=>x==null?null:Number(x))
+  .filter((x):x is number=>Number.isFinite(x));
+ if(excludeScheduleId!=null&&!excluded.includes(Number(excludeScheduleId)))excluded.push(Number(excludeScheduleId));
+ const exclParam=excluded.length?[excluded]:[];
+
  const overlap=await client.query(`
   select s.planned_start,s.planned_end,b.batch_no
   from planning_schedule s
   left join planning_batch b on b.id=s.batch_id
   where s.resource_code=$1
     and s.status<>'CANCELLED'
-    and ($4::bigint is null or s.id<>$4)
+    ${excluded.length?"and not (s.id = any($4::bigint[]))":""}
     and s.planned_start<$3
     and s.planned_end>$2
   order by s.planned_start
   limit 3
- `,[resourceCode,window.loadingStart,window.unloadingEnd,excludeScheduleId||null]);
+ `,[resourceCode,window.loadingStart,window.unloadingEnd,...exclParam]);
  if(overlap.rowCount){
   const fmt=(v:unknown)=>v
    ?new Date(String(v)).toLocaleTimeString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit",hour12:false})
@@ -133,6 +154,34 @@ export async function assertResourceAndChemicalCapacity(
 
  if(resourceGroup!=="CHEMICAL_LINE")return;
 
+ // v195: Chỉ 1 Flybar được Loading tại 1 thời điểm (dùng chung trạm Loading).
+ const loadingOverlap=await client.query(`
+  select s.id,s.resource_code,
+         coalesce(s.loading_start,s.planned_start) ls,
+         coalesce(s.loading_end,s.process_start,s.planned_start) le,
+         b.batch_no
+  from planning_schedule s
+  join md_schedule_resource r on r.resource_code=s.resource_code
+  left join planning_batch b on b.id=s.batch_id
+  where r.resource_group='CHEMICAL_LINE'
+    and s.status<>'CANCELLED'
+    ${excluded.length?"and not (s.id = any($3::bigint[]))":"and ($3::bigint is null or s.id<>$3)"}
+    and coalesce(s.loading_start,s.planned_start) < $2
+    and coalesce(s.loading_end,s.process_start,s.planned_start) > $1
+  order by s.loading_start,s.id
+  limit 3
+ `,[window.loadingStart,window.loadingEnd,...(excluded.length?exclParam:[excludeScheduleId||null])]);
+ if(loadingOverlap.rowCount){
+  const fmt=(v:unknown)=>v
+   ?new Date(String(v)).toLocaleTimeString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit",hour12:false})
+   :"—";
+  throw new Error(
+   `Chỉ 1 Flybar được Loading cùng lúc: Loading ${fmt(window.loadingStart)}–${fmt(window.loadingEnd)} `+
+   `trùng với ${loadingOverlap.rows.map((r:any)=>`${r.batch_no||("schedule #"+r.id)} (${r.resource_code} · ${fmt(r.ls)}–${fmt(r.le)})`).join(", ")}. `+
+   `Hãy đổi giờ Loading Start hoặc chọn khoảng trống sau.`
+  );
+ }
+
  const concurrency=await client.query(`
   with existing as (
    select
@@ -142,7 +191,7 @@ export async function assertResourceAndChemicalCapacity(
    join md_schedule_resource r on r.resource_code=s.resource_code
    where r.resource_group='CHEMICAL_LINE'
      and s.status<>'CANCELLED'
-     and ($3::bigint is null or s.id<>$3)
+     ${excluded.length?"and not (s.id = any($3::bigint[]))":"and ($3::bigint is null or s.id<>$3)"}
      and coalesce(s.process_start,s.planned_start)<$2
      and coalesce(s.process_end,s.planned_end)>$1
   ), events as (
@@ -156,7 +205,7 @@ export async function assertResourceAndChemicalCapacity(
    group by t,delta
   )
   select coalesce(max(active),0) max_active from timeline
- `,[window.processStart,window.processEnd,excludeScheduleId||null]);
+ `,[window.processStart,window.processEnd,...(excluded.length?exclParam:[excludeScheduleId||null])]);
 
  if(Number(concurrency.rows[0]?.max_active||0)>Math.max(1,maxConcurrent))
   throw new Error(`Chemical Line chỉ cho phép tối đa ${Math.max(1,maxConcurrent)} Flybar chạy Process cùng lúc.`);
@@ -339,4 +388,399 @@ export async function suggestChemicalFlybar(
  });
  
  return suggestions;
+}
+
+// =====================================================================
+// SIMULATION CẢ NGÀY — Tự đề xuất FB + giờ Loading cho một danh sách lô.
+// Nguyên tắc:
+//  - Chỉ 1 Flybar Loading tại 1 thời điểm (chuỗi Loading nối tiếp).
+//  - FB bận từ Loading Start → Unloading End.
+//  - Ưu tiên FB trống sớm nhất; nếu FB bận → đẩy giờ muộn hơn.
+//  - NDT (preclean) cách NDT trước ≥ 01:30, kéo dài 05:00.
+//  - Tối đa 3 Flybar chạy Process cùng lúc.
+// Đọc-only: không ghi gì vào database.
+// =====================================================================
+export type SimulatedRun={
+ index:number;
+ recipe_key:string;
+ standard_operation:string|null;
+ continued:boolean;
+ recipe_no:string|null;
+ recipe_name:string|null;
+ resource_code:string;
+ loading_start:string;
+ loading_end:string;
+ loading_minutes:number;
+ process_start:string;
+ process_end:string;
+ process_minutes:number;
+ ndt_start:string|null;
+ ndt_end:string|null;
+ ndt_minutes:number|null;
+ unloading_start:string;
+ unloading_end:string;
+ unloading_minutes:number;
+ duration_minutes:number;
+};
+
+export async function simulateChemicalDay(
+ client:PoolClient,
+ {
+  desiredStart,
+  runs,
+  allowedOperations
+ }:{
+  desiredStart:Date;
+  runs:{recipe_key:string;desired_start?:string;preferred_fb?:string;continuation_from?:string;batch_id?:string;manual_chain?:boolean;chain_from_run?:number;chain_source_schedule_id?:number|string;overrides?:{processStart?:string|null;ndtStart?:string|null;unloadingStart?:string|null}}[];
+  allowedOperations?:string[];
+ }
+):Promise<SimulatedRun[]>{
+ if(!runs.length)return [];
+
+ const [handlingQ,timeRulesQ,recipesQ,existingQ,maxConcQ,opMapQ,fbQ]=await Promise.all([
+  client.query(`
+   select id,phase,priority,qty_min,qty_max,surface_min_dm2,surface_max_dm2,duration_minutes
+   from md_chemical_handling_time_rule
+   where is_active=true order by priority,id
+  `),
+  client.query(`
+   select recipe_key,calc_type,priority,qty_min,qty_max,
+          surface_min_dm2,surface_max_dm2,fixed_hours,standard_hours
+   from md_recipe_time_rule
+   where is_active=true
+  `),
+  client.query(`
+   select recipe_key,recipe_no,recipe_name
+   from md_process_recipe
+   where is_active=true
+  `),
+  client.query(`
+   select s.id,s.resource_code,
+          s.loading_start,s.loading_end,s.process_start,s.process_end,s.ndt_start,s.ndt_end,s.planned_end
+   from planning_schedule s
+   join md_schedule_resource r on r.resource_code=s.resource_code
+   where r.resource_group='CHEMICAL_LINE'
+     and s.status<>'CANCELLED'
+     and s.planned_start between $1::timestamptz - interval '48 hours' and $1::timestamptz + interval '96 hours'
+  `,[desiredStart]),
+  client.query(`
+   select coalesce(max(max_concurrent),3) max_concurrent
+   from md_schedule_resource
+   where resource_group='CHEMICAL_LINE' and is_active=true
+  `),
+  client.query(`
+   select recipe_key,operation_code,standard_operation,priority,is_default
+   from md_main_operation_recipe
+   where is_active=true
+   order by priority,recipe_key
+  `),
+  client.query(`
+   select resource_code
+   from md_schedule_resource
+   where resource_group='CHEMICAL_LINE' and is_active=true
+   order by resource_code
+  `)
+ ]);
+
+ const handlingRules=handlingQ.rows as ChemicalHandlingRule[];
+ const maxConcurrent=Math.max(1,Number(maxConcQ.rows[0]?.max_concurrent||3));
+ const recipeMap=new Map<string,{recipe_no:string|null;recipe_name:string|null}>();
+ for(const r of recipesQ.rows)recipeMap.set(String(r.recipe_key),{recipe_no:r.recipe_no,recipe_name:r.recipe_name});
+ const allowedOpSet=allowedOperations&&allowedOperations.length
+  ?new Set(allowedOperations.map((x:string)=>String(x).toUpperCase()))
+  :null;
+ const opByRecipe=new Map<string,string[]>();
+ for(const r of opMapQ.rows as any[]){
+  const key=String(r.recipe_key||"");
+  const op=String(r.operation_code||r.standard_operation||"");
+  if(!key||!op)continue;
+  const list=opByRecipe.get(key)||[];
+  list.push(op);
+  opByRecipe.set(key,list);
+ }
+ const opFor=(recipeKey:string):string|null=>{
+  const list=opByRecipe.get(recipeKey)||[];
+  if(!list.length)return null;
+  if(allowedOpSet)return list.find(x=>allowedOpSet.has(x.toUpperCase()))||null;
+  return list[0];
+ };
+
+ // Process minutes theo recipe: FIXED_HOURS trước, rồi QTY_SURFACE (khoảng Qty/Surface).
+ const processMinutesFor=(recipeKey:string):number=>{
+  const rules=(timeRulesQ.rows as any[]).filter(r=>r.recipe_key===recipeKey);
+  const fixed=rules.filter(r=>r.calc_type==="FIXED_HOURS").sort((a,b)=>a.priority-b.priority||a.id-b.id)[0];
+  if(fixed&&Number.isFinite(Number(fixed.fixed_hours)))
+   return Math.round(Number(fixed.fixed_hours)*60);
+  const qs=rules.filter(r=>r.calc_type==="QTY_SURFACE"&&(r.qty_min==null||0>=Number(r.qty_min))&&(r.qty_max==null||0<=Number(r.qty_max))&&(r.surface_min_dm2==null||0>=Number(r.surface_min_dm2))&&(r.surface_max_dm2==null||0<=Number(r.surface_max_dm2)))
+   .sort((a,b)=>a.priority-b.priority||a.id-b.id)[0];
+  if(qs&&Number.isFinite(Number(qs.standard_hours)))
+   return Math.round(Number(qs.standard_hours)*60);
+  return 0;
+ };
+
+ // Trạng thái hiện có (đã lưu).
+ const fbBusyUntil=new Map<string,number>();
+ let lastLoadingEnd=0;
+ const processWindows:{s:number;e:number}[]=[];
+ const processStarts:number[]=[];
+ const ndtWindows:{s:number;e:number}[]=[];
+ for(const s of existingQ.rows as any[]){
+  const fb=String(s.resource_code||"");
+  const busy=s.planned_end?new Date(String(s.planned_end)).getTime():0;
+  if(busy)fbBusyUntil.set(fb,Math.max(fbBusyUntil.get(fb)||0,busy));
+  const ls=s.loading_start?new Date(String(s.loading_start)).getTime():0;
+  const le=s.loading_end?new Date(String(s.loading_end)).getTime():(s.process_start?new Date(String(s.process_start)).getTime():ls);
+  const lDur=Number(s.loading_duration_minutes||0);
+  if(ls&&le&&lDur>0)lastLoadingEnd=Math.max(lastLoadingEnd,le);
+  const ps=s.process_start?new Date(String(s.process_start)).getTime():0;
+  const pe=s.process_end?new Date(String(s.process_end)).getTime():0;
+  if(ps&&pe)processWindows.push({s:ps,e:pe});
+  if(ps&&Number.isFinite(ps))processStarts.push(ps);
+  if(s.ndt_start){
+   const st=new Date(String(s.ndt_start)).getTime();
+   if(Number.isFinite(st))ndtWindows.push({s:st,e:s.ndt_end?new Date(String(s.ndt_end)).getTime():st+300*60000});
+  }
+ }
+
+ const FBs=(fbQ.rows as {resource_code:string}[]).map(r=>String(r.resource_code)).filter(Boolean);
+ if(!FBs.length)FBs.push("FB-01","FB-02","FB-03","FB-04","FB-05","FB-06");
+ const out:SimulatedRun[]=new Array(runs.length).fill(null as any);
+
+ // Thứ tự xử lý ưu tiên chuỗi liên kết: dòng liên kết chạy NGAY SAU dòng nguồn
+ // (tránh dòng khác chen vào FB giữa chừng làm gãy chuỗi).
+ const chainChildren=new Map<number,number[]>();
+ runs.forEach((r,i)=>{
+  if(r.chain_from_run!=null&&r.chain_from_run<i){
+   const list=chainChildren.get(r.chain_from_run)||[];
+   list.push(i);
+   chainChildren.set(r.chain_from_run,list);
+  }
+ });
+ const order:number[]=[];const seen=new Array(runs.length).fill(false);
+ const visit=(i:number)=>{
+  if(seen[i])return;
+  seen[i]=true;order.push(i);
+  for(const c of (chainChildren.get(i)||[]).sort((a,b)=>a-b))visit(c);
+ };
+ for(let i=0;i<runs.length;i++)visit(i);
+
+ for(const idx of order){
+  const recipeKey=String(runs[idx].recipe_key||"").trim();
+  const meta=recipeMap.get(recipeKey);
+  if(!meta)throw new Error(`Lô ${idx+1}: Recipe không tồn tại hoặc đã inactive.`);
+  const runDesired=runs[idx].desired_start?new Date(String(runs[idx].desired_start)).getTime():desiredStart.getTime();
+  // Nối tiếp cùng FB: lô của cùng nhóm job (vd BSAUNSLD sau CPBILP) nên chạy ngay
+  // trên chính FB của lô trước, không loading lại.
+  let preferredFb=String(runs[idx].preferred_fb||"").trim()||null;
+  let continuationFrom=runs[idx].continuation_from?new Date(String(runs[idx].continuation_from)).getTime():null;
+  // Liên kết THỦ CÔNG (kéo-thả): trỏ thẳng vào KẾT QUẢ của dòng nguồn trong CÙNG lượt chạy
+  // → Loading Start = Unloading End dòng nguồn, đúng FB nguồn; mọi ràng buộc (≤3 Process,
+  // FB bận, NDT queue) kiểm tra với TOÀN BỘ các dòng khác trong cùng lượt — không còn lỗi
+  // "2 lô trùng sát nhau trên cùng FB" do lượt 2 không biết giờ các dòng khác.
+  let manualChainFb:string|null=null;
+  const chainSrc=runs[idx].chain_from_run;
+  if(chainSrc!=null&&chainSrc<idx&&out[chainSrc]){
+   const srcOut=out[chainSrc];
+   preferredFb=srcOut.resource_code;
+   // Quy tắc user chốt (v221.13): lô nối tiếp từ FB preclean bám vào thời điểm NDT XONG của
+   // lô nguồn — phần đã qua NDT là SẴN SÀNG sang FB kế, không phải chờ Unloading xong.
+   // Lô nguồn không có NDT → bám Unloading End như cũ. FB đích bận (vd liên kết cùng FB,
+   // hoặc FB đó còn lô khác) → vòng lặp dưới tự đẩy giờ Loading cho tới khi hết bận.
+   const srcNdtEnd=srcOut.ndt_end?new Date(String(srcOut.ndt_end)).getTime():null;
+   continuationFrom=srcNdtEnd!=null?srcNdtEnd:new Date(String(srcOut.unloading_end)).getTime();
+   manualChainFb=preferredFb;
+  }
+  // v221.18: liên kết THỦ CÔNG tới LÔ ĐÃ LƯU (nguồn không nằm trong lượt chạy): client gửi
+  // chain_source_schedule_id + preferred_fb + continuation_from (= NDT End / Unloading End nguồn).
+  // Neo đúng FB nguồn + giờ nguồn; cửa sổ của CHÍNH lô nguồn không chặn bar (bar rảnh tại
+  // NDT End); chỉ lô KHÁC trên cùng FB kết thúc sau lô nguồn mới chặn. Kiểm tra đủ ≤3 Process.
+  if(chainSrc==null&&runs[idx].manual_chain&&runs[idx].chain_source_schedule_id!=null&&preferredFb&&continuationFrom){
+   const srcRow=(existingQ.rows as any[]).find((r:any)=>Number(r.id)===Number(runs[idx].chain_source_schedule_id));
+   if(srcRow){
+    const srcEnd=srcRow.planned_end?new Date(String(srcRow.planned_end)).getTime():continuationFrom;
+    const fbBusy=fbBusyUntil.get(preferredFb)||0;
+    if(fbBusy>srcEnd+5*60000)continuationFrom=Math.max(continuationFrom,fbBusy);
+    manualChainFb=preferredFb;
+   }
+  }
+  // CHỈ nối tiếp khi hệ thống PHÁT HIỆN ĐƯỢC các job chung: lô này có job, và job đó nằm
+  // trong lô Previous Main đã được điều độ đúng FB + đúng giờ kết thúc. Không phát hiện → không nối tiếp.
+  if(preferredFb&&continuationFrom&&runs[idx].batch_id&&!runs[idx].manual_chain&&chainSrc==null){
+   const vq=await client.query(`
+    select prevsch.resource_code,prevsch.planned_end
+    from planning_batch_job cbj
+    join planning_job_operation cur on cur.id=cbj.planning_job_operation_id
+    join lateral (
+     select hb.id previous_batch_id
+     from planning_batch_job hbj
+     join planning_batch hb on hb.id=hbj.batch_id and hb.status<>'CANCELLED'
+     left join planning_job_operation hp on hp.id=hbj.planning_job_operation_id
+     where hbj.job_num=cbj.job_num
+       and hbj.batch_id<>cbj.batch_id
+       and hbj.standard_operation<>'PIONBL'
+       and coalesce(hbj.source_seq_snapshot,hp.source_seq,-1)<coalesce(cbj.source_seq_snapshot,cur.source_seq,2147483647)
+     order by coalesce(hbj.source_seq_snapshot,hp.source_seq) desc,hb.id desc,hbj.id desc
+     limit 1
+    ) prevhist on true
+    join lateral (
+     select ps2.resource_code,ps2.planned_end
+     from planning_schedule ps2
+     where ps2.batch_id=prevhist.previous_batch_id
+       and ps2.status<>'CANCELLED'
+     order by ps2.planned_start desc,ps2.id desc
+     limit 1
+    ) prevsch on true
+    where cbj.batch_id=$1
+    limit 1
+   `,[runs[idx].batch_id]);
+   const v=vq.rows[0];
+   if(!v||String(v.resource_code||"")!==preferredFb||Math.abs(new Date(String(v.planned_end)).getTime()-continuationFrom)>5*60000){
+    preferredFb=null;continuationFrom=null; // không phát hiện được job chung → không nối tiếp
+   }
+  }
+
+  const loading=selectChemicalHandlingRule(handlingRules,"LOADING",0,0);
+  const unloading=selectChemicalHandlingRule(handlingRules,"UNLOADING",0,0);
+  const skipLoadingIntent=Boolean(preferredFb&&continuationFrom);
+  if(!loading||!unloading)
+   throw new Error(`Lô ${idx+1} (${meta.recipe_no||recipeKey}): chưa cấu hình Loading/Unloading Time phù hợp (Qty 0).`);
+
+  const processMinutes=processMinutesFor(recipeKey);
+  if(processMinutes<=0)
+   throw new Error(`Lô ${idx+1} (${meta.recipe_no||recipeKey}): chưa cấu hình Process Time cho recipe này.`);
+
+  const preclean=isPrecleanRecipe(meta.recipe_no);
+  // Lô NỐI TIẾP (liên kết): Loading Start bám điểm kết thúc của lô nguồn — NDT End nếu nguồn
+  // là preclean (có NDT), Unloading End nếu nguồn không có NDT. Không bị đẩy bởi giờ Loading
+  // của các lô khác hay giờ mong muốn của dòng.
+  let startCandidate=preferredFb&&continuationFrom
+   ?continuationFrom
+   :Math.max(runDesired,lastLoadingEnd,continuationFrom||0);
+  let chosen:any=null;
+  let attempts=0;
+  const maxAttempts=7*24*4; // 15 phút × 7 ngày
+
+  while(!chosen&&attempts<maxAttempts){
+   // Xét FB theo thứ tự trống sớm nhất (busyUntil nhỏ trước, trùng thì FB nhỏ hơn).
+   const ordered=skipLoadingIntent
+    ?[preferredFb as string] // lô liên kết: BẮT BUỘC đúng FB dòng nguồn (bận → đẩy giờ, không đổi FB)
+    :preferredFb
+     ?[preferredFb,...[...FBs].filter(f=>f!==preferredFb).sort((a,b)=>{
+       const da=fbBusyUntil.get(a)||0,db=fbBusyUntil.get(b)||0;
+       return (da-db)||a.localeCompare(b);
+      })]
+     :[...FBs].sort((a,b)=>{
+       const da=fbBusyUntil.get(a)||0,db=fbBusyUntil.get(b)||0;
+       return (da-db)||a.localeCompare(b);
+      });
+   for(const fb of ordered){
+    // Lô liên kết THỦ CÔNG bám NDT End của lô nguồn: FB của chính lô nguồn được coi là RẢNH
+    // ngay khi NDT xong (bar đã qua kiểm tra → sẵn sàng cho bước kế; bước Unloading còn lại
+    // của lô nguồn không chặn bar). Chỉ các lô KHÁC trên FB đó mới chặn giờ (qua fbBusyUntil).
+    // Lưu ý: DFS xếp lô liên kết NGAY SAU lô nguồn → chưa có lô nào khác xen vào FB nguồn,
+    // nên bỏ qua fbBusyUntil tại đây là an toàn; các lô sau vẫn bị chặn bởi fbBusyUntil mới.
+    const srcFbIsThisFb=skipLoadingIntent&&manualChainFb===fb;
+    const startMs=srcFbIsThisFb
+     ?Math.max(startCandidate,continuationFrom??startCandidate)
+     :Math.max(startCandidate,fbBusyUntil.get(fb)||0);
+    // v221.17: TỐI ƯU TRẠM LOADING — FB chưa rảnh tại thời điểm candidate thì KHÔNG nhận
+    // (đẩy candidate +15' thử lại) thay vì chấp nhận loading muộn trên FB đó → giảm khoảng
+    // trống "trạm Loading không làm gì" (vd loading xong 12:00 nhưng dòng kế ra 17:20).
+    // Riêng lô liên kết thủ công (srcFbIsThisFb) vẫn bám đúng FB nguồn như quy tắc đã chốt.
+    if(!srcFbIsThisFb&&startMs>startCandidate+5*60000)continue;
+    // Chỉ "không loading" khi lô bắt đầu NGAY tại thời điểm lô trước vừa xong (±5 phút).
+    // Lô trước đã xong từ lâu → vẫn Loading bình thường.
+    // Lô liên kết THỦ CÔNG (manualChainFb) LUÔN không loading — bị cấn (FB bận / ≥3 Process)
+    // thì CHỜ rồi nối tiếp, không hoá thành loading lại. Lô nối tiếp TỰ ĐỘNG giữ quy tắc cũ
+    // (±5'): lệch quá thì xếp như lô Loading bình thường.
+    const isImmediate=skipLoadingIntent&&continuationFrom!==null
+     &&(manualChainFb===fb||Math.abs(startMs-continuationFrom)<=5*60000);
+    // Override từ cột Start chỉnh tay (Process/NDT/Unloading) phải được tính khi kiểm tra
+    // ràng buộc (tối đa 3 Process cùng lúc, NDT queue…) để Đề xuất không gợi ý giờ cấn nhau.
+    const ov=runs[idx].overrides;
+    const overrides=ov?{
+     processStart:ov.processStart?new Date(String(ov.processStart)):null,
+     ndtStart:ov.ndtStart?new Date(String(ov.ndtStart)):null,
+     unloadingStart:ov.unloadingStart?new Date(String(ov.unloadingStart)):null
+    }:null;
+    // v221.15: NDT bám sát Process End. v221.21: thêm ràng buộc KHÔNG QUÁ 2 FB NDT CÙNG LÚC —
+    // nếu tại Process End đang có 2 NDT chạy, đẩy NDT sang lúc chỉ còn ≤1 NDT (giữ nguyên
+    // Loading/Process; lô nối tiếp bám NDT End MỚI — client hiển thị đúng NDT từ kết quả này).
+    let window=buildChemicalScheduleWindow({
+     loadingStart:new Date(startMs),
+     processMinutes,
+     loadingMinutes:isImmediate?0:Number(loading.duration_minutes),
+     unloadingMinutes:Number(unloading.duration_minutes),
+     recipeNo:meta.recipe_no,
+     previousNdtStart:null,
+     overrides
+    });
+    if(preclean&&window.ndtStart&&!overrides?.ndtStart){
+     let t=window.ndtStart.getTime();
+     for(let iter=0;iter<60;iter++){
+      const act=ndtWindows.filter(n=>n.s<=t&&t<n.e);
+      if(act.length<2)break;
+      t=Math.min(...act.map(n=>n.e));
+     }
+     if(t>window.ndtStart.getTime()){
+      window=buildChemicalScheduleWindow({
+       loadingStart:new Date(startMs),
+       processMinutes,
+       loadingMinutes:isImmediate?0:Number(loading.duration_minutes),
+       unloadingMinutes:Number(unloading.duration_minutes),
+       recipeNo:meta.recipe_no,
+       previousNdtStart:null,
+       overrides:{...(overrides||{}),ndtStart:new Date(t)}
+      });
+     }
+    }
+    const s=window.processStart.getTime(),e=window.processEnd.getTime();
+    const concurrent=processWindows.filter(w=>w.s<e&&w.e>s).length;
+    if(concurrent>=maxConcurrent)continue;
+    // v221.20: PROCESS START cách nhau ÍT NHẤT 1 GIỜ (mọi lô, kể cả lô nối tiếp) —
+    // tránh cảnh dòng 13 Process 19:50 sát dòng 14 Process 19:30 (chỉ 20 phút).
+    if(processStarts.some(p=>Math.abs(p-s)<60*60000))continue;
+    chosen={fb,startMs,window,processMinutes,immediate:isImmediate};
+    break;
+   }
+   if(!chosen)startCandidate+=15*60000;
+   attempts++;
+  }
+
+  if(!chosen)
+   throw new Error(`Lô ${idx+1} (${meta.recipe_no||recipeKey}): không tìm được FB trống trong 7 ngày.`);
+
+  const w=chosen.window;
+  processStarts.push(w.processStart.getTime());
+  if(w.ndtStart)ndtWindows.push({s:w.ndtStart.getTime(),e:w.ndtEnd?w.ndtEnd.getTime():w.ndtStart.getTime()+300*60000});
+  fbBusyUntil.set(chosen.fb,w.unloadingEnd.getTime());
+  // Lô nối tiếp (Loading 0 phút) KHÔNG chiếm trạm Loading chung — chỉ lô có Loading thật mới đẩy chuỗi Loading.
+  if(w.loadingMinutes>0)lastLoadingEnd=Math.max(lastLoadingEnd,w.loadingEnd.getTime());
+  processWindows.push({s:w.processStart.getTime(),e:w.processEnd.getTime()});
+
+  out[idx]={
+   index:idx+1,
+   recipe_key:recipeKey,
+   standard_operation:opFor(recipeKey),
+   continued:Boolean(chosen.immediate),
+   recipe_no:meta.recipe_no,
+   recipe_name:meta.recipe_name,
+   resource_code:chosen.fb,
+   loading_start:w.loadingStart.toISOString(),
+   loading_end:w.loadingEnd.toISOString(),
+   loading_minutes:w.loadingMinutes,
+   process_start:w.processStart.toISOString(),
+   process_end:w.processEnd.toISOString(),
+   process_minutes:w.processMinutes,
+   ndt_start:w.ndtStart?w.ndtStart.toISOString():null,
+   ndt_end:w.ndtEnd?w.ndtEnd.toISOString():null,
+   ndt_minutes:w.ndtMinutes,
+   unloading_start:w.unloadingStart.toISOString(),
+   unloading_end:w.unloadingEnd.toISOString(),
+   unloading_minutes:w.unloadingMinutes,
+   duration_minutes:w.totalMinutes
+  };
+ }
+
+ return out;
 }

@@ -16,7 +16,10 @@ function parseOverrides(body:any){
  return {
   processStart:body.process_start_override?asDate(body.process_start_override):null,
   ndtStart:body.ndt_start_override?asDate(body.ndt_start_override):null,
-  unloadingStart:body.unloading_start_override?asDate(body.unloading_start_override):null
+  unloadingStart:body.unloading_start_override?asDate(body.unloading_start_override):null,
+  loadingMinutes:body.loading_minutes_override==null||body.loading_minutes_override===""
+   ?null
+   :(Number.isFinite(Number(body.loading_minutes_override))?Math.max(0,Number(body.loading_minutes_override)):null)
  };
 }
 
@@ -24,7 +27,7 @@ export async function POST(req:Request){
  const body=await req.json().catch(()=>({}));
  const requestedScheduleArea=clean(body.schedule_area_code).toUpperCase();
  const requestedStGroup=clean(body.st_group);
- const standardOperation=clean(body.standard_operation);
+ let standardOperation=clean(body.standard_operation);
  const recipeKey=clean(body.recipe_key)||null;
  const resourceCode=clean(body.resource_code);
  const planningDate=clean(body.planning_date);
@@ -32,14 +35,36 @@ export async function POST(req:Request){
  const duration=Number(body.duration_minutes);
  const note=clean(body.note)||null;
 
- if(!standardOperation||!resourceCode||!planningDate||!start)
-  return NextResponse.json({error:"Operation / Resource / Date / Start là bắt buộc."},{status:400});
+ if(!resourceCode||!planningDate||!start)
+  return NextResponse.json({error:"Resource / Date / Start là bắt buộc."},{status:400});
  if(!Number.isFinite(duration)||duration<=0)
   return NextResponse.json({error:"Duration phải lớn hơn 0 phút."},{status:400});
 
  const c=await getPool().connect();
  try{
   await c.query("begin");
+
+  // Bỏ cột Std Op ở giao diện → hệ thống tự xác định Operation từ Recipe
+  // (mapping Recipe → Main Operation, ưu tiên op thuộc đúng Schedule Area).
+  if(!standardOperation){
+   if(!recipeKey)
+    throw new Error("Dòng chưa có Operation — hãy chọn Recipe để hệ thống tự tìm Operation, hoặc kéo lô từ Unscheduled vào dòng.");
+   const derivedQ=await c.query(`
+    select coalesce(nullif(m.operation_code,''), m.standard_operation) standard_operation
+    from md_main_operation_recipe m
+    join md_schedule_area_operation ao
+      on ao.standard_operation=coalesce(nullif(m.operation_code,''), m.standard_operation)
+     and ao.schedule_area_code=$2
+     and ao.is_active=true
+    where m.recipe_key=$1
+      and m.is_active=true
+    order by (m.is_default=false),m.priority,m.operation_code
+    limit 1
+   `,[recipeKey,requestedScheduleArea]);
+   if(!derivedQ.rowCount)
+    throw new Error(`Recipe này chưa được map Operation trong vùng ${requestedScheduleArea}. Hãy chọn Operation ngay trên dòng (ô xổ xuống cạnh Recipe), hoặc vào Cấu hình → Process Recipe → mục Operation Code → Recipe Mapping để map.`);
+   standardOperation=String(derivedQ.rows[0].standard_operation);
+  }
 
   const opQ=await c.query(`
    select o.standard_operation,o.st_group,o.batch_prefix
@@ -151,19 +176,47 @@ export async function POST(req:Request){
   `,[op.st_group||""]);
   const areaId=areaQ.rows[0]?.id||null;
 
-  const chemicalWindow=resource.resource_group==="CHEMICAL_LINE"
-   ?await resolveChemicalScheduleWindow(c,{
-     loadingStart:start,processMinutes:Math.round(duration),totalQty:0,totalSurfaceDm2:0,recipeNo,
-     overrides:parseOverrides(body)
-    })
-   :null;
-  const end=chemicalWindow?.unloadingEnd||new Date(start.getTime()+Math.round(duration)*60000);
-  if(chemicalWindow){
-   await assertResourceAndChemicalCapacity(c,{
-    resourceCode,resourceGroup:resource.resource_group,window:chemicalWindow,
-    maxConcurrent:Number(resource.max_concurrent||3)
-   });
+  let effectiveStart=start;
+  let chemicalWindow:Awaited<ReturnType<typeof resolveChemicalScheduleWindow>>|null=null;
+  let autoAdjusted:null|{from:string;to:string;reason:string}=null;
+  // Lô liên kết (không Loading, loading_minutes_override=0): loại LÔ NGUỒN khỏi kiểm tra trùng
+  // FB — lô liên kết bám NDT End (hoặc Unloading End) của lô nguồn, CÙNG FB, chồng phần
+  // Unloading 30' của nguồn là ĐÚNG quy tắc liên kết (không phải lỗi trùng FB).
+  let excludeScheduleIds:number[]|null=null;
+  if(resource.resource_group==="CHEMICAL_LINE"&&body.loading_minutes_override===0){
+   const exclQ=await c.query(`
+    select s.id from planning_schedule s
+    where s.resource_code=$1 and s.status<>'CANCELLED'
+      and abs(extract(epoch from (coalesce(s.ndt_end,s.planned_end) - $2::timestamptz)))<=300
+   `,[resourceCode,start]);
+   if(exclQ.rowCount)excludeScheduleIds=exclQ.rows.map((r:any)=>Number(r.id));
   }
+  if(resource.resource_group==="CHEMICAL_LINE"){
+   const processMin=Math.round(duration);
+   const ov=parseOverrides(body);
+   const tryWindow=async(ls:Date)=>{
+    const w=await resolveChemicalScheduleWindow(c,{loadingStart:ls,processMinutes:processMin,totalQty:0,totalSurfaceDm2:0,recipeNo,overrides:ov});
+    await assertResourceAndChemicalCapacity(c,{resourceCode,resourceGroup:resource.resource_group,window:w,maxConcurrent:Number(resource.max_concurrent||3),excludeScheduleIds:excludeScheduleIds??undefined});
+    return w;
+   };
+   try{
+    chemicalWindow=await tryWindow(effectiveStart);
+   }catch(firstErr){
+    // Save bị cấn giờ (lô khác chiếm FB / quá 3 Process…) → TỰ ĐẨY Loading Start về sau
+    // (15 phút/bước, tối đa 7 ngày) cho tới khi hết cấn; vẫn tôn trọng mọi ràng buộc.
+    let ok=false;
+    for(let step=1;step<=7*24*4;step++){
+     try{
+      const cand=new Date(start.getTime()+step*15*60000);
+      chemicalWindow=await tryWindow(cand);
+      effectiveStart=cand;ok=true;break;
+     }catch{}
+    }
+    if(!ok)throw firstErr instanceof Error?firstErr:new Error(String(firstErr));
+    autoAdjusted={from:start.toISOString(),to:effectiveStart.toISOString(),reason:firstErr instanceof Error?firstErr.message:"bị cấn giờ"};
+   }
+  }
+  const end=chemicalWindow?.unloadingEnd||new Date(effectiveStart.getTime()+Math.round(duration)*60000);
 
   const overlap=chemicalWindow?{rowCount:0}:await c.query(`
    select 1
@@ -202,7 +255,7 @@ export async function POST(req:Request){
     $1,$2,($3 at time zone 'Asia/Ho_Chi_Minh')::date,$3,$4,
     $5,'SCHEDULED',$6,'MANUAL_GRID',$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
    ) returning *
-  `,[batchId,resourceCode,start,end,columns?.durationMinutes||Math.round(duration),note,
+  `,[batchId,resourceCode,effectiveStart,end,columns?.durationMinutes||Math.round(duration),note,
     columns?.loadingStart||null,columns?.loadingEnd||null,columns?.loadingDurationMinutes||null,
     columns?.processStart||null,columns?.processEnd||null,columns?.processDurationMinutes||null,
     columns?.ndtStart||null,columns?.ndtEnd||null,columns?.ndtDurationMinutes||null,
@@ -214,7 +267,8 @@ export async function POST(req:Request){
    batchId,
    batchNo,
    schedule:scheduleQ.rows[0],
-   planSource:"MANUAL_GRID"
+   planSource:"MANUAL_GRID",
+   autoAdjusted
   });
  }catch(e){
   await c.query("rollback");

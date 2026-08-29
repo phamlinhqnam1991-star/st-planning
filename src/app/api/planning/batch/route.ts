@@ -1,6 +1,8 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {evaluateRulesForJob,parseRules,RULES_SQL} from "@/lib/batch-key-recipe";
+import {substituteTemplate} from "@/lib/batch-key-recipe";
+import {loadLiveRecipeContext,bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
+import {recipeAllowedForJob} from "@/lib/planning/batch-utils";
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 
 const clean=(v:unknown)=>String(v??"").trim();
@@ -326,86 +328,68 @@ export async function POST(req:NextRequest){
 
    validateSamePaint(q.rows,standardOperation);
 
-   const resolved=[...new Set(q.rows.map((r:any)=>r.recipe_key).filter(Boolean))];
-
-   // =====================================================================
-   // Batch Key / Recipe Rule — đề xuất Recipe + Batch Key + Prefix khi
-   // planner chưa chọn Recipe tay. Áp dụng cho MỌI Main Operation.
-   // =====================================================================
-   const rulesRowsQ=await c.query(`${RULES_SQL}`);
-   const rules=parseRules(rulesRowsQ.rows);
-   const rulesForOp=rules.filter(r=>r.standard_operation===standardOperation && r.is_active!==false);
+   // v266: recipe + Mã lô mẫu + Prefix của từng Job theo CẤU HÌNH HIỆN TẠI
+   // (paint theo Part → Operation Code theo điều kiện/ưu tiên). Rule đã gộp vào đây.
+   const recipeCtx=await loadLiveRecipeContext(c);
+   const matches=q.rows.map((r:any)=>({
+     row:r,
+     match:bestRecipeMatch(recipeCtx,{
+       standardOperation:r.standard_operation,
+       sourceOperationCode:r.source_operation_code,
+       partNum:r.part_num,
+       revisionNum:r.revision_num,
+       sourceData:r.source_data||null,
+       ruleSuggestion:null
+     })
+   }));
+   const resolved=[...new Set(matches.map(x=>x.match.recipeKey).filter((x):x is string=>Boolean(x)))];
 
    let suggestedBatchKey:string|null=null;
    let rulePrefix:string|null=null;
-   let ruleName:string|null=null;
 
-   if(!recipeKey && rulesForOp.length){
-     const suggestions=q.rows.map((r:any)=>({
-       job:r.job_num,
-       row:r,
-       suggestion:evaluateRulesForJob(rules,standardOperation,r.source_data)
-     }));
-
-     const unmatched=suggestions.filter(x=>!x.suggestion.matched);
-     const ambiguous=suggestions.filter(x=>x.suggestion.ambiguous);
-     const matched=suggestions.filter(x=>x.suggestion.matched && !x.suggestion.ambiguous);
-
-     if(ambiguous.length){
-       throw new Error(
-        `Nhiều rule cùng ưu tiên khớp cho Job ${ambiguous.map(x=>x.job).join(", ")}. `+
-        `Hãy chọn Recipe tay hoặc chỉnh Priority rule trong Cấu hình.`
-       );
-     }
-
-     if(unmatched.length && !resolved.length){
-       throw new Error(
-        `Không có rule nào khớp cho Job: ${unmatched.map(x=>x.job).join(", ")}. `+
-        `Hãy chọn Recipe tay hoặc tạo rule tại Cấu hình → Batch Key / Recipe Rules.`
-       );
-     }
-
-     const distinctRecipes=[...new Set(matched.map(x=>x.suggestion.recipeKey).filter(Boolean))];
-     const distinctBatchKeys=[...new Set(matched.map(x=>x.suggestion.batchKey).filter(Boolean))];
-
-     if(matched.length){
-       if(distinctRecipes.length>1 || distinctBatchKeys.length>1){
-         throw new Error(
-          `Các Job khớp rule nhưng thuộc nhóm Batch Key khác nhau `+
-          `(${distinctBatchKeys.join(" | ")}). Một Batch chỉ gom Job cùng Batch Key / Recipe.`
-         );
-       }
-       if(distinctRecipes.length===1)recipeKey=distinctRecipes[0];
-       if(distinctBatchKeys.length===1)suggestedBatchKey=distinctBatchKeys[0];
-       rulePrefix=matched[0].suggestion.prefix||null;
-       ruleName=matched[0].suggestion.rule?.rule_name||null;
-     }
-   }else if(!recipeKey){
-     if(resolved.length===1)recipeKey=resolved[0];
-     else if(resolved.length>1)
+   if(!recipeKey){
+     if(resolved.length===1){
+       recipeKey=resolved[0];
+     }else if(resolved.length>1){
        throw new Error("Các Job đang có Recipe khác nhau. Hãy chọn đúng Recipe.");
+     }
+   }
+
+   // Mã lô mẫu + Prefix từ mapping của các Job dùng ĐÚNG recipe của lô.
+   if(recipeKey){
+     const keyMatches=matches.filter(x=>x.match.recipeKey===recipeKey);
+     const batchKeys=[...new Set(
+       keyMatches.map(x=>substituteTemplate(
+         x.match.batchKeyTemplate,
+         mergeJobData(recipeCtx,{partNum:x.row.part_num,revisionNum:x.row.revision_num,sourceData:x.row.source_data||null})
+       )).filter((x):x is string=>Boolean(x))
+     )];
+     const prefixes=[...new Set(keyMatches.map(x=>x.match.batchNoPrefix).filter((x):x is string=>Boolean(x)))];
+
+     if(batchKeys.length>1){
+       throw new Error(
+        `Các Job có Mã lô mẫu khác nhau (${batchKeys.join(" | ")}). Một Batch chỉ gom Job cùng Mã lô.`
+       );
+     }
+     if(batchKeys.length===1)suggestedBatchKey=batchKeys[0];
+     if(prefixes.length===1)rulePrefix=prefixes[0];
    }
 
    if(recipeKey){
      for(const r of q.rows){
-       if(r.recipe_key && r.recipe_key!==recipeKey)
-         throw new Error(`Job ${r.job_num} có Recipe khác Recipe của Batch.`);
+       // v264: kiểm tra theo cấu hình HIỆN TẠI — không bắt buộc trùng recipe cũ
+       // trong DB (p.recipe_key chỉ là giá trị lúc Rebuild, có thể cũ).
+       const allowed=await recipeAllowedForJob(c,{
+         source_operation_code:r.source_operation_code,
+         standard_operation:r.standard_operation,
+         part_num:r.part_num,
+         revision_num:r.revision_num
+       },recipeKey);
 
-       if(!r.recipe_key){
-         const allowed=await c.query(`
-           select 1
-           from md_main_operation_recipe
-           where operation_code=$1
-             and recipe_key=$2
-             and is_active=true
-           limit 1
-         `,[r.source_operation_code,recipeKey]);
-
-         if(!allowed.rowCount)
-           throw new Error(
-             `Recipe đã chọn không hợp lệ cho Operation Code ${r.source_operation_code} / Job ${r.job_num}.`
-           );
-       }
+       if(!allowed)
+         throw new Error(
+           `Recipe đã chọn không hợp lệ cho Operation Code ${r.source_operation_code} / Job ${r.job_num} (theo cấu hình hiện tại).`
+         );
      }
    }
 
@@ -470,7 +454,7 @@ export async function POST(req:NextRequest){
        await c.query(`
         update planning_job_operation
            set status='PLANNED',
-               recipe_key=coalesce(recipe_key,$2),
+               recipe_key=coalesce($2,recipe_key),
                updated_at=now()
          where id=$1
        `,[r.id,recipeKey]);
@@ -498,7 +482,7 @@ export async function POST(req:NextRequest){
              total_qty=$3,
              total_surface_dm2=$4,
              process_minutes=$5,
-             recipe_key=coalesce(recipe_key,$6),
+             recipe_key=coalesce($6,recipe_key),
              batch_key=coalesce(batch_key,$7),
              updated_at=now()
        where id=$1
@@ -674,7 +658,7 @@ export async function POST(req:NextRequest){
      await c.query(`
        update planning_job_operation
        set status='PLANNED',
-           recipe_key=coalesce(recipe_key,$2),
+           recipe_key=coalesce($2,recipe_key),
            updated_at=now()
        where id=$1
      `,[r.id,recipeKey]);
@@ -690,7 +674,6 @@ export async function POST(req:NextRequest){
      batchId,
      batchNo,
      batchKey:suggestedBatchKey,
-     ruleName,
      totalJobs:q.rows.length,
      totalQty,
      totalSurface,

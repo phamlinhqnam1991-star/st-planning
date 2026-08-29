@@ -1,5 +1,6 @@
 "use client";
 
+import {safeJson} from "@/lib/fetch-json";
 import {useEffect,useMemo,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 
@@ -59,6 +60,8 @@ type Candidate={
  recipe_no:string|null;
  recipe_name:string|null;
  recipe_required:boolean|null;
+ recipe_key:string|null;
+ effective_recipe_key:string|null;
 
  priority_type:string|null;
  planning_status:string|null;
@@ -331,6 +334,21 @@ export function BatchDetailManager({
    return Boolean(activePaintKey&&key!==activePaintKey);
  };
 
+ const selectedRecipeSuggestion=useMemo(()=>{
+   if(!selected.length)return null;
+   const rows=candidates.filter(x=>selected.includes(x.id));
+   const keys=[...new Set(rows.map(x=>x.effective_recipe_key||x.recipe_key||"").filter(Boolean))];
+   if(!keys.length)return {kind:"none" as const};
+   if(keys.length===1){
+     const row=rows.find(x=>(x.effective_recipe_key||x.recipe_key)===keys[0]);
+     return {
+       kind:"ok" as const,
+       label:`${row?.recipe_no||keys[0]}${row?.recipe_name?` · ${row.recipe_name}`:""}`
+     };
+   }
+   return {kind:"mixed" as const, keys};
+ },[candidates,selected]);
+
  const currentPriorityMonth=useMemo(()=>{
    const raw=String(planningDate||"").slice(0,10);
    const m=raw.match(/^(\d{4})-(\d{2})-\d{2}$/);
@@ -508,7 +526,7 @@ export function BatchDetailManager({
        headers:{"content-type":"application/json"},
        body:JSON.stringify({planning_job_operation_ids:selected})
      });
-     const d=await r.json();
+     const d=await safeJson(r);
 
      if(!r.ok)throw new Error(d.error||"Add Job failed");
 
@@ -533,7 +551,7 @@ export function BatchDetailManager({
        headers:{"content-type":"application/json"},
        body:JSON.stringify({batch_job_id:row.batch_job_id})
      });
-     const d=await r.json();
+     const d=await safeJson(r);
 
      if(!r.ok)throw new Error(d.error||"Remove Job failed");
 
@@ -727,6 +745,28 @@ export function BatchDetailManager({
       </span>
      </div>}
 
+    {selectedRecipeSuggestion&&selected.length>0&&
+     <div className={`recipe-suggestion-banner ${selectedRecipeSuggestion.kind==="ok"?"is-ok":selectedRecipeSuggestion.kind==="mixed"?"is-warn":"is-muted"}`}>
+      {selectedRecipeSuggestion.kind==="ok"&&(
+       <>
+        <b>✓ Recipe đề xuất:</b>
+        <span>{selectedRecipeSuggestion.label}</span>
+       </>
+      )}
+      {selectedRecipeSuggestion.kind==="mixed"&&(
+       <>
+        <b>⚠ Các Job chọn có Recipe khác nhau:</b>
+        <span>{selectedRecipeSuggestion.keys.join(" · ")} — nên chọn Job cùng Recipe để gom lô.</span>
+       </>
+      )}
+      {selectedRecipeSuggestion.kind==="none"&&(
+       <>
+        <b>✕ Job chưa có Recipe theo cấu hình:</b>
+        <span>Cấu hình <a href="/recipe-operation-map">Công thức & Rule</a>.</span>
+       </>
+      )}
+     </div>}
+
     <div className="batch-add-filter batch-add-filter-same-view">
      <label>
       Search Job / Part
@@ -752,7 +792,7 @@ export function BatchDetailManager({
      <table className="erp-table planning-candidate-table">
       <thead>
        <tr>
-        <th className="planning-sticky-select">
+        <th>
          <input
           type="checkbox"
           checked={
@@ -772,7 +812,7 @@ export function BatchDetailManager({
          key={x.id}
          className={`${selected.includes(x.id)?"planning-row-selected ":""}${paintSelectionLocked(x)?"paint-selection-disabled ":""}${priorityClass(x.priority_type)}`.trim()}
         >
-         <td className="planning-sticky-select">
+         <td>
           <input
            type="checkbox"
            checked={selected.includes(x.id)}

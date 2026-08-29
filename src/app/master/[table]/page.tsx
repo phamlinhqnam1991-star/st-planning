@@ -3,6 +3,7 @@ import {notFound} from "next/navigation";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {getPool} from "@/lib/db";
 import {AppTabs,SubTabs} from "@/components/app-tabs";
+import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 import {OperationMasterManager} from "@/components/operation-master-manager";
 const config:Record<string,{table:string,title:string,search:string[],section:"master"|"config",exactField?:string,uppercaseExact?:boolean}>={
  part:{table:"md_part",title:"Part Master",search:["part_num","part_description","program"],section:"master"},
@@ -22,11 +23,6 @@ const masterTabs=[
  {key:"finish",label:"Material Finish",href:"/master/finish"},{key:"requirement",label:"Process Requirement",href:"/master/requirement"},
  {key:"strouting",label:"ST Routing Master",href:"/master/strouting"},{key:"stroutingchain",label:"ST Routing Chain",href:"/master/stroutingchain"},
  {key:"partrouting",label:"Part → Routing",href:"/master/partrouting"}
-];
-const configTabs=[
- {key:"flow",label:"ST Operation Flow",href:"/st-operation-flow"},{key:"operation",label:"Main Operation Master",href:"/master/operation"},{key:"operationcodeorder",label:"ST Scope & Operation Order",href:"/operation-code-order"},{key:"operationmapping",label:"Source → Main Mapping",href:"/master/operationmapping"},
- {key:"stgroup",label:"ST Group Master",href:"/st-groups"},{key:"area",label:"Physical Area Master",href:"/area"},{key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
- {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},{key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"}
 ];
 export const dynamic="force-dynamic";
 export default async function Page({params,searchParams}:{params:Promise<{table:string}>,searchParams:Promise<{q?:string;p?:string}>}){
@@ -107,7 +103,7 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
     <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">{c.section==="master"?"MASTER DATA":"CONFIGURATION"}</div></header>
     <AppTabs active={c.section==="master"?"master":"config"}/>
     <div className="erp-workspace">
-     <aside className="erp-sidebar"><div className="erp-sidebar-title">{c.section==="master"?"MASTER DATA":"CẤU HÌNH"}</div><SubTabs items={c.section==="master"?masterTabs:configTabs} active={key}/></aside>
+     {c.section==="master"?(<aside className="erp-sidebar"><div className="erp-sidebar-title">MASTER DATA</div><SubTabs items={masterTabs} active={key}/></aside>):(<ConfigSidebar active={key}/>)}
      <section className="erp-content">
       <div className="erp-page-head"><div><h2>{c.title}</h2><p>Không thể tải dữ liệu</p></div></div>
       <div className="notice"><b>Database query error:</b> {error.message||JSON.stringify(error)}</div>
@@ -116,16 +112,22 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
    </main>
  }
  const rows=(data||[]) as Record<string,unknown>[];const cols=rows.length?Object.keys(rows[0]).filter(x=>!["created_at","updated_at","last_import_batch_id"].includes(x)):[];const pages=Math.max(1,Math.ceil((count||0)/size));
- const tabs=c.section==="master"?masterTabs:configTabs;
-
+ 
  if(key==="operation"){
   return <main className="erp-shell">
    <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION</div></header>
    <AppTabs active="config"/>
    <div className="erp-workspace">
-    <aside className="erp-sidebar"><div className="erp-sidebar-title">CẤU HÌNH</div><SubTabs items={configTabs} active="operation"/></aside>
+    <ConfigSidebar active="operation"/>
     <section className="erp-content">
-     <div className="erp-page-head"><div><h2>{c.title}</h2><p>{(count||0).toLocaleString()} active records · Có thể sửa tên Standard Operation</p></div></div>
+     <ConfigPageHeader
+      title={c.title}
+      subtitle={`${(count||0).toLocaleString()} công đoạn chính đang hoạt động`}
+      purpose="Danh mục công đoạn chính (Main Operation): đổi tên, đặt thứ tự công đoạn và tiền tố số lô (3 ký tự, vd CHM)."
+      impact="Đổi tên công đoạn sẽ cập nhật mọi liên kết Planning/Recipe/Batch liên quan. Tiền tố số lô quyết định đầu số của các lô mới tạo."
+      prev={{label:"Source → Main Mapping",href:"/master/operationmapping"}}
+      next={{label:"ST Group Master",href:"/st-groups"}}
+     />
      <form className="row erp-form-panel"><input className="input" name="q" defaultValue={q} placeholder="Tìm kiếm..."/><button className="btn primary">Tìm</button></form>
      <OperationMasterManager rows={rows as any}/>
      <div className="row pager"><Link className="btn" href={`?q=${encodeURIComponent(q)}&p=${Math.max(1,page-1)}`}>← Trước</Link><span className="muted">Trang {page} / {pages}</span><Link className="btn" href={`?q=${encodeURIComponent(q)}&p=${Math.min(pages,page+1)}`}>Sau →</Link></div>
@@ -137,7 +139,7 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
   <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">{c.section==="master"?"MASTER DATA":"CONFIGURATION"}</div></header>
   <AppTabs active={c.section==="master"?"master":"config"}/>
   <div className="erp-workspace">
-   <aside className="erp-sidebar"><div className="erp-sidebar-title">{c.section==="master"?"MASTER DATA":"CẤU HÌNH"}</div><SubTabs items={tabs} active={key}/></aside>
+   {c.section==="master"?(<aside className="erp-sidebar"><div className="erp-sidebar-title">MASTER DATA</div><SubTabs items={masterTabs} active={key}/></aside>):(<ConfigSidebar active={key}/>)}
    <section className="erp-content">
     <div className="erp-page-head"><div><h2>{c.title}</h2><p>{(count||0).toLocaleString()} active records</p></div></div>
     <form className="row erp-form-panel"><input className="input" name="q" defaultValue={q} placeholder={c.exactField==="part_num"?"Nhập chính xác Part Number...":"Tìm kiếm..."}/><button className="btn primary">Tìm</button></form>

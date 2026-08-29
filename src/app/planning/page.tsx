@@ -5,7 +5,9 @@ import {PlanningViewTabs} from "@/components/planning-view-tabs";
 import {getPool} from "@/lib/db";
 import {getRecentPlanningBatches} from "@/lib/planning/recent-batches";
 import {healScheduledHandoffs} from "@/lib/planning/unlock-next-after-schedule";
-import {evaluateRulesForJob,parseRules,RULES_SQL} from "@/lib/batch-key-recipe";
+import {visibleOperations} from "@/lib/planning/visible-operations";
+import {substituteTemplate} from "@/lib/batch-key-recipe";
+import {loadLiveRecipeContext,bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
 
 export const dynamic="force-dynamic";
 
@@ -22,11 +24,57 @@ export default async function Page({
 
  const c=await getPool().connect();
  try{
+   // v243: VIEW CÔNG ĐOẠN ST — Candidate Jobs lọc NGAY TRONG SQL theo view
+   // (trước limit) để không bị cắt job khi danh sách lớn. Thứ tự OP → AREA → SYSTEM
+   // giống client; chưa có view → mặc định = công đoạn ST đã cấu hình (trừ ST_SCOPE_ONLY).
+   const viewKeys:string[]=[];
+   if(op)viewKeys.push(`OP:${op}`);
+   if(areaId)viewKeys.push(`AREA:${areaId}`);
+   viewKeys.push("SYSTEM");
+   const viewQ=await c.query(
+    `select view_key,payload from planning_board_view where view_key=any($1)
+     order by array_position($2::text[],view_key)`,
+    [viewKeys,viewKeys]
+   );
+   let stViewCodes:string[]|null=null;
+   // v261: truyền Default View xuống client NGAY TỪ SSR — hết cảnh "169 cột hiện ra
+   // rồi mới nhảy sang view đã lưu". View khớp = dòng đầu theo thứ tự OP→AREA→SYSTEM.
+   let initialView:any=null;
+   for(const r of viewQ.rows){
+    if(r&&typeof r.payload==="object"){
+     const p=r.payload as any;
+     if(Array.isArray(p.stView)){
+      stViewCodes=p.stView.map((x:unknown)=>String(x).trim().toUpperCase()).filter(Boolean) as string[];
+     }
+     if(initialView===null){
+      initialView={
+       columns:Array.isArray(p.columns)?p.columns.filter((x:unknown)=>typeof x==="string"):[],
+       stView:Array.isArray(p.stView)?p.stView.map((x:unknown)=>String(x)):undefined,
+       filters:(p.filters&&typeof p.filters==="object")?p.filters:{},
+       sortRules:Array.isArray(p.sortRules)?p.sortRules:[],
+       density:["normal","compact","ultra"].includes(String(p.density||""))?String(p.density):"compact",
+       routeFocus:Boolean(p.routeFocus)
+      };
+     }
+    }
+   }
+   let stViewParams:string[]=[];
+   if(stViewCodes===null){
+    const defQ=await c.query(`
+     select upper(trim(operation_code)) op from md_st_operation_scope
+     where is_active=true
+     group by upper(trim(operation_code))
+     having not bool_or(operation_type='ST_SCOPE_ONLY')`);
+    stViewParams=defQ.rows.map((r:any)=>String(r.op));
+   }else{
+    stViewParams=stViewCodes;
+   }
+
    // Self-heal historical/new Schedule handoffs before Candidate query.
    // A scheduled Main unlocks ONLY its immediate next Main.
    await healScheduledHandoffs(c);
 
-   const [areasQ,opsQ,batchesQ,matrixOpsQ]=await Promise.all([
+   const [areasQ,opsQ,batchesQ,matrixOpsQ,visibleOpsQ,nextOpsQ]=await Promise.all([
      c.query(`
        select id,area_name
        from md_area
@@ -80,7 +128,16 @@ export default async function Page({
          coalesce(sg.sort_order,999999),
          s.sort_order,
          s.standard_operation
-     `)
+     `),
+    visibleOperations(c),
+    c.query(`
+      select upper(trim(j.next_operation)) operation_code, count(*)::int jobs
+      from open_job_current j
+      where j.is_open=true
+        and nullif(trim(coalesce(j.next_operation,'')),'') is not null
+      group by upper(trim(j.next_operation))
+      order by jobs desc, operation_code
+    `)
    ]);
 
    const params:any[]=[];
@@ -121,6 +178,14 @@ export default async function Page({
    if(previousBatchNo){
      params.push(previousBatchNo);
      conditions.push(`prevhist.previous_batch_no=$${params.length}`);
+   }
+
+   // v243: lọc theo VIEW CÔNG ĐOẠN ST (trước limit 5000)
+   if(stViewParams.length){
+     params.push(stViewParams);
+     conditions.push(`upper(trim(j.next_operation)) = any($${params.length}::text[])`);
+   }else{
+     conditions.push(`1=0`);
    }
 
    const candidatesQ=await c.query(`
@@ -330,394 +395,12 @@ export default async function Page({
        limit 1
      ) prevhist on true
 
-     left join lateral (
-       select jsonb_agg(
-         jsonb_build_object(
-           'route_key',r.route_key,
-           'source_operation',r.source_operation,
-           'source_seq',r.source_seq,
-           'occurrence',r.occurrence,
-           'standard_operation',r.standard_operation,
-           'planning_job_operation_id',r.planning_job_operation_id,
-           'planning_job_status',r.planning_job_status,
-           'ready_source_seq',r.ready_source_seq,
-           'route_status',r.route_status,
-           'batch_id',r.batch_id,
-           'batch_no',r.batch_no,
-           'batch_status',r.batch_status,
-           'schedule_id',r.schedule_id,
-           'schedule_status',r.schedule_status,
-           'resource_code',r.resource_code,
-           'planned_start',r.planned_start,
-           'planned_end',r.planned_end,
-           'recipe_no',r.recipe_no,
-           'recipe_name',r.recipe_name
-         )
-         order by r.source_seq
-       ) route_status
-       from (
-         with master_route_base as (
-           -- Full Routing Detail is the authoritative source of source_seq.
-           -- Unlike All Open Job.AllOperation, this contains operations before
-           -- the current NextOperation as well.
-           select
-             d.operation_code source_operation,
-             d.source_seq::int source_seq,
-             row_number() over(
-               partition by upper(trim(d.operation_code))
-               order by d.source_seq
-             ) source_occurrence,
-             pr.routing_code
-           from md_routing_detailed d
-           left join md_part_routing pr
-             on pr.part_num=d.part_num
-            and pr.revision_num=d.revision_num
-            and pr.is_active=true
-           where d.part_num=j.part_num
-             and d.revision_num=j.revision_num
-             and d.is_active=true
-         ),
-
-         master_route as (
-           select
-             mb.source_operation,
-             mb.source_seq,
-             mb.source_occurrence occurrence,
-             sr.standard_operation master_standard_operation,
-             sr.planning_group master_st_group,
-             true from_master
-           from master_route_base mb
-
-           -- Match the standardized ST Routing occurrence to the original
-           -- Routing Detail occurrence while preserving original source_seq.
-           left join lateral (
-             select x.standard_operation,x.planning_group
-             from md_st_routing x
-             where x.routing_code=mb.routing_code
-               and x.is_active=true
-               and upper(trim(x.operation_code))=upper(trim(mb.source_operation))
-               and exists(
-                 select 1
-                 from md_st_operation_scope scope
-                 where scope.is_active=true
-                   and scope.operation_type='PLANNING_OPERATION'
-                   and upper(trim(scope.operation_code))=upper(trim(mb.source_operation))
-               )
-             order by x.seq
-             offset greatest(mb.source_occurrence-1,0)
-             limit 1
-           ) sr on true
-
-           where sr.standard_operation is not null
-              or upper(trim(mb.source_operation))='PIONBL'
-              or exists(
-                select 1 from md_st_operation_scope scope
-                where scope.is_active=true
-                  and upper(trim(scope.operation_code))=upper(trim(mb.source_operation))
-              )
-         ),
-
-         fallback_route as (
-           -- Legacy fallback only when Part/Revision has no Routing Detail.
-           select
-             trim(both '[] ' from token) source_operation,
-             ordinality::int source_seq,
-             row_number() over(
-               partition by upper(trim(both '[] ' from token))
-               order by ordinality
-             ) occurrence,
-             null::text master_standard_operation,
-             null::text master_st_group,
-             false from_master
-           from regexp_split_to_table(
-             regexp_replace(coalesce(j.all_operation,''),'^\s*\[|\]\s*$','','g'),
-             '\s*\|\s*'
-           ) with ordinality as parts(token,ordinality)
-           where trim(both '[] ' from token)<>''
-             and not exists(select 1 from master_route)
-         ),
-
-         raw_route as (
-           select * from master_route
-           union all
-           select * from fallback_route
-         ),
-
-         mapped_route as (
-           select
-             rr.*,
-
-             coalesce(
-               rr.master_standard_operation,
-
-               -- Exact current/future Planning Chain status. Match by
-               -- Operation Code + standardized Main instead of source_seq,
-               -- because planning_job_operation source_seq may originate from
-               -- the current AllOperation slice while master source_seq comes
-               -- from full Routing Detail.
-               exact_po.standard_operation,
-
-               hist_op.standard_operation,
-
-               direct_map.standard_operation_rule,
-
-               case when upper(rr.source_operation)='PIONBL' then 'PIONBL' end
-             ) standard_operation,
-
-             exact_po.id planning_job_operation_id,
-             exact_po.status planning_job_status,
-             exact_po.planning_seq
-
-           from raw_route rr
-
-           left join lateral (
-             select po.id,po.standard_operation,po.status,po.planning_seq
-             from planning_job_operation po
-             where po.job_num=p.job_num
-               and po.is_active=true
-               and upper(trim(po.source_operation_code))=upper(trim(rr.source_operation))
-               and (
-                 rr.master_standard_operation is null
-                 or po.standard_operation=rr.master_standard_operation
-               )
-             order by
-               case
-                 when po.id=p.id then 0
-                 when po.status='ELIGIBLE' then 1
-                 when po.status='PLANNED' then 2
-                 else 3
-               end,
-               po.planning_seq,
-               po.id
-             limit 1
-           ) exact_po on true
-
-           left join lateral (
-             select hbj.standard_operation
-             from planning_batch_job hbj
-             where hbj.job_num=p.job_num
-               and upper(trim(hbj.source_operation_code))=upper(trim(rr.source_operation))
-               and (
-                 rr.master_standard_operation is null
-                 or hbj.standard_operation=rr.master_standard_operation
-               )
-             order by hbj.id desc
-             limit 1
-           ) hist_op on true
-
-           left join lateral (
-             select m.standard_operation_rule
-             from md_st_operation_mapping m
-             join md_st_operation_scope scope
-               on upper(trim(scope.operation_code))=upper(trim(m.source_operation_code))
-              and scope.is_active=true
-              and scope.operation_type='PLANNING_OPERATION'
-             where m.is_active=true
-               and upper(trim(m.source_operation_code))=upper(trim(rr.source_operation))
-               and m.mapping_rule='DIRECT'
-             order by m.sort_order,m.id
-             limit 1
-           ) direct_map on true
-         ),
-
-         ready_position as (
-           select coalesce(
-             -- Primary: exact current Planning Main in full master routing.
-             (
-               select min(mr.source_seq)
-               from mapped_route mr
-               where upper(trim(mr.source_operation))=
-                     upper(trim(p.source_operation_code))
-                 and mr.standard_operation=p.standard_operation
-             ),
-
-             -- If NextOperation is intermediate/non-planning, find the first
-             -- mapped Main at/after its true Routing Detail source_seq.
-             (
-               select min(mr.source_seq)
-               from mapped_route mr
-               where mr.standard_operation is not null
-                 and mr.source_seq>=coalesce(
-                   (
-                     select min(mb.source_seq)
-                     from master_route_base mb
-                     where upper(trim(mb.source_operation))=
-                           upper(trim(j.next_operation))
-                   ),
-                   1
-                 )
-             ),
-
-             -- Legacy fallback when master routing is unavailable.
-             p.source_seq
-           )::int ready_source_seq
-         ),
-
-         enriched as (
-           select
-             mr.*,
-             rp.ready_source_seq,
-
-             hist_batch.batch_id,
-             hist_batch.batch_no,
-             hist_batch.batch_status,
-             hist_batch.recipe_no,
-             hist_batch.recipe_name,
-
-             hist_schedule.schedule_id,
-             hist_schedule.schedule_status,
-             hist_schedule.resource_code,
-             hist_schedule.planned_start,
-             hist_schedule.planned_end
-
-           from mapped_route mr
-           cross join ready_position rp
-
-           left join lateral (
-             select
-               hb.id batch_id,
-               hb.batch_no,
-               hb.status batch_status,
-               pr.recipe_no,
-               pr.recipe_name
-             from planning_batch_job hbj
-             join planning_batch hb
-               on hb.id=hbj.batch_id
-              and hb.status<>'CANCELLED'
-             left join md_process_recipe pr
-               on pr.recipe_key=hb.recipe_key
-              and pr.is_active=true
-             where hbj.job_num=p.job_num
-               and (
-                 (
-                   mr.from_master
-                   and upper(trim(hbj.source_operation_code))=
-                       upper(trim(mr.source_operation))
-                   and hbj.standard_operation=mr.standard_operation
-                 )
-                 or (
-                   not mr.from_master
-                   and (
-                     hbj.source_seq_snapshot=mr.source_seq
-                     or (
-                       hbj.standard_operation=mr.standard_operation
-                       and hbj.source_seq_snapshot is null
-                     )
-                   )
-                 )
-               )
-             order by hb.created_at desc,hbj.id desc
-             limit 1
-           ) hist_batch on true
-
-           left join lateral (
-             select
-               ps.id schedule_id,
-               ps.status schedule_status,
-               ps.resource_code,
-               ps.planned_start,
-               ps.planned_end
-             from planning_schedule ps
-             where ps.batch_id=hist_batch.batch_id
-               and ps.status<>'CANCELLED'
-             order by ps.planned_start desc,ps.id desc
-             limit 1
-           ) hist_schedule on true
-         )
-
-         select
-           concat(
-             coalesce(standard_operation,source_operation),
-             '#',
-             occurrence
-           ) route_key,
-           source_operation,
-           source_seq,
-           occurrence,
-           standard_operation,
-           planning_job_operation_id,
-           planning_job_status,
-           ready_source_seq,
-
-           case
-             -- Position state is determined ONLY by source_seq vs ready_source_seq.
-             -- Historical Batch/Schedule is shown only at/after current position;
-             -- everything before current is already passed and therefore DONE.
-             when ready_source_seq is not null
-              and source_seq < ready_source_seq
-               then 'DONE'
-
-             -- Current exact operation.
-             when ready_source_seq is not null
-              and source_seq = ready_source_seq
-               then case
-                 when batch_id is not null
-                  and schedule_id is not null
-                   then case
-                     when upper(coalesce(schedule_status,'')) in ('COMPLETED','DONE')
-                       then 'COMPLETED'
-                     when upper(coalesce(schedule_status,''))='RUNNING'
-                       then 'RUNNING'
-                     when upper(coalesce(schedule_status,''))='HOLD'
-                       then 'HOLD'
-                     else 'SCHEDULED'
-                   end
-                 when batch_id is not null
-                   then 'PLANNED-UNSCHEDULED'
-                 when upper(coalesce(planning_job_status,''))='PLANNED'
-                   then 'PLANNED-UNSCHEDULED'
-                 else 'READY'
-               end
-
-             -- Future operations: if plan-ahead already exists, preserve it;
-             -- otherwise WAITING.
-             when ready_source_seq is not null
-              and source_seq > ready_source_seq
-               then case
-                 when batch_id is not null
-                  and schedule_id is not null
-                   then case
-                     when upper(coalesce(schedule_status,'')) in ('COMPLETED','DONE')
-                       then 'COMPLETED'
-                     when upper(coalesce(schedule_status,''))='RUNNING'
-                       then 'RUNNING'
-                     when upper(coalesce(schedule_status,''))='HOLD'
-                       then 'HOLD'
-                     else 'SCHEDULED'
-                   end
-                 when batch_id is not null
-                   then 'PLANNED-UNSCHEDULED'
-                 when upper(coalesce(planning_job_status,''))='ELIGIBLE'
-                   then 'READY'
-                 else 'WAITING'
-               end
-
-             -- Legacy fallback only if a ready position cannot be found.
-             when upper(coalesce(planning_job_status,''))='ELIGIBLE'
-               then 'READY'
-             when batch_id is not null and schedule_id is not null
-               then 'SCHEDULED'
-             when batch_id is not null
-               then 'PLANNED-UNSCHEDULED'
-             else 'WAITING'
-           end route_status,
-
-           batch_id,
-           batch_no,
-           batch_status,
-           schedule_id,
-           schedule_status,
-           resource_code,
-           planned_start,
-           planned_end,
-           recipe_no,
-           recipe_name
-
-         from enriched
-         where standard_operation is not null
-            or upper(source_operation)='PIONBL'
-       ) r
-     ) routeinfo on true
+     -- v279: Route Matrix chi tiết từng Job từng gây 1 lateral query rất lớn cho
+     -- tối đa 10.000 Candidate (Routing Detail + history + jsonb_agg), giữ kết nối
+     -- DB 14–54 giây và làm cạn pool toàn app. Candidate chính đã có đầy đủ trạng
+     -- thái/current operation; trả mảng rỗng để bảng mở nhanh, không đổi eligibility,
+     -- recipe, Batch hay Schedule. Chi tiết route sẽ được tách thành API theo Job ở đợt sau.
+     left join lateral (select '[]'::jsonb route_status) routeinfo on true
 
      -- v169: one ST Group may have more than one active Area mapping.
      -- Candidate is one row per planning_job_operation, so Area lookup must
@@ -776,7 +459,7 @@ export default async function Page({
 
        -- 4) Stable order inside each Batch / priority group.
        p.job_num
-     limit 500
+     limit 10000
    `,params);
 
    let recipeOptions:any[]=[];
@@ -824,11 +507,9 @@ export default async function Page({
      timeRules=rulesQ.rows;
    }
 
-   // =====================================================================
-   // Batch Key / Recipe Rule — đề xuất Recipe + Batch Key cho từng Candidate.
-   // =====================================================================
-   const rulesRowsQ=await c.query(`${RULES_SQL}`);
-   const rules=parseRules(rulesRowsQ.rows);
+   // v266: Recipe + Mã lô mẫu + Prefix theo CẤU HÌNH HIỆN TẠI (Rule đã gộp vào
+   // mapping) — không cần Rebuild, dùng để hiển thị cho Job chưa vào lô.
+   const ctx=await loadLiveRecipeContext(c);
 
    const recipeNameMap=new Map<string,{recipe_no:string|null;recipe_name:string|null}>();
    const recipeMetaQ=await c.query(`
@@ -841,18 +522,32 @@ export default async function Page({
    }
 
    const candidates=(candidatesQ.rows as any[]).map((row:any)=>{
-     const suggestion=evaluateRulesForJob(rules,row.standard_operation||"",row.source_data||null);
-     const meta=recipeNameMap.get(suggestion.recipeKey||"");
+     // v266: recipe "đúng theo cấu hình hiện tại" của Job (paint theo Part → op code best).
+     const match=bestRecipeMatch(ctx,{
+       standardOperation:row.standard_operation,
+       sourceOperationCode:row.source_operation_code,
+       partNum:row.part_num,
+       revisionNum:row.revision_num,
+       sourceData:row.source_data||null,
+       ruleSuggestion:null
+     });
+     const effective=match.recipeKey;
+
+     // Job ĐÃ vào lô (PLANNED) → hiện recipe thật của lô (p.recipe_key).
+     // Job CHƯA vào lô (ELIGIBLE) → hiện recipe theo cấu hình hiện tại.
+     const displayKey=row.planning_status==="PLANNED"
+       ? (row.recipe_key||null)
+       : (effective||row.recipe_key||null);
+     const dmeta=recipeNameMap.get(displayKey||"");
+
      return {
        ...row,
-       rule_matched:suggestion.matched,
-       rule_ambiguous:suggestion.ambiguous,
-       rule_name:suggestion.rule?.rule_name||null,
-       suggested_recipe_key:suggestion.recipeKey,
-       suggested_recipe_no:meta?.recipe_no||null,
-       suggested_recipe_name:meta?.recipe_name||null,
-       batch_key_suggest:suggestion.batchKey,
-       batch_prefix_suggest:suggestion.prefix
+       effective_recipe_key:effective,
+       batch_key_suggest:substituteTemplate(match.batchKeyTemplate,mergeJobData(ctx,{partNum:row.part_num,revisionNum:row.revision_num,sourceData:row.source_data||null})),
+       batch_prefix_suggest:match.batchNoPrefix,
+       recipe_key:displayKey,
+       recipe_no:dmeta?.recipe_no||null,
+       recipe_name:dmeta?.recipe_name||null
      };
    });
 
@@ -914,6 +609,7 @@ export default async function Page({
        Chọn Area để xem toàn bộ Candidate thuộc Area, hoặc chọn thêm Standard Operation để lọc chi tiết.
       </div>}
 
+
      <div className="section">
       <PlanningBoardClient
        candidates={candidates as any}
@@ -922,10 +618,12 @@ export default async function Page({
        areaMode={Boolean(areaId&&!op)}
        selectedAreaId={areaId}
        mainOperations={matrixOpsQ.rows as any}
+       stOperations={(visibleOpsQ as any)||[]}
+       nextOperations={(nextOpsQ.rows as any)||[]}
        recipeKey={recipeKey}
        timeRules={timeRules as any}
-       rules={rules as any}
        today={today}
+       initialView={initialView}
       />
      </div>
     </section>

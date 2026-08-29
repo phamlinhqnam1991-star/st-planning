@@ -1,4 +1,5 @@
 "use client";
+import {safeJson} from "@/lib/fetch-json";
 import {useEffect,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 
@@ -32,7 +33,7 @@ export function ScheduleAreaManager(){
   allow_manual_plan:true,allow_auto_plan:true
  });
  async function load(){
-  const r=await fetch("/api/config/schedule-areas",{cache:"no-store"});const d=await r.json();
+  const r=await fetch("/api/config/schedule-areas",{cache:"no-store"});const d=await safeJson(r);
   if(!r.ok){setStatus(d.error||"Load failed");return}
   setAreas(d.areas||[]);
   setOps(d.operations||[]);
@@ -43,7 +44,7 @@ export function ScheduleAreaManager(){
  useEffect(()=>{load()},[]);
  async function saveArea(){
   const r=await fetch("/api/config/schedule-areas",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(form)});
-  const d=await r.json();if(!r.ok){setStatus(d.error);return}
+  const d=await safeJson(r);if(!r.ok){setStatus(d.error);return}
   setStatus("Đã lưu Schedule Area.");await load();
  }
  async function edit(a:Area){
@@ -53,12 +54,12 @@ export function ScheduleAreaManager(){
   const r=await fetch("/api/config/schedule-areas",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({
    ...a,schedule_area_name:name,default_rows:Number(rows),display_order:Number(order)
   })});
-  const d=await r.json();if(!r.ok)setStatus(d.error);else{setStatus("Đã cập nhật.");await load()}
+  const d=await safeJson(r);if(!r.ok)setStatus(d.error);else{setStatus("Đã cập nhật.");await load()}
  }
  async function saveOps(){
   const operations=[...document.querySelectorAll<HTMLInputElement>('input[name="schedule-area-op"]:checked')].map(x=>x.value);
   const r=await fetch("/api/config/schedule-areas",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({schedule_area_code:selected,operations})});
-  const d=await r.json();if(!r.ok)setStatus(d.error);else{setStatus("Đã lưu Standard Operation → Schedule Area.");await load()}
+  const d=await safeJson(r);if(!r.ok)setStatus(d.error);else{setStatus("Đã lưu Standard Operation → Schedule Area.");await load()}
  }
  function toggleStGroup(stGroup:string,checked:boolean){
   const related=ops.filter(x=>x.st_group===stGroup).map(x=>x.standard_operation);
@@ -72,7 +73,7 @@ export function ScheduleAreaManager(){
    <h2 style={{marginTop:0}}>+ Schedule Area</h2>
    <div className="area-form schedule-area-form">
     <input className="input" placeholder="Code" value={form.schedule_area_code} onChange={e=>setForm({...form,schedule_area_code:e.target.value})}/>
-    <input className="input" placeholder="Display name" value={form.schedule_area_name} onChange={e=>setForm({...form,schedule_area_name:e.target.value})}/>
+    <input className="input" placeholder="Tên hiển thị" value={form.schedule_area_name} onChange={e=>setForm({...form,schedule_area_name:e.target.value})}/>
     <select className="input" value={form.resource_code} onChange={e=>{
      const r=resources.find(x=>x.resource_code===e.target.value);
      setForm({...form,resource_code:e.target.value,resource_group:r?.resource_group||""});
@@ -82,25 +83,25 @@ export function ScheduleAreaManager(){
      <option value="BOTH">Both planners</option><option value="1">Planner 1</option><option value="2">Planner 2</option>
     </select>
     <input className="input" type="number" placeholder="Order" value={form.display_order} onChange={e=>setForm({...form,display_order:e.target.value})}/>
-    <input className="input" type="number" min="1" max="200" placeholder="Default rows" value={form.default_rows} onChange={e=>setForm({...form,default_rows:e.target.value})}/>
+    <input className="input" type="number" min="1" max="200" placeholder="Số dòng mặc định" value={form.default_rows} onChange={e=>setForm({...form,default_rows:e.target.value})}/>
     <label><input type="checkbox" checked={form.allow_manual_plan} onChange={e=>setForm({...form,allow_manual_plan:e.target.checked})}/> Manual</label>
     <label><input type="checkbox" checked={form.allow_auto_plan} onChange={e=>setForm({...form,allow_auto_plan:e.target.checked})}/> Auto future</label>
-    <button className="btn primary" onClick={saveArea}>Save Area</button>
+    <button className="btn primary" onClick={saveArea}>Lưu khu vực</button>
    </div>
   </div>
 
   <div className="card section table-wrap">
    <table className="erp-table"><thead><tr>
-    <th>Order</th><th>Schedule Area</th><th>Resource</th><th>Planner</th><th>Default Rows</th>
-    <th>Manual</th><th>Auto</th><th>Mapped Standard Operations</th><th>Action</th>
+    <th>Thứ tự</th><th>Khu vực điều độ</th><th>Máy / Nhóm</th><th>Planner</th><th>Số dòng mặc định</th>
+    <th>Điều độ tay</th><th>Tự động</th><th>Công đoạn đã gán</th><th>Thao tác</th>
    </tr></thead><tbody>
     {areas.map(a=><tr key={a.schedule_area_code}>
      <td>{a.display_order}</td><td><b>{a.schedule_area_name}</b><small className="planning-sub">{a.schedule_area_code}</small></td>
      <td>{a.resource_code||a.resource_group||"—"}</td><td>{a.planner_owner}</td><td>{a.default_rows}</td>
      <td>{a.allow_manual_plan?"Yes":"No"}</td><td>{a.allow_auto_plan?"Yes":"No"}</td>
      <td>{a.operations?.map(x=>x.standard_operation).join(", ")||"—"}</td>
-     <td><button className="btn small" onClick={()=>setSelected(a.schedule_area_code)}>Map Operations</button>{" "}
-      <button className="btn small" onClick={()=>edit(a)}>Edit</button></td>
+     <td><button className="btn small" onClick={()=>setSelected(a.schedule_area_code)}>Gán công đoạn</button>{" "}
+      <button className="btn small" onClick={()=>edit(a)}>Sửa</button></td>
     </tr>)}
    </tbody></table>
   </div>
@@ -143,7 +144,7 @@ export function ScheduleAreaManager(){
     </label>)}
    </div>
    <div className="row" style={{marginTop:16}}>
-    <button className="btn primary" onClick={saveOps}>Save Mapping</button>
+    <button className="btn primary" onClick={saveOps}>Lưu gán</button>
     <button className="btn" onClick={()=>setSelected("")}>Close</button>
    </div>
   </div>}

@@ -1,5 +1,6 @@
 "use client";
 
+import {safeJson} from "@/lib/fetch-json";
 import {useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 import {createClient} from "@/lib/supabase/client";
@@ -35,7 +36,7 @@ export function OpenJobImporter(){
        body:JSON.stringify({path:storagePath,fileName:file.name})
      });
 
-     const d=await r.json();
+     const d=await safeJson(r);
      if(!r.ok)throw new Error(d.error||"Import failed");
 
      setStatus(

@@ -1,5 +1,6 @@
 "use client";
 
+import {safeJson} from "@/lib/fetch-json";
 import {useMemo,useState} from "react";
 
 type Recipe={
@@ -116,7 +117,7 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
        headers:{"content-type":"application/json"},
        body:JSON.stringify(body)
      });
-     const d=await r.json();
+     const d=await safeJson(r);
      if(!r.ok)throw new Error(d.error||"Save failed");
      location.reload();
    }catch(e){
@@ -133,7 +134,7 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
        headers:{"content-type":"application/json"},
        body:JSON.stringify({id:r.id})
      });
-     const d=await x.json();
+     const d=await safeJson(x);
      if(!x.ok)throw new Error(d.error||"Remove failed");
      location.reload();
    }catch(e){
@@ -195,7 +196,7 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
 
       {calcType==="FIXED_HOURS" ? <>
        <label>
-        Fixed Hours
+        Giờ cố định
         <input className="input" type="number" step="0.01" min="0"
          value={f.fixed_hours}
          onChange={e=>setF({...f,fixed_hours:e.target.value})}/>
@@ -226,7 +227,7 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
          onChange={e=>setF({...f,surface_max_dm2:e.target.value})}/>
        </label>
        <label>
-        Standard Hours
+        Giờ chuẩn
         <input className="input" type="number" step="0.01" min="0"
          value={f.standard_hours}
          onChange={e=>setF({...f,standard_hours:e.target.value})}/>
@@ -243,7 +244,7 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
 
       <div className="process-time-actions">
        <button className="btn primary" disabled={busy} onClick={save}>
-        {edit?"Save Changes":"Add Time Rule"}
+        {edit?"Lưu thay đổi":"Thêm rule thời gian"}
        </button>
        {edit&&<button className="btn" onClick={clear}>Cancel</button>}
       </div>
@@ -258,7 +259,7 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
        <input
         className="input process-time-filter"
         value={filter}
-        placeholder="Filter recipe..."
+        placeholder="Tìm recipe..."
         onChange={e=>setFilter(e.target.value)}/>
       </div>
     </div>
@@ -267,17 +268,17 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
      <table className="erp-table">
       <thead>
        <tr>
-        <th>Family</th>
-        <th>Recipe No</th>
-        <th>Recipe Name</th>
-        <th>Calc Type</th>
-        <th>Priority</th>
+        <th>Nhóm lớn</th>
+        <th>Số Recipe</th>
+        <th>Tên Recipe</th>
+        <th>Kiểu tính</th>
+        <th>Ưu tiên</th>
         {calcType==="QTY_SURFACE"&&<>
-         <th>Qty Min</th><th>Qty Max</th>
-         <th>Surface Min</th><th>Surface Max</th>
+         <th>SL min</th><th>SL max</th>
+         <th>dm² min</th><th>dm² max</th>
         </>}
-        <th>{calcType==="FIXED_HOURS"?"Fixed Hours":"Standard Hours"}</th>
-        <th>Note</th>
+        <th>{calcType==="FIXED_HOURS"?"Giờ cố định":"Giờ chuẩn"}</th>
+        <th>Ghi chú</th>
         <th></th>
        </tr>
       </thead>
@@ -298,8 +299,8 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
         <td>{r.note||"—"}</td>
         <td className="action">
          <div className="row">
-          <button className="btn small" onClick={()=>start(r)}>Edit</button>
-          <button className="btn danger-btn small" onClick={()=>remove(r)}>Deactivate</button>
+          <button className="btn small" onClick={()=>start(r)}>Sửa</button>
+          <button className="btn danger-btn small" onClick={()=>remove(r)}>Ngưng</button>
          </div>
         </td>
        </tr>)}

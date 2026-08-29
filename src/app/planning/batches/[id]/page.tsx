@@ -3,6 +3,7 @@ import {notFound} from "next/navigation";
 import {AppTabs} from "@/components/app-tabs";
 import {BatchDetailManager} from "@/components/batch-detail-manager";
 import {getPool} from "@/lib/db";
+import {loadLiveRecipeContext,effectiveRecipeKey} from "@/lib/planning/live-recipe";
 
 export const dynamic="force-dynamic";
 
@@ -362,6 +363,35 @@ export default async function Page({
        limit 1000
      `,[batch.recipe_key,batch.standard_operation])
    ]);
+
+   // v262: Job chưa có Recipe → hiển thị Recipe theo CẤU HÌNH HIỆN TẠI
+   // (rule → paint → op code best; không cần bấm Rebuild).
+   const ctx=await loadLiveRecipeContext(c);
+   const recipeMetaQ=await c.query(`
+     select recipe_key,recipe_no,recipe_name
+     from md_process_recipe
+     where is_active=true
+   `);
+   const recipeMeta=new Map<string,{recipe_no:string|null;recipe_name:string|null}>();
+   for(const r of recipeMetaQ.rows){
+     recipeMeta.set(r.recipe_key,{recipe_no:r.recipe_no,recipe_name:r.recipe_name});
+   }
+   for(const row of candidatesQ.rows as any[]){
+     const eff=effectiveRecipeKey(ctx,{
+       standardOperation:row.standard_operation,
+       sourceOperationCode:row.source_operation_code,
+       partNum:row.part_num,
+       revisionNum:row.revision_num,
+       sourceData:row.source_data||null,
+       ruleSuggestion:null
+     });
+     row.effective_recipe_key=eff||null;
+     if(!row.recipe_no&&eff){ // v262: chưa có recipe → hiển thị recipe theo cấu hình hiện tại
+       const m=recipeMeta.get(eff);
+       row.recipe_no=m?.recipe_no||null;
+       row.recipe_name=m?.recipe_name||null;
+     }
+   }
 
    return <main className="erp-shell">
     <header className="erp-header">

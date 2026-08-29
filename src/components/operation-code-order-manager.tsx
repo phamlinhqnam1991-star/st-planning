@@ -1,5 +1,6 @@
 "use client";
 
+import {safeJson} from "@/lib/fetch-json";
 import {useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 
@@ -32,7 +33,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
    headers:{"content-type":"application/json"},
    body:JSON.stringify(body)
   });
-  const d=await r.json();
+  const d=await safeJson(r);
   if(!r.ok)throw new Error(d.error||"Không cập nhật được Operation Code.");
   return d;
  }
@@ -94,7 +95,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
 
  async function removeOperation(row:Row){
   const ok=window.confirm(
-   `Remove ${row.operation_code}?\n\n`+
+   `Bỏ ${row.operation_code} khỏi ST Scope?\n\n`+
    `Operation sẽ được bỏ khỏi ST Scope; source catalog vẫn giữ. Mapping active của code này sẽ inactive, `+
    `sau đó hệ thống mapping/sync lại toàn bộ Planning Chain tương lai.\n`+
    `Batch/Schedule lịch sử không bị xóa.`
@@ -138,11 +139,11 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
    <table className="erp-table">
     <thead>
      <tr>
-      <th>Planning Order</th>
-     <th>Operation Code</th>
-     <th>Operation Name</th>
-      <th>Operation Type</th>
-     <th>Action</th>
+      <th>Thứ tự</th>
+     <th>Mã công đoạn</th>
+     <th>Tên công đoạn</th>
+      <th>Loại</th>
+     <th>Thao tác</th>
      </tr>
     </thead>
     <tbody>
@@ -171,7 +172,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
             <button className="btn small" type="button" disabled={busy} onClick={()=>setEditing(null)}>Cancel</button>
            </div>
          : <div className="row">
-            <button className="btn small" type="button" disabled={busy} onClick={()=>begin(row)}>Set Order</button>
+            <button className="btn small" type="button" disabled={busy} onClick={()=>begin(row)}>Đặt thứ tự</button>
             <button
              className="btn small"
              type="button"
@@ -179,7 +180,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
              onClick={()=>removeOperation(row)}
              style={{borderColor:"#dc2626",color:"#b91c1c"}}
             >
-             Remove
+             Bỏ khỏi ST
             </button>
            </div>}
        </td>

@@ -115,3 +115,48 @@ export async function recomputeJobPlanningStatus(c:PoolClient,jobNum:string){
    `,[r.id,status]);
  }
 }
+
+// =====================================================================
+// v264: Recipe có hợp lệ cho 1 Job theo CẤU HÌNH HIỆN TẠI không?
+// (không bám recipe cũ p.recipe_key). Hợp lệ khi recipe nằm trong ÍT NHẤT
+// 1 trong 3 lớp: Standard Operation → Recipe / Operation Code → Recipe /
+// Part + Rev → Recipe. Dùng khi tạo lô & thêm Job vào lô.
+// =====================================================================
+export async function recipeAllowedForJob(
+  c:PoolClient,
+  row:{source_operation_code?:string;standard_operation?:string;part_num?:string|null;revision_num?:string|null},
+  recipeKey:string
+):Promise<boolean>{
+  const q=await c.query(`
+    select 1
+    where
+      exists(
+        select 1 from md_operation_recipe_mapping orm
+        where orm.standard_operation=$1
+          and orm.recipe_key=$2
+          and orm.is_active=true
+      )
+      or exists(
+        select 1 from md_main_operation_recipe ocr
+        where ocr.operation_code=$3
+          and ocr.recipe_key=$2
+          and ocr.is_active=true
+      )
+      or exists(
+        select 1 from md_part_process_recipe ppr
+        where ppr.part_num=$4
+          and ppr.revision_num=$5
+          and ppr.standard_operation=$1
+          and ppr.recipe_key=$2
+          and ppr.is_active=true
+      )
+    limit 1
+  `,[
+    String(row.standard_operation||""),
+    recipeKey,
+    String(row.source_operation_code||""),
+    String(row.part_num||""),
+    String(row.revision_num||"")
+  ]);
+  return (q.rowCount||0)>0;
+}

@@ -3,7 +3,8 @@ import {getPool} from "@/lib/db";
 
 import {refreshBatchTotals,recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
-import {evaluateRulesForJob,parseRules,RULES_SQL} from "@/lib/batch-key-recipe";
+import {loadLiveRecipeContext,effectiveRecipeKey} from "@/lib/planning/live-recipe";
+import {recipeAllowedForJob} from "@/lib/planning/batch-utils";
 
 async function plannerForOperationDb(c:any,operation:unknown):Promise<"1"|"2"|null>{
  const op=String(operation??"").trim();
@@ -232,9 +233,6 @@ export async function POST(
    if(!["PLANNED","RELEASED"].includes(batch.status))
      throw new Error("Batch hiện tại không cho phép thêm Job.");
 
-   const rulesRowsQ=await c.query(`${RULES_SQL}`);
-   const rules=parseRules(rulesRowsQ.rows);
-
    const q=await c.query(`
      select
        p.id,p.job_num,p.source_operation_code,p.standard_operation,p.recipe_key,p.status,p.planning_seq,
@@ -272,6 +270,25 @@ export async function POST(
 
    if(q.rowCount!==ids.length)
      throw new Error("Một số Job không còn hợp lệ.");
+
+   // v264: Batch chưa có Recipe → Job chưa có Recipe sẽ tự chọn theo CẤU HÌNH
+   // HIỆN TẠI (rule → paint theo Part → op code theo điều kiện + ưu tiên).
+   if(!batch.recipe_key){
+     const recipeCtx=await loadLiveRecipeContext(c);
+     for(const r of q.rows){
+       if(!r.recipe_key){
+         const eff=effectiveRecipeKey(recipeCtx,{
+           standardOperation:r.standard_operation,
+           sourceOperationCode:r.source_operation_code,
+           partNum:r.part_num,
+           revisionNum:r.revision_num,
+           sourceData:r.source_data||null,
+           ruleSuggestion:null
+         });
+         if(eff)r.recipe_key=eff;
+       }
+     }
+   }
 
    // Server-side paint compatibility check. UI dim/disable is only the
    // convenience layer; this keeps the Batch safe even with direct API calls.
@@ -322,35 +339,20 @@ export async function POST(
        throw new Error(`Job ${r.job_num} không cùng công đoạn ${batch.standard_operation}.`);
 
      if(batch.recipe_key){
-       if(r.recipe_key && r.recipe_key!==batch.recipe_key)
-         throw new Error(`Job ${r.job_num} có Recipe khác Batch.`);
+       // v266: kiểm tra theo cấu hình HIỆN TẠI — recipe của lô phải nằm trong
+       // các recipe được phép của Job (Standard Operation → Recipe /
+       // Operation Code → Recipe / Part + Rev → Recipe).
+       const allowed=await recipeAllowedForJob(c,{
+         source_operation_code:r.source_operation_code,
+         standard_operation:r.standard_operation,
+         part_num:r.part_num,
+         revision_num:r.revision_num
+       },batch.recipe_key);
 
-       if(!r.recipe_key){
-         // Batch Key / Recipe Rule kiểm tra trước: nếu rule khớp và đề xuất
-         // recipe khác Batch → chặn (không gom sai nhóm).
-         const suggestion=evaluateRulesForJob(rules,batch.standard_operation,r.source_data);
-
-         if(suggestion.matched && !suggestion.ambiguous && suggestion.recipeKey){
-           if(suggestion.recipeKey!==batch.recipe_key)
-             throw new Error(
-              `Job ${r.job_num} khớp rule "${suggestion.rule?.rule_name||""}" đề xuất `+
-              `Recipe khác Batch (${batch.recipe_key}). Không thể gom chung.`
-             );
-           continue; // rule xác nhận đúng Batch Recipe
-         }
-
-         const allowed=await c.query(`
-           select 1
-           from md_main_operation_recipe
-           where operation_code=$1
-             and recipe_key=$2
-             and is_active=true
-           limit 1
-         `,[r.source_operation_code,batch.recipe_key]);
-
-         if(!allowed.rowCount)
-           throw new Error(`Recipe Batch không hợp lệ cho Job ${r.job_num}.`);
-       }
+       if(!allowed)
+         throw new Error(
+           `Recipe Batch không hợp lệ cho Job ${r.job_num} (theo cấu hình hiện tại).`
+         );
      }
    }
 
@@ -370,12 +372,26 @@ export async function POST(
      await c.query(`
        update planning_job_operation
        set status='PLANNED',
-           recipe_key=coalesce(recipe_key,$2),
+           recipe_key=coalesce($2,recipe_key),
            updated_at=now()
        where id=$1
-     `,[r.id,batch.recipe_key]);
+     `,[r.id,batch.recipe_key||r.recipe_key||null]);
 
      await recomputeJobPlanningStatus(c,r.job_num);
+   }
+
+   // v262: Batch chưa có Recipe nhưng giờ MỌI Job trong lô có cùng Recipe
+   // (tự chọn theo cấu hình) → gắn Recipe đó cho lô để có thời gian Process.
+   if(!batch.recipe_key){
+     const recipeKeys=[...new Set(q.rows.map((r:any)=>r.recipe_key).filter(Boolean))];
+     if(recipeKeys.length===1){
+       await c.query(`
+         update planning_batch
+         set recipe_key=$2,updated_at=now()
+         where id=$1
+       `,[batchId,recipeKeys[0]]);
+       batch.recipe_key=recipeKeys[0];
+     }
    }
 
    const totals=await refreshBatchTotals(c,batchId);

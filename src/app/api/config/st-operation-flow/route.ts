@@ -260,16 +260,75 @@ export async function POST(req:Request){
 export async function DELETE(req:Request){
  const b=await req.json().catch(()=>({}));
  const source=cleanCode(b.source_operation_code);
+ const fullRebuild=Boolean(b.full_rebuild);
  if(!source)return NextResponse.json({error:"Thiếu Source Operation Code."},{status:400});
  const c=await getPool().connect();
  try{
   await c.query("begin");
-  await c.query(`insert into md_st_operation_scope(operation_code,is_active) values($1,false)
-   on conflict(operation_code) do update set is_active=false`,[source]);
-  await c.query(`update md_st_operation_mapping set is_active=false,updated_at=now() where upper(trim(source_operation_code))=$1 and is_active=true`,[source]);
-  const sync=await syncAllStDerived(c);
+  // v234: khớp theo chuẩn hóa (upper+trim) thay vì khớp chính xác — nếu bảng scope có
+  // dòng trùng 'bẩn' (khác hoa/thường, thừa khoảng trắng), lệnh cũ insert on conflict
+  // không đụng tới dòng bẩn → operation vẫn hiện trên trang. UPDATE theo chuẩn hóa
+  // tắt TẤT CẢ dòng khớp (is_active=false), không phụ thuộc ràng buộc unique.
+  await c.query(`update md_st_operation_scope set is_active=false,updated_at=now()
+   where upper(trim(operation_code))=upper(trim($1)) and is_active=true`,[source]);
+  await c.query(`update md_st_operation_mapping set is_active=false,updated_at=now()
+   where upper(trim(source_operation_code))=upper(trim($1)) and is_active=true`,[source]);
+  // v231: xóa nhanh — ngưng ngay dòng Planning Chain của code này để Job biến khỏi bảng
+  // tức thì (không đợi rebuild toàn bộ). Dữ liệu dẫn xuất (ST routing summary) sẽ được
+  // làm sạch đầy đủ ở lần Rebuild Chain / lần cấu hình kế tiếp.
+  await c.query(`update planning_job_operation set is_active=false,updated_at=now()
+   where upper(trim(source_operation_code))=$1 and is_active=true`,[source]);
+  // v235: đồng bộ Planning Scope — tắt main nào KHÔNG còn mapping từ source đang hoạt động.
+  // Cột ma trận Candidate Jobs đọc md_planning_operation_scope; nếu không dọn, main đã mất
+  // nguồn vẫn hiện cột trên Board dù không còn trong danh sách "Các công đoạn được hiển thị".
+  await c.query(`
+   with mapped_mains as (
+    select distinct trim(upper(x)) main
+    from md_st_operation_mapping m
+    join md_st_operation_scope sc
+      on upper(trim(sc.operation_code))=upper(trim(m.source_operation_code)) and sc.is_active=true
+    cross join lateral unnest(string_to_array(m.standard_operation_rule,'/')) x
+    where m.is_active=true and trim(x)<>''
+   )
+   update md_planning_operation_scope ps
+   set is_active=false, updated_at=now()
+   where ps.is_active=true
+    and not exists (
+     select 1 from mapped_mains mm
+     where exists (select 1 from unnest(string_to_array(ps.standard_operation,'/')) y
+       where trim(upper(y))=mm.main)
+    )`);
+  await c.query(`
+   with mapped_mains as (
+    select distinct trim(upper(x)) main
+    from md_st_operation_mapping m
+    join md_st_operation_scope sc
+      on upper(trim(sc.operation_code))=upper(trim(m.source_operation_code)) and sc.is_active=true
+    cross join lateral unnest(string_to_array(m.standard_operation_rule,'/')) x
+    where m.is_active=true and trim(x)<>''
+   )
+   update md_schedule_area_operation sa
+   set is_active=false, updated_at=now()
+   where sa.is_active=true
+    and not exists (
+     select 1 from mapped_mains mm
+     where exists (select 1 from unnest(string_to_array(sa.standard_operation,'/')) y
+       where trim(upper(y))=mm.main)
+    )`);
+  let sync:unknown=null;
+  if(fullRebuild){
+   sync=await syncAllStDerived(c);
+  }
   await c.query("commit");
-  return NextResponse.json({ok:true,source_operation_code:source,sync});
+  return NextResponse.json({
+   ok:true,
+   source_operation_code:source,
+   quick:!fullRebuild,
+   sync,
+   note:fullRebuild
+    ?"Đã bỏ khỏi ST và dựng lại toàn bộ chuỗi công đoạn."
+    :"Đã bỏ khỏi ST (nhanh). Job của công đoạn này đã biến khỏi bảng. Nên bấm Rebuild Chain trên Planning Board để làm sạch chuỗi khi thuận tiện."
+  });
  }catch(e){
   try{await c.query("rollback")}catch{}
   return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500});

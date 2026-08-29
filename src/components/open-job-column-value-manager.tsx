@@ -1,5 +1,6 @@
 "use client";
 
+import {safeJson} from "@/lib/fetch-json";
 import {useEffect,useState} from "react";
 
 type Row={
@@ -36,7 +37,7 @@ export function OpenJobColumnValueManager(){
    if(column)params.set("column",column);
    if(q)params.set("q",q);
    const r=await fetch(`/api/config/open-job-column-values?${params.toString()}`);
-   const d=await r.json();
+   const d=await safeJson(r);
    if(!r.ok)throw new Error(d.error||"Load failed");
    setRows(d.rows||[]);
    setTotal(Number(d.total||0));
@@ -55,7 +56,7 @@ export function OpenJobColumnValueManager(){
    const r=await fetch("/api/config/open-job-column-values",{
     method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"rebuild"})
    });
-   const d=await r.json();
+   const d=await safeJson(r);
    if(!r.ok)throw new Error(d.error||"Rebuild failed");
    setMessage("Đã quét xong. Danh sách giá trị đã cập nhật.");
    load();
@@ -70,7 +71,7 @@ export function OpenJobColumnValueManager(){
     method:"POST",headers:{"content-type":"application/json"},
     body:JSON.stringify({source_column:newColumn.trim(),source_value:newValue.trim(),display_name:newValue.trim()})
    });
-   const d=await r.json();
+   const d=await safeJson(r);
    if(!r.ok)throw new Error(d.error||"Add failed");
    setNewColumn("");setNewValue("");
    setMessage("Đã thêm giá trị.");
@@ -86,7 +87,7 @@ export function OpenJobColumnValueManager(){
     method:"PATCH",headers:{"content-type":"application/json"},
     body:JSON.stringify({id:editing.id,display_name:displayName||null,is_active:active})
    });
-   const d=await r.json();
+   const d=await safeJson(r);
    if(!r.ok)throw new Error(d.error||"Save failed");
    setEditing(null);
    load();
@@ -100,7 +101,7 @@ export function OpenJobColumnValueManager(){
    const r=await fetch("/api/config/open-job-column-values",{
     method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id:row.id})
    });
-   const d=await r.json();
+   const d=await safeJson(r);
    if(!r.ok)throw new Error(d.error||"Remove failed");
    load();
   }catch(e){setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`)}finally{setBusy(false)}
@@ -116,12 +117,12 @@ export function OpenJobColumnValueManager(){
    </div>
 
    <div className="row erp-filter-row">
-    <button className="btn primary" disabled={busy} onClick={rebuild}>Scan / Rebuild</button>
+    <button className="btn primary" disabled={busy} onClick={rebuild}>Quét lại dữ liệu</button>
     <select className="input" value={column} onChange={e=>{setColumn(e.target.value);setPage(1)}}>
      <option value="">All columns</option>
      {columns.map(c=><option key={c.source_column} value={c.source_column}>{c.source_column} ({c.value_count})</option>)}
     </select>
-    <input className="input" placeholder="Tìm value..." value={q}
+    <input className="input" placeholder="Tìm giá trị..." value={q}
      onChange={e=>{setQ(e.target.value);setPage(1)}}/>
     <select className="input" value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1)}}>
      <option value={50}>50 / trang</option><option value={100}>100 / trang</option><option value={200}>200 / trang</option>
@@ -131,7 +132,7 @@ export function OpenJobColumnValueManager(){
    <div className="row erp-filter-row">
     <input className="input" style={{maxWidth:220}} placeholder="Cột mới (vd NextOperation)" value={newColumn} onChange={e=>setNewColumn(e.target.value)}/>
     <input className="input" style={{maxWidth:280}} placeholder="Giá trị mới" value={newValue} onChange={e=>setNewValue(e.target.value)}/>
-    <button className="btn" disabled={busy} onClick={addValue}>Add Value</button>
+    <button className="btn" disabled={busy} onClick={addValue}>Thêm giá trị</button>
    </div>
 
    {message&&<div className="notice">{message}</div>}
@@ -139,8 +140,8 @@ export function OpenJobColumnValueManager(){
    <div className="table-wrap">
     <table className="erp-table">
      <thead><tr>
-      <th>Source Column</th><th>Source Value</th><th>Display Name</th>
-      <th>Seen Count</th><th>Last Seen</th><th>Active</th><th></th>
+      <th>Cột nguồn</th><th>Giá trị nguồn</th><th>Tên hiển thị</th>
+      <th>Số lần gặp</th><th>Gặp lần cuối</th><th>Hoạt động</th><th></th>
      </tr></thead>
      <tbody>
       {rows.map(r=><tr key={r.id}>
@@ -153,7 +154,7 @@ export function OpenJobColumnValueManager(){
        </td>
        <td className="num mono">{r.seen_count}</td>
        <td className="mono">{r.last_seen_at?new Date(r.last_seen_at).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—"}</td>
-       <td>{r.is_active?"YES":"NO"}</td>
+       <td>{r.is_active?"Có":"Không"}</td>
        <td className="action">
         {editing&&editing.id===r.id
          ? <div className="row">
@@ -162,8 +163,8 @@ export function OpenJobColumnValueManager(){
             <button className="btn small" onClick={()=>setEditing(null)}>Cancel</button>
            </div>
          : <div className="row">
-            <button className="btn small" onClick={()=>{setEditing(r);setDisplayName(r.display_name||r.source_value);setActive(r.is_active)}}>Edit</button>
-            <button className="btn danger-btn small" onClick={()=>inactivate(r)}>Inactivate</button>
+            <button className="btn small" onClick={()=>{setEditing(r);setDisplayName(r.display_name||r.source_value);setActive(r.is_active)}}>Sửa</button>
+            <button className="btn danger-btn small" onClick={()=>inactivate(r)}>Ngưng</button>
            </div>}
        </td>
       </tr>)}

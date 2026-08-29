@@ -1,17 +1,22 @@
-import {AreaManager} from "@/components/area-manager";import {AppTabs,SubTabs} from "@/components/app-tabs";
+import {AreaManager} from "@/components/area-manager";
+import {AppTabs} from "@/components/app-tabs";
+import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 export const dynamic="force-dynamic";
-const tabs=[{key:"flow",label:"ST Operation Flow",href:"/st-operation-flow"},{key:"operation",label:"Main Operation Master",href:"/master/operation"},{key:"operationcodeorder",label:"ST Scope & Operation Order",href:"/operation-code-order"},{key:"operationmapping",label:"Source → Main Mapping",href:"/master/operationmapping"},{key:"stgroup",label:"ST Group Master",href:"/st-groups"},{key:"area",label:"Physical Area Master",href:"/area"},
- {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
- {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
- {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},
- {key:"openjobcolumnvalues",label:"Open Job Column Values",href:"/open-job-column-values"},
- {key:"batchkeyrules",label:"Batch Key / Recipe Rules",href:"/batch-key-recipe-rules"},
- {key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"}];
 export default async function AreaPage(){return <main className="erp-shell">
  <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION</div></header>
  <AppTabs active="config"/>
  <div className="erp-workspace">
-  <aside className="erp-sidebar"><div className="erp-sidebar-title">CẤU HÌNH</div><SubTabs items={tabs} active="area"/></aside>
-  <section className="erp-content"><div className="erp-page-head"><div><h2>Area Master</h2><p>Tự thêm/sửa Area và gán ST Group</p></div></div><AreaManager/></section>
+  <ConfigSidebar active="area"/>
+  <section className="erp-content">
+   <ConfigPageHeader
+    title="Physical Area Master"
+    subtitle="Danh mục khu vực vật lý trong nhà máy + gán ST Group vào khu."
+    purpose="Khai báo khu vực (vd khu Chemical Line) và xác định ST Group nào chạy ở khu nào."
+    impact="Một ST Group chỉ thuộc 1 khu vật lý. Đây là cầu nối từ Nhóm ST sang Khu vực điều độ (Schedule Area)."
+    prev={{label:"ST Group Master",href:"/st-groups"}}
+    next={{label:"Schedule Area Mapping",href:"/schedule-areas"}}
+   />
+   <AreaManager/>
+  </section>
  </div>
  </main>}

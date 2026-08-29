@@ -1,5 +1,6 @@
 "use client";
 
+import {safeJson} from "@/lib/fetch-json";
 import {useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 
@@ -68,7 +69,7 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
      new_name:next
     })
    });
-   const d=await r.json();
+   const d=await safeJson(r);
 
    if(!r.ok)throw new Error(d.error||"Không đổi được tên công đoạn.");
 
@@ -86,7 +87,7 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
   setBusy(true);setMessage("");
   try{
    const r=await fetch("/api/config/operation-master/sort-order",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({standard_operation:operation,planning_sort_order:sortValue.trim()===""?null:Number(sortValue)})});
-   const d=await r.json();
+   const d=await safeJson(r);
    if(!r.ok)throw new Error(d.error||"Không lưu được Planning Order.");
    setMessage(`Đã lưu thứ tự ${operation}: ${d.row.planning_sort_order??"chưa gán"}.`);
    setSortEditing(null);setTimeout(()=>location.reload(),500);
@@ -104,7 +105,7 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
   const prefix=prefixValue.trim().toUpperCase();
 
   if(!/^[A-Z0-9]{3}$/.test(prefix)){
-   setMessage("Batch Prefix phải đúng 3 ký tự A-Z hoặc 0-9.");
+   setMessage("Tiền tố số lô phải đúng 3 ký tự A-Z hoặc 0-9.");
    return;
   }
 
@@ -120,7 +121,7 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
      batch_prefix:prefix
     })
    });
-   const d=await r.json();
+   const d=await safeJson(r);
 
    if(!r.ok)throw new Error(d.error||"Không lưu được Batch Prefix.");
 
@@ -144,20 +145,20 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
    <table className="erp-table">
     <thead>
      <tr>
-      <th>standard_operation</th>
-      <th>st_group</th>
-      <th>batch_prefix</th>
-      <th>time_calc_type</th>
-      <th>planning_order</th>
-      <th>priority</th>
-      <th>qty_min</th>
-      <th>qty_max</th>
-      <th>surface_min_dm2</th>
-      <th>surface_max_dm2</th>
-      <th>fixed_hours</th>
-      <th>standard_hours</th>
-      <th>note</th>
-      <th>Action</th>
+      <th>Công đoạn chính</th>
+      <th>Nhóm ST</th>
+      <th>Tiền tố lô</th>
+      <th>Kiểu tính giờ</th>
+      <th>Thứ tự</th>
+      <th>Ưu tiên</th>
+      <th>SL min</th>
+      <th>SL max</th>
+      <th>dm² min</th>
+      <th>dm² max</th>
+      <th>Giờ cố định</th>
+      <th>Giờ chuẩn</th>
+      <th>Ghi chú</th>
+      <th>Thao tác</th>
      </tr>
     </thead>
     <tbody>
@@ -204,14 +205,14 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
             disabled={busy}
             onClick={()=>beginPrefix(row)}
            >
-            {row.batch_prefix||"SET"}
+            {row.batch_prefix||"ĐẶT"}
            </button>}
        </td>
        <td>{row.time_calc_type||""}</td>
        <td>
         {sortEditing===row.standard_operation
          ? <div className="row"><input className="input" type="number" min="0" step="1" style={{width:80}} value={sortValue} onChange={e=>setSortValue(e.target.value)}/><button className="btn primary small" onClick={()=>saveSortOrder(row.standard_operation)} disabled={busy}>Save</button><button className="btn small" onClick={()=>setSortEditing(null)} disabled={busy}>×</button></div>
-         : <button className="btn small mono" type="button" onClick={()=>{setSortEditing(row.standard_operation);setSortValue(row.planning_sort_order==null?"":String(row.planning_sort_order));}} disabled={busy}>{row.planning_sort_order??"SET"}</button>}
+         : <button className="btn small mono" type="button" onClick={()=>{setSortEditing(row.standard_operation);setSortValue(row.planning_sort_order==null?"":String(row.planning_sort_order));}} disabled={busy}>{row.planning_sort_order??"ĐẶT"}</button>}
        </td>
        <td>{row.priority??""}</td>
        <td>{row.qty_min??""}</td>
@@ -232,7 +233,7 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
             </button>
            </div>
          : <button className="btn small" type="button" disabled={busy} onClick={()=>begin(row)}>
-            Edit Name
+            Đổi tên
            </button>}
        </td>
       </tr>

@@ -1,5 +1,6 @@
 "use client";
 
+import {safeJson} from "@/lib/fetch-json";
 import {useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 
@@ -29,7 +30,7 @@ export function ResetAllBatchesButton(){
     method:"POST",
     headers:{"content-type":"application/json"}
    });
-   const data=await response.json();
+   const data=await safeJson(response);
 
    if(!response.ok)
     throw new Error(data.error||"Không Reset được các lô.");

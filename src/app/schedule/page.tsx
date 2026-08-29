@@ -2,6 +2,7 @@ import {getPool} from "@/lib/db";
 import {AppTabs} from "@/components/app-tabs";
 import ScheduleBoardClient from "@/components/schedule-board-client";
 import {ManualScheduleGrid} from "@/components/manual-schedule-grid";
+import ProductionTimelineClient from "@/components/production-timeline-client";
 import {calculateScheduleEnd,getProductionDay} from "@/lib/schedule-time";
 
 export const dynamic="force-dynamic";
@@ -293,11 +294,10 @@ export default async function Page({
         or (s.planned_start at time zone 'Asia/Ho_Chi_Minh')::date=$1::date
       )
     order by
-      coalesce(sr.sort_order,9999),
       case when coalesce(s.sequence_no,0)>0 then 0 else 1 end,
       coalesce(s.sequence_no,0),
-      coalesce(b.standard_operation,''),
       s.planned_start,
+      coalesce(sr.sort_order,9999),
       coalesce(b.batch_no,'LEGACY-'||s.batch_id::text)
    `,[date]),
 
@@ -351,10 +351,19 @@ export default async function Page({
    `),
 
    c.query(`
-    select recipe_key,recipe_no,recipe_name,process_family
-    from md_process_recipe
-    where is_active=true
-    order by process_family,recipe_no,recipe_name
+    select
+      r.recipe_key,r.recipe_no,r.recipe_name,r.process_family,
+      (
+        select coalesce(nullif(m.operation_code,''), m.standard_operation)
+        from md_main_operation_recipe m
+        where m.recipe_key=r.recipe_key
+          and m.is_active=true
+        order by (m.is_default=false),m.priority,m.operation_code
+        limit 1
+      ) default_standard_operation
+    from md_process_recipe r
+    where r.is_active=true
+    order by r.process_family,r.recipe_no,r.recipe_name
    `),
 
    c.query(`
@@ -467,109 +476,6 @@ export default async function Page({
   // Unified production timeline order.
   // Resource order is for Board visualization only; the exact Standard Operation
   // remains attached to each scheduled Batch, so different Job routings are not altered.
-  const timelineResourceOrder=[
-   "SPX-CLEAN",
-   "MANUAL-DBL",
-   "AUTO-DBL",
-   "PLATING",
-   "HE-BAKE",
-   "PASS-BRTG",
-   "MANUALSP",
-   "AUTOSHP",
-   "FB-01","FB-02","FB-03","FB-04","FB-05","FB-06",
-   "CAB1","CAB2","CAB3","CAB4",
-   "PAINT-POWDER"
-  ];
-
-  const resourceByCode=new Map(
-   (resourcesQ.rows as any[]).map((r:any)=>[String(r.resource_code),r])
-  );
-
-  const usedResourceCodes=new Set(
-   timelineRows.map((x:any)=>String(x.resource_code||""))
-  );
-
-  const productionResources=(timelineResourceOrder as string[])
-   .map(code=>{
-    const r=resourceByCode.get(code);
-    if(r)return r;
-    // Luôn giữ đủ 6 dòng Flybar FB-01..FB-06 dù resource chưa active trong DB.
-    if(/^FB-0[1-6]$/.test(code))
-     return {resource_code:code,resource_name:`Chemical Line Flybar ${code}`,resource_group:"CHEMICAL_LINE"};
-    return null;
-   })
-   .filter((r:any)=>Boolean(r)&&(
-    String(r.resource_group)==="CHEMICAL_LINE"||usedResourceCodes.has(String(r.resource_code))
-   )) as any[];
-
-  // Future resources not explicitly ordered are appended only when this Planner View uses them.
-  for(const r of resourcesQ.rows as any[]){
-   if(
-    !timelineResourceOrder.includes(String(r.resource_code)) &&
-    usedResourceCodes.has(String(r.resource_code))
-   )productionResources.push(r);
-  }
-
-  // Phát hiện xung đột: hai lịch cùng Resource chồng thời gian.
-  // Flybar bị xem là BUSY toàn bộ chuỗi Loading → Unloading.
-  const conflictIds=new Set<number>();
-  for(const r of productionResources){
-   const items=(timelineRows as any[]).filter((x:any)=>x.resource_code===r.resource_code);
-   for(let i=0;i<items.length;i++){
-    for(let j=i+1;j<items.length;j++){
-     const a=items[i],b=items[j];
-     const as=new Date(a.planned_start).getTime(),ae=new Date(a.planned_end).getTime();
-     const bs=new Date(b.planned_start).getTime(),be=new Date(b.planned_end).getTime();
-     if(Number.isFinite(as)&&Number.isFinite(ae)&&Number.isFinite(bs)&&Number.isFinite(be)&&as<be&&bs<ae){
-      conflictIds.add(Number(a.id));
-      conflictIds.add(Number(b.id));
-     }
-    }
-   }
-  }
-
-  // Production-day timeline = 06:00 selected date -> 06:00 next day.
-  // v188: nếu Batch/NDT/Unloading kéo dài qua 06:00 hôm sau, Timeline tự mở
-  // rộng tới khi mọi công đoạn hoàn tất (tối đa 48h) để thấy Resource còn bận.
-  const timelineStart=new Date(`${date}T06:00:00+07:00`);
-  const baseTimelineEndMs=new Date(timelineStart.getTime()+24*60*60*1000).getTime();
-  let timelineEndMs=baseTimelineEndMs;
-  for(const x of allRows as any[]){
-   for(const v of [x.planned_end,x.unloading_end,x.ndt_end]){
-    if(!v)continue;
-    const t=new Date(v).getTime();
-    if(Number.isFinite(t)&&t>timelineEndMs)timelineEndMs=t;
-   }
-  }
-  const maxSpanMs=48*60*60*1000;
-  if(timelineEndMs-timelineStart.getTime()>maxSpanMs)timelineEndMs=timelineStart.getTime()+maxSpanMs;
-  const timelineEnd=new Date(timelineEndMs);
-  const timelineStartMs=timelineStart.getTime();
-  const timelineSpanMs=timelineEndMs-timelineStartMs;
-  const timelineTotalHours=Math.max(24,Math.ceil(timelineSpanMs/3600000));
-  const timelineHours=Array.from({length:timelineTotalHours+1},(_,i)=>(6+i)%24);
-
-  const timelineStyle=(startValue:any,endValue:any)=>{
-   const rawStart=new Date(startValue).getTime();
-   const rawEnd=new Date(endValue).getTime();
-
-   const clippedStart=Math.max(rawStart,timelineStartMs);
-   const clippedEnd=Math.min(rawEnd,timelineEndMs);
-
-   if(
-    !Number.isFinite(clippedStart) ||
-    !Number.isFinite(clippedEnd) ||
-    clippedEnd<=clippedStart
-   )return null;
-
-   const left=((clippedStart-timelineStartMs)/timelineSpanMs)*100;
-   const width=((clippedEnd-clippedStart)/timelineSpanMs)*100;
-
-   return {
-    left:`${left}%`,
-    width:`${Math.max(width,0.35)}%`
-   };
-  };
 
   return <main className="erp-shell">
    <header className="erp-header">
@@ -653,7 +559,7 @@ export default async function Page({
         <tr>
          <th>Planner</th>
          <th>Batch#</th>
-         <th>Standard Operation</th>
+         
          <th>Resource</th>
          <th>Recipe#</th>
          <th>Recipe description</th>
@@ -694,7 +600,7 @@ export default async function Page({
            </span>
           </td>
           <td><b>{x.batch_no||"—"}</b></td>
-          <td><b>{x.standard_operation||"—"}</b></td>
+          
           <td>
            <b>{x.resource_code||"—"}</b>
            {x.resource_name&&x.resource_name!==x.resource_code&&
@@ -713,7 +619,7 @@ export default async function Page({
 
         {!allRows.length&&
          <tr>
-          <td colSpan={12} className="muted">
+          <td colSpan={10} className="muted">
            Chưa có Batch được xếp lịch cho ngày này.
           </td>
          </tr>}
@@ -733,7 +639,7 @@ export default async function Page({
        <thead>
         <tr>
          <th>Batch#</th>
-         <th>Standard Operation</th>
+         
          <th>Resource</th>
          <th>Recipe#</th>
          <th>Recipe description</th>
@@ -750,7 +656,7 @@ export default async function Page({
         {rows.map((x:any)=>
          <tr key={x.id}>
           <td><b>{x.batch_no||"—"}</b></td>
-          <td><b>{x.standard_operation||"—"}</b></td>
+          
           <td>
            <b>{x.resource_code||"—"}</b>
            {x.resource_name&&x.resource_name!==x.resource_code&&
@@ -769,7 +675,7 @@ export default async function Page({
 
         {!rows.length&&
          <tr>
-          <td colSpan={11} className="muted">
+          <td colSpan={10} className="muted">
            Chưa có Batch được xếp lịch cho ngày này.
           </td>
          </tr>}
@@ -778,87 +684,14 @@ export default async function Page({
      </div>
     </div>
 
-    <div className="erp-table-panel section production-timeline-panel">
-     <div className="erp-panel-head">
-      <b>Production Timeline</b>
-      <span>
-       {date} 06:00 → {timelineEnd.toLocaleTimeString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit",hour12:false})} ({timelineTotalHours}h) · {productionResources.length} resources
-      </span>
-     </div>
+    <ProductionTimelineClient
+     date={date}
+     resources={resourcesQ.rows as any}
+     initialRows={timelineRows as any}
+     plannerOps={[...effectivePlannerOperationSet] as string[]}
+    />
 
-     <div className="production-timeline-scroll">
-      <div className="production-timeline-frame">
-       <div className="production-timeline-hours">
-        <div className="production-timeline-corner">Resource</div>
-        <div className="production-timeline-hour-track">
-         {timelineHours.map((hour,index)=>
-          <span
-           key={`${hour}-${index}`}
-           className="production-timeline-hour"
-           style={{left:`${(index/timelineTotalHours)*100}%`}}
-          >
-           {String(hour).padStart(2,"0")}:00
-          </span>
-         )}
-        </div>
-       </div>
-
-       {productionResources.map((r:any)=>{
-        const items=timelineRows.filter((x:any)=>x.resource_code===r.resource_code);
-
-        return <div className="production-timeline-row" key={r.resource_code}>
-         <div className="schedule-resource-label">
-          <b>{r.resource_code}</b>
-          <small>{r.resource_name}</small>
-         </div>
-
-         <div className="production-timeline-track">
-          {items.map((x:any)=>{
-           const style=timelineStyle(x.planned_start,x.planned_end);
-           if(!style)return null;
-
-           if(r.resource_group==="CHEMICAL_LINE"&&x.loading_start){
-            const conflicted=conflictIds.has(Number(x.id));
-            const segments=[
-             {key:"loading",label:"Loading",start:x.loading_start,end:x.loading_end},
-             {key:"process",label:"Process",start:x.process_start,end:x.process_end},
-             ...(x.ndt_start?[{key:"ndt",label:"NDT",start:x.ndt_start,end:x.ndt_end}]:[]),
-             {key:"unloading",label:"Unloading",start:x.unloading_start,end:x.unloading_end}
-            ];
-            return segments.map(segment=>{
-             const segmentStyle=timelineStyle(segment.start,segment.end);if(!segmentStyle)return null;
-             return <div className={`schedule-chip production-timeline-batch chemical chemical-${segment.key}${conflicted?" conflict":""}`}
-              key={`${x.id}-${segment.key}`} style={segmentStyle}
-              title={`${x.batch_no}${x.recipe_no?` · Recipe ${x.recipe_no}`:""} · ${segment.label} · ${time(segment.start)}–${time(segment.end)}${conflicted?" · ⚠ XUNG ĐỘT":""}`}>
-              <b>{time(segment.start)}–{time(segment.end)}</b><span>{segment.label}</span><span>{x.batch_no}</span>
-             </div>;
-            });
-           }
-
-           return <div
-            className={`schedule-chip production-timeline-batch ${
-             r.resource_group==="CHEMICAL_LINE"
-              ?"chemical"
-              :r.resource_group==="PAINTING"
-               ?"paint"
-               :"other"
-            }${conflictIds.has(Number(x.id))?" conflict":""}`}
-            key={x.id}
-            style={style}
-            title={`${x.batch_no} · ${x.standard_operation} · ${time(x.planned_start)}–${time(x.planned_end)}${x.recipe_no?` · Recipe ${x.recipe_no}`:""}${conflictIds.has(Number(x.id))?" · ⚠ XUNG ĐỘT":""}`}
-           >
-            <b>{time(x.planned_start)}–{time(x.planned_end)}</b>
-            <span>{x.batch_no}</span>
-            <span>{x.standard_operation}</span>
-            {x.recipe_no&&<span>Recipe {x.recipe_no}</span>}
-           </div>
-          })}
-         </div>
-        </div>
-       })}
-      </div>
-     </div>
-    </div>
+    
    </section>
   </main>
  }finally{c.release()}

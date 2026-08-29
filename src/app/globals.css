@@ -810,33 +810,22 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table td{
  white-space:nowrap;
 }
+.planning-candidate-table .all-open-source-col.col-all-operation,
+.planning-candidates .all-open-source-col.col-all-operation{
+ max-width:none!important;
+ min-width:300px;
+ width:320px;
+ white-space:normal!important;
+ word-break:break-word;
+ overflow:visible;
+ text-overflow:clip;
+ line-height:1.5!important;
+ vertical-align:top!important;
+}
 .planning-candidate-table .all-open-source-col{
  max-width:260px;
  overflow:hidden;
  text-overflow:ellipsis;
-}
-.planning-sticky-select{
- position:sticky;
- left:0;
- z-index:4;
- background:#fff;
- min-width:42px;
-}
-.planning-sticky-job{
- position:sticky;
- left:42px;
- z-index:3;
- background:#fff;
- min-width:120px;
-}
-.planning-candidate-table thead .planning-sticky-select,
-.planning-candidate-table thead .planning-sticky-job{
- background:#f4f6f8;
- z-index:6;
-}
-.planning-row-selected .planning-sticky-select,
-.planning-row-selected .planning-sticky-job{
- background:#eef6ff;
 }
 
 
@@ -869,6 +858,10 @@ button,a,input,select,textarea{touch-action:manipulation}
  background:#fff;
  padding:12px;
 }
+.candidate-column-picker-head small{font-size:9px;color:#536b82;grid-column:1/-1}
+.candidate-operation-grid{max-height:340px;overflow:auto}
+.candidate-column-empty{grid-column:1/-1;padding:10px;color:#805b00;font-size:10px;font-weight:700;background:#fff4d6}
+.candidate-column-empty-info{background:#e3f2fd;color:#0d47a1;font-weight:600}
 .candidate-column-picker-head{
  display:grid;
  grid-template-columns:auto minmax(220px,1fr) auto;
@@ -1552,119 +1545,6 @@ button,a,input,select,textarea{touch-action:manipulation}
 }
 
 
-/* Auto Planning Rule Master v75 */
-.auto-planning-rule-manager{
- display:grid;
- gap:12px;
-}
-.auto-rule-message{margin-bottom:0}
-.auto-rule-summary{min-width:1250px}
-.auto-rule-summary tr.auto-rule-enabled>td{
- background:#f4fbf6;
-}
-.auto-rule-editor{
- border-top:3px solid #2457a6;
-}
-.auto-rule-body{
- padding:10px;
- display:grid;
- gap:10px;
-}
-.auto-rule-section{
- border:1px solid #e4e7ec;
- background:#fbfcfe;
- padding:9px;
-}
-.auto-rule-section h3{
- margin:0 0 8px;
- font-size:12px;
-}
-.auto-rule-section-head{
- display:flex;
- justify-content:space-between;
- align-items:center;
- gap:8px;
- margin-bottom:8px;
-}
-.auto-rule-section-head h3{margin:0}
-.auto-rule-grid{
- display:grid;
- grid-template-columns:repeat(3,minmax(160px,1fr));
- gap:8px;
- align-items:end;
-}
-.auto-rule-grid>label,
-.auto-rule-limit-grid>label{
- font-size:10px;
- font-weight:700;
- color:#475467;
-}
-.auto-rule-grid .input,
-.auto-rule-limit-grid .input{
- margin-top:4px;
-}
-.auto-rule-toggle-grid{
- display:grid;
- grid-template-columns:repeat(4,minmax(190px,1fr));
- gap:6px;
-}
-.auto-rule-toggle{
- display:flex;
- align-items:center;
- gap:6px;
- min-height:34px;
- padding:6px 7px;
- border:1px solid #dfe4ea;
- background:#fff;
- font-size:10px;
- font-weight:700;
- cursor:pointer;
-}
-.auto-rule-limit-grid{
- display:grid;
- grid-template-columns:repeat(6,minmax(130px,1fr));
- gap:7px;
-}
-.auto-rule-priority-list{
- display:grid;
- gap:5px;
-}
-.auto-rule-priority-row{
- display:grid;
- grid-template-columns:28px minmax(260px,1fr) 90px 34px;
- gap:6px;
- align-items:center;
-}
-.auto-rule-priority-row>span{
- text-align:center;
- font-size:10px;
- font-weight:800;
-}
-.auto-rule-savebar{
- display:flex;
- justify-content:flex-end;
-}
-.auto-rule-help-table{
- min-width:950px;
-}
-.auto-rule-help-table code{
- font-size:10px;
-}
-.auto-rule-logic-note code{
- font-size:10px;
-}
-@media(max-width:1100px){
- .auto-rule-toggle-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}
- .auto-rule-limit-grid{grid-template-columns:repeat(3,minmax(130px,1fr))}
-}
-@media(max-width:700px){
- .auto-rule-grid,
- .auto-rule-toggle-grid,
- .auto-rule-limit-grid{grid-template-columns:1fr}
- .auto-rule-priority-row{grid-template-columns:28px 1fr 80px 34px}
-}
-
-
 /* Operation Master Batch Prefix v76 */
 .operation-prefix-edit{
  flex-wrap:nowrap;
@@ -1737,6 +1617,152 @@ button,a,input,select,textarea{touch-action:manipulation}
 }
 .paint-selection-lock-banner.is-locked b{
  color:#92400e;
+}
+/* v263: Recipe đề xuất khi chọn Job vào lô */
+.recipe-suggestion-banner{
+ display:flex;
+ align-items:center;
+ gap:10px;
+ flex-wrap:wrap;
+ padding:7px 10px;
+ border-bottom:1px solid #d8dee7;
+ background:#f8fafc;
+ font-size:10px;
+}
+.recipe-suggestion-banner b{
+ font-size:10px;
+ white-space:nowrap;
+}
+.recipe-suggestion-banner span{
+ color:#475467;
+}
+.recipe-suggestion-banner a{
+ color:#2563eb;
+ text-decoration:underline;
+}
+.recipe-suggestion-banner.is-ok{
+ background:#f0fdf4;
+ border-color:#86efac;
+}
+.recipe-suggestion-banner.is-ok b{
+ color:#166534;
+}
+.recipe-suggestion-banner.is-warn{
+ background:#fff8e8;
+ border-color:#f0c36d;
+}
+.recipe-suggestion-banner.is-warn b{
+ color:#92400e;
+}
+.recipe-suggestion-banner.is-muted{
+ background:#f8fafc;
+}
+.recipe-suggestion-banner.is-muted b{
+ color:#475467;
+}
+/* v263: ghi chú cấu hình Operation → Recipe */
+.chemical-multi-map-note{
+ padding:8px 12px;
+ background:#eff6ff;
+ border-bottom:1px solid #bfdbfe;
+ color:#1e40af;
+ font-size:11px;
+ line-height:1.5;
+}
+.recipe-winner{
+ color:#15803d;
+}
+/* v264: bộ điều kiện "Áp dụng cho Job" trong Operation → Recipe */
+.chemical-conditions{
+ grid-column:1/-1;
+ display:flex;
+ flex-direction:column;
+ gap:6px;
+ padding:8px 10px;
+ background:#f8fafc;
+ border:1px solid #e2e8f0;
+ border-radius:6px;
+}
+.chemical-conditions-title{
+ display:flex;
+ flex-direction:column;
+ gap:2px;
+ font-size:10px;
+}
+.chemical-conditions-title b{
+ font-size:11px;
+}
+.chemical-conditions-title span{
+ color:#64748b;
+}
+.chemical-condition-row{
+ display:flex;
+ gap:6px;
+ align-items:center;
+ flex-wrap:wrap;
+}
+.chemical-condition-row .input{
+ margin-top:0 !important;
+ min-width:140px;
+}
+.chemical-condition-row select.input{
+ min-width:120px;
+}
+/* v272: danh sách điều kiện áp dụng trong bảng recipe */
+.recipe-apply-list{
+ display:flex;
+ flex-direction:column;
+ gap:2px;
+}
+.recipe-apply-line{
+ display:flex;
+ gap:6px;
+ align-items:baseline;
+ white-space:nowrap;
+}
+.recipe-apply-line b{
+ color:#2563eb;
+ font-size:10px;
+}
+.recipe-apply-line span:not(.mono){
+ color:#1e293b;
+ font-weight:600;
+}
+.recipe-rule-cell{
+ max-width:260px;
+ white-space:normal;
+ word-break:break-word;
+}
+/* v266: phần thu gọn trên trang Công thức & Rule */
+.config-section-collapsible{
+ margin-top:12px;
+ border:1px solid #e2e8f0;
+ border-radius:8px;
+ background:#fff;
+}
+.config-section-collapsible summary{
+ cursor:pointer;
+ padding:10px 14px;
+ font-size:12px;
+ font-weight:600;
+ color:#1e293b;
+ background:#f8fafc;
+ border-radius:8px;
+ list-style:none;
+}
+.config-section-collapsible summary::-webkit-details-marker{display:none}
+.config-section-collapsible summary::before{content:"▸ ";color:#94a3b8}
+.config-section-collapsible[open] summary::before{content:"▾ ";color:#2563eb}
+.config-section-collapsible > .section,
+.config-section-collapsible > div{
+ padding:0 12px 12px;
+}
+/* config-nav-hint v263 */
+.config-nav-hint{
+ padding:6px 14px 2px;
+ color:#94a3b8;
+ font-size:10px;
+ line-height:1.45;
 }
 /* Resource box scheduled Batch display v79 */
 .schedule-dnd-resource{
@@ -2700,6 +2726,12 @@ button,a,input,select,textarea{touch-action:manipulation}
 /* v93 Schedule Area direct planning grid */
 .schedule-area-grid-stack{display:flex;flex-direction:column;gap:12px;padding:10px}
 .schedule-area-grid-block{border:1px solid #b8c9dc;background:#fff}
+.schedule-area-grid-block.schedule-area-group-block{border:2px solid #2e6da4;border-radius:6px;background:#eef4fa}
+.schedule-area-group-block>.schedule-area-grid-title{background:#2e6da4;border-bottom:none}
+.schedule-area-group-block>.schedule-area-grid-title b{color:#fff;font-size:13px}
+.schedule-area-group-block>.schedule-area-grid-title small{color:#cfe3f5}
+.schedule-area-group-block>.schedule-area-grid-title .schedule-area-row-actions span{color:#cfe3f5}
+.schedule-area-group-children{display:flex;flex-direction:column;gap:10px;padding:10px}
 .schedule-area-grid-title{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;background:#dbe9f7;border-bottom:1px solid #9fb6cf}
 .schedule-area-grid-title>div:first-child{display:flex;flex-direction:column;min-width:0}
 .schedule-area-grid-title b{font-size:12px;color:#123f6b}
@@ -3099,7 +3131,7 @@ button,a,input,select,textarea{touch-action:manipulation}
  border-right:1px solid #d4dde5;
 }
 
-/* Candidate Jobs Full View + Excel-like Freeze Panes v122 */
+/* Candidate Jobs Full View + density modes (freeze pane đã gỡ v258) */
 .candidate-density-select{
  width:auto!important;
  min-width:104px;
@@ -3141,37 +3173,6 @@ button,a,input,select,textarea{touch-action:manipulation}
  flex:0 0 auto;
  max-height:32vh;
  overflow:auto;
-}
-
-/* Freeze header row while scrolling vertically. */
-.planning-candidate-table thead th{
- position:sticky;
- top:0;
- z-index:30;
- background:#eaf2fb;
- box-shadow:0 1px 0 #9fb4cc;
-}
-
-/* Freeze pane at the boundary before the route matrix (checkbox + first 8 visible columns).
-   Fixed widths make the sticky left offsets deterministic and stable while scrolling. */
-.planning-candidate-table th:nth-child(1),.planning-candidate-table td:nth-child(1){width:30px;min-width:30px;max-width:30px;left:0}
-.planning-candidate-table th:nth-child(2),.planning-candidate-table td:nth-child(2){width:82px;min-width:82px;max-width:82px;left:30px}
-.planning-candidate-table th:nth-child(3),.planning-candidate-table td:nth-child(3){width:112px;min-width:112px;max-width:112px;left:112px}
-.planning-candidate-table th:nth-child(4),.planning-candidate-table td:nth-child(4){width:185px;min-width:185px;max-width:185px;left:224px}
-.planning-candidate-table th:nth-child(5),.planning-candidate-table td:nth-child(5){width:88px;min-width:88px;max-width:88px;left:409px}
-.planning-candidate-table th:nth-child(6),.planning-candidate-table td:nth-child(6){width:70px;min-width:70px;max-width:70px;left:497px}
-.planning-candidate-table th:nth-child(7),.planning-candidate-table td:nth-child(7){width:78px;min-width:78px;max-width:78px;left:567px}
-.planning-candidate-table th:nth-child(8),.planning-candidate-table td:nth-child(8){width:64px;min-width:64px;max-width:64px;left:645px}
-.planning-candidate-table th:nth-child(9),.planning-candidate-table td:nth-child(9){width:70px;min-width:70px;max-width:70px;left:709px}
-.planning-candidate-table th:nth-child(-n+9),
-.planning-candidate-table td:nth-child(-n+9){
- position:sticky;
- z-index:20;
- background:inherit;
-}
-.planning-candidate-table thead th:nth-child(-n+9){z-index:50;background:#eaf2fb}
-.planning-candidate-table th:nth-child(9),.planning-candidate-table td:nth-child(9){
- box-shadow:2px 0 0 #4d78a8;
 }
 
 /* Density modes: no data/columns are removed. */
@@ -3411,11 +3412,7 @@ button,a,input,select,textarea{touch-action:manipulation}
 }
 
 
-/* ============================================================
-   v144 - Candidate Jobs Freeze Pane
-   ============================================================ */
-
-/* Two-direction Candidate viewport = real Excel-like freeze pane. */
+/* v144 (sửa v258) — Candidate viewport: cuộn 2 chiều (freeze pane đã gỡ) */
 .planning-candidates .table-wrap{
   position:relative;
   width:100%;
@@ -3429,69 +3426,6 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table{
   border-collapse:separate!important;
   border-spacing:0!important;
-}
-
-/* Freeze header row. */
-.planning-candidate-table thead th{
-  position:sticky!important;
-  top:0!important;
-  z-index:60!important;
-  background:#eaf2fb!important;
-  box-shadow:inset 0 -1px 0 #7898b8,0 2px 3px rgba(31,55,80,.08)!important;
-}
-
-/* Freeze left pane through Priority:
-   checkbox + Job + Part/Rev + PartDescription +
-   NextOperation + CurrentGoodWIP + TotalSurface + Priority. */
-.planning-candidate-table th:nth-child(-n+8),
-.planning-candidate-table td:nth-child(-n+8){
-  position:sticky!important;
-  z-index:40!important;
-}
-.planning-candidate-table thead th:nth-child(-n+8){
-  z-index:80!important;
-  background:#eaf2fb!important;
-}
-
-.planning-candidate-table th:nth-child(1),
-.planning-candidate-table td:nth-child(1){
-  left:0!important;width:30px!important;min-width:30px!important;max-width:30px!important;
-}
-.planning-candidate-table th:nth-child(2),
-.planning-candidate-table td:nth-child(2){
-  left:30px!important;width:82px!important;min-width:82px!important;max-width:82px!important;
-}
-.planning-candidate-table th:nth-child(3),
-.planning-candidate-table td:nth-child(3){
-  left:112px!important;width:112px!important;min-width:112px!important;max-width:112px!important;
-}
-.planning-candidate-table th:nth-child(4),
-.planning-candidate-table td:nth-child(4){
-  left:224px!important;width:185px!important;min-width:185px!important;max-width:185px!important;
-}
-.planning-candidate-table th:nth-child(5),
-.planning-candidate-table td:nth-child(5){
-  left:409px!important;width:88px!important;min-width:88px!important;max-width:88px!important;
-}
-.planning-candidate-table th:nth-child(6),
-.planning-candidate-table td:nth-child(6){
-  left:497px!important;width:70px!important;min-width:70px!important;max-width:70px!important;
-}
-.planning-candidate-table th:nth-child(7),
-.planning-candidate-table td:nth-child(7){
-  left:567px!important;width:78px!important;min-width:78px!important;max-width:78px!important;
-}
-.planning-candidate-table th:nth-child(8),
-.planning-candidate-table td:nth-child(8){
-  left:645px!important;width:64px!important;min-width:64px!important;max-width:64px!important;
-}
-
-
-
-/* Visible freeze divider after Priority. */
-.planning-candidate-table th:nth-child(8),
-.planning-candidate-table td:nth-child(8){
-  box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.10)!important;
 }
 
 /* Full View: use all remaining viewport height. */
@@ -3573,94 +3507,2047 @@ button,a,input,select,textarea{touch-action:manipulation}
 
 
 
+
 /* ============================================================
-   v155 - Freeze Pane overlap fix
-   Sticky/frozen cells must be opaque. Otherwise horizontally
-   scrolling columns remain visible underneath and text overlaps.
+   v260 - Excel-style Freeze Pane (chọn vị trí rồi Chốt)
+   - Chỉ áp dụng khi bảng có class candidate-freeze-on.
+   - data-fc = số cột được ghìm (cột 1..k, kể cả ô checkbox).
+   - Bề rộng cột THẬT được đo bằng JS -> CSS var --fcws-N (px lũy kế),
+     nên không còn lỗi cột trắng/cắt chữ như bản hardcode cũ.
+   - Không chạm render từng ô (chỉ class+attr trên <table>).
    ============================================================ */
-
-/* Base opaque layer for every frozen body cell. */
-.planning-candidate-table tbody td:nth-child(-n+8){
-  background:#fff!important;
-  background-clip:padding-box!important;
-  opacity:1!important;
-  isolation:isolate!important;
-  z-index:45!important;
+.planning-candidate-table.candidate-freeze-on thead th{
+ position:sticky!important;
+ top:0!important;
+ z-index:60!important;
+ background:#eaf2fb!important;
+ box-shadow:inset 0 -1px 0 #7898b8!important;
 }
-
-/* Preserve alternating row readability inside the frozen pane. */
-.planning-candidate-table tbody tr:nth-child(even) td:nth-child(-n+8){
-  background:#fcfdff!important;
+.freeze-hint-bar{
+ padding:6px 12px;
+ background:#eef4ff;
+ border-bottom:1px solid #c7d8f0;
+ font-size:12px;
+ color:#1d4ed8;
 }
-
-/* Preserve hover inside the frozen pane without transparency. */
-.planning-candidate-table tbody tr:hover td:nth-child(-n+8){
-  background:#f2f7ff!important;
+.freeze-confirm-bar{
+ display:flex;
+ align-items:center;
+ gap:8px;
+ padding:6px 12px;
+ background:#eafef0;
+ border-bottom:1px solid #b9e6c8;
+ font-size:12px;
+ color:#166534;
 }
-
-/* Priority cell has its own business color and must remain above the pane.
-   Existing priority classes still provide the actual color. */
-.planning-candidate-table tbody td:nth-child(8).candidate-priority-cell{
-  z-index:48!important;
+.freeze-confirm-bar .freeze-confirm-col{
+ color:#0b4f94;
+ font-weight:900;
 }
-
-/* Re-assert priority colors after opaque freeze backgrounds. */
-.planning-candidate-table tbody td:nth-child(8).candidate-priority-cell.priority-cat3{
-  background:#ffd6d2!important;
+.freeze-menu{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:10px;
+ padding:6px 12px;
+ background:#f8fafc;
+ border-bottom:1px solid #cbd5e1;
+ font-size:12px;
 }
-.planning-candidate-table tbody td:nth-child(8).candidate-priority-cell.priority-cat5{
-  background:#ffefbf!important;
-}
-.planning-candidate-table tbody td:nth-child(8).candidate-priority-cell.priority-sale{
-  background:#d9ebff!important;
-}
-.planning-candidate-table tbody td:nth-child(8).candidate-priority-cell.priority-month{
-  background:#e1f2d7!important;
-}
-
-/* Frozen header cells are fully opaque as well. */
-.planning-candidate-table thead th:nth-child(-n+8){
-  background:#eaf2fb!important;
-  background-clip:padding-box!important;
-  opacity:1!important;
-  z-index:90!important;
-}
-
-/* Solid freeze divider after Priority.
-   The extra pseudo strip masks the first scrolling pixels completely. */
-.planning-candidate-table th:nth-child(8),
-.planning-candidate-table td:nth-child(8){
-  position:sticky!important;
-}
-.planning-candidate-table th:nth-child(8)::after,
-.planning-candidate-table td:nth-child(8)::after{
-  content:"";
-  position:absolute;
-  top:0;
-  right:-5px;
-  width:5px;
-  height:100%;
-  background:linear-gradient(to right,rgba(77,120,168,.38),rgba(77,120,168,0));
-  pointer-events:none;
-  z-index:100;
-}
-
-/* Prevent text from escaping its frozen cell. */
-.planning-candidate-table tbody td:nth-child(-n+8),
-.planning-candidate-table thead th:nth-child(-n+8){
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-}
-
-/* Route/status columns scroll underneath the pane, never above it. */
-.planning-candidate-table th:nth-child(n+9),
-.planning-candidate-table td:nth-child(n+9){
-  position:relative;
-  z-index:1;
-}
+.freeze-menu-title b{color:#0b4f94;}
 
 
+/* freeze đến cột 1 */
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tbody td:nth-child(-n+1){
+ position:sticky!important;
+}
 
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tbody td:nth-child(1){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tbody td:nth-child(-n+1){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tbody tr:nth-child(even) td:nth-child(-n+1){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tbody tr:hover td:nth-child(-n+1){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tr.priority-cat3>td:nth-child(-n+1){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tr.priority-cat5>td:nth-child(-n+1){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tr.priority-sales>td:nth-child(-n+1){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tr.priority-current-month>td:nth-child(-n+1){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tr.planning-row-selected>td:nth-child(-n+1){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 2 */
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tbody td:nth-child(-n+2){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tbody td:nth-child(2){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tbody td:nth-child(-n+2){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tbody tr:nth-child(even) td:nth-child(-n+2){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tbody tr:hover td:nth-child(-n+2){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tr.priority-cat3>td:nth-child(-n+2){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tr.priority-cat5>td:nth-child(-n+2){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tr.priority-sales>td:nth-child(-n+2){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tr.priority-current-month>td:nth-child(-n+2){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tr.planning-row-selected>td:nth-child(-n+2){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 3 */
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody td:nth-child(-n+3){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody td:nth-child(3){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody td:nth-child(-n+3){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody tr:nth-child(even) td:nth-child(-n+3){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody tr:hover td:nth-child(-n+3){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tr.priority-cat3>td:nth-child(-n+3){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tr.priority-cat5>td:nth-child(-n+3){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tr.priority-sales>td:nth-child(-n+3){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tr.priority-current-month>td:nth-child(-n+3){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tr.planning-row-selected>td:nth-child(-n+3){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 4 */
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody td:nth-child(-n+4){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody td:nth-child(4){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody td:nth-child(-n+4){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody tr:nth-child(even) td:nth-child(-n+4){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody tr:hover td:nth-child(-n+4){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tr.priority-cat3>td:nth-child(-n+4){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tr.priority-cat5>td:nth-child(-n+4){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tr.priority-sales>td:nth-child(-n+4){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tr.priority-current-month>td:nth-child(-n+4){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tr.planning-row-selected>td:nth-child(-n+4){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 5 */
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody td:nth-child(-n+5){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody td:nth-child(5){
+ left:var(--fcws-4,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] thead th:nth-child(5){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody td:nth-child(5){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody td:nth-child(-n+5){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody tr:nth-child(even) td:nth-child(-n+5){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody tr:hover td:nth-child(-n+5){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tr.priority-cat3>td:nth-child(-n+5){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tr.priority-cat5>td:nth-child(-n+5){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tr.priority-sales>td:nth-child(-n+5){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tr.priority-current-month>td:nth-child(-n+5){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tr.planning-row-selected>td:nth-child(-n+5){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 6 */
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody td:nth-child(-n+6){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody td:nth-child(5){
+ left:var(--fcws-4,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(5){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(6),
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody td:nth-child(6){
+ left:var(--fcws-5,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(6){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] thead th:nth-child(6),
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody td:nth-child(6){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody td:nth-child(-n+6){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody tr:nth-child(even) td:nth-child(-n+6){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody tr:hover td:nth-child(-n+6){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tr.priority-cat3>td:nth-child(-n+6){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tr.priority-cat5>td:nth-child(-n+6){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tr.priority-sales>td:nth-child(-n+6){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tr.priority-current-month>td:nth-child(-n+6){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tr.planning-row-selected>td:nth-child(-n+6){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 7 */
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody td:nth-child(-n+7){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody td:nth-child(5){
+ left:var(--fcws-4,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(5){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(6),
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody td:nth-child(6){
+ left:var(--fcws-5,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(6){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(7),
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody td:nth-child(7){
+ left:var(--fcws-6,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(7){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] thead th:nth-child(7),
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody td:nth-child(7){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody td:nth-child(-n+7){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody tr:nth-child(even) td:nth-child(-n+7){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody tr:hover td:nth-child(-n+7){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tr.priority-cat3>td:nth-child(-n+7){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tr.priority-cat5>td:nth-child(-n+7){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tr.priority-sales>td:nth-child(-n+7){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tr.priority-current-month>td:nth-child(-n+7){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tr.planning-row-selected>td:nth-child(-n+7){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 8 */
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody td:nth-child(-n+8){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody td:nth-child(5){
+ left:var(--fcws-4,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(5){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(6),
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody td:nth-child(6){
+ left:var(--fcws-5,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(6){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(7),
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody td:nth-child(7){
+ left:var(--fcws-6,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(7){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(8),
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody td:nth-child(8){
+ left:var(--fcws-7,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(8){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] thead th:nth-child(8),
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody td:nth-child(8){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody td:nth-child(-n+8){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody tr:nth-child(even) td:nth-child(-n+8){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody tr:hover td:nth-child(-n+8){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tr.priority-cat3>td:nth-child(-n+8){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tr.priority-cat5>td:nth-child(-n+8){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tr.priority-sales>td:nth-child(-n+8){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tr.priority-current-month>td:nth-child(-n+8){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tr.planning-row-selected>td:nth-child(-n+8){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 9 */
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody td:nth-child(-n+9){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody td:nth-child(5){
+ left:var(--fcws-4,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(5){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(6),
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody td:nth-child(6){
+ left:var(--fcws-5,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(6){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(7),
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody td:nth-child(7){
+ left:var(--fcws-6,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(7){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(8),
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody td:nth-child(8){
+ left:var(--fcws-7,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(8){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(9),
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody td:nth-child(9){
+ left:var(--fcws-8,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(9){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] thead th:nth-child(9),
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody td:nth-child(9){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody td:nth-child(-n+9){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody tr:nth-child(even) td:nth-child(-n+9){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody tr:hover td:nth-child(-n+9){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tr.priority-cat3>td:nth-child(-n+9){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tr.priority-cat5>td:nth-child(-n+9){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tr.priority-sales>td:nth-child(-n+9){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tr.priority-current-month>td:nth-child(-n+9){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tr.planning-row-selected>td:nth-child(-n+9){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 10 */
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(-n+10){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(5){
+ left:var(--fcws-4,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(5){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(6),
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(6){
+ left:var(--fcws-5,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(6){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(7),
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(7){
+ left:var(--fcws-6,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(7){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(8),
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(8){
+ left:var(--fcws-7,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(8){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(9),
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(9){
+ left:var(--fcws-8,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(9){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(10),
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(10){
+ left:var(--fcws-9,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(10){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] thead th:nth-child(10),
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(10){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody td:nth-child(-n+10){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody tr:nth-child(even) td:nth-child(-n+10){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody tr:hover td:nth-child(-n+10){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tr.priority-cat3>td:nth-child(-n+10){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tr.priority-cat5>td:nth-child(-n+10){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tr.priority-sales>td:nth-child(-n+10){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tr.priority-current-month>td:nth-child(-n+10){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tr.planning-row-selected>td:nth-child(-n+10){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 11 */
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(-n+11){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(5){
+ left:var(--fcws-4,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(5){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(6),
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(6){
+ left:var(--fcws-5,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(6){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(7),
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(7){
+ left:var(--fcws-6,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(7){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(8),
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(8){
+ left:var(--fcws-7,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(8){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(9),
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(9){
+ left:var(--fcws-8,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(9){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(10),
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(10){
+ left:var(--fcws-9,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(10){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(11),
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(11){
+ left:var(--fcws-10,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(11){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] thead th:nth-child(11),
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(11){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody td:nth-child(-n+11){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody tr:nth-child(even) td:nth-child(-n+11){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody tr:hover td:nth-child(-n+11){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tr.priority-cat3>td:nth-child(-n+11){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tr.priority-cat5>td:nth-child(-n+11){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tr.priority-sales>td:nth-child(-n+11){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tr.priority-current-month>td:nth-child(-n+11){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tr.planning-row-selected>td:nth-child(-n+11){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 12 */
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(-n+12){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(5){
+ left:var(--fcws-4,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(5){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(6),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(6){
+ left:var(--fcws-5,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(6){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(7),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(7){
+ left:var(--fcws-6,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(7){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(8),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(8){
+ left:var(--fcws-7,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(8){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(9),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(9){
+ left:var(--fcws-8,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(9){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(10),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(10){
+ left:var(--fcws-9,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(10){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(11),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(11){
+ left:var(--fcws-10,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(11){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(12),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(12){
+ left:var(--fcws-11,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(12){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] thead th:nth-child(12),
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(12){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody td:nth-child(-n+12){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody tr:nth-child(even) td:nth-child(-n+12){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody tr:hover td:nth-child(-n+12){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tr.priority-cat3>td:nth-child(-n+12){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tr.priority-cat5>td:nth-child(-n+12){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tr.priority-sales>td:nth-child(-n+12){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tr.priority-current-month>td:nth-child(-n+12){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tr.planning-row-selected>td:nth-child(-n+12){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 13 */
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(-n+13){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(5){
+ left:var(--fcws-4,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(5){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(6),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(6){
+ left:var(--fcws-5,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(6){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(7),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(7){
+ left:var(--fcws-6,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(7){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(8),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(8){
+ left:var(--fcws-7,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(8){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(9),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(9){
+ left:var(--fcws-8,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(9){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(10),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(10){
+ left:var(--fcws-9,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(10){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(11),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(11){
+ left:var(--fcws-10,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(11){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(12),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(12){
+ left:var(--fcws-11,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(12){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(13),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(13){
+ left:var(--fcws-12,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(13){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] thead th:nth-child(13),
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(13){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody td:nth-child(-n+13){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody tr:nth-child(even) td:nth-child(-n+13){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody tr:hover td:nth-child(-n+13){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tr.priority-cat3>td:nth-child(-n+13){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tr.priority-cat5>td:nth-child(-n+13){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tr.priority-sales>td:nth-child(-n+13){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tr.priority-current-month>td:nth-child(-n+13){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tr.planning-row-selected>td:nth-child(-n+13){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 14 */
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(-n+14){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(5){
+ left:var(--fcws-4,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(5){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(6),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(6){
+ left:var(--fcws-5,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(6){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(7),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(7){
+ left:var(--fcws-6,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(7){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(8),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(8){
+ left:var(--fcws-7,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(8){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(9),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(9){
+ left:var(--fcws-8,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(9){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(10),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(10){
+ left:var(--fcws-9,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(10){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(11),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(11){
+ left:var(--fcws-10,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(11){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(12),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(12){
+ left:var(--fcws-11,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(12){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(13),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(13){
+ left:var(--fcws-12,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(13){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(14),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(14){
+ left:var(--fcws-13,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(14){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] thead th:nth-child(14),
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(14){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody td:nth-child(-n+14){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody tr:nth-child(even) td:nth-child(-n+14){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody tr:hover td:nth-child(-n+14){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tr.priority-cat3>td:nth-child(-n+14){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tr.priority-cat5>td:nth-child(-n+14){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tr.priority-sales>td:nth-child(-n+14){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tr.priority-current-month>td:nth-child(-n+14){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tr.planning-row-selected>td:nth-child(-n+14){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 15 */
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(-n+15){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(5){
+ left:var(--fcws-4,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(5){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(6),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(6){
+ left:var(--fcws-5,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(6){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(7),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(7){
+ left:var(--fcws-6,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(7){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(8),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(8){
+ left:var(--fcws-7,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(8){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(9),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(9){
+ left:var(--fcws-8,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(9){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(10),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(10){
+ left:var(--fcws-9,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(10){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(11),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(11){
+ left:var(--fcws-10,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(11){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(12),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(12){
+ left:var(--fcws-11,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(12){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(13),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(13){
+ left:var(--fcws-12,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(13){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(14),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(14){
+ left:var(--fcws-13,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(14){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(15),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(15){
+ left:var(--fcws-14,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(15){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] thead th:nth-child(15),
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(15){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody td:nth-child(-n+15){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody tr:nth-child(even) td:nth-child(-n+15){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody tr:hover td:nth-child(-n+15){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tr.priority-cat3>td:nth-child(-n+15){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tr.priority-cat5>td:nth-child(-n+15){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tr.priority-sales>td:nth-child(-n+15){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tr.priority-current-month>td:nth-child(-n+15){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tr.planning-row-selected>td:nth-child(-n+15){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
+
+/* freeze đến cột 16 */
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(-n+16){
+ position:sticky!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(1),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(1){
+ left:var(--fcws-0,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(1){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(2),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(2){
+ left:var(--fcws-1,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(2){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(3),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(3){
+ left:var(--fcws-2,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(3){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(4),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(4){
+ left:var(--fcws-3,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(4){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(5),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(5){
+ left:var(--fcws-4,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(5){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(6),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(6){
+ left:var(--fcws-5,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(6){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(7),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(7){
+ left:var(--fcws-6,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(7){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(8),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(8){
+ left:var(--fcws-7,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(8){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(9),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(9){
+ left:var(--fcws-8,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(9){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(10),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(10){
+ left:var(--fcws-9,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(10){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(11),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(11){
+ left:var(--fcws-10,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(11){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(12),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(12){
+ left:var(--fcws-11,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(12){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(13),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(13){
+ left:var(--fcws-12,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(13){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(14),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(14){
+ left:var(--fcws-13,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(14){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(15),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(15){
+ left:var(--fcws-14,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(15){
+ z-index:70!important;
+}
+
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(16),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(16){
+ left:var(--fcws-15,0px);
+ z-index:40!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(16){
+ z-index:70!important;
+}
+
+/* vạch chia sau cột cuối được ghìm */
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] thead th:nth-child(16),
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(16){
+ box-shadow:inset -2px 0 0 #4d78a8,3px 0 4px rgba(31,55,80,.12)!important;
+}
+/* nền đặc cho ô ghìm (chỉ đúng số cột ghìm) */
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody td:nth-child(-n+16){
+ background:#fff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody tr:nth-child(even) td:nth-child(-n+16){
+ background:#fcfdff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody tr:hover td:nth-child(-n+16){
+ background:#f2f7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tr.priority-cat3>td:nth-child(-n+16){
+ background:#fff1f0!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tr.priority-cat5>td:nth-child(-n+16){
+ background:#fff8e8!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tr.priority-sales>td:nth-child(-n+16){
+ background:#eef7ff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tr.priority-current-month>td:nth-child(-n+16){
+ background:#f2f8ef!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tr.planning-row-selected>td:nth-child(-n+16){
+ box-shadow:inset 0 0 0 9999px rgba(28,100,242,.06);
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] td.candidate-priority-cell.priority-cat3{
+ background:#ffd9d6!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] td.candidate-priority-cell.priority-cat5{
+ background:#ffedbd!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] td.candidate-priority-cell.priority-sales{
+ background:#d7ebff!important;
+}
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] td.candidate-priority-cell.priority-current-month{
+ background:#dff0d8!important;
+}
 
 /* v174 UX: permanent Current Main summary.
    This column is independent from Main Operation matrix order/configuration. */
@@ -3899,3 +5786,655 @@ button,a,input,select,textarea{touch-action:manipulation}
   color:var(--muted,#6b7280);
   font-size:10px;
 }
+
+/* ============ v194: Chemical Line 1-view — dải thời gian pha ============ */
+.schedule-area-phase-row{
+  background:transparent;
+}
+.schedule-area-phase-row:hover{
+  background:transparent;
+}
+.schedule-area-phase-cell{
+  padding:2px 8px 6px 8px;
+}
+.chemical-phase-strip{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  align-items:center;
+}
+.chemical-phase-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:2px 8px;
+  border:1px solid;
+  border-radius:4px;
+  font-size:11px;
+  font-weight:600;
+  white-space:nowrap;
+}
+.chemical-phase-chip small{
+  font-weight:400;
+  opacity:.85;
+}
+.chemical-phase-chip input{
+  max-width:72px;
+  font-size:11px;
+  padding:1px 3px;
+}
+.chip-loading{background:#dbeafe;border-color:#60a5fa;color:#1e40af}
+.chip-process{background:#ccfbf1;border-color:#2dd4bf;color:#115e59}
+.chip-ndt{background:#fef3c7;border-color:#f59e0b;color:#92400e}
+.chip-unloading{background:#ede9fe;border-color:#8b5cf6;color:#5b21b6}
+.schedule-area-entry-table th{
+  white-space:nowrap;
+}
+.schedule-area-entry-table td{
+  vertical-align:top;
+}
+
+/* ============ v195: Gợi ý FB + Simulation cả ngày ============ */
+.chemical-suggest-area{
+  margin-bottom:4px;
+}
+.chemical-suggest-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:3px 8px;
+  border:1px solid #2563eb;
+  border-radius:4px;
+  background:#eff6ff;
+  color:#1e40af;
+  font-size:11px;
+}
+.chemical-suggest-chip.pushed{
+  border-color:#b45309;
+  background:#fff7ed;
+  color:#92400e;
+}
+.chemical-suggest-chip small{
+  opacity:.8;
+}
+.chemical-sim-panel{
+  border:1px solid var(--border,#d0d5dc);
+  border-radius:4px;
+  padding:10px;
+  margin:8px 0;
+  background:#f8fafc;
+}
+.chemical-sim-head{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:flex-end;
+  margin-bottom:8px;
+}
+.chemical-sim-head b{
+  margin-right:auto;
+}
+.chemical-sim-head label{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  font-size:11px;
+  font-weight:600;
+}
+.chemical-sim-head .input{
+  padding:3px 6px;
+  font-size:12px;
+}
+.chemical-sim-runs{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  max-height:340px;
+  overflow:auto;
+}
+.chemical-sim-run{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.chemical-sim-run-no{
+  min-width:42px;
+  font-size:12px;
+  font-weight:700;
+  color:var(--muted,#6b7280);
+}
+.chemical-sim-run select{
+  max-width:280px;
+  font-size:12px;
+  padding:2px 6px;
+}
+.chemical-sim-result{
+  font-size:11px;
+  color:#0f172a;
+}
+.chemical-sim-result b{
+  color:#1e40af;
+}
+
+/* ============ v198: Kéo-thả lô Unscheduled vào dòng ============ */
+.schedule-area-unscheduled-card{
+  cursor:grab;
+}
+.schedule-area-unscheduled-card:active{
+  cursor:grabbing;
+}
+.schedule-area-empty-row.drop-target td{
+  background:#e8f0fe;
+}
+.schedule-area-empty-row.drop-target td:first-child{
+  box-shadow:inset 3px 0 0 #2563eb;
+}
+
+/* ============ v200: Bỏ cột Std Op + Process Time Start–End–Duration ============ */
+.chemical-duration-cell{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  align-items:flex-start;
+}
+.chemical-process-window{
+  color:#15803d;
+  font-size:11px;
+  font-weight:600;
+  white-space:nowrap;
+}
+.op-fallback-select{
+  display:block;
+  margin-top:3px;
+  max-width:180px;
+  border-color:#f59e0b;
+}
+
+/* ============ v206: Redesign bảng Flybar (header 2 tầng + Gantt pastel) ============ */
+.schedule-time-group{
+  background:#e2e8f0 !important;
+  color:#0f172a !important;
+  text-align:center;
+  font-size:11px;
+  letter-spacing:.4px;
+  border-left:1px solid #d8dee7;
+  border-right:1px solid #d8dee7;
+}
+thead th.time-sub{
+  font-size:10px;
+  font-weight:600;
+  text-transform:none;
+  letter-spacing:.2px;
+}
+.kl-cell{
+  color:#64748b;
+  font-size:11px;
+}
+.chemical-gantt{
+  display:flex;
+  height:26px;
+  border-radius:5px;
+  overflow:hidden;
+  min-width:560px;
+  box-shadow:inset 0 0 0 1px rgba(15,23,42,.08);
+}
+.gantt-seg{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  font-size:10.5px;
+  font-weight:700;
+  white-space:nowrap;
+  overflow:hidden;
+}
+.gantt-seg b{font-weight:700}
+.gantt-seg small{font-weight:400;opacity:.85}
+.gantt-seg.l{background:#bfdbfe;color:#1d4ed8}
+.gantt-seg.p{background:#bbf7d0;color:#15803d}
+.gantt-seg.n{background:#fde68a;color:#b45309}
+.gantt-seg.u{background:#ddd6fe;color:#6d28d9}
+.chemical-phase-overrides{
+  display:flex;
+  gap:10px;
+  margin-top:4px;
+  flex-wrap:wrap;
+}
+.chemical-phase-overrides label{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  font-size:10px;
+  font-weight:600;
+  color:#64748b;
+}
+.chemical-phase-overrides input{
+  padding:1px 4px;
+  font-size:11px;
+  width:74px;
+}
+.chemical-legend{
+  display:flex;
+  gap:14px;
+  padding:6px 10px 8px;
+  font-size:11px;
+  color:#475569;
+  border-top:1px solid #eef2f7;
+}
+.chemical-legend i{
+  display:inline-block;
+  width:10px;
+  height:10px;
+  border-radius:3px;
+  margin-right:4px;
+  vertical-align:-1px;
+  box-shadow:inset 0 0 0 1px rgba(15,23,42,.08);
+}
+.chemical-legend .sw-l{background:#bfdbfe}
+.chemical-legend .sw-p{background:#bbf7d0}
+.chemical-legend .sw-n{background:#fde68a}
+.chemical-legend .sw-u{background:#ddd6fe}
+
+/* ============ v212: Liên kết nối tiếp trên Timeline + Gantt ============ */
+.production-timeline-track{
+  position:relative;
+}
+.timeline-continuation-link{
+  position:absolute;
+  top:-2px;
+  transform:translateX(-50%);
+  color:#b45309;
+  font-weight:900;
+  font-size:13px;
+  z-index:6;
+  cursor:default;
+  text-shadow:0 0 2px #fff;
+  pointer-events:none;
+}
+.schedule-chip.production-timeline-batch.continued{
+  box-shadow:inset 0 0 0 1.5px #b45309;
+}
+.chain-mark{
+  color:#b45309;
+  font-weight:900;
+  margin-right:2px;
+}
+.gantt-seg.gantt-chain{
+  width:18px;
+  flex:0 0 18px;
+  background:transparent;
+  color:#b45309;
+  font-weight:900;
+}
+.chemical-chain-select select{
+  max-width:180px;
+  font-size:11px;
+}
+
+/* ============ v215: Logic Guide trực quan ============ */
+.lg-body{padding:12px 14px}
+.lg-lead{background:#f4f9ff;border:1px solid #d5e6fb;border-radius:6px;padding:10px 12px;font-size:13px;line-height:1.6;margin-bottom:10px}
+.lg-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:6px}
+.lg-stat{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center}
+.lg-stat b{display:block;font-size:22px;color:#0d68c9}
+.lg-stat span{font-size:10.5px;color:#64748b}
+.lg-chain{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:8px 0}
+.lg-chain-item{display:flex;align-items:center;gap:4px}
+.lg-chain-box{display:flex;flex-direction:column;border-radius:8px;padding:8px 12px;font-size:11.5px;font-weight:700;text-align:center;min-width:120px;border:1px solid rgba(15,23,42,.12)}
+.lg-chain-box small{font-weight:400;font-size:9.5px;opacity:.8;margin-top:2px}
+.lg-chain-blue{background:#dbeafe;color:#1d4ed8}
+.lg-chain-green{background:#dcfce7;color:#15803d}
+.lg-chain-teal{background:#ccfbf1;color:#0f766e}
+.lg-chain-orange{background:#ffedd5;color:#c2410c}
+.lg-chain-amber{background:#fef3c7;color:#b45309}
+.lg-chain-gray{background:#eef2f7;color:#475569}
+.lg-chain-purple{background:#ede9fe;color:#6d28d9}
+.lg-chain-arrow{font-size:16px;color:#94a3b8;font-weight:700}
+.lg-two-col{display:grid;grid-template-columns:1.1fr 1fr;gap:14px}
+.lg-two-col>div{min-width:0}
+@media(max-width:1000px){.lg-two-col{grid-template-columns:1fr}}
+.lg-vert{display:flex;flex-direction:column;gap:2px}
+.lg-vert-step{display:flex;flex-direction:column;align-items:stretch}
+.lg-vert-box{display:flex;align-items:center;gap:10px;border-radius:8px;padding:9px 12px;border:1px solid rgba(15,23,42,.12)}
+.lg-vert-box b{min-width:150px;font-size:12px}
+.lg-vert-box span{font-size:11px;line-height:1.4}
+.lg-vert-blue{background:#dbeafe;color:#1e3a8a}
+.lg-vert-green{background:#dcfce7;color:#14532d}
+.lg-vert-amber{background:#fef3c7;color:#78350f}
+.lg-vert-purple{background:#ede9fe;color:#4c1d95}
+.lg-vert-gray{background:#eef2f7;color:#334155}
+.lg-vert-arrow{text-align:center;color:#94a3b8;font-size:11px;line-height:1.2}
+.lg-vert-note{font-size:10px;color:#92400e;margin:2px 0 0 14px}
+.lg-formulas{display:flex;flex-direction:column;gap:8px}
+.lg-formula-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:11.5px;line-height:1.55}
+.lg-formula-card b{display:block;margin-bottom:4px;color:#0f172a}
+.lg-formula-card ul{margin:0;padding-left:16px}
+.lg-formula-card code{background:#eef2ff;border-radius:4px;padding:1px 5px;font-size:10.5px;color:#4338ca}
+.lg-key{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px}
+.lg-key-2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.lg-mini-title{display:block;font-size:11.5px;color:#0d68c9;margin:8px 0 4px}
+.lg-list{margin:4px 0;padding-left:18px;font-size:12px;line-height:1.6}
+.lg-ol>li{margin-bottom:4px}
+.lg-p{font-size:12px;line-height:1.6;color:#334155;margin:4px 0}
+.lg-subtitle{font-weight:700;font-size:12px;color:#0f172a;margin:16px 0 6px;padding-top:10px;border-top:1px dashed #d8dee7}
+.lg-steps{padding-left:20px;font-size:12.5px;line-height:1.8}
+.lg-steps li{margin-bottom:6px}
+.lg-steps ul{margin:2px 0 6px;padding-left:18px}
+.lg-faq{border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;overflow:hidden;background:#fff}
+.lg-faq summary{cursor:pointer;padding:10px 12px;font-size:12.5px;font-weight:700;color:#0f172a;background:#f8fafc;list-style:none}
+.lg-faq summary::before{content:"❓ ";color:#0d68c9}
+.lg-faq summary:hover{background:#eef4fc}
+.lg-faq[open] summary{border-bottom:1px solid #e2e8f0}
+.lg-faq>div{padding:10px 12px;font-size:12px;line-height:1.65}
+.lg-note{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 12px;font-size:12px;line-height:1.6;margin-top:8px}
+
+/* ============ v216: Kéo dòng để liên kết + 6 FB 6 màu pastel ============ */
+.schedule-area-empty-row{cursor:grab}
+.schedule-area-empty-row:active{cursor:grabbing}
+.row-chain-badge{
+  display:inline-block;
+  margin-left:5px;
+  background:#fff3d6;
+  color:#b45309;
+  border-radius:4px;
+  font-size:9.5px;
+  font-weight:800;
+  padding:1px 4px;
+  border:1px solid #fde68a;
+}
+.fb-cell{transition:background .15s}
+.fb-cell select{background:transparent}
+.fb-01{background:#e0ecff}
+.fb-02{background:#e2f8e8}
+.fb-03{background:#fdf3d7}
+.fb-04{background:#efe9fd}
+.fb-05{background:#fdeaf3}
+.fb-06{background:#ddf4f0}
+.schedule-area-phase-row.fb-01 .chemical-gantt{border-left:5px solid #93c5fd}
+.schedule-area-phase-row.fb-02 .chemical-gantt{border-left:5px solid #86efac}
+.schedule-area-phase-row.fb-03 .chemical-gantt{border-left:5px solid #fcd34d}
+.schedule-area-phase-row.fb-04 .chemical-gantt{border-left:5px solid #c4b5fd}
+.schedule-area-phase-row.fb-05 .chemical-gantt{border-left:5px solid #f9a8d4}
+.schedule-area-phase-row.fb-06 .chemical-gantt{border-left:5px solid #5eead4}
+.schedule-resource-label.fb-label.fb-01{background:#e0ecff}
+.schedule-resource-label.fb-label.fb-02{background:#e2f8e8}
+.schedule-resource-label.fb-label.fb-03{background:#fdf3d7}
+.schedule-resource-label.fb-label.fb-04{background:#efe9fd}
+.schedule-resource-label.fb-label.fb-05{background:#fdeaf3}
+.schedule-resource-label.fb-label.fb-06{background:#ddf4f0}
+.chemical-chain-select{display:flex;align-items:center;gap:4px}
+.chain-x{
+  border-color:#fca5a5;
+  color:#dc2626;
+  background:#fff;
+  font-weight:800;
+  line-height:1;
+  padding:2px 7px;
+}
+.chain-x:hover{background:#fef2f2}
+
+/* ============ v219: 📌 Giữ dòng ============ */
+.keep-btn.on{
+  border-color:#f59e0b;
+  background:#fffbeb;
+  color:#b45309;
+}
+.schedule-area-empty-row.keep-row td:first-child{
+  box-shadow:inset 3px 0 0 #f59e0b;
+}
+.schedule-area-empty-row.keep-row td{
+  background:#fffdf5;
+}
+
+/* ============ v221: Bảng Flybar# — cột giờ theo nhóm màu (thay thanh Gantt) ============ */
+.schedule-time-group.ph-loading{
+  background:#bfdbfe !important;
+  color:#1d4ed8 !important;
+}
+.schedule-time-group.ph-process{
+  background:#bbf7d0 !important;
+  color:#15803d !important;
+}
+.schedule-time-group.ph-ndt{
+  background:#fde68a !important;
+  color:#b45309 !important;
+}
+.schedule-time-group.ph-unloading{
+  background:#ddd6fe !important;
+  color:#6d28d9 !important;
+}
+thead th.time-sub.ph-loading{background:rgba(191,219,254,.45)}
+thead th.time-sub.ph-process{background:rgba(187,247,208,.45)}
+thead th.time-sub.ph-ndt{background:rgba(253,230,138,.45)}
+thead th.time-sub.ph-unloading{background:rgba(221,214,254,.45)}
+td.ph-loading{background:rgba(191,219,254,.28)}
+td.ph-process{background:rgba(187,247,208,.28)}
+td.ph-ndt{background:rgba(253,230,138,.28)}
+td.ph-unloading{background:rgba(221,214,254,.28)}
+td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{filter:brightness(.98)}
+.chain-mark{
+  color:#b45309;
+  font-weight:800;
+  font-size:12px;
+  cursor:default;
+}
+.row-chain-badge{
+  cursor:pointer;
+  transition:background .15s,color .15s;
+}
+.cell-day-dot{
+  display:inline-block;
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  margin-left:3px;
+  vertical-align:middle;
+  background:#e11d48;
+  cursor:help;
+}
+.cell-day-dot.star{
+  width:auto;
+  height:auto;
+  background:transparent;
+  color:#e11d48;
+  font-size:10px;
+  font-weight:800;
+  line-height:1;
+  border-radius:0;
+}
+/* v221.25: bảng gọn — nhiều dòng vừa 1 màn hình */
+.schedule-area-entry-table tbody td{padding:2px 3px!important;line-height:1.3}
+.schedule-area-entry-table td .input{padding:3px 5px!important;font-size:11px}
+.schedule-area-entry-table .schedule-row-actions .btn.small{padding:4px 6px;font-size:11px}
+.row-chain-badge:hover{
+  background:#fbbf24;
+  color:#111;
+}
+
+/* ============ v221.1: Căn đều cột giờ bảng Flybar# ============ */
+.schedule-area-entry-table thead th.time-sub,
+.schedule-area-entry-table td.ph-loading,
+.schedule-area-entry-table td.ph-process,
+.schedule-area-entry-table td.ph-ndt,
+.schedule-area-entry-table td.ph-unloading{
+  text-align:center;
+  white-space:nowrap;
+}
+.schedule-area-entry-table td.ph-loading,
+.schedule-area-entry-table td.ph-process,
+.schedule-area-entry-table td.ph-ndt,
+.schedule-area-entry-table td.ph-unloading,
+.schedule-area-entry-table thead th.time-sub{border-right:1px solid rgba(15,23,42,.08)}
+.schedule-area-entry-table td:first-child{text-align:center}
+.schedule-area-entry-table td:nth-child(4){text-align:center}
+.schedule-area-entry-table thead tr:first-child th:nth-child(1),
+.schedule-area-entry-table thead tr:first-child th:nth-child(4){text-align:center}
+.schedule-area-entry-table td input.input{width:100%;box-sizing:border-box;text-align:center}
+.schedule-area-entry-table td select.input{width:100%;box-sizing:border-box}
+
+/* ============ v221.2: Bảng fit 1 màn hình + chỉnh giờ tại cột Start ============ */
+.schedule-area-entry-table{
+  table-layout:fixed;
+  width:100%;
+}
+.schedule-area-entry-table td:nth-child(2),
+.schedule-area-entry-table td:nth-child(3),
+.schedule-area-entry-table td.kl-cell{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.schedule-area-entry-table .btn{
+  padding:2px 5px;
+  font-size:9px;
+  line-height:1.35;
+}
+.schedule-area-entry-table .schedule-batch-control-actions,
+.schedule-area-entry-table .schedule-row-actions{
+  gap:2px;
+  flex-wrap:nowrap;
+}
+.schedule-area-entry-table .schedule-batch-control-actions .btn.small{
+  padding:5px 7px;
+  font-size:11px;
+}
+.schedule-area-entry-table td input.input[type="time"]{min-width:0}
+
+/* ============ v221.3: Highlight màu theo FB + cột FB rộng ============ */
+.schedule-area-entry-table tbody tr.fb-row.fb-01{--fb-row:#93c5fd}
+.schedule-area-entry-table tbody tr.fb-row.fb-02{--fb-row:#86efac}
+.schedule-area-entry-table tbody tr.fb-row.fb-03{--fb-row:#fcd34d}
+.schedule-area-entry-table tbody tr.fb-row.fb-04{--fb-row:#c4b5fd}
+.schedule-area-entry-table tbody tr.fb-row.fb-05{--fb-row:#f9a8d4}
+.schedule-area-entry-table tbody tr.fb-row.fb-06{--fb-row:#5eead4}
+.schedule-area-entry-table tbody tr.fb-row td:first-child{
+  box-shadow:inset 3px 0 0 var(--fb-row,#93c5fd);
+}
+.schedule-area-entry-table tbody tr.fb-row.fb-01 td:not(.ph-loading):not(.ph-process):not(.ph-ndt):not(.ph-unloading){background:rgba(147,197,253,.16)}
+.schedule-area-entry-table tbody tr.fb-row.fb-02 td:not(.ph-loading):not(.ph-process):not(.ph-ndt):not(.ph-unloading){background:rgba(134,239,172,.16)}
+.schedule-area-entry-table tbody tr.fb-row.fb-03 td:not(.ph-loading):not(.ph-process):not(.ph-ndt):not(.ph-unloading){background:rgba(252,211,77,.16)}
+.schedule-area-entry-table tbody tr.fb-row.fb-04 td:not(.ph-loading):not(.ph-process):not(.ph-ndt):not(.ph-unloading){background:rgba(196,181,253,.16)}
+.schedule-area-entry-table tbody tr.fb-row.fb-05 td:not(.ph-loading):not(.ph-process):not(.ph-ndt):not(.ph-unloading){background:rgba(249,168,212,.16)}
+.schedule-area-entry-table tbody tr.fb-row.fb-06 td:not(.ph-loading):not(.ph-process):not(.ph-ndt):not(.ph-unloading){background:rgba(94,234,212,.16)}
+.schedule-area-entry-table td:nth-child(4) select.input{font-weight:700}
+
+/* ============ v221.4: Recipe số + tên, giờ 24h, cột Lô/Recipe rộng ============ */
+.schedule-area-entry-table td:nth-child(3) b{color:#1d4ed8;font-weight:700}
+.schedule-area-entry-table .recipe-cell-name{color:#64748b;font-weight:400}
+
+/* ============ v221.28: Cấu hình theo luồng chuẩn ============ */
+/* Sidebar nhóm theo 4 giai đoạn */
+.config-nav-group{margin-bottom:2px}
+.config-nav-group-title{padding:10px 18px 4px;font-size:10px;letter-spacing:.06em;font-weight:800;color:#98a2b3;text-transform:uppercase}
+.config-nav-group .erp-subnav-item{padding:7px 18px 7px 30px}
+
+/* Header chuẩn mỗi trang cấu hình */
+.config-page-meta{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin-bottom:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.config-meta-purpose{font-size:13px;color:#1e293b;margin-bottom:6px}
+.config-meta-purpose b{color:#0f766e}
+.config-meta-impact{font-size:13px;color:#1e293b;margin-bottom:10px}
+.config-meta-impact b{color:#b45309}
+.config-flow-nav{display:flex;gap:8px;border-top:1px dashed #e2e8f0;padding-top:10px}
+
+/* Trang Tổng quan Cấu hình — sơ đồ 8 bước */
+.config-overview-intro{background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#1e3a8a}
+.config-ov-group-title{font-size:13px;font-weight:800;color:#334155;margin:18px 0 8px;display:flex;align-items:center;gap:8px}
+.config-ov-group-title .tag{font-size:10px;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:99px;font-weight:700}
+.config-flow{display:flex;flex-direction:column;gap:0}
+.config-step{display:flex;gap:12px;align-items:stretch}
+.config-step-rail{display:flex;flex-direction:column;align-items:center;width:34px;flex:none}
+.config-step-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;background:#94a3b8;flex:none}
+.config-step-dot.ok{background:#16a34a}
+.config-step-dot.warn{background:#d97706}
+.config-step-line{width:2px;flex:1;background:#e2e8f0;margin:4px 0}
+.config-step-card{flex:1;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:12px;display:flex;gap:14px;align-items:center;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.config-step-card.warn{border-color:#fcd34d;background:#fffbeb}
+.config-step-card.ok{border-color:#bbf7d0;background:#f0fdf4}
+.config-step-body{flex:1}
+.config-step-body h3{font-size:14px;font-weight:800;margin:0 0 2px;color:#0f172a}
+.config-step-body p{font-size:12px;color:#475569;margin:0}
+.config-step-status{flex:none;text-align:right}
+.config-step-status .badge{font-size:11px}
+.config-step-status small{display:block;font-size:11px;color:#94a3b8;margin-top:4px}
+.config-step-go{flex:none}
+.config-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:14px}
+.config-meta-chip{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px}
+.config-meta-chip b{display:block;font-size:18px;color:#0f172a}
+.config-meta-chip span{font-size:11px;color:#64748b}
+
+/* ============ v222: Cấu hình theo luồng — sidebar bản đồ + wizard ============ */
+.config-nav-group-title em{font-style:normal;font-size:9px;font-weight:600;color:#cbd5e1;margin-left:4px}
+.erp-subnav-item.flow-item{display:flex;align-items:center;gap:8px;padding:7px 18px 7px 14px}
+.flow-no{flex:none;width:20px;height:20px;border-radius:50%;background:#e2e8f0;color:#64748b;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.flow-no.ok{background:#dcfce7;color:#15803d}
+.flow-no.warn{background:#fee2e2;color:#b91c1c}
+.flow-no.idle{background:#e2e8f0;color:#94a3b8}
+.flow-label{flex:1;font-size:12px;line-height:1.2}
+.flow-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#cbd5e1}
+.flow-dot.ok{background:#16a34a}
+.flow-dot.warn{background:#dc2626}
+.flow-dot.idle{background:#cbd5e1}
+
+/* Thanh tiến độ + mục cần xử lý (Tổng quan) */
+.config-progress{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.config-progress .bar{height:10px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin:8px 0 4px}
+.config-progress .bar > div{height:100%;background:linear-gradient(90deg,#16a34a,#22c55e);border-radius:99px;transition:width .3s}
+.config-progress .meta{display:flex;justify-content:space-between;font-size:11px;color:#64748b}
+.config-issues{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:14px}
+.config-issue{background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px}
+.config-issue b{font-size:15px;color:#b45309;flex:none}
+.config-issue span{font-size:12px;color:#78350f;line-height:1.3;flex:1}
+.config-issue a{flex:none;font-size:11px;font-weight:700}
+
+/* Wizard 3 bước */
+.wizard-stepper{display:flex;align-items:center;gap:0;margin-bottom:14px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px}
+.wizard-step{display:flex;align-items:center;gap:8px;flex:1}
+.wizard-step .ws-no{width:26px;height:26px;border-radius:50%;background:#e2e8f0;color:#64748b;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.wizard-step.active .ws-no{background:#2563eb;color:#fff}
+.wizard-step.done .ws-no{background:#16a34a;color:#fff}
+.wizard-step b{font-size:12px}
+.wizard-step small{display:block;font-size:10px;color:#94a3b8}
+.wizard-conn{flex:none;width:28px;height:2px;background:#e2e8f0;margin:0 8px}
+.wizard-conn.done{background:#16a34a}
+.wizard-panel{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.chain-preview{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:10px 12px;margin-top:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chain-preview .cp{font-size:11px;font-weight:700;background:#fff;border:1px solid #cbd5e1;border-radius:99px;padding:3px 9px;color:#334155}
+.chain-preview .cp.arr{background:transparent;border:0;color:#94a3b8;padding:0}
+.chain-preview .cp.ok{background:#dcfce7;border-color:#86efac;color:#15803d}
+.chain-preview .cp.miss{background:#fee2e2;border-color:#fecaca;color:#b91c1c}
+
+/* ============ v223: Cảnh báo Job chưa cấu hình ST (Planning Board) ============ */
+.missing-jobs-panel{border-color:#fcd34d}
+.missing-jobs-panel .erp-panel-head b{color:#b45309}
+.missing-groups{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.missing-chip{font-size:11px;background:#fffbeb;border:1px solid #fde68a;border-radius:99px;padding:4px 10px;color:#78350f;font-weight:600}
+.missing-chip b{color:#b45309}
+.missing-details summary{cursor:pointer;font-size:12px;font-weight:700;color:#1d4ed8;padding:6px 0}
+.missing-reason{font-size:11px;color:#b45309;font-weight:600}
+
+/* ============ v224: Thêm Operation chưa hiện trên Planning Board ============ */
+.missing-ops-panel{border-color:#93c5fd}
+.missing-ops-panel .erp-panel-head b{color:#1d4ed8}
+.missing-ops-defaults{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:10px}
+.missing-ops-defaults label{font-size:11px;font-weight:700;color:#475569}
+.missing-ops-defaults .input{width:100%}
+.missing-op-tag{font-size:11px;font-weight:600;background:#dbeafe;color:#1d4ed8;border-radius:99px;padding:3px 9px;white-space:nowrap}
+.missing-op-tag.warn{background:#fef3c7;color:#b45309}
+.missing-op-tag.idle{background:#e2e8f0;color:#64748b}
+.missing-ops-row-idle td{opacity:.55}
+
+/* ============ v225: Các công đoạn được hiển thị trên Planning Board ============ */
+.visible-ops-panel{border-color:#bbf7d0}
+.visible-ops-panel .erp-panel-head b{color:#15803d}
+.visible-chip{font-size:11px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:99px;padding:4px 10px;color:#166534;font-weight:600;white-space:nowrap}
+.visible-chip.warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
+.visible-chip b{color:#15803d}
+.visible-chip.warn b{color:#b45309}
+.visible-status{font-size:11px;font-weight:700;border-radius:99px;padding:3px 9px;white-space:nowrap}
+.visible-status.ok{background:#dcfce7;color:#15803d}
+.visible-status.warn{background:#fee2e2;color:#b91c1c}
+
+/* ============ v229: Panel công đoạn trung gian đang có Job ============ */
+.intermediate-ops-panel{border-color:#c7d2fe}
+.intermediate-ops-panel .erp-panel-head b{color:#4338ca}

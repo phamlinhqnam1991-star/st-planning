@@ -1,6 +1,6 @@
 "use client";
 
-import {Fragment,useEffect,useMemo,useState} from "react";
+import {Fragment,useEffect,useLayoutEffect,useMemo,useRef,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 
 const formatNumber=(value:unknown, maxDecimals=2)=>{
@@ -84,13 +84,9 @@ type Candidate={
  previous_batch_source_operation:string|null;
  previous_batch_source_seq:number|null;
 
- // Batch Key / Recipe Rule suggestion (enriched server-side).
- rule_matched:boolean;
- rule_ambiguous:boolean;
- rule_name:string|null;
- suggested_recipe_key:string|null;
- suggested_recipe_no:string|null;
- suggested_recipe_name:string|null;
+ // v262/v266: recipe theo CẤU HÌNH HIỆN TẠI (paint Part+Rev → op code ưu tiên).
+ effective_recipe_key:string|null;
+ // Mã lô mẫu + Prefix (gộp từ Batch Key / Recipe Rules).
  batch_key_suggest:string|null;
  batch_prefix_suggest:string|null;
 
@@ -233,6 +229,22 @@ const SORT_STORAGE_KEY="st-planning:candidate-sort:v1";
 const VIEW_STORAGE_KEY="st-planning:candidate-view-by-operation:v1";
 const COLUMN_STORAGE_KEY="st-planning:candidate-columns:v6";
 
+/* v260 — Excel-style Freeze Pane (chọn vị trí rồi chốt; lưu localStorage). */
+const FREEZE_STORAGE_KEY="st-planning:freeze:v1";
+const FREEZE_MAX_COLS=16;
+type FreezeCfg={mode:"off"|"header"|"col"; col?:number};
+const loadFreeze=():FreezeCfg=>{
+  if(typeof window==="undefined")return {mode:"off"};
+  try{
+    const raw=localStorage.getItem(FREEZE_STORAGE_KEY);
+    if(raw){
+      const j=JSON.parse(raw);
+      if(j&&(j.mode==="header"||(j.mode==="col"&&Number.isInteger(j.col)&&(j.col as number)>=1)))return j;
+    }
+  }catch{}
+  return {mode:"off"};
+};
+
 type BatchTargetOption={
  id:number;
  batch_no:string;
@@ -254,6 +266,8 @@ type BatchTargetOption={
 
 type CandidateViewPreset={
  columns:string[];
+ // v241: VIEW CÔNG ĐOẠN ST (tách riêng) — danh sách next operation được chọn hiển thị.
+ stView?:string[];
  filters:{
   nextMain:string;
   nextOperation:string;
@@ -267,6 +281,24 @@ type CandidateViewPreset={
 };
 const LEGACY_COLUMN_STORAGE_KEY="st-planning:candidate-columns:v5";
 
+// v248: đọc phản hồi AN TOÀN — nếu máy chủ trả HTML (route lỗi / chạy quá lâu bị cắt),
+// hiện thông báo rõ thay vì lỗi "Unexpected token '<'".
+async function safeJson(r:Response){
+  const text=await r.text();
+  let d:any={};
+  try{d=text?JSON.parse(text):{}}catch{d={html:true,status:r.status}}
+  if(!r.ok){
+   if(d.html){
+    throw new Error(
+     `Máy chủ trả về lỗi (HTTP ${r.status}) — thường do route chạy quá lâu bị cắt hoặc route lỗi. `+
+     `Nếu là Rebuild Chain: bấm lại lần nữa; vẫn lỗi → báo trợ lý để tối ưu.`
+    );
+   }
+   throw new Error(d.error||`HTTP ${r.status}: ${String(d.message||d.error||"")}`);
+  }
+  return d;
+}
+
 export function PlanningBoardClient({
  candidates,
  availableBatches,
@@ -274,10 +306,12 @@ export function PlanningBoardClient({
  areaMode,
  selectedAreaId,
  mainOperations,
+ stOperations,
+ nextOperations,
  recipeKey,
  timeRules,
- rules,
- today
+ today,
+ initialView
 }:{
  candidates:Candidate[];
  availableBatches:BatchTargetOption[];
@@ -285,10 +319,12 @@ export function PlanningBoardClient({
  areaMode:boolean;
  selectedAreaId:string;
  mainOperations:MainOperationMaster[];
+ stOperations:{operation_code:string;standard_operation:string|null;config_status?:string|null}[];
+ nextOperations:{operation_code:string;jobs:number}[];
  recipeKey:string;
  timeRules:TimeRule[];
- rules:any[];
  today:string;
+ initialView?:CandidateViewPreset|null;
 }){
  const [selected,setSelected]=useState<number[]>([]);
  const [busy,setBusy]=useState(false);
@@ -297,28 +333,40 @@ export function PlanningBoardClient({
  usePopupMessage(message);
  const [columnPickerOpen,setColumnPickerOpen]=useState(false);
  const [columnSearch,setColumnSearch]=useState("");
- const [visibleColumns,setVisibleColumns]=useState<string[]|null>(null);
+ const [operationPickerOpen,setOperationPickerOpen]=useState(false);
+ const [opSearch,setOpSearch]=useState("");
+ // v261: khởi tạo NGAY từ Default View máy chủ (SSR) → không hiện "hình 1" (169 cột).
+const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.stView??null);
+ const [visibleColumns,setVisibleColumns]=useState<string[]|null>(
+  initialView&&Array.isArray(initialView.columns)&&initialView.columns.length
+   ?initialView.columns
+   :null
+ );
  const [displayRulesOpen,setDisplayRulesOpen]=useState(false);
- const [filterNextMain,setFilterNextMain]=useState("");
- const [filterNextOperation,setFilterNextOperation]=useState("");
- const [filterPrimer1,setFilterPrimer1]=useState("");
- const [filterPrimer2,setFilterPrimer2]=useState("");
- const [filterPrimer3,setFilterPrimer3]=useState("");
- const [sortRules,setSortRules]=useState<SortRule[]>([
-  {field:"next_operation",direction:"asc"},
-  {field:"priority",direction:"desc"},
-  {field:"job",direction:"asc"}
- ]);
+ const [filterNextMain,setFilterNextMain]=useState(initialView?.filters?.nextMain||"");
+ const [filterNextOperation,setFilterNextOperation]=useState(initialView?.filters?.nextOperation||"");
+ const [filterPrimer1,setFilterPrimer1]=useState(initialView?.filters?.primer1||"");
+ const [filterPrimer2,setFilterPrimer2]=useState(initialView?.filters?.primer2||"");
+ const [filterPrimer3,setFilterPrimer3]=useState(initialView?.filters?.primer3||"");
+ const [sortRules,setSortRules]=useState<SortRule[]>(
+  initialView&&Array.isArray(initialView.sortRules)&&initialView.sortRules.length
+   ?(initialView.sortRules as SortRule[])
+   :[
+     {field:"next_operation",direction:"asc"},
+     {field:"priority",direction:"desc"},
+     {field:"job",direction:"asc"}
+    ]
+ );
  const [viewLoadedFor,setViewLoadedFor]=useState("");
  const [viewMessage,setViewMessage]=useState("");
+ const [serverViews,setServerViews]=useState<Record<string,CandidateViewPreset>|null>(null);
  const [dragColumnKey,setDragColumnKey]=useState("");
  const [dragSortIndex,setDragSortIndex]=useState<number|null>(null);
  const [dragCandidateId,setDragCandidateId]=useState<number|null>(null);
  const [fullView,setFullView]=useState(false);
- const [candidateDensity,setCandidateDensity]=useState<"normal"|"compact"|"ultra">("compact");
- const [routeFocus,setRouteFocus]=useState(false);
-
- useEffect(()=>{
+ const [candidateDensity,setCandidateDensity]=useState<"normal"|"compact"|"ultra">(initialView?.density??"compact");
+ const [routeFocus,setRouteFocus]=useState(Boolean(initialView?.routeFocus));
+useEffect(()=>{
   if(!fullView)return;
   const old=document.body.style.overflow;
   document.body.style.overflow="hidden";
@@ -416,7 +464,9 @@ export function PlanningBoardClient({
 
  // SSR and first client render both show all columns.
  // Saved browser preference is applied only after hydration to avoid mismatch.
+ // v261: nếu SSR đã có Default View (initialView) thì không đè — tránh nháy lại 169 cột.
  useEffect(()=>{
+   if(initialView&&Array.isArray(initialView.columns)&&initialView.columns.length)return;
    try{
      const raw=
        window.localStorage.getItem(COLUMN_STORAGE_KEY) ||
@@ -474,7 +524,24 @@ export function PlanningBoardClient({
  const activeColumns=visibleColumns??allColumns.map(x=>x.key);
  const isColumnVisible=(key:string)=>activeColumns.includes(key);
 
+ // v227: Default View lưu trên MÁY CHỦ (dùng chung mọi môi trường).
+ useEffect(()=>{
+   let alive=true;
+   fetch("/api/planning/board-view",{cache:"no-store"})
+    .then(r=>safeJson(r))
+    .then(d=>{
+     if(alive){
+      const v=(d&&typeof d.views==="object")?d.views:{};
+      setServerViews(v as Record<string,CandidateViewPreset>);
+     }
+    })
+    .catch(()=>{if(alive)setServerViews({});});
+   return ()=>{alive=false;};
+ },[]);
+
  const readOperationViews=():Record<string,CandidateViewPreset>=>{
+   // Ưu tiên dữ liệu từ máy chủ; nếu chưa tải xong thì đọc legacy localStorage.
+   if(serverViews!==null)return serverViews;
    try{
      const raw=window.localStorage.getItem(VIEW_STORAGE_KEY);
      const parsed=raw?JSON.parse(raw):{};
@@ -514,6 +581,7 @@ export function PlanningBoardClient({
     : allColumns.map(x=>x.key);
 
    setVisibleColumns(cols);
+   if(Array.isArray(preset.stView))setStViewOverride(preset.stView);
    setFilterNextMain(preset.filters?.nextMain||"");
    setFilterNextOperation(preset.filters?.nextOperation||"");
    setFilterPrimer1(preset.filters?.primer1||"");
@@ -596,11 +664,10 @@ export function PlanningBoardClient({
    return true;
  };
 
- const saveCurrentDefault=()=>{
-   const views=readOperationViews();
-
-   views[exactViewKey]={
+ const saveCurrentDefault=async()=>{
+   const payload:CandidateViewPreset={
      columns:[...activeColumns],
+     stView:[...effectiveStView],
      filters:{
       nextMain:filterNextMain,
       nextOperation:filterNextOperation,
@@ -613,17 +680,28 @@ export function PlanningBoardClient({
      routeFocus
    };
 
+   // Cập nhật ngay trên màn hình (optimistic).
+   const views={...(serverViews||{}),[exactViewKey]:payload};
+   setServerViews(views);
+   try{window.localStorage.setItem(VIEW_STORAGE_KEY,JSON.stringify(views));}catch{}
+
    try{
-     window.localStorage.setItem(VIEW_STORAGE_KEY,JSON.stringify(views));
+     const r=await fetch("/api/planning/board-view",{
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({action:"save",view_key:exactViewKey,payload})
+     });
+     const d=await safeJson(r);
+
      setViewLoadedFor(exactViewKey);
-     setViewMessage(`Đã lưu Default View cho ${exactViewLabel}.`);
-     setTimeout(()=>setViewMessage(""),1800);
-   }catch{
-     setViewMessage("Không lưu được Default View.");
+     setViewMessage(`Đã lưu Default View cho ${exactViewLabel} (đã lưu trên máy chủ — dùng chung mọi môi trường).`);
+   }catch(e){
+     setViewMessage(`Không lưu được Default View: ${e instanceof Error?e.message:String(e)}`);
    }
+   setTimeout(()=>setViewMessage(""),2600);
  };
 
- const deleteCurrentDefault=()=>{
+ const deleteCurrentDefault=async()=>{
    const views=readOperationViews();
 
    if(!views[exactViewKey]){
@@ -632,15 +710,27 @@ export function PlanningBoardClient({
      return;
    }
 
-   delete views[exactViewKey];
+   const next={...views};
+   delete next[exactViewKey];
+   setServerViews(next);
+   try{window.localStorage.setItem(VIEW_STORAGE_KEY,JSON.stringify(next));}catch{}
 
    try{
-     window.localStorage.setItem(VIEW_STORAGE_KEY,JSON.stringify(views));
-   }catch{}
+     const r=await fetch("/api/planning/board-view",{
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({action:"delete",view_key:exactViewKey})
+     });
+     await safeJson(r);
+   }catch(e){
+     setViewMessage(`Xóa Default View thất bại: ${e instanceof Error?e.message:String(e)}`);
+     setTimeout(()=>setViewMessage(""),2600);
+     return;
+   }
 
    setViewLoadedFor("");
-   setViewMessage(`Đã xóa Default View của ${exactViewLabel}.`);
-   setTimeout(()=>setViewMessage(""),1800);
+   setViewMessage(`Đã xóa Default View của ${exactViewLabel} trên máy chủ.`);
+   setTimeout(()=>setViewMessage(""),2000);
  };
 
  const resetToCurrentDefault=()=>{
@@ -661,10 +751,43 @@ export function PlanningBoardClient({
    }else{
      setViewLoadedFor("");
    }
- },[standardOperation,selectedAreaId,allColumns]);
+ },[standardOperation,selectedAreaId,allColumns,serverViews]);
+ const persistColumnsToView=async(next:string[])=>{
+   try{
+    const views=readOperationViews();
+    const existing=views[exactViewKey];
+    const payload:CandidateViewPreset={
+     columns:next,
+     stView:[...effectiveStView],
+     filters:existing?.filters ?? {nextMain:filterNextMain,nextOperation:filterNextOperation,primer1:filterPrimer1,primer2:filterPrimer2,primer3:filterPrimer3},
+     sortRules:existing?.sortRules ?? [...sortRules],
+     density:existing?.density ?? candidateDensity,
+     routeFocus:existing?.routeFocus ?? routeFocus
+    };
+    const nextViews={...views,[exactViewKey]:payload};
+    setServerViews(nextViews);
+    try{window.localStorage.setItem(VIEW_STORAGE_KEY,JSON.stringify(nextViews));}catch{}
+    await fetch("/api/planning/board-view",{
+     method:"POST",
+     headers:{"content-type":"application/json"},
+     body:JSON.stringify({action:"save",view_key:exactViewKey,payload})
+    });
+   }catch{}
+ };
+
  const saveColumns=(next:string[])=>{
    setVisibleColumns(next);
    try{window.localStorage.setItem(COLUMN_STORAGE_KEY,JSON.stringify(next))}catch{}
+   // v237: ghi luôn vào Default View máy chủ — tránh view tái áp dụng ghi đè
+   // (trước đây chỉ lưu localStorage nên sau F5 / fetch xong cột quay về hết).
+   void persistColumnsToView(next);
+ };
+
+ // v245: đổi VIEW CÔNG ĐOẠN ST → lọc NGAY trên dữ liệu đã tải (không tải lại trang,
+ // không chậm). Muốn nạp job của công đoạn MỚI tick (chưa có trong trang hiện tại)
+ // → bấm nút "Áp dụng & tải lại" (tải lại 1 lần có chủ đích).
+ const changeStView=(next:string[])=>{
+   setStViewOverride(next);
  };
 
  const toggleColumn=(key:string)=>{
@@ -993,13 +1116,72 @@ export function PlanningBoardClient({
    }
  };
 
+ // v238: Công đoạn được chọn trong bảng "Công đoạn" kiêm bộ LỌC JOB:
+ // bỏ chọn hết → Candidate Jobs EMPTY; chọn một phần → chỉ hiện Job liên quan
+ // tới các công đoạn đang chọn (có ô trạng thái ở cột đó, kể cả ô fallback của
+ // Candidate Main). Khớp cùng quy tắc render ô ma trận (standard_operation + PIONBL).
+ // v239 (đơn giản theo ý user): Candidate Jobs chỉ hiện Job có NEXT OPERATION
+ // thuộc các công đoạn ST (danh sách panel "Các công đoạn được hiển thị").
+ // Bỏ chọn hết trong bảng "Công đoạn" → danh sách Job trống; chọn một phần →
+ // chỉ Job có next operation thuộc nhóm source của công đoạn đang chọn.
+ // v241 — VIEW CÔNG ĐOẠN ST (TÁCH RIÊNG): Candidate Jobs nhìn vào VIEW này.
+ // VIEW = danh sách các NEXT OPERATION được chọn hiển thị (tick trong bảng
+ // "Công đoạn"). Mặc định = các công đoạn ST đã cấu hình (panel, trừ ST_SCOPE_ONLY);
+ // user có thể tick thêm công đoạn khác (vd trung gian) hoặc bỏ bớt — bỏ hết → trống.
+ // Panel "Các công đoạn được hiển thị" (VIEW CÔNG ĐOẠN CHÍNH) giữ nguyên vai trò cấu hình.
+ const defaultStView=useMemo(()=>{
+   const set=new Set<string>();
+   for(const x of (stOperations||[])){
+    if(String(x.config_status)==="ST_SCOPE_ONLY")continue;
+    const c=normalized(x.operation_code);
+    if(c)set.add(c);
+   }
+   return set;
+  },[stOperations]);
+
+ const effectiveStView=useMemo(
+   ()=>new Set(stViewOverride??[...defaultStView]),
+   [stViewOverride,defaultStView]
+  );
+
+ const allNextOps=useMemo(()=>{
+   const seen=new Set<string>();
+   const panel=new Set<string>();
+   const out:{code:string;jobs:number;inPanel:boolean}[]=[];
+   for(const x of (stOperations||[])){const c=normalized(x.operation_code);if(c)panel.add(c);}
+   const add=(code:string,jobs:number)=>{if(!code||seen.has(code))return;seen.add(code);out.push({code,jobs,inPanel:panel.has(code)});};
+   for(const n of (nextOperations||[]))add(normalized(n.operation_code),Number(n.jobs||0));
+   for(const x of (stOperations||[]))add(normalized(x.operation_code),0);
+   return out.sort((a,b)=>Number(b.jobs)-Number(a.jobs)||a.code.localeCompare(b.code));
+  },[nextOperations,stOperations]);
+
+ const loadedByOp=useMemo(()=>{
+   const m=new Map<string,number>();
+   for(const x of candidates){
+    const op=normalized(x.next_operation);
+    if(op)m.set(op,(m.get(op)||0)+1);
+   }
+   return m;
+  },[candidates]);
+
+ const filteredAllOps=useMemo(()=>{
+   const q=opSearch.trim().toUpperCase();
+   return allNextOps.filter(o=>!q||o.code.includes(q));
+  },[allNextOps,opSearch]);
+
+ const routeOpMatch=(x:Candidate)=>{
+   const nextOp=normalized(x.next_operation);
+   return Boolean(nextOp)&&effectiveStView.has(nextOp);
+ };
+
  const displayCandidates=useMemo(()=>{
    const filtered=candidates.filter(x=>
      (!filterNextMain || normalized(x.next_standard_operation||"END")===normalized(filterNextMain)) &&
      (!filterNextOperation || normalized(x.next_operation)===normalized(filterNextOperation)) &&
      (!filterPrimer1 || normalized(x.part_master_primer1)===normalized(filterPrimer1)) &&
      (!filterPrimer2 || normalized(x.part_master_primer2)===normalized(filterPrimer2)) &&
-     (!filterPrimer3 || normalized(x.part_master_primer3)===normalized(filterPrimer3))
+     (!filterPrimer3 || normalized(x.part_master_primer3)===normalized(filterPrimer3)) &&
+     routeOpMatch(x)
    );
 
    return [...filtered].sort((a,b)=>{
@@ -1039,7 +1221,7 @@ export function PlanningBoardClient({
    });
  },[
    candidates,filterNextMain,filterNextOperation,
-   filterPrimer1,filterPrimer2,filterPrimer3,sortRules
+   filterPrimer1,filterPrimer2,filterPrimer3,sortRules,stOperations,effectiveStView
  ]);
 
  const eligibleCandidates=useMemo(
@@ -1131,26 +1313,28 @@ export function PlanningBoardClient({
    [selectedTargets]
  );
 
- // Tổng hợp đề xuất Batch Key / Recipe Rule cho các Job đang chọn.
+ // v266: Tổng hợp đề xuất Recipe + Mã lô + Prefix cho các Job đang chọn,
+ // theo CẤU HÌNH HIỆN TẠI (paint theo Part → Operation Code điều kiện/ưu tiên).
  const suggestionSummary=useMemo(()=>{
    if(!selectedRows.length)return null;
-   const matched=selectedRows.filter(x=>x.rule_matched&&!x.rule_ambiguous);
-   const ambiguous=selectedRows.filter(x=>x.rule_ambiguous);
-   const unmatched=selectedRows.filter(x=>!x.rule_matched);
-   const recipes=[...new Set(matched.map(x=>x.suggested_recipe_key).filter(Boolean))];
-   const keys=[...new Set(matched.map(x=>x.batch_key_suggest).filter(Boolean))];
-   const prefixes=[...new Set(matched.map(x=>x.batch_prefix_suggest).filter(Boolean))];
-   const names=[...new Set(matched.map(x=>x.suggested_recipe_name).filter(Boolean))];
-   const ruleNames=[...new Set(matched.map(x=>x.rule_name).filter(Boolean))];
+
+   const withRecipe=selectedRows.filter(x=>x.effective_recipe_key);
+   const keys=[...new Set(withRecipe.map(x=>x.effective_recipe_key))];
+   const labels=[...new Set(withRecipe.map(x=>
+     `${x.recipe_no||"—"}${x.recipe_name?` · ${x.recipe_name}`:""}`
+   ))];
+   const batchKeys=[...new Set(withRecipe.map(x=>x.batch_key_suggest).filter(Boolean))];
+   const prefixes=[...new Set(withRecipe.map(x=>x.batch_prefix_suggest).filter(Boolean))];
+
    return {
-     matchedCount:matched.length,
-     ambiguousCount:ambiguous.length,
-     unmatchedCount:unmatched.length,
-     unanimousRecipe:recipes.length===1?recipes[0]:null,
-     unanimousRecipeName:names.length===1?names[0]:null,
-     unanimousKey:keys.length===1?keys[0]:null,
+     count:selectedRows.length,
+     unmatchedCount:selectedRows.length-withRecipe.length,
+     unanimousRecipe:keys.length===1?keys[0]:null,
+     unanimousRecipeLabel:labels.length===1?labels[0]:null,
+     unanimousKey:batchKeys.length===1?batchKeys[0]:null,
      unanimousPrefix:prefixes.length===1?prefixes[0]:null,
-     ruleNames
+     allSameRecipe:keys.length===1,
+     mixedRecipes:keys.length>1
    };
  },[selectedRows]);
 
@@ -1397,8 +1581,7 @@ export function PlanningBoardClient({
        })
      });
 
-     const d=await r.json();
-     if(!r.ok)throw new Error(d.error||"Create Batch failed");
+     const d=await safeJson(r);
 
      setMessage(
        `${d.batchNo} ${d.addedToExisting?"updated":"created"} · ${d.totalJobs} Jobs · `+
@@ -1419,18 +1602,18 @@ export function PlanningBoardClient({
 
  async function rebuild(){
    setBusy(true);
-   setMessage("Đang rebuild Planning Chain từ AllOperation...");
+   setMessage("Đang rebuild Planning Chain (Routing Detail theo Part/Rev)...");
 
    try{
      const r=await fetch("/api/planning/rebuild",{method:"POST"});
-     const d=await r.json();
-     if(!r.ok)throw new Error(d.error||"Rebuild failed");
+     const d=await safeJson(r);
 
      setMessage(
        `Rebuild xong: ${d.jobs} Jobs · ${d.operations} operations · `+
        `${d.eligible} eligible · ${d.locked} locked · `+
        `NextOperation ${d.nextAnchored||0} · Fallback LastOp ${d.fallbackAnchored||0} · `+
-       `Sequence Check ${d.sequenceCheck||0}`
+       `Sequence Check ${d.sequenceCheck||0} · `+
+       `Routing Detail ${d.routingDetailJobs||0} · AllOperation fallback ${d.allOperationFallbackJobs||0}`
      );
      setTimeout(()=>location.reload(),1200);
    }catch(e){
@@ -1503,7 +1686,7 @@ export function PlanningBoardClient({
    const col=allColumns.find(c=>c.key===key);
    if(!col)return null;
 
-   const cls=
+   let cls=
     ["qty","surface"].includes(key)
      ?"num"
      :col.group==="allopen"
@@ -1870,7 +2053,10 @@ export function PlanningBoardClient({
 
    if(key.startsWith("source:")){
      const sourceKey=key.slice("source:".length);
-     return <td key={key} className="all-open-source-col">
+     // v252: cột AllOperation cho hiển thị ĐẦY ĐỦ (xuống dòng, không cắt chữ).
+     // Excel có thể đặt tên "AllOperation" (không gạch dưới) hoặc "all_operation" — nhận cả 2.
+     const isAllOperation=["ALL_OPERATION","ALLOPERATION"].includes(normalized(sourceKey));
+     return <td key={key} className={`all-open-source-col ${isAllOperation?"col-all-operation":""}`}>
       {displaySourceValue((x.source_data||{})[sourceKey])}
      </td>;
    }
@@ -1976,6 +2162,70 @@ export function PlanningBoardClient({
    }
  };
 
+
+ /* ===== v260 Freeze Pane ===== */
+ // v268: khởi tạo MẶC ĐỊNH (không đọc localStorage lúc render) — đọc lại sau khi
+ // mount để SSR khớp client (hết lỗi Hydration "Freeze Pane" vs "Current Main").
+ const [freeze,setFreeze]=useState<FreezeCfg>({mode:"off"});
+ const [freezePick,setFreezePick]=useState(false);
+ const [freezeDraft,setFreezeDraft]=useState<FreezeCfg|null>(null);
+ const [freezeMenuOpen,setFreezeMenuOpen]=useState(false);
+ const freezeTableRef=useRef<HTMLTableElement|null>(null);
+ useEffect(()=>{setFreeze(loadFreeze());},[]);
+
+ const freezeColumnLabels=useMemo(()=>{
+   const labels:string[]=["Chọn"];
+   for(const key of activeColumns){
+    if(key==="priority"){labels.push("Priority","Current Main");continue;}
+    const col=allColumns.find(c=>c.key===key);
+    labels.push(col?col.label:key);
+   }
+   if(!activeColumns.includes("priority"))labels.push("Current Main");
+   return labels;
+ },[activeColumns,allColumns]);
+
+ const freezeActive=freeze.mode!=="off";
+ const effectiveFreeze=freezeDraft??freeze;
+ const freezeCol=effectiveFreeze.mode==="col"
+  ?Math.max(1,Math.min(effectiveFreeze.col??1,FREEZE_MAX_COLS))
+  :0;
+ const freezeLabel=freeze.mode==="col"
+  ?(freezeColumnLabels[Math.min(freeze.col??1,FREEZE_MAX_COLS)-1]??`Cột ${freeze.col}`)
+  :(freeze.mode==="header"?"Dòng tiêu đề":"");
+ const persistFreeze=(cfg:FreezeCfg)=>{
+  setFreeze(cfg);setFreezeMenuOpen(false);setFreezePick(false);setFreezeDraft(null);
+  try{localStorage.setItem(FREEZE_STORAGE_KEY,JSON.stringify(cfg));}catch{}
+ };
+
+ useEffect(()=>{
+  if(!freezePick)return;
+  const onKey=(e:KeyboardEvent)=>{if(e.key==="Escape"){setFreezePick(false);setFreezeDraft(null);}};
+  window.addEventListener("keydown",onKey);
+  return ()=>window.removeEventListener("keydown",onKey);
+ },[freezePick]);
+
+ useLayoutEffect(()=>{
+  const t=freezeTableRef.current;
+  if(!t||freezeCol<=0)return;
+  let ro:ResizeObserver|null=null;
+  const apply=()=>{
+   const row=t.querySelector("thead tr");
+   if(!row)return;
+   const cells=Array.from(row.children) as HTMLElement[];
+   let acc=0;
+   t.style.setProperty("--fcws-0","0px");
+   for(let i=0;i<cells.length&&i<FREEZE_MAX_COLS;i++){
+    acc+=cells[i].getBoundingClientRect().width;
+    t.style.setProperty(`--fcws-${i+1}`,`${acc}px`);
+   }
+  };
+  apply();
+  ro=new ResizeObserver(apply);
+  ro.observe(t);
+  return ()=>{if(ro)ro.disconnect();};
+ },[freezeCol,activeColumns,candidateDensity,routeFocus,displayCandidates.length,fullView]);
+
+ 
  return <div className="planning-board-grid">
    <section className={`erp-table-panel planning-candidates ${fullView?"candidate-full-view":""} candidate-density-${candidateDensity} ${routeFocus?"candidate-route-focus":""}`}>
     <div className="erp-panel-head candidate-sticky-toolbar">
@@ -1988,20 +2238,49 @@ export function PlanningBoardClient({
       <button className="btn small" type="button" onClick={()=>setColumnPickerOpen(x=>!x)}>
        Columns ({activeColumns.length}/{allColumns.length})
       </button>
-      <select className="input candidate-density-select" value={candidateDensity} onChange={e=>setCandidateDensity(e.target.value as "normal"|"compact"|"ultra")} title="Mật độ hiển thị">
-       <option value="normal">Normal</option>
-       <option value="compact">Compact</option>
-       <option value="ultra">Ultra Compact</option>
-      </select>
-      <button className={`btn small ${routeFocus?"primary":""}`} type="button" onClick={()=>setRouteFocus(x=>!x)} title="Làm mờ các ô không thuộc route">Route Focus</button>
+      <button className="btn small" type="button" onClick={()=>setOperationPickerOpen(x=>!x)} title="VIEW CÔNG ĐOẠN ST — chọn các NEXT OPERATION được hiển thị trên Candidate Jobs">
+       Công đoạn ({effectiveStView.size}/{allNextOps.length})
+      </button>
       <button className="btn small" type="button" onClick={()=>setFullView(x=>!x)} title="ESC để thoát Full View">
        {fullView?"Exit Full View":"Full View"}
+      </button>
+      <button
+       className="btn small"
+       type="button"
+       title="Freeze Pane kiểu Excel — bật, click tiêu đề cột để chọn vị trí, rồi Chốt. Ghìm dòng tiêu đề + các cột bên trái."
+       onClick={()=>{
+        if(freezeMenuOpen){setFreezeMenuOpen(false);return;}
+        if(freezePick){setFreezePick(false);setFreezeDraft(null);return;}
+        if(freeze.mode==="off"){setFreezePick(true);return;}
+        setFreezeMenuOpen(true);
+       }}
+      >
+       {freezePick?"📌 Chọn cột… (hủy)":freeze.mode==="off"?"📌 Freeze Pane":`📌 ${freezeLabel}`}
       </button>
       <button className="btn small" disabled={busy} onClick={rebuild}>
        Rebuild Chain
       </button>
      </div>
     </div>
+
+    {freezePick&&!freezeDraft&&
+     <div className="freeze-hint-bar">📌 <b>Chọn vị trí freeze:</b> click vào <b>tiêu đề cột</b> trong bảng — các cột bên trái và dòng tiêu đề sẽ được ghìm (ESC để hủy).</div>}
+    {freezeDraft&&
+     <div className="freeze-confirm-bar">
+      📌 Ghim đến cột <b>{freezeDraft.col}</b>: <b className="freeze-confirm-col">{freezeColumnLabels[Math.min(freezeDraft.col??1,FREEZE_MAX_COLS)-1]??`Cột ${freezeDraft.col}`}</b>
+      <span className="muted">· dòng tiêu đề luôn ghìm ·</span>
+      <button className="btn small" type="button" onClick={()=>persistFreeze(freezeDraft)}>✓ Chốt</button>
+      <button className="btn small" type="button" onClick={()=>setFreezeDraft(null)}>Hủy</button>
+     </div>}
+    {freezeMenuOpen&&freeze.mode!=="off"&&
+     <div className="freeze-menu">
+      <div className="freeze-menu-title">📌 Freeze Pane đang ghìm: <b>{freezeLabel}</b></div>
+      <div className="row">
+       <button type="button" className="btn small" onClick={()=>{setFreezeMenuOpen(false);setFreezePick(true);}}>Đổi vị trí…</button>
+       <button type="button" className="btn small" onClick={()=>persistFreeze({mode:"header"})}>Chỉ dòng tiêu đề</button>
+       <button type="button" className="btn small" onClick={()=>persistFreeze({mode:"off"})}>Không freeze</button>
+      </div>
+     </div>}
 
     {isPaintSelectionOperation&&
      <div className={`paint-selection-lock-banner ${selectedPaintKey?"is-locked":""}`}>
@@ -2223,8 +2502,76 @@ export function PlanningBoardClient({
       </div>
      </div>}
 
+    {operationPickerOpen&&
+     <div className="candidate-column-picker candidate-operation-picker">
+      <div className="candidate-column-picker-head">
+       <b>VIEW CÔNG ĐOẠN ST — chọn công đoạn hiển thị trên Candidate Jobs</b>
+       <small>Chú thích "· hiện X/Y job": Y = tổng job ở công đoạn đó trong All Open Jobs; X = số job đã hiện trên Candidate Jobs. Nếu X &lt; Y: (1) mới tick → bấm "Áp dụng & tải lại"; (2) đã áp dụng mà vẫn thiếu → bấm Rebuild Chain (job chưa có dòng lập kế hoạch ELIGIBLE); (3) vẫn thiếu → kiểm tra bộ lọc Sort/Filter đang bật. Tick/bỏ tick lọc NGAY không tải lại trang.</small>
+       <input
+        className="input"
+        value={opSearch}
+        onChange={e=>setOpSearch(e.target.value)}
+        placeholder="Tìm công đoạn..."
+       />
+       <div className="row">
+        <button className="btn small" type="button" onClick={()=>changeStView(allNextOps.map(o=>o.code))}>Chọn hết ({allNextOps.length})</button>
+        <button className="btn small" type="button" onClick={()=>changeStView([])}>Bỏ hết</button>
+        <button className="btn small primary" type="button" title="Lưu view rồi tải lại trang 1 lần — dùng khi bạn tick thêm công đoạn MỚI mà job của nó chưa có trong trang hiện tại" onClick={()=>{
+         const views=readOperationViews();
+         const existing=views[exactViewKey];
+         const payload:CandidateViewPreset={
+          columns:[...activeColumns],
+          stView:[...effectiveStView],
+          filters:existing?.filters ?? {nextMain:filterNextMain,nextOperation:filterNextOperation,primer1:filterPrimer1,primer2:filterPrimer2,primer3:filterPrimer3},
+          sortRules:existing?.sortRules ?? [...sortRules],
+          density:existing?.density ?? candidateDensity,
+          routeFocus:existing?.routeFocus ?? routeFocus
+         };
+         const nextViews={...views,[exactViewKey]:payload};
+         setServerViews(nextViews);
+         try{window.localStorage.setItem(VIEW_STORAGE_KEY,JSON.stringify(nextViews));}catch{}
+         fetch("/api/planning/board-view",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"save",view_key:exactViewKey,payload})})
+          .catch(()=>{});
+         setTimeout(()=>location.reload(),350);
+        }}>Áp dụng & tải lại</button>
+        <button className="btn small" type="button" onClick={()=>setOperationPickerOpen(false)}>Đóng</button>
+       </div>
+      </div>
+      <div className="candidate-column-picker-grid candidate-operation-grid">
+       {filteredAllOps.map(o=>{
+        const on=effectiveStView.has(o.code);
+        return <div key={o.code} className={`candidate-column-choice candidate-operation-item ${on?"is-visible":""}`}>
+         <label className="candidate-column-toggle">
+          <input type="checkbox" checked={on} onChange={()=>{
+           const next=new Set(effectiveStView);
+           if(next.has(o.code))next.delete(o.code);else next.add(o.code);
+           changeStView([...next]);
+          }}/>
+          <span>{o.code}</span>
+          <small>{o.inPanel?"Đã cấu hình ST":"Chỉ trong All Open Jobs"}{Number(o.jobs||0)>0?` · ${o.jobs} job`:""}{loadedByOp.get(o.code)?` · hiện ${loadedByOp.get(o.code)}/${o.jobs}`:""}</small>
+         </label>
+        </div>;
+       })}
+       {!filteredAllOps.length&&<div className="candidate-column-empty">Không có công đoạn nào khớp tìm kiếm.</div>}
+       {!effectiveStView.size&&
+        <div className="candidate-column-empty candidate-column-empty-info">Đã bỏ hết — Candidate Jobs TRỐNG (không hiện job nào). Tick lại các ô bên trên để hiện.</div>}
+      </div>
+     </div>}
+
     <div className="table-wrap">
-     <table className="erp-table planning-candidate-table">
+     <table
+      ref={freezeTableRef}
+      className={`erp-table planning-candidate-table${freezeActive||freezeDraft?" candidate-freeze-on":""}`}
+      data-fc={freezeCol>0?String(freezeCol):"0"}
+      onClickCapture={e=>{
+       if(!freezePick)return;
+       const th=(e.target as HTMLElement).closest("th");
+       if(!th)return;
+       e.preventDefault();e.stopPropagation();
+       const col=Math.max(1,Math.min((th as HTMLTableCellElement).cellIndex+1,FREEZE_MAX_COLS));
+       setFreezeDraft({mode:"col",col});
+      }}
+     >
       <thead>
        <tr>
         <th>
@@ -2318,7 +2665,6 @@ export function PlanningBoardClient({
    >
     <div className="erp-panel-head planning-batch-head">
      <b>Batch Builder</b>
-     {rules.length>0&&<small className="muted">· {rules.length} rules</small>}
     </div>
 
     <div className="planning-batch-body planning-batch-body-compact">
@@ -2331,23 +2677,25 @@ export function PlanningBoardClient({
      </div>
 
      {suggestionSummary&&selectedRows.length>0&&
-      <div className={`planning-rule-suggestion ${suggestionSummary.unanimousRecipe?"ok":suggestionSummary.ambiguousCount?"warn":""}`}>
+      <div className={`planning-rule-suggestion ${suggestionSummary.allSameRecipe?"ok":suggestionSummary.mixedRecipes?"warn":""}`}>
        {suggestionSummary.unanimousRecipe?(
         <>
-         <b>✓ Rule khớp:</b> {suggestionSummary.ruleNames.join(", ")}
-         <span>Recipe: <b>{suggestionSummary.unanimousRecipeName||suggestionSummary.unanimousRecipe}</b></span>
+         <b>✓ Recipe đề xuất cho lô:</b>
+         <span className="mono">{suggestionSummary.unanimousRecipeLabel||suggestionSummary.unanimousRecipe}</span>
+         <span>theo cấu hình (Operation → Recipe / Part)</span>
          {suggestionSummary.unanimousKey&&<span className="mono">Batch Key: {suggestionSummary.unanimousKey}</span>}
          {suggestionSummary.unanimousPrefix&&<span className="mono">Prefix: {suggestionSummary.unanimousPrefix}</span>}
         </>
        ):(
         <>
-         <b>{suggestionSummary.ambiguousCount?"⚠ Nhiều rule cùng ưu tiên khớp":"✕ Chưa có rule khớp"}</b>
+         <b>{suggestionSummary.mixedRecipes
+           ?"⚠ Các Job chọn có Recipe khác nhau"
+           :"✕ Chưa có Recipe theo cấu hình"}</b>
          <span>
-          {suggestionSummary.unmatchedCount} Job chưa khớp rule · chọn Recipe tay
-          hoặc{" "}
-          <a href={`/batch-key-recipe-rules?op=${encodeURIComponent(selectedOperation||"")}`}>
-           tạo rule
-          </a>
+          {suggestionSummary.mixedRecipes
+           ? "Kiểm tra lại 'Cấu hình → Công thức & Rule' hoặc chọn Job cùng Recipe."
+           : <>{suggestionSummary.unmatchedCount} Job chưa có Recipe — cấu hình tại{" "}
+               <a href="/recipe-operation-map">Công thức & Rule</a>.</>}
          </span>
         </>
        )}

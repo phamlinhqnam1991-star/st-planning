@@ -1,5 +1,6 @@
 "use client";
 
+import {safeJson} from "@/lib/fetch-json";
 import { useState } from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 
@@ -44,7 +45,7 @@ export function BatchRowActions({
         cache: "no-store",
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
 
       if (!response.ok) {
         throw new Error(data.error || "Không tải được Recipe.");
@@ -77,7 +78,7 @@ export function BatchRowActions({
         }),
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
 
       if (!response.ok) {
         throw new Error(data.error || "Không sửa được Recipe.");
@@ -110,7 +111,7 @@ export function BatchRowActions({
         method: "DELETE",
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
 
       if (!response.ok) {
         throw new Error(data.error || "Không xóa được Batch.");

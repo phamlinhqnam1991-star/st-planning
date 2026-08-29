@@ -1,5 +1,6 @@
 "use client";
 
+import {safeJson} from "@/lib/fetch-json";
 import {useEffect,useMemo,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 
@@ -199,6 +200,18 @@ function groupByOperation(items:Batch[]){
 }
 
 function groupByScheduleArea(items:Batch[],areas:ScheduleArea[]){
+ // v232: khu gộp — area có resource_group nhưng không resource_code (vd PAINTING).
+ // Batch thuộc lane con (CAB1/2/3) được gom vào khu chung để chọn cabin tùy ý.
+ const hubByGroup=new Map<string,ScheduleArea>();
+ for(const area of areas){
+  if(area.resource_group&&!area.resource_code&&!hubByGroup.has(area.resource_group))hubByGroup.set(area.resource_group,area);
+ }
+ function effectiveArea(area:ScheduleArea|null):ScheduleArea|null{
+  if(!area)return null;
+  if(area.resource_code&&area.resource_group){const hub=hubByGroup.get(area.resource_group);if(hub)return hub;}
+  return area;
+ }
+
  const operationToArea=new Map<string,ScheduleArea>();
 
  for(const area of areas){
@@ -215,7 +228,7 @@ function groupByScheduleArea(items:Batch[],areas:ScheduleArea[]){
 
  for(const batch of items){
   const op=String(batch.standard_operation||"").trim().toUpperCase();
-  const area=operationToArea.get(op)||null;
+  const area=effectiveArea(operationToArea.get(op)||null);
   const key=area?.schedule_area_code||"UNMAPPED";
 
   const current=map.get(key)||{area,items:[]};
@@ -310,7 +323,7 @@ export default function ScheduleBoardClient({
     const r=await fetch(`/api/schedule/handover-alerts?planner=${planner}`,{
      cache:"no-store"
     });
-    const d=await r.json();
+    const d=await safeJson(r);
     if(!cancelled&&r.ok&&Array.isArray(d.alerts))setAlerts(d.alerts);
    }catch{}
   };
@@ -383,7 +396,7 @@ export default function ScheduleBoardClient({
     )
    });
 
-   const data=await response.json();
+   const data=await safeJson(response);
    if(!response.ok)throw new Error(data.error||"Schedule failed");
 
    location.reload();
@@ -402,7 +415,7 @@ export default function ScheduleBoardClient({
     headers:{"content-type":"application/json"},
     body:JSON.stringify({acknowledged_by:`Planner ${planner}`})
    });
-   const d=await r.json();
+   const d=await safeJson(r);
    if(!r.ok)throw new Error(d.error||"Acknowledge failed");
 
    setAlerts(prev=>prev.map(x=>
@@ -439,7 +452,7 @@ export default function ScheduleBoardClient({
     })
    });
 
-   const data=await response.json();
+   const data=await safeJson(response);
    if(!response.ok)throw new Error(data.error||"Create Empty Batch failed");
 
    setMsg(`${data.batchNo} created · EMPTY · sẵn sàng điều độ trước và Fill Job sau.`);

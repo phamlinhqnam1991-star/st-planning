@@ -1,5 +1,5 @@
 import type {PoolClient} from "pg";
-import {evaluateRulesForJob,parseRules,RULES_SQL} from "@/lib/batch-key-recipe";
+import {pickBestRecipeForJob,type RecipeCandidateItem} from "@/lib/batch-key-recipe";
 
 type Mapping={
  source_operation_code:string;
@@ -226,7 +226,7 @@ function planningChainFromAnchor(
 }
 
 export async function syncPlanningChains(c:PoolClient){
- const [mappingQ,scopeQ,jobsQ,paintQ,chemicalQ,rulesQ,existingQ,batchHistoryQ]=await Promise.all([
+ const [mappingQ,scopeQ,jobsQ,paintQ,chemicalQ,existingQ,batchHistoryQ,routingDetailQ,masterPartQ,masterFinishQ,masterReqQ]=await Promise.all([
    c.query(`
      select m.source_operation_code,m.st_group,m.standard_operation_rule,m.mapping_rule,m.sort_order
      from md_st_operation_mapping m
@@ -255,12 +255,12 @@ export async function syncPlanningChains(c:PoolClient){
      where is_active=true
    `),
    c.query(`
-     select operation_code,recipe_key
+     select operation_code,recipe_key,priority,is_default,updated_at,selection_rule,
+            batch_key_template,batch_no_prefix
      from md_main_operation_recipe
      where is_active=true
-     order by operation_code,priority,is_default desc,updated_at desc
+     order by operation_code,priority,is_default desc,updated_at asc
    `),
-   c.query(`${RULES_SQL}`),
    c.query(`
      select job_num,operation_instance_key,status,recipe_key
      from planning_job_operation
@@ -283,12 +283,49 @@ export async function syncPlanningChains(c:PoolClient){
      join planning_batch b
        on b.id=bj.batch_id
       and b.status<>'CANCELLED'
+   `),
+   // v247: Routing Detail (theo Part + Revision) — nguồn CHÍNH cho tuyến đường
+   // của Job, chính xác hơn AllOperation (chỉ là phần còn lại từ vị trí hiện tại).
+   // Chỉ lấy routing của các Part đang có Job mở để giữ query nhẹ.
+   c.query(`
+     select rd.part_num,rd.revision_num,rd.source_seq,rd.operation_code
+     from md_routing_detailed rd
+     join open_job_current j
+       on j.part_num=rd.part_num
+      and j.revision_num=rd.revision_num
+      and j.is_open=true
+     where rd.is_active=true
+     order by rd.part_num,rd.revision_num,rd.source_seq
+   `),
+   // v269: cột Master Data theo Part+Revision (MD:...) để khớp điều kiện recipe.
+   c.query(`
+     select part_num,program,part_cluster,part_description,surface_dm2
+     from md_part where is_active=true
+   `),
+   c.query(`
+     select part_num,revision_num,primer1,primer2,primer3,topcoat1,topcoat2,
+            antiabration,primer1_name,topcoat_name,antiabrasion_name,varinish_name,
+            alloy,temper,tsa,chemicalconv_airbus
+     from md_material_finish where is_active=true
+   `),
+   c.query(`
+     select part_num,revision_num,requirement_code,requirement_value
+     from md_process_requirement where is_active=true
    `)
  ]);
 
  const planningScope=new Set<string>(
    scopeQ.rows.map((r:any)=>clean(r.standard_operation)).filter(Boolean)
  );
+
+ // v247: tuyến đường chuẩn theo Part + Revision từ md_routing_detailed.
+ const routingByPartRev=new Map<string,string[]>();
+ for(const r of routingDetailQ.rows){
+   const k=`${clean(r.part_num).toUpperCase()}\u0001${clean(r.revision_num).toUpperCase()}`;
+   const arr=routingByPartRev.get(k)||[];
+   arr.push(clean(r.operation_code));
+   routingByPartRev.set(k,arr);
+ }
 
  const mappingBySource=new Map<string,Mapping[]>();
  for(const r of mappingQ.rows){
@@ -306,17 +343,61 @@ export async function syncPlanningChains(c:PoolClient){
    );
  }
 
- const chemicalLists=new Map<string,string[]>();
+ const chemicalLists=new Map<string,RecipeCandidateItem[]>();
  for(const r of chemicalQ.rows){
    const k=clean(r.operation_code).toUpperCase();
    const arr=chemicalLists.get(k)||[];
-   arr.push(clean(r.recipe_key));
+   arr.push({
+     recipe_key:clean(r.recipe_key),
+     priority:r.priority==null?null:Number(r.priority),
+     is_default:!!r.is_default,
+     updated_at:r.updated_at,
+     selection_rule:r.selection_rule?clean(r.selection_rule):null,
+     batch_key_template:r.batch_key_template?clean(r.batch_key_template):null,
+     batch_no_prefix:r.batch_no_prefix?clean(r.batch_no_prefix):null
+   });
    chemicalLists.set(k,arr);
  }
 
- // Batch Key / Recipe Rules — nguồn ưu tiên cho Recipe trên chuỗi planning.
- const batchKeyRules=parseRules(rulesQ.rows);
 
+ // v269: cột Master Data theo Part+Revision (MD:...) — gộp vào dữ liệu job.
+ const masterByPartRev=new Map<string,Record<string,string>>();
+ const putMaster=(key:string,field:string,val:unknown)=>{
+   if(val==null)return;
+   const t=String(val).trim();
+   if(!t)return;
+   let rec=masterByPartRev.get(key);
+   if(!rec){rec={};masterByPartRev.set(key,rec);}
+   rec[field]=t;
+ };
+ for(const r of masterPartQ.rows){
+   const k=`${clean(r.part_num).toUpperCase()}\u0001`;
+   putMaster(k,"MD:PROGRAM",r.program);
+   putMaster(k,"MD:PART_CLUSTER",r.part_cluster);
+   putMaster(k,"MD:PART_DESCRIPTION",r.part_description);
+   putMaster(k,"MD:SURFACE_DM2",r.surface_dm2);
+ }
+ for(const r of masterFinishQ.rows){
+   const k=`${clean(r.part_num).toUpperCase()}\u0001${clean(r.revision_num).toUpperCase()}`;
+   putMaster(k,"MD:ALLOY",r.alloy);
+   putMaster(k,"MD:TEMPER",r.temper);
+   putMaster(k,"MD:TSA",r.tsa);
+   putMaster(k,"MD:CHEMCONV_AIRBUS",r.chemicalconv_airbus);
+   putMaster(k,"MD:PRIMER1",r.primer1);
+   putMaster(k,"MD:PRIMER2",r.primer2);
+   putMaster(k,"MD:PRIMER3",r.primer3);
+   putMaster(k,"MD:TOPCOAT1",r.topcoat1);
+   putMaster(k,"MD:TOPCOAT2",r.topcoat2);
+   putMaster(k,"MD:ANTIABRASION",r.antiabration);
+   putMaster(k,"MD:PRIMER1_NAME",r.primer1_name);
+   putMaster(k,"MD:TOPCOAT_NAME",r.topcoat_name);
+   putMaster(k,"MD:ANTIABRASION_NAME",r.antiabrasion_name);
+   putMaster(k,"MD:VARINISH_NAME",r.varinish_name);
+ }
+ for(const r of masterReqQ.rows){
+   const k=`${clean(r.part_num).toUpperCase()}\u0001${clean(r.revision_num).toUpperCase()}`;
+   putMaster(k,`MD:REQ:${clean(r.requirement_code).toUpperCase()}`,r.requirement_value);
+ }
  const existingByJob=new Map<string,Map<string,{status:string;recipeKey:string|null}>>();
  for(const r of existingQ.rows){
    const job=clean(r.job_num);
@@ -366,6 +447,8 @@ export async function syncPlanningChains(c:PoolClient){
  let fallbackAnchored=0;
  let sequenceCheck=0;
  let injectedMappedNextOperation=0;
+ let routingDetailJobs=0;
+ let allOperationFallbackJobs=0;
 
  // ST_SCOPE_ONLY is never an active Planning row, including old PLANNED rows.
  // Actual Batch/Schedule history remains preserved in planning_batch_job and
@@ -406,26 +489,37 @@ export async function syncPlanningChains(c:PoolClient){
  for(const job of jobsQ.rows){
    jobs++;
 
-   let raw=splitAllOperation(job.all_operation);
+   // v247: Routing Detail theo Part + Revision là nguồn CHÍNH (đầy đủ, chính xác —
+   // chứa cả công đoạn trước vị trí hiện tại và công đoạn trung gian).
+   // AllOperation (Excel) chỉ fallback khi Part chưa có routing detail.
+   const partKey=`${clean(job.part_num).toUpperCase()}\u0001${clean(job.revision_num).toUpperCase()}`;
+   let raw=routingByPartRev.get(partKey) ?? splitAllOperation(job.all_operation);
+   if(routingByPartRev.has(partKey))routingDetailJobs++;else allOperationFallbackJobs++;
 
-   // v165 - NextOperation from All Open Job is authoritative.
+   // v165/v228 - NextOperation from All Open Job is authoritative.
    //
-   // A newly configured Operation Code (example MSKG-PC -> CPBILP) can already
-   // be the Job's current NextOperation while the imported AllOperation string
-   // does not contain that code. Previously currentAnchor() then fell back to
-   // LastOperation and standardize() never saw MSKG-PC, so no
-   // planning_job_operation row was created => CHAIN_MISSING.
+   // A newly configured / intermediate Operation Code (example MSKG-PC ->
+   // CPBILP) can already be the Job's current NextOperation while the imported
+   // AllOperation string does not contain that code. Previously currentAnchor()
+   // then fell back to LastOperation and standardize() never saw MSKG-PC, so
+   // no planning_job_operation row was created => CHAIN_MISSING.
    //
-   // If the current NextOperation has an active ST mapping but is absent from
-   // AllOperation, inject it at the current route position ONLY for Planning
-   // Chain construction. We do not modify open_job_current / source import.
+   // If the current NextOperation is absent from AllOperation, inject it at
+   // the current route position ONLY for Planning Chain construction. We do
+   // not modify open_job_current / source import.
+   //
+   // v228: inject even when the code has NO mapping yet. NextOperation is the
+   // authoritative shop-floor position; an unmapped / intermediate operation
+   // (vd MSKG-PC — che chắn trước khi làm) is skipped by standardize() and the
+   // first MAIN operation after it (vd CPBILP) becomes the planning candidate.
+   // Result: Job đang ở công đoạn trung gian vẫn hiện trên Planning Board,
+   // neo vào cột CÔNG ĐOẠN CHÍNH KẾ TIẾP để lập kế hoạch.
    const nextCode=clean(job.next_operation);
    const nextKey=nextCode.toUpperCase();
    const rawUpper=raw.map(x=>x.toUpperCase());
 
    if(
      nextCode &&
-     mappingBySource.has(nextKey) &&
      !rawUpper.includes(nextKey)
    ){
      injectedMappedNextOperation++;
@@ -531,11 +625,10 @@ export async function syncPlanningChains(c:PoolClient){
 
      let recipeKey:string|null=null;
 
-     // 1) Batch Key / Recipe Rule (ưu tiên cao nhất, áp dụng cho MỌI công đoạn).
-     const suggestion=evaluateRulesForJob(batchKeyRules,op.standardOperation,job.source_data);
-     if(suggestion.matched && !suggestion.ambiguous && suggestion.recipeKey){
-       recipeKey=suggestion.recipeKey;
-     }else if(
+     // v266: nguồn recipe duy nhất = CẤU HÌNH (Rule đã gộp vào mapping).
+     // Công đoạn sơn → theo Part + Revision; còn lại → Operation Code → Recipe
+     // (điều kiện Job → priority → is_default → updated_at cũ).
+     if(
        ["PRIMER","PRIMER2","PRIMER3","TOPCOAT1","TOPCOAT2","ANTI-ABRASION","VARNISH"]
        .includes(op.standardOperation)
      ){
@@ -543,8 +636,12 @@ export async function syncPlanningChains(c:PoolClient){
          `${clean(job.part_num)}\u0001${clean(job.revision_num)}\u0001${op.standardOperation}`
        )||null;
      }else{
+       // v269: khớp điều kiện trên dữ liệu gộp (All Open Job + Master Data).
+       const mkey=`${clean(job.part_num).toUpperCase()}\u0001${clean(job.revision_num).toUpperCase()}`;
+       const md=masterByPartRev.get(mkey);
+       const data=md?{...(job.source_data||{}),...md}:(job.source_data||null);
        const list=chemicalLists.get(op.sourceCode.toUpperCase())||[];
-       recipeKey=list.length===1?list[0]:null;
+       recipeKey=pickBestRecipeForJob(list,data);
      }
 
      // Preserve the previously selected Recipe only when this exact operation
@@ -623,6 +720,7 @@ export async function syncPlanningChains(c:PoolClient){
  return {
    jobs,operations,eligible,locked,preservedPlanned,
    nextAnchored,fallbackAnchored,sequenceCheck,
-   injectedMappedNextOperation
+   injectedMappedNextOperation,
+   routingDetailJobs,allOperationFallbackJobs
  };
 }

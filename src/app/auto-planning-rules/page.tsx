@@ -1,21 +1,10 @@
 import {getPool} from "@/lib/db";
-import {AppTabs,SubTabs} from "@/components/app-tabs";
+import {AppTabs} from "@/components/app-tabs";
+import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 import {AutoPlanningRuleManager} from "@/components/auto-planning-rule-manager";
 
 export const dynamic="force-dynamic";
 
-const tabs=[
- {key:"flow",label:"ST Operation Flow",href:"/st-operation-flow"},{key:"operation",label:"Main Operation Master",href:"/master/operation"},{key:"operationcodeorder",label:"ST Scope & Operation Order",href:"/operation-code-order"},
- {key:"operationmapping",label:"Source → Main Mapping",href:"/master/operationmapping"},
- {key:"stgroup",label:"ST Group Master",href:"/st-groups"},
- {key:"area",label:"Physical Area Master",href:"/area"},
- {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
- {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
- {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},
- {key:"openjobcolumnvalues",label:"Open Job Column Values",href:"/open-job-column-values"},
- {key:"batchkeyrules",label:"Batch Key / Recipe Rules",href:"/batch-key-recipe-rules"},
- {key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"},
-];
 
 const BASE_FIELDS=[
  ["priority_type","Priority","All Open Job.priority_type"],
@@ -169,18 +158,16 @@ export default async function Page(){
    <AppTabs active="config"/>
 
    <div className="erp-workspace">
-    <aside className="erp-sidebar">
-     <div className="erp-sidebar-title">CẤU HÌNH</div>
-     <SubTabs items={tabs} active="autoplanning"/>
-    </aside>
+    <ConfigSidebar active="autoplanning"/>
 
     <section className="erp-content erp-content-full">
-     <div className="erp-page-head">
-      <div>
-       <h2>Auto Planning Rule Master</h2>
-       <p>Thiết lập riêng cho từng Standard Operation · Engine tương lai chỉ đọc Rule Master này.</p>
-      </div>
-     </div>
+     <ConfigPageHeader
+      title="Auto Planning Rule Master"
+      subtitle="Thiết lập riêng cho từng Standard Operation · Engine tương lai chỉ đọc Rule Master này."
+      purpose="Cấu hình quy tắc tự động gom lô cho từng công đoạn chính: job nào được gom, gom theo tiêu chí nào, giới hạn lô ra sao, ưu tiên xếp lô thế nào."
+      impact="Phần lớn các cờ hiện là cấu hình nền cho Auto Planning tương lai (chưa tự chạy). Batch Key / Recipe Rules là phần đang hoạt động ngay trên Planning Board."
+      prev={{label:"Batch Key / Recipe Rules",href:"/batch-key-recipe-rules"}}
+     />
 
      <div className="notice auto-rule-logic-note">
       <b>Eligibility nền:</b>{" "}

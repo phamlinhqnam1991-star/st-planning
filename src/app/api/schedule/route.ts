@@ -9,7 +9,10 @@ function parseOverrides(body:any){
  return {
   processStart:body.process_start_override?asDate(body.process_start_override):null,
   ndtStart:body.ndt_start_override?asDate(body.ndt_start_override):null,
-  unloadingStart:body.unloading_start_override?asDate(body.unloading_start_override):null
+  unloadingStart:body.unloading_start_override?asDate(body.unloading_start_override):null,
+  loadingMinutes:body.loading_minutes_override==null||body.loading_minutes_override===""
+   ?null
+   :(Number.isFinite(Number(body.loading_minutes_override))?Math.max(0,Number(body.loading_minutes_override)):null)
  };
 }
 
@@ -60,22 +63,44 @@ export async function POST(req:Request){
   if(duration<=0)
    throw new Error("Batch has no Process Time. Enter Duration manually.");
 
-  const chemicalWindow=resource.resource_group==="CHEMICAL_LINE"
-   ?await resolveChemicalScheduleWindow(c,{
-     loadingStart:start,processMinutes:duration,totalQty:Number(batch.total_qty||0),
-     totalSurfaceDm2:Number(batch.total_surface_dm2||0),recipeNo:batch.recipe_no,
-     overrides:parseOverrides(body)
-    })
-   :null;
-  const end=chemicalWindow?.unloadingEnd||new Date(start.getTime()+duration*60000);
-
-  if(chemicalWindow){
-   await assertResourceAndChemicalCapacity(c,{
-    resourceCode,resourceGroup:resource.resource_group,window:chemicalWindow,
-    maxConcurrent:Number(resource.max_concurrent||3),
-    excludeScheduleId:null
-   });
+  let effectiveStart=start;
+  let chemicalWindow:Awaited<ReturnType<typeof resolveChemicalScheduleWindow>>|null=null;
+  let autoAdjusted:null|{from:string;to:string;reason:string}=null;
+  // Lô liên kết (không Loading): loại LÔ NGUỒN khỏi kiểm tra trùng FB — lô liên kết bám
+  // NDT End (hoặc Unloading End) của lô nguồn, CÙNG FB, chồng phần Unloading 30' của nguồn
+  // là ĐÚNG quy tắc liên kết (không phải lỗi trùng FB).
+  let excludeScheduleIds:number[]|null=null;
+  if(resource.resource_group==="CHEMICAL_LINE"&&body.loading_minutes_override===0){
+   const exclQ=await c.query(`
+    select s.id from planning_schedule s
+    where s.resource_code=$1 and s.status<>'CANCELLED'
+      and abs(extract(epoch from (coalesce(s.ndt_end,s.planned_end) - $2::timestamptz)))<=300
+   `,[resourceCode,start]);
+   if(exclQ.rowCount)excludeScheduleIds=exclQ.rows.map((r:any)=>Number(r.id));
   }
+  if(resource.resource_group==="CHEMICAL_LINE"){
+   const ov=parseOverrides(body);
+   const tryWindow=async(ls:Date)=>{
+    const w=await resolveChemicalScheduleWindow(c,{loadingStart:ls,processMinutes:duration,totalQty:Number(batch.total_qty||0),totalSurfaceDm2:Number(batch.total_surface_dm2||0),recipeNo:batch.recipe_no,overrides:ov});
+    await assertResourceAndChemicalCapacity(c,{resourceCode,resourceGroup:resource.resource_group,window:w,maxConcurrent:Number(resource.max_concurrent||3),excludeScheduleIds:excludeScheduleIds??undefined});
+    return w;
+   };
+   try{
+    chemicalWindow=await tryWindow(effectiveStart);
+   }catch(firstErr){
+    let ok=false;
+    for(let step=1;step<=7*24*4;step++){
+     try{
+      const cand=new Date(start.getTime()+step*15*60000);
+      chemicalWindow=await tryWindow(cand);
+      effectiveStart=cand;ok=true;break;
+     }catch{}
+    }
+    if(!ok)throw firstErr instanceof Error?firstErr:new Error(String(firstErr));
+    autoAdjusted={from:start.toISOString(),to:effectiveStart.toISOString(),reason:firstErr instanceof Error?firstErr.message:"bị cấn giờ"};
+   }
+  }
+  const end=chemicalWindow?.unloadingEnd||new Date(effectiveStart.getTime()+duration*60000);
 
   // A physical resource cannot run two batches at the same time.
   const overlap=chemicalWindow?{rowCount:0}:await c.query(`
@@ -102,7 +127,7 @@ export async function POST(req:Request){
     values($1,$2,($3 at time zone 'Asia/Ho_Chi_Minh')::date,$3,$4,$5,'SCHEDULED',$6,
       $7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
     returning *
-  `,[batchId,resourceCode,start,end,columns?.durationMinutes||duration,batch.plan_source||'PLANNING_BOARD',
+  `,[batchId,resourceCode,effectiveStart,end,columns?.durationMinutes||duration,batch.plan_source||'PLANNING_BOARD',
     columns?.loadingStart||null,columns?.loadingEnd||null,columns?.loadingDurationMinutes||null,
     columns?.processStart||null,columns?.processEnd||null,columns?.processDurationMinutes||null,
     columns?.ndtStart||null,columns?.ndtEnd||null,columns?.ndtDurationMinutes||null,
@@ -112,7 +137,7 @@ export async function POST(req:Request){
     update planning_batch
     set planned_start=$2,planned_end=$3,updated_at=now()
     where id=$1
-  `,[batchId,start,end]);
+  `,[batchId,effectiveStart,end]);
 
   const unlockedNext=await unlockNextAfterScheduledBatch(c,batchId);
   const healedNext=await healScheduledHandoffs(c);

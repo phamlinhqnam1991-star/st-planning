@@ -38,6 +38,7 @@ export type ChemicalScheduleOverrides={
  processStart?:Date|null;
  ndtStart?:Date|null;
  unloadingStart?:Date|null;
+ loadingMinutes?:number|null;
 };
 
 const finite=(value:unknown)=>{

@@ -16,6 +16,8 @@ export async function POST(req:NextRequest){
   const note=clean(b.note)||null;
   const priority=Math.max(1,toInt(b.priority,100));
   const selectionRule=clean(b.selection_rule)||null;
+  const batchKeyTemplate=clean(b.batch_key_template)||null;
+  const batchNoPrefix=clean(b.batch_no_prefix)||null;
   const isDefault=Boolean(b.is_default);
 
   if(!operationCode||!recipeKey)
@@ -48,22 +50,27 @@ export async function POST(req:NextRequest){
     }
    }
 
-   // Keep only one default Recipe per Operation Code (+ Standard Operation when given).
+   // Keep only one default Recipe per Operation Code.
+   // v277: unique index uq_operation_code_recipe_active_default áp cho CẢ
+   // operation_code (không tách theo standard_operation) → phải gỡ mặc định
+   // của MỌI dòng cùng operation_code, nếu không INSERT/UPDATE văng lỗi 500
+   // (duplicate key) khi tick "Recipe mặc định" mà đã có dòng mặc định khác.
    if(isDefault){
     await c.query(`
       update md_main_operation_recipe
       set is_default=false,updated_at=now()
       where operation_code=$1
         and is_active=true
-        and ($2::text is null or standard_operation=$2)
-    `,[operationCode,standardOperation]);
+        and is_default=true
+    `,[operationCode]);
    }
 
    await c.query(`
      insert into md_main_operation_recipe(
-       operation_code,standard_operation,recipe_key,priority,selection_rule,is_default,note,is_active
+       operation_code,standard_operation,recipe_key,priority,selection_rule,is_default,note,is_active,
+       batch_key_template,batch_no_prefix
      )
-     values($1,$2,$3,$4,$5,$6,$7,true)
+     values($1,$2,$3,$4,$5,$6,$7,true,$8,$9)
      on conflict(operation_code,recipe_key)
      do update set
        standard_operation=excluded.standard_operation,
@@ -71,9 +78,11 @@ export async function POST(req:NextRequest){
        selection_rule=excluded.selection_rule,
        is_default=excluded.is_default,
        note=excluded.note,
+       batch_key_template=excluded.batch_key_template,
+       batch_no_prefix=excluded.batch_no_prefix,
        is_active=true,
        updated_at=now()
-   `,[operationCode,standardOperation,recipeKey,priority,selectionRule,isDefault,note]);
+   `,[operationCode,standardOperation,recipeKey,priority,selectionRule,isDefault,note,batchKeyTemplate,batchNoPrefix]);
 
    await c.query("commit");
   }catch(e){

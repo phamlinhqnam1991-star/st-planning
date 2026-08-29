@@ -1,22 +1,9 @@
-import {AppTabs,SubTabs} from "@/components/app-tabs";
+import {AppTabs} from "@/components/app-tabs";
+import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 import {StOperationFlowManager} from "@/components/st-operation-flow-manager";
 import {getPool} from "@/lib/db";
 
 export const dynamic="force-dynamic";
-const tabs=[
- {key:"flow",label:"ST Operation Flow",href:"/st-operation-flow"},
- {key:"operation",label:"Main Operation Master",href:"/master/operation"},
- {key:"operationcodeorder",label:"ST Scope & Operation Order",href:"/operation-code-order"},
- {key:"operationmapping",label:"Source → Main Mapping",href:"/master/operationmapping"},
- {key:"stgroup",label:"ST Group Master",href:"/st-groups"},
- {key:"area",label:"Physical Area Master",href:"/area"},
- {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
- {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
- {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},
- {key:"openjobcolumnvalues",label:"Open Job Column Values",href:"/open-job-column-values"},
- {key:"batchkeyrules",label:"Batch Key / Recipe Rules",href:"/batch-key-recipe-rules"},
- {key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"}
-];
 
 export default async function Page(){
  const c=await getPool().connect();
@@ -103,6 +90,13 @@ export default async function Page(){
    c.query(`select id,area_code,area_name,sort_order from md_area where is_active=true order by sort_order,area_name`),
    c.query(`select a.schedule_area_code,a.schedule_area_name,a.display_order,coalesce(w.planner_owner,'UNASSIGNED') planner_owner from md_schedule_area a left join md_planner_work_assignment w on w.schedule_area_code=a.schedule_area_code and w.is_active=true where a.is_active=true order by a.display_order,a.schedule_area_code`)
   ]);
-  return <main className="erp-shell"><header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION FLOW</div></header><AppTabs active="config"/><div className="erp-workspace"><aside className="erp-sidebar"><div className="erp-sidebar-title">CẤU HÌNH</div><SubTabs items={tabs} active="flow"/></aside><section className="erp-content"><div className="erp-page-head"><div><h2>ST Operation Flow</h2><p>Single source of truth · Configure one Operation from ST Scope through Planning & Scheduling.</p></div></div><StOperationFlowManager rows={flowQ.rows as any} rawOperations={rawQ.rows as any} mainOperations={mainQ.rows as any} groups={groupQ.rows as any} areas={areaQ.rows as any} scheduleAreas={scheduleQ.rows as any}/></section></div></main>;
+  return <main className="erp-shell"><header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION FLOW</div></header><AppTabs active="config"/><div className="erp-workspace"><ConfigSidebar active="flow"/><section className="erp-content"><ConfigPageHeader
+   title="ST Operation Flow"
+   subtitle="Cấu hình 1 Operation Code hoàn chỉnh từ ST Scope đến Planning & Scheduling."
+   purpose="Chọn 1 Operation Code → quyết định nó thuộc ST (loại Planning hay chỉ hiển thị) → gán Công đoạn chính, Nhóm ST, Khu vực vật lý, Khu vực điều độ và Planner phụ trách — tất cả trong 1 lần."
+   impact="Khi Lưu, hệ thống dựng lại toàn bộ chuỗi công đoạn (ST Routing + Planning Chain) cho các Job liên quan — có thể mất vài chục giây. Lịch sử Batch/Schedule không bị xóa."
+   prev={{label:"Tổng quan Cấu hình",href:"/settings"}}
+   next={{label:"Công thức & Thời gian",href:"/process-recipes"}}
+  /><StOperationFlowManager rows={flowQ.rows as any} rawOperations={rawQ.rows as any} mainOperations={mainQ.rows as any} groups={groupQ.rows as any} areas={areaQ.rows as any} scheduleAreas={scheduleQ.rows as any}/></section></div></main>;
  }finally{c.release()}
 }

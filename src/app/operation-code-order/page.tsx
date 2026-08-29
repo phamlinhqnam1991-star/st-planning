@@ -1,23 +1,9 @@
-import {AppTabs,SubTabs} from "@/components/app-tabs";
+import {AppTabs} from "@/components/app-tabs";
+import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 import {OperationCodeOrderManager} from "@/components/operation-code-order-manager";
 import {getPool} from "@/lib/db";
 
 export const dynamic="force-dynamic";
-
-const tabs=[
- {key:"flow",label:"ST Operation Flow",href:"/st-operation-flow"},
- {key:"operation",label:"Main Operation Master",href:"/master/operation"},
- {key:"operationcodeorder",label:"ST Scope & Operation Order",href:"/operation-code-order"},
- {key:"operationmapping",label:"Source → Main Mapping",href:"/master/operationmapping"},
- {key:"stgroup",label:"ST Group Master",href:"/st-groups"},
- {key:"area",label:"Physical Area Master",href:"/area"},
- {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
- {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
- {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},
- {key:"openjobcolumnvalues",label:"Open Job Column Values",href:"/open-job-column-values"},
- {key:"batchkeyrules",label:"Batch Key / Recipe Rules",href:"/batch-key-recipe-rules"},
- {key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"}
-];
 
 export default async function Page(){
  const c=await getPool().connect();
@@ -53,21 +39,17 @@ export default async function Page(){
    <AppTabs active="config"/>
 
    <div className="erp-workspace">
-    <aside className="erp-sidebar">
-     <div className="erp-sidebar-title">CẤU HÌNH</div>
-     <SubTabs items={tabs} active="operationcodeorder"/>
-    </aside>
+    <ConfigSidebar active="operationcodeorder"/>
 
     <section className="erp-content">
-     <div className="erp-page-head">
-      <div>
-       <h2>ST Scope · Operation Code Order</h2>
-       <p>
-        Chỉ Operation Code thuộc ST Scope. Đây là thứ tự sản xuất chung của RAW NextOperation.
-        Source→Main Mapping và Area/Schedule được quản lý tập trung tại ST Operation Flow.
-       </p>
-      </div>
-     </div>
+     <ConfigPageHeader
+      title="ST Scope · Operation Code Order"
+      subtitle="Chỉ Operation Code thuộc ST Scope mới tham gia lập kế hoạch. Đây là thứ tự sản xuất chung của RAW NextOperation."
+      purpose="Khai báo Operation Code nào thuộc phạm vi ST và đặt thứ tự công đoạn (vd CPBILP = 10 · PIONBL = 20 · BSAUNSLD = 30). Add/Remove ở đây chỉ quản lý ST Scope + Order."
+      impact="Thêm/bỏ code khỏi ST Scope sẽ thay đổi toàn bộ chuỗi công đoạn của các Job liên quan. Source→Main Mapping và Khu vực được quản lý tập trung tại ST Operation Flow."
+      prev={{label:"Tổng quan Cấu hình",href:"/settings"}}
+      next={{label:"Source → Main Mapping",href:"/master/operationmapping"}}
+     />
 
      <div className="notice section">
       Ví dụ: CPBILP = 10 · PIONBL = 20 · BSAUNSLD = 30.

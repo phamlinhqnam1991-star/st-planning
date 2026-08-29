@@ -114,12 +114,6 @@ export async function POST(req:Request){
    where standard_operation=$1
   `,[oldName,newName]);
 
-  await c.query(`
-   update md_auto_planning_rule
-   set standard_operation=$2,updated_at=now()
-   where standard_operation=$1
-  `,[oldName,newName]);
-
   // Remove only the old master key after all active references were moved.
   await c.query(`
    delete from md_operation_master

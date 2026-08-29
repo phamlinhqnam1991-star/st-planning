@@ -259,8 +259,8 @@ export function BatchKeyRecipeRuleManager({prefillOperation}:{prefillOperation?:
    <div className="table-wrap">
     <table className="erp-table">
      <thead><tr>
-      <th>Main Op</th><th>Rule Name</th><th>Match</th><th>Priority</th>
-      <th>Recipe</th><th>Batch Key Template</th><th>Prefix</th><th>Active</th><th></th>
+      <th>Công đoạn chính</th><th>Tên rule</th><th>Khớp</th><th>Ưu tiên</th>
+      <th>Recipe</th><th>Mẫu mã lô</th><th>Tiền tố</th><th>Hoạt động</th><th></th>
      </tr></thead>
      <tbody>
       {visible.map(r=><tr key={r.id}>
@@ -275,11 +275,11 @@ export function BatchKeyRecipeRuleManager({prefillOperation}:{prefillOperation?:
        </td>
        <td className="mono">{r.batch_key_template||"—"}</td>
        <td className="mono">{r.batch_no_prefix||"—"}</td>
-       <td>{r.is_active?"YES":"NO"}</td>
+       <td>{r.is_active?"Có":"Không"}</td>
        <td className="action">
         <div className="row">
-         <button className="btn small" onClick={()=>startEdit(r)}>Edit</button>
-         <button className="btn danger-btn small" onClick={()=>remove(r)}>Delete</button>
+         <button className="btn small" onClick={()=>startEdit(r)}>Sửa</button>
+         <button className="btn danger-btn small" onClick={()=>remove(r)}>Xóa</button>
         </div>
        </td>
       </tr>)}

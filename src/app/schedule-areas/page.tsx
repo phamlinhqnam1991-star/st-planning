@@ -1,25 +1,21 @@
-import {AppTabs,SubTabs} from "@/components/app-tabs";
+import {AppTabs} from "@/components/app-tabs";
+import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 import {ScheduleAreaManager} from "@/components/schedule-area-manager";
 export const dynamic="force-dynamic";
-const tabs=[
- {key:"flow",label:"ST Operation Flow",href:"/st-operation-flow"},{key:"operation",label:"Main Operation Master",href:"/master/operation"},{key:"operationcodeorder",label:"ST Scope & Operation Order",href:"/operation-code-order"},
- {key:"operationmapping",label:"Source → Main Mapping",href:"/master/operationmapping"},
- {key:"stgroup",label:"ST Group Master",href:"/st-groups"},
- {key:"area",label:"Physical Area Master",href:"/area"},
- {key:"schedulearea",label:"Schedule Area Mapping",href:"/schedule-areas"},
- {key:"plannerassignment",label:"Phân chia Planner",href:"/planner-work-assignment"},
- {key:"processrecipe",label:"Process Recipe",href:"/process-recipes"},
- {key:"openjobcolumnvalues",label:"Open Job Column Values",href:"/open-job-column-values"},
- {key:"batchkeyrules",label:"Batch Key / Recipe Rules",href:"/batch-key-recipe-rules"},
- {key:"autoplanning",label:"Auto Planning Rules",href:"/auto-planning-rules"}
-];
 export default function Page(){return <main className="erp-shell">
  <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION</div></header>
  <AppTabs active="config"/>
  <div className="erp-workspace">
-  <aside className="erp-sidebar"><div className="erp-sidebar-title">CẤU HÌNH</div><SubTabs items={tabs} active="schedulearea"/></aside>
+  <ConfigSidebar active="schedulearea"/>
   <section className="erp-content">
-   <div className="erp-page-head"><div><h2>Schedule Area Mapping</h2><p>Cấu hình khu vực điều độ, số dòng mặc định và Standard Operation thuộc từng khu vực.</p></div></div>
+   <ConfigPageHeader
+    title="Schedule Area Mapping"
+    subtitle="Cấu hình khu vực điều độ, số dòng mặc định và Standard Operation thuộc từng khu vực."
+    purpose="Tạo 'lane' trên Board Điều Độ: mỗi khu vực điều độ có tên, thứ tự, số dòng, resource và danh sách công đoạn chính được phép điều độ tại đó."
+    impact="Công đoạn chính chưa gán vào Schedule Area nào sẽ không xuất hiện trên Board Điều Độ. Bật/tắt Manual/Auto quyết định công đoạn được điều độ tay hay để máy đề xuất."
+    prev={{label:"Physical Area Master",href:"/area"}}
+    next={{label:"Phân chia Planner",href:"/planner-work-assignment"}}
+   />
    <ScheduleAreaManager/>
   </section>
  </div>
