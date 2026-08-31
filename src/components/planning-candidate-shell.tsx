@@ -60,6 +60,7 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
  const [pagination,setPagination]=useState(initial.pagination);
  const [loading,setLoading]=useState(false);
  const loadElapsed=useLoadElapsed(loading);
+ const [loadingMore,setLoadingMore]=useState(false);
  const [routeLoading,setRouteLoading]=useState(false);
  const [error,setError]=useState("");
  const [errorDetail,setErrorDetail]=useState("");
@@ -182,11 +183,11 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
   const seq=++loadSeq.current;
   routeRequestedIds.current=new Set();
   routeActiveRequests.current=0;
-  setLoading(true);setRouteLoading(false);setError("");setErrorDetail("");setSourceDataError("");setRouteError("");
+  setLoading(true);setLoadingMore(false);setRouteLoading(false);setError("");setErrorDetail("");setSourceDataError("");setRouteError("");
   // v323: hard client timeout — never let the board spin on a wedged request.
   let timedOut=false;
   const controller=new AbortController();
-  const timer=setTimeout(()=>{timedOut=true;controller.abort();},40_000);
+  const timer=setTimeout(()=>{timedOut=true;controller.abort();},60_000);
   try{
    // Reload keeps the scope that produced the currently displayed rows, even
    // if the user has started editing filter controls but has not submitted.
@@ -200,33 +201,14 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
    if(requestOp)qs.set("op",requestOp);
    if(requestRecipeKey)qs.set("recipe",requestRecipeKey);
    if(requestPreviousBatchNo)qs.set("prevBatch",requestPreviousBatchNo);
-   qs.set("pageSize","all");
    // v324: main load runs light (no source_data — ~2.8MB payload). All Open
    // Source columns are fetched lazily in the background afterwards.
    qs.set("light","1");
-   const url=`/api/planning/candidates?${qs.toString()}`;
-
-   const r=await fetch(url,{cache:"no-store",signal:controller.signal});
-   const raw=await r.text();
-   let d:any={};
-   try{d=raw?JSON.parse(raw):{};}catch{}
-   if(!r.ok){
-    // v321: keep the FULL technical detail so the failure can be diagnosed
-    // from the screen / browser console without extra tooling.
-    const detail=String(d?.error||"").trim();
-    const tech=[
-     `HTTP ${r.status} ${r.statusText||""}`.trim(),
-     `URL: ${url}`,
-     detail?`Server: ${detail}`:"",
-     `Body: ${raw.slice(0,1200)}`
-    ].filter(Boolean).join("\n");
-    console.error(`[planning] candidates FAILED ${r.status} ${r.statusText}\n${tech}`);
-    setErrorDetail(tech);
-    throw new Error(detail||"Không tải được Candidate Jobs.");
-   }
-   if(seq!==loadSeq.current)return;
-
-   const rows=(d.candidates||[]).map((x:any)=>{
+   // v328: progressive chunked load — same API, same SQL/pagination mode as the
+   // legacy paged path (business logic untouched). Small pages finish within
+   // the timeout even on high-latency links; rows render as pages arrive.
+   const CHUNK_PAGE=200;
+   const mapRows=(arr:any[])=>arr.map((x:any)=>{
     const id=Number(x.id);
     const cached=Number.isFinite(id)?routeStatusCache.current.get(id):undefined;
     return {
@@ -235,18 +217,69 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
      route_status_loaded:cached!==undefined
     };
    });
-   setCandidates(rows);
-   void loadSourceData(rows,seq);
-   setRecipeOptions(d.recipeOptions||[]);
-   setTimeRules(d.timeRules||[]);
-   setPagination(d.pagination);
-   setInitialView(d.initialView||null);
-   setServerViews((d.serverViews&&typeof d.serverViews==="object")?d.serverViews:{});
+   const fetchPage=async(page:number,knownTotal:number|null)=>{
+    const u=new URLSearchParams(qs);
+    u.set("pageSize",String(CHUNK_PAGE));
+    u.set("page",String(page));
+    if(knownTotal!=null)u.set("knownTotal",String(knownTotal));
+    const url=`/api/planning/candidates?${u.toString()}`;
+    const r=await fetch(url,{cache:"no-store",signal:controller.signal});
+    const raw=await r.text();
+    let d:any={};
+    try{d=raw?JSON.parse(raw):{};}catch{}
+    if(!r.ok){
+     // v321: keep the FULL technical detail so the failure can be diagnosed
+     // from the screen / browser console without extra tooling.
+     const detail=String(d?.error||"").trim();
+     const tech=[
+      `HTTP ${r.status} ${r.statusText||""}`.trim(),
+      `URL: ${url}`,
+      detail?`Server: ${detail}`:"",
+      `Body: ${raw.slice(0,1200)}`
+     ].filter(Boolean).join("\n");
+     console.error(`[planning] candidates FAILED ${r.status} ${r.statusText}\n${tech}`);
+     setErrorDetail(tech);
+     throw new Error(detail||"Không tải được Candidate Jobs.");
+    }
+    return d;
+   };
+
+   // Page 1 — renders immediately so the board is usable while more arrive.
+   const first=await fetchPage(1,null);
+   if(seq!==loadSeq.current)return;
+   const firstRows=mapRows(first.candidates||[]);
+   setCandidates(firstRows);
+   setRecipeOptions(first.recipeOptions||[]);
+   setTimeRules(first.timeRules||[]);
+   setPagination(first.pagination);
+   setInitialView(first.initialView||null);
+   setServerViews((first.serverViews&&typeof first.serverViews==="object")?first.serverViews:{});
    setLoadedAreaId(requestAreaId);
    setLoadedOp(requestOp);
    setLoadedRecipeKey(requestRecipeKey);
    setLoadedPreviousBatchNo(requestPreviousBatchNo);
    setBoardKey(`${requestAreaId}|${requestOp}|${requestRecipeKey}`);
+
+   const total=Number(first.pagination?.totalCandidates)||0;
+   const totalPages=Math.max(1,Math.ceil(total/CHUNK_PAGE));
+   let rows=firstRows;
+   if(totalPages>1){
+    setLoadingMore(true);
+    try{
+     for(let page=2;page<=totalPages;page++){
+      const d=await fetchPage(page,total);
+      if(seq!==loadSeq.current)return;
+      const pageRows=mapRows(d.candidates||[]);
+      rows=rows.concat(pageRows);
+      setCandidates(rows);
+      if(pageRows.length<CHUNK_PAGE)break;
+     }
+    }finally{
+     if(seq===loadSeq.current)setLoadingMore(false);
+    }
+   }
+   if(seq!==loadSeq.current)return;
+   void loadSourceData(rows,seq);
 
    const historyQs=new URLSearchParams(qs);
    historyQs.delete("pageSize");
@@ -255,14 +288,16 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
   }catch(e){
    if(seq===loadSeq.current){
     if(timedOut){
-     console.error(`[planning] candidates TIMEOUT after 40s`);
+     console.error(`[planning] candidates TIMEOUT after 60s`);
      // v325: self-diagnostic — probe the server+DB right after a timeout to
      // tell apart a slow Candidate load from a dead connection.
      const probe=await probeServer();
-     setErrorDetail(`Client timeout: request bị hủy sau 40s. ${probe}. Gửi dev dòng log [candidates]/[db] nếu có.`);
-     setError("Mất quá 40s khi tải Candidate (timeout) — kiểm tra kết nối DB/mạng, bấm Thử lại.");
+     setErrorDetail(`Client timeout: request bị hủy sau 60s. ${probe}. Gửi dev dòng log [candidates]/[db] nếu có.`);
+     setError("Mất quá 60s khi tải Candidate (timeout) — kiểm tra kết nối DB/mạng, bấm Thử lại.");
     }else{
-     setError(e instanceof Error?e.message:String(e));
+     // Page 1 failed = real error; later pages failed = keep rows, softer notice.
+     const msg=e instanceof Error?e.message:String(e);
+     setError(candidates.length?`Tải tiếp Candidate bị lỗi: ${msg} — đã hiển thị ${candidates.length} dòng, bấm Thử lại.`:`Lỗi: ${msg}`);
     }
    }
   }finally{
@@ -300,6 +335,7 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
   {routeError&&<div className="notice section">Candidate đã tải; Route Matrix lỗi: {routeError}</div>}
   {sourceDataError&&<div className="notice section">{sourceDataError}</div>}
   {loading&&<div className="notice section">Đang tải Candidate metadata… {loadElapsed>0&&<span className="muted">({loadElapsed}s)</span>}</div>}
+  {!loading&&loadingMore&&<div className="notice section">Đang tải tiếp Jobs… đã hiển thị {candidates.length.toLocaleString("vi-VN")} dòng</div>}
   {!loading&&routeLoading&&<div className="notice section">Candidate đã hiển thị. Route Matrix của các dòng đang xem đang tải dần…</div>}
   {!op&&!areaId&&<div className="notice section">Chọn Area để xem toàn bộ Candidate thuộc Area, hoặc chọn thêm Standard Operation để lọc chi tiết.</div>}
   <div className="section">

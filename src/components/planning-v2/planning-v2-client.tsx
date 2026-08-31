@@ -93,6 +93,7 @@ export function PlanningV2Client({areas,operations,mainOperations,today,initialS
   {!data.error&&data.debugInfo&&<div className="planning-v2-debugline">Load {Number((data.debugInfo as any).totalMs)||0} ms · {Number((data.debugInfo as any).rows)||0} Jobs · stView {(data.debugInfo as any).stViewCount??"—"}</div>}
   {data.routeError&&<div className="notice section">Candidate đã tải; Route Matrix lỗi: {data.routeError}</div>}
   {data.loading&&<div className="notice section">Đang tải Candidate metadata… {loadElapsed>0&&<span className="muted">({loadElapsed}s)</span>}</div>}
+  {!data.loading&&data.loadingMore&&<div className="notice section">Đang tải tiếp Jobs… đã hiển thị {data.candidates.length.toLocaleString("vi-VN")} dòng</div>}
   {!data.loading&&data.routeLoading&&<div className="notice section">Candidate đã hiển thị; Route Matrix đang tải dần cho các rows đang xem…</div>}
   <div className="planning-v2-layout">
    <section className="planning-v2-main"><PlanningV2Grid candidates={data.candidates} mainOperations={mainOperations} today={today} selected={selected} onToggleTarget={toggleTarget} onVisibleIds={ids=>void data.ensureRouteStatuses(ids)}/></section>

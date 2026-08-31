@@ -4,6 +4,17 @@ import type {BatchOption,Candidate,PlanningScope,RecipeOption,SnapshotMeta,TimeR
 
 const CHUNK=60;
 const PARALLEL=3;
+// v328: progressive load — each request fetches this many rows via the legacy
+// paged mode of the candidates API (same SQL, same business logic). Small
+// pages finish within the timeout even on high-latency links and rows render
+// as they arrive.
+const CHUNK_PAGE=200;
+
+const mapRows=(arr:any[],routeCache:Map<number,any[]>)=>arr.map((x:any)=>({
+ ...x,
+ route_status:routeCache.get(Number(x.id))||[],
+ route_status_loaded:routeCache.has(Number(x.id))
+}));
 
 // v325: quick server+DB health probe used right after a Candidate timeout —
 // distinguishes "Candidate load itself is slow" from "connection is dead".
@@ -30,6 +41,7 @@ export function usePlanningV2Data(initialScope:PlanningScope){
  const [availableBatches,setAvailableBatches]=useState<BatchOption[]>([]);
  const [snapshot,setSnapshot]=useState<SnapshotMeta|null>(null);
  const [loading,setLoading]=useState(false);
+ const [loadingMore,setLoadingMore]=useState(false);
  const [routeLoading,setRouteLoading]=useState(false);
  const [error,setError]=useState("");
  const [errorDetail,setErrorDetail]=useState("");
@@ -56,51 +68,77 @@ export function usePlanningV2Data(initialScope:PlanningScope){
   let timedOut=false;
   // v323: hard client timeout — a wedged connection must never leave the UI
   // spinning ("Đang tải Candidate metadata… (65s)") forever.
-  const timer=setTimeout(()=>{timedOut=true;controller.abort();},40_000);
-  setLoading(true);setError("");setErrorDetail("");setRouteError("");
+  const timer=setTimeout(()=>{timedOut=true;controller.abort();},60_000);
+  setLoading(true);setLoadingMore(false);setError("");setErrorDetail("");setRouteError("");
   if(next?.force){routeCache.current.clear();routeRequested.current.clear();}
   const requestScope=next?.keepLoadedScope?loadedScope:scope;
+  let firstPageOk=false;
   try{
    const qs=new URLSearchParams();
    if(requestScope.areaId)qs.set("area",requestScope.areaId);
    if(requestScope.op)qs.set("op",requestScope.op);
    if(requestScope.recipeKey)qs.set("recipe",requestScope.recipeKey);
    if(requestScope.previousBatchNo)qs.set("prevBatch",requestScope.previousBatchNo);
-   qs.set("pageSize","all");
-   // v323: V2 does not render All Open Source columns — skip source_data
-   // (~2.8MB of the payload).
+   // v323: V2 does not render All Open Source columns — skip source_data.
    qs.set("light","1");
    if(next?.force)qs.set("forceSnapshot","1");
-   const url=`/api/planning/candidates?${qs.toString()}`;
-   console.info(`[planning-v2] load candidates ${url}`);
-   const r=await fetch(url,{cache:"no-store",credentials:"same-origin",signal:controller.signal});
-   const raw=await r.text();
-   let d:any={};
-   try{d=raw?JSON.parse(raw):{};}catch{}
+   const fetchPage=async(page:number,knownTotal:number|null)=>{
+    const u=new URLSearchParams(qs);
+    u.set("pageSize",String(CHUNK_PAGE));
+    u.set("page",String(page));
+    if(knownTotal!=null)u.set("knownTotal",String(knownTotal));
+    const url=`/api/planning/candidates?${u.toString()}`;
+    console.info(`[planning-v2] load candidates page ${page} ${url}`);
+    const r=await fetch(url,{cache:"no-store",credentials:"same-origin",signal:controller.signal});
+    const raw=await r.text();
+    let d:any={};
+    try{d=raw?JSON.parse(raw):{};}catch{}
+    if(!r.ok){
+     const detail=String(d?.error||"").trim();
+     const tech=[
+      `HTTP ${r.status} ${r.statusText||""}`.trim(),
+      `URL: ${url}`,
+      detail?`Server: ${detail}`:"",
+      `Body: ${raw.slice(0,1200)}`
+     ].filter(Boolean).join("\n");
+     console.error(`[planning-v2] candidates FAILED ${r.status} ${r.statusText}\n${tech}`);
+     setErrorDetail(tech);
+     setDebugInfo(typeof d?._debug==="object"?d._debug:null);
+     throw new Error(detail||`Không tải được Candidate Jobs (HTTP ${r.status}).`);
+    }
+    return d;
+   };
+
+   // Page 1 — renders immediately so the board is usable while more arrive.
+   const first=await fetchPage(1,null);
    if(current!==seq.current||controller.signal.aborted)return;
-   if(!r.ok){
-    // v321: keep the FULL technical detail so the failure can be diagnosed
-    // from the screen / browser console without extra tooling.
-    const detail=String(d?.error||"").trim();
-    const tech=[
-     `HTTP ${r.status} ${r.statusText||""}`.trim(),
-     `URL: ${url}`,
-     detail?`Server: ${detail}`:"",
-     `Body: ${raw.slice(0,1200)}`
-    ].filter(Boolean).join("\n");
-    console.error(`[planning-v2] candidates FAILED ${r.status} ${r.statusText}\n${tech}`);
-    setErrorDetail(tech);
-    setDebugInfo(typeof d?._debug==="object"?d._debug:null);
-    throw new Error(detail||`Không tải được Candidate Jobs (HTTP ${r.status}).`);
-   }
-   if(typeof d?._debug==="object"&&d._debug&&current===seq.current)setDebugInfo(d._debug);
-   const rows:Candidate[]=(Array.isArray(d.candidates)?d.candidates:[]).map((x:any)=>({
-    ...x,route_status:routeCache.current.get(Number(x.id))||[],route_status_loaded:routeCache.current.has(Number(x.id))
-   }));
-   setCandidates(rows);setRecipeOptions(d.recipeOptions||[]);setTimeRules(d.timeRules||[]);
-   setSnapshot(d._snapshot&&typeof d._snapshot==="object"?d._snapshot:null);
+   firstPageOk=true;
+   const firstRows=mapRows(Array.isArray(first.candidates)?first.candidates:[],routeCache.current);
+   setCandidates(firstRows);
+   setRecipeOptions(first.recipeOptions||[]);setTimeRules(first.timeRules||[]);
+   setSnapshot(first._snapshot&&typeof first._snapshot==="object"?first._snapshot:null);
+   setDebugInfo(typeof first._debug==="object"?first._debug:null);
    setLoadedScope(requestScope);
-   if(current===seq.current)console.info(`[planning-v2] loaded ${rows.length} candidates ${d._debug?`(load ${d._debug.totalMs}ms, stView ${d._debug.stViewCount})`:""}`);
+   const total=Number(first.pagination?.totalCandidates)||0;
+   const totalPages=Math.max(1,Math.ceil(total/CHUNK_PAGE));
+   let rows=firstRows;
+   if(totalPages>1){
+    setLoadingMore(true);
+    try{
+     for(let page=2;page<=totalPages;page++){
+      const d=await fetchPage(page,total);
+      if(current!==seq.current||controller.signal.aborted)return;
+      const pageRows=mapRows(Array.isArray(d.candidates)?d.candidates:[],routeCache.current);
+      rows=rows.concat(pageRows);
+      setCandidates(rows);
+      if(pageRows.length<CHUNK_PAGE)break;
+     }
+    }finally{
+     if(current===seq.current)setLoadingMore(false);
+    }
+   }
+   if(current!==seq.current||controller.signal.aborted)return;
+   console.info(`[planning-v2] loaded ${rows.length} candidates (${totalPages} pages)`);
    const hqs=new URLSearchParams();
    if(requestScope.areaId)hqs.set("area",requestScope.areaId);
    if(requestScope.op)hqs.set("op",requestScope.op);
@@ -111,18 +149,24 @@ export function usePlanningV2Data(initialScope:PlanningScope){
   }catch(e){
    if(current===seq.current){
     if(timedOut){
-     console.error(`[planning-v2] candidates TIMEOUT after 40s`);
+     console.error(`[planning-v2] candidates TIMEOUT after 60s`);
      // v325: self-diagnostic — probe the server+DB right after a timeout to
      // tell apart a slow Candidate load from a dead connection.
      const probe=await probeServer();
-     setErrorDetail(`Client timeout: request bị hủy sau 40s. ${probe}. Gửi dev dòng log [candidates]/[db] nếu có.`);
-     setError("Mất quá 40s khi tải Candidate (timeout) — kiểm tra kết nối DB/mạng, bấm Thử lại.");
+     setErrorDetail(`Client timeout: request bị hủy sau 60s. ${probe}. Gửi dev dòng log [candidates]/[db] nếu có.`);
+     setError("Mất quá 60s khi tải Candidate (timeout) — kiểm tra kết nối DB/mạng, bấm Thử lại.");
     }else if((e as Error)?.name!=="AbortError"){
-     setError(e instanceof Error?e.message:String(e));
+     // Page 1 failed = real error; later pages failed = keep rows, softer notice.
+     const msg=e instanceof Error?e.message:String(e);
+     if(firstPageOk){
+      setError(`Tải tiếp Candidate bị lỗi: ${msg} — đã hiển thị ${candidates.length} dòng, bấm Thử lại.`);
+     }else{
+      setError(msg);
+     }
     }
    }
   }finally{clearTimeout(timer);if(current===seq.current)setLoading(false);}
- },[scope,loadedScope,loadDeferred]);
+ },[scope,loadedScope,loadDeferred,candidates.length]);
 
  const ensureRouteStatuses=useCallback(async(ids:number[])=>{
   const current=seq.current;
@@ -155,5 +199,5 @@ export function usePlanningV2Data(initialScope:PlanningScope){
  useEffect(()=>{void load();return()=>abort.current?.abort();},[]); // eslint-disable-line react-hooks/exhaustive-deps
 
  const candidateById=useMemo(()=>new Map(candidates.map(x=>[Number(x.id),x])),[candidates]);
- return {scope,setScope,loadedScope,candidates,setCandidates,candidateById,recipeOptions,timeRules,availableBatches,snapshot,loading,routeLoading,error,errorDetail,debugInfo,routeError,load,ensureRouteStatuses};
+ return {scope,setScope,loadedScope,candidates,setCandidates,candidateById,recipeOptions,timeRules,availableBatches,snapshot,loading,loadingMore,routeLoading,error,errorDetail,debugInfo,routeError,load,ensureRouteStatuses};
 }

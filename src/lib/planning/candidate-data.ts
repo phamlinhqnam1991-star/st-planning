@@ -1,6 +1,7 @@
 import {substituteTemplate} from "@/lib/batch-key-recipe";
 import {bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
 import {getCachedLiveRecipeContext,getCachedRecipeMeta} from "@/lib/planning/planning-static-cache";
+import {getPool} from "@/lib/db";
 
 export type PlanningCandidateQuery={
  areaId:string;
@@ -22,6 +23,63 @@ export type PlanningCandidateQuery={
 
 const CANDIDATE_COUNT_CACHE_TTL_MS=30_000;
 const candidateCountCache=new Map<string,{expires:number;total:number}>();
+
+// v327: shared SQL for the metadata-only load (Recipe dropdown + Time Rules).
+const RECIPE_OPTIONS_SQL=`
+  select distinct r.recipe_key,r.recipe_no,r.recipe_name,r.process_family,r.recipe_group
+  from md_process_recipe r
+  where r.is_active=true
+    and (
+      exists(
+        select 1
+        from planning_job_operation p
+        join md_main_operation_recipe ocr
+          on ocr.operation_code=p.source_operation_code
+         and ocr.recipe_key=r.recipe_key
+         and ocr.is_active=true
+        where p.standard_operation=$1
+          and p.status='ELIGIBLE'
+          and p.is_active=true
+      )
+    )
+  order by r.process_family,r.recipe_group,r.recipe_no
+`;
+const TIME_RULES_SQL=`
+  select calc_type,priority,qty_min,qty_max,
+         surface_min_dm2,surface_max_dm2,
+         fixed_hours,standard_hours
+  from md_recipe_time_rule
+  where recipe_key=$1 and is_active=true
+  order by priority,id
+`;
+
+export type PlanningCandidateMetadataQuery={
+  op:string;
+  recipeKey:string;
+};
+
+/**
+ * v327: metadata-only Candidate load — Recipe options (dropdown) + Time Rules
+ * (Batch panel) WITHOUT the heavy candidates query. Used by
+ * /api/planning/candidate-metadata so the board can render filters first and
+ * load the heavy rows separately. Runs the two queries in parallel.
+ */
+export async function loadPlanningCandidateMetadata(c:any,input:PlanningCandidateMetadataQuery){
+  const t0=Date.now();
+  const {op,recipeKey}=input;
+  let recipeOptions:any[]=[];
+  let timeRules:any[]=[];
+  const sideClient=await getPool().connect();
+  try{
+    const jobs:Promise<void>[]=[];
+    if(op)jobs.push(sideClient.query(RECIPE_OPTIONS_SQL,[op]).then(r=>{recipeOptions=r.rows;}));
+    if(recipeKey)jobs.push(sideClient.query(TIME_RULES_SQL,[recipeKey]).then(r=>{timeRules=r.rows;}));
+    await Promise.all(jobs);
+  }finally{
+    sideClient.release();
+  }
+  return {recipeOptions,timeRules,timing:{totalMs:Date.now()-t0}};
+}
 
 function planningCandidateCountCacheKey(input:PlanningCandidateQuery){
  return JSON.stringify([
@@ -186,6 +244,29 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
    const totalPages=loadAll?1:Math.max(1,Math.ceil(totalCandidates/(pageSize as number)));
    const page=loadAll?1:Math.min(requestedPage,totalPages);
    const offset=loadAll?0:(page-1)*(pageSize as number);
+
+   // v325: side queries (recipe options, time rules, live recipe context,
+   // recipe meta) run IN PARALLEL with the heavy main candidates query on a
+   // second pooled connection. On high-latency links this cuts the first load
+   // from ~5 sequential round-trips to ~2 (view, then main ∥ side).
+   let recipeOptions:any[]=[];
+   let timeRules:any[]=[];
+   let ctx:any=null;
+   let recipeMetaRows:any[]=[];
+   const sideStart=Date.now();
+   const sideClient=await getPool().connect();
+   const sidePromise=(async()=>{
+    const jobs:Promise<void>[]=[];
+    if(op){
+     jobs.push(sideClient.query(RECIPE_OPTIONS_SQL,[op]).then(r=>{recipeOptions=r.rows;}));
+    }
+    if(recipeKey){
+     jobs.push(sideClient.query(TIME_RULES_SQL,[recipeKey]).then(r=>{timeRules=r.rows;}));
+    }
+    jobs.push(getCachedLiveRecipeContext(sideClient).then(v=>{ctx=v;}));
+    jobs.push(getCachedRecipeMeta(sideClient).then(r=>{recipeMetaRows=r;}));
+    await Promise.all(jobs);
+   })();
 
    const candidatesQ=await c.query(`
      select
@@ -490,53 +571,14 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
      ${loadAll?"":"limit $"+(params.length+1)+" offset $"+(params.length+2)}
    `,loadAll?params:[...params,pageSize,offset]);
    const queryMs=Date.now()-t0;
-
-   let recipeOptions:any[]=[];
-   let timeRules:any[]=[];
-   const recipeStart=Date.now();
-
-   if(op){
-     const recipeQ=await c.query(`
-       select distinct r.recipe_key,r.recipe_no,r.recipe_name,r.process_family,r.recipe_group
-       from md_process_recipe r
-       where r.is_active=true
-         and (
-           exists(
-             select 1
-             from planning_job_operation p
-             join md_main_operation_recipe ocr
-               on ocr.operation_code=p.source_operation_code
-              and ocr.recipe_key=r.recipe_key
-              and ocr.is_active=true
-             where p.standard_operation=$1
-               and p.status='ELIGIBLE'
-               and p.is_active=true
-           )
-         )
-       order by r.process_family,r.recipe_group,r.recipe_no
-     `,[op]);
-     recipeOptions=recipeQ.rows;
+   try{
+    await sidePromise;
+   }finally{
+    sideClient.release();
    }
-
-   if(recipeKey){
-     const rulesQ=await c.query(`
-       select calc_type,priority,qty_min,qty_max,
-              surface_min_dm2,surface_max_dm2,
-              fixed_hours,standard_hours
-       from md_recipe_time_rule
-       where recipe_key=$1 and is_active=true
-       order by priority,id
-     `,[recipeKey]);
-     timeRules=rulesQ.rows;
-   }
-   const recipeMs=Date.now()-recipeStart;
-
-   // v266: Recipe + Mã lô mẫu + Prefix theo CẤU HÌNH HIỆN TẠI (Rule đã gộp vào
-   // mapping) — không cần Rebuild, dùng để hiển thị cho Job chưa vào lô.
-   const ctx=await getCachedLiveRecipeContext(c);
+   const recipeMs=Date.now()-sideStart;
 
    const recipeNameMap=new Map<string,{recipe_no:string|null;recipe_name:string|null}>();
-   const recipeMetaRows=await getCachedRecipeMeta(c);
    for(const r of recipeMetaRows){
      recipeNameMap.set(r.recipe_key,{recipe_no:r.recipe_no,recipe_name:r.recipe_name});
    }

@@ -47,7 +47,7 @@ export async function GET(req:NextRequest){
  const light=sp.get("light")==="1";
  const c=await getPool().connect();
  let destroyed=false;
- const timer=setTimeout(()=>{destroyed=true;},55000);
+ const timer=setTimeout(()=>{destroyed=true;},58000);
  try{
   const viewStart=Date.now();
   const {stViewParams,initialView,serverViews}=await resolvePlanningView(c,op,areaId);
@@ -62,7 +62,7 @@ export async function GET(req:NextRequest){
     light
    }),
    new Promise<never>((_,reject)=>{
-    const t=setTimeout(()=>reject(new Error(`Candidate load timeout (>55s) — DB/kết nối quá chậm, bấm Thử lại.`)),55000);
+    const t=setTimeout(()=>reject(new Error(`Candidate load timeout (>58s) — DB/kết nối quá chậm, bấm Thử lại.`)),58000);
     t.unref?.();
    })
   ]);
