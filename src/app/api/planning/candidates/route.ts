@@ -43,7 +43,7 @@ export async function GET(req:NextRequest){
  const knownTotalCandidates=Number.isFinite(parsedKnownTotal)
   ?Math.max(0,Math.trunc(parsedKnownTotal))
   :null;
- // v323: light=1 (V2 board) drops j.source_data (~2.8MB of the payload).
+ // light=1 drops j.source_data (~2.8MB of the payload).
  const light=sp.get("light")==="1";
  const c=await getPool().connect();
  let destroyed=false;

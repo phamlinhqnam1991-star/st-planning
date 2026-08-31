@@ -9,7 +9,7 @@ không giải quyết được việc tải rows nặng.
 
 ## Giải pháp — KHÔNG đổi logic nghiệp vụ
 
-Chuyển cả 2 board sang **tải phân đoạn (progressive)** dùng **đúng đường pagination
+Chuyển Planning Board sang **tải phân đoạn (progressive)** dùng **đúng đường pagination
 legacy đã có sẵn** trong `loadPlanningCandidates`/route candidates (cùng SQL, cùng
 resolver, cùng thứ tự ORDER BY ổn định v289):
 
@@ -25,7 +25,6 @@ resolver, cùng thứ tự ORDER BY ổn định v289):
 
 ## Files
 
-- `src/components/planning-v2/use-planning-v2-data.ts` (+`loadingMore` state, client).
 - `src/components/planning-candidate-shell.tsx` (+`loadingMore`, `loadSourceData` gọi
   sau khi tải đủ rows).
 - Giữ nguyên: light mode, timeout 60s, self-diagnostic, latency probe, export
@@ -33,5 +32,5 @@ resolver, cùng thứ tự ORDER BY ổn định v289):
 
 ## Rollback
 
-Chỉ đổi client (2 file hook/shell). Không đổi server SQL, không migration. Quay về
-`pageSize=all` trong 2 file là về v327.
+Chỉ đổi client Planning Board. Không đổi server SQL, không migration. Quay về
+`pageSize=all` trong shell là về v327.

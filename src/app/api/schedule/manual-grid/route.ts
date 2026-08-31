@@ -1,6 +1,7 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {assertResourceAndChemicalCapacity,chemicalScheduleColumns,resolveChemicalScheduleWindow} from "@/lib/chemical-line-schedule-server";
+import {resolveProcessMinutes} from "@/lib/planning/batch-utils";
 
 import {requireApiUser} from "@/lib/api-auth";
 const clean=(v:unknown)=>String(v??"").trim();
@@ -179,6 +180,10 @@ export async function POST(req:Request){
   `,[op.st_group||""]);
   const areaId=areaQ.rows[0]?.id||null;
 
+  // Standard Process luôn lấy từ cấu hình Recipe. Duration nhập trên Manual Grid
+  // chỉ là thời gian điều độ thực tế/override, không được ghi ngược vào master Process.
+  const configuredProcessMinutes=await resolveProcessMinutes(c,recipeKey,0,0);
+
   let effectiveStart=start;
   let chemicalWindow:Awaited<ReturnType<typeof resolveChemicalScheduleWindow>>|null=null;
   let autoAdjusted:null|{from:string;to:string;reason:string}=null;
@@ -242,7 +247,7 @@ export async function POST(req:Request){
     0,0,0,$6,$7,$8,100,'PLANNED',$9,'MANUAL_GRID'
    )
    returning id,batch_no
-  `,[batchNo,effectiveDate,areaId,op.standard_operation,recipeKey,Math.round(duration),start,end,note||'MANUAL SCHEDULE GRID']);
+  `,[batchNo,effectiveDate,areaId,op.standard_operation,recipeKey,configuredProcessMinutes,effectiveStart,end,note||'MANUAL SCHEDULE GRID']);
 
   const batchId=Number(batchQ.rows[0].id);
   const columns=chemicalWindow?chemicalScheduleColumns(chemicalWindow):null;

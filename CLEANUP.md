@@ -59,7 +59,6 @@ Snapshot-first chậm hơn canonical (comment v322), không còn đường đọ
 ## 9. Giữ lại có chủ đích
 - `.env.example`, `.env.local` (cần cho chạy local; `.env.local` đã bị loại khỏi zip sạch để tránh lộ — copy lại từ bản gốc nếu cần)
 - `docs/`, `supabase/migrations` + `rollback`, page redirect `/batch-key-recipe-rules`, `/login`
-- Tab **Planning V2 (TEST)** (`/planning/v2`) — **đã xóa toàn bộ** (2026-08-31): `src/app/planning/v2/`, `src/components/planning-v2/`, mục tab trong `planning-view-tabs.tsx`, CSS `.planning-v2-*` trong globals.css, docs `PLANNING_BOARD_V2_REWRITE_V319.md` + `PLANNING_BOARD_V2_CANDIDATE_LOAD_FIX_V320.md`. Class debug v321 `.planning-v2-debug` (legacy board vẫn dùng) được đổi tên thành `.planning-debug`.
 - `src/proxy.ts` — đã xóa (no-op `matcher:[]`, không chạy gì)
 
 ## Kiểm chứng

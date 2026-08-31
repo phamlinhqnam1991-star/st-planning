@@ -14,9 +14,9 @@ export type PlanningCandidateQuery={
  pageSize:number|null;
  stViewParams:string[];
  knownTotalCandidates?:number|null;
- // v323: light mode replaces j.source_data with null. source_data is ~2.8MB of
- // the ~2.9MB payload (643 rows) and is only rendered by the legacy board's
- // All Open Source columns. V2 does not use it, so it can skip the transfer.
+ // Light mode replaces j.source_data with null. source_data is ~2.8MB of
+ // the ~2.9MB payload (643 rows) and is loaded separately only when needed
+ // for All Open Source columns.
  light?:boolean;
 };
 

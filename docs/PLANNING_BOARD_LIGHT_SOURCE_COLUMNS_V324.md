@@ -2,13 +2,13 @@
 
 ## Vấn đề
 
-Board cũ `/planning` vẫn timeout (>25s) dù V2 đã chuyển light: board cũ không gửi
-`light=1` nên vẫn kéo payload ~3.1MB (trong đó `source_data` ~2.8MB) qua đường mạng
-yếu tới Supabase pooler → transfer không kịp trong 25s.
+Planning Board `/planning` vẫn timeout (>25s) vì chưa gửi `light=1`, nên vẫn kéo
+payload ~3.1MB (trong đó `source_data` ~2.8MB) qua đường mạng yếu tới Supabase
+pooler → transfer không kịp trong 25s.
 
 ## Giải pháp
 
-1. **Board cũ cũng load light** (`planning-candidate-shell.tsx` gửi `light=1`) —
+1. **Planning Board load light** (`planning-candidate-shell.tsx` gửi `light=1`) —
    payload giảm 3.1MB → ~1.3MB, thời gian ~0.3–1s. Board hiện ngay, cột All Open
    Source tạm trống (không crash — mọi chỗ đọc đều null-safe).
 2. **Tải `source_data` nền theo yêu cầu** — endpoint mới
@@ -24,8 +24,7 @@ yếu tới Supabase pooler → transfer không kịp trong 25s.
 
 | Màn | Trước | Sau |
 |---|---|---|
-| `/planning` (board cũ) | 3.1MB → timeout >25s (mạng yếu) | ~1.3MB, render ngay; source columns điền nền |
-| `/planning/v2` | light từ v323 | giữ nguyên |
+| `/planning` | 3.1MB → timeout >25s (mạng yếu) | ~1.3MB, render ngay; source columns điền nền |
 
 ## Rollback
 

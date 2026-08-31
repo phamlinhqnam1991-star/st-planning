@@ -11,5 +11,5 @@ Chỉ sửa kỹ thuật `POST /api/planning/rebuild`:
 - Lỗi `ROLLBACK` không còn che lỗi PostgreSQL gốc; API trả `error` + `code` thật.
 - Không đổi resolver, NO_CHAIN, READY, Batch, Schedule, Recipe hay Batch Key.
 
-Gói delivery đã bỏ các source/migration TEST sau v313: 057, 058, 059, Snapshot TEST và Planning V2 TEST.
+Gói delivery đã bỏ các source/migration TEST sau v313: 057, 058, 059 và Snapshot TEST.
 Không có migration SQL mới.

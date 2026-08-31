@@ -1,13 +1,14 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {refreshBatchTotals,recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
+import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 
 import {requireApiUser} from "@/lib/api-auth";
 const clean=(v:unknown)=>String(v??"").trim();
 
 async function getBatch(c:any,batchId:number,forUpdate=false){
  const q=await c.query(`
-   select id,batch_no,standard_operation,recipe_key,status,
+   select id,batch_no,standard_operation,recipe_key,status,process_minutes,
           total_jobs,total_qty,total_surface_dm2,planned_start
    from planning_batch
    where id=$1
@@ -202,6 +203,12 @@ export async function PATCH(
   `,[batchId,recipeKey]);
 
   const totals=await refreshBatchTotals(c,batchId);
+
+  // Nếu Batch đã nằm trên Chemical Line: Recipe mới làm thay đổi Standard
+  // Process thì cập nhật timeline; Process Duration do planner override vẫn giữ.
+  await autoAdjustChemicalSchedule(c,batchId,totals.processMinutes,{
+   previousProcessMinutes:Number(batch.process_minutes||0)
+  });
 
   await c.query("commit");
   return NextResponse.json({ok:true,...totals});

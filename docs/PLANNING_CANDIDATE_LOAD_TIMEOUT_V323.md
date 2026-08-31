@@ -9,15 +9,14 @@ thực tế lúc đó: **không có query kẹt, không lock, chỉ có connecti
 kẹt khiến `pool.connect()` xếp hàng vô hạn.
 
 Đồng thời phát hiện payload Candidate rất nặng: `source_data` chiếm **~2.8MB** trong
-tổng ~3.1MB (643 rows) — nhưng board V2 không hề render cột All Open Source.
+tổng ~3.1MB (643 rows), trong khi tải Candidate ban đầu không cần toàn bộ cột All Open Source.
 
 ## Đã sửa (chống treo mọi lớp + giảm payload)
 
-1. **Light mode (V2)** — `candidates/route.ts` + `candidate-data.ts`: param `light=1`
-   (V2 luôn gửi) thay `j.source_data` bằng `null`. Đo thực tế: **4.4s → 0.3s**,
-   payload **3.1MB → 1.3MB**. Board cũ `/planning` không gửi `light` → giữ nguyên
-   source_data cho cột All Open Source.
-2. **Client timeout 25s** — `use-planning-v2-data.ts` + `planning-candidate-shell.tsx`:
+1. **Light mode** — `candidates/route.ts` + `candidate-data.ts`: param `light=1`
+   thay `j.source_data` bằng `null`. Đo thực tế: **4.4s → 0.3s**, payload
+   **3.1MB → 1.3MB**. Source columns được tải nền khi cần.
+2. **Client timeout 25s** — `planning-candidate-shell.tsx`:
    hủy request sau 25s bằng AbortController, hiện rõ
    "Mất quá 25s khi tải Candidate (timeout)… Thử lại" thay vì xoay vô hạn.
 3. **Route timeout 45s** — `candidates/route.ts`: `Promise.race` trả 500
@@ -31,7 +30,7 @@ tổng ~3.1MB (643 rows) — nhưng board V2 không hề render cột All Open S
 | Chế độ | Thời gian | Payload |
 |---|---|---|
 | Trước v323 (full) | ~4.4s (lạnh hơn nếu buffer nguội) | ~3.1MB |
-| v323 light (V2) | **~0.3–1s** | **~1.3MB** |
+| v323 light | **~0.3–1s** | **~1.3MB** |
 
 ## Rollback
 

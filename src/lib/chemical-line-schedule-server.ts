@@ -239,7 +239,8 @@ export const chemicalScheduleColumns=(window:ChemicalScheduleWindow)=>({
 export async function autoAdjustChemicalSchedule(
  client:PoolClient,
  batchId:number,
- processMinutes:number|null
+ processMinutes:number|null,
+ options?:{previousProcessMinutes?:number|null}
 ):Promise<ChemicalScheduleWindow|null>{
  const schedQ=await client.query(`
   select s.id,s.planned_start,s.loading_start,s.process_duration_minutes,s.resource_code,
@@ -261,9 +262,17 @@ export async function autoAdjustChemicalSchedule(
  const loadingStart=sched.loading_start
   ?new Date(String(sched.loading_start))
   :new Date(String(sched.planned_start));
- const duration=Number.isFinite(Number(processMinutes))&&Number(processMinutes)>0
-  ?Math.round(Number(processMinutes))
-  :Math.round(Number(sched.process_duration_minutes||60));
+ const scheduledProcess=Math.round(Number(sched.process_duration_minutes||0));
+ const previousStandard=Math.round(Number(options?.previousProcessMinutes||0));
+ // Nếu planner đã chỉnh Process Duration khác Standard trước đó, giữ override.
+ // Nếu schedule đang đúng bằng Standard cũ, Batch thay đổi sẽ dùng Standard mới.
+ const hasManualProcessOverride=scheduledProcess>0 &&
+  (previousStandard<=0 || scheduledProcess!==previousStandard);
+ const duration=hasManualProcessOverride
+  ?scheduledProcess
+  :(Number.isFinite(Number(processMinutes))&&Number(processMinutes)>0
+    ?Math.round(Number(processMinutes))
+    :Math.max(1,scheduledProcess||60));
 
  const window=await resolveChemicalScheduleWindow(client,{
   loadingStart,

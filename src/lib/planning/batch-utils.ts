@@ -64,7 +64,7 @@ export async function refreshBatchTotals(c:PoolClient,batchId:number){
  const totalQty=Number(totalsQ.rows[0]?.total_qty||0);
  const totalSurface=Number(totalsQ.rows[0]?.total_surface||0);
  const recipeKey=batchQ.rows[0].recipe_key||null;
- const processMinutes=totalJobs>0
+ const processMinutes=recipeKey
    ? await resolveProcessMinutes(c,recipeKey,totalQty,totalSurface)
    : null;
 
@@ -84,12 +84,40 @@ export async function refreshBatchTotals(c:PoolClient,batchId:number){
        total_qty=$3,
        total_surface_dm2=$4,
        process_minutes=$5,
-       planned_end=$6::timestamptz,
+       planned_end=case
+         when exists(
+           select 1 from planning_schedule s
+           where s.batch_id=planning_batch.id
+             and s.status<>'CANCELLED'
+         ) then planned_end
+         else $6::timestamptz
+       end,
        updated_at=now()
    where id=$1
  `,[batchId,totalJobs,totalQty,totalSurface,processMinutes,endTimestamp]);
 
  return {totalJobs,totalQty,totalSurface,processMinutes,plannedEnd:endTimestamp};
+}
+
+export async function refreshUnscheduledRecipeBatches(c:PoolClient,recipeKey:string){
+ const q=await c.query(`
+   select b.id
+   from planning_batch b
+   where b.recipe_key=$1
+     and b.status in ('PLANNED','RELEASED')
+     and not exists(
+       select 1
+       from planning_schedule s
+       where s.batch_id=b.id
+         and s.status<>'CANCELLED'
+     )
+   order by b.id
+ `,[recipeKey]);
+
+ for(const row of q.rows){
+   await refreshBatchTotals(c,Number(row.id));
+ }
+ return q.rowCount||0;
 }
 
 export async function recomputeJobPlanningStatus(c:PoolClient,jobNum:string){

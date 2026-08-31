@@ -4,6 +4,7 @@ import {substituteTemplate} from "@/lib/batch-key-recipe";
 import {bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
 import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
+import {resolveProcessMinutes} from "@/lib/planning/batch-utils";
 
 import {requireApiUser} from "@/lib/api-auth";
 const clean=(v:unknown)=>String(v??"").trim();
@@ -103,45 +104,6 @@ function validateSamePaint(rows:any[],operation:string){
   );
 }
 
-async function resolveProcessMinutes(
- c:any,
- recipeKey:string|null,
- totalQty:number,
- totalSurface:number
-){
- if(!recipeKey)return null;
-
- // Generic: FIXED_HOURS trước, rồi QTY_SURFACE theo khoảng — cho mọi công đoạn.
- const fixed=await c.query(`
-   select fixed_hours
-   from md_recipe_time_rule
-   where recipe_key=$1
-     and is_active=true
-     and calc_type='FIXED_HOURS'
-   order by priority,id
-   limit 1
- `,[recipeKey]);
-
- const fixedHours=Number(fixed.rows[0]?.fixed_hours);
- if(Number.isFinite(fixedHours))return Math.round(fixedHours*60);
-
- const qtySurface=await c.query(`
-   select standard_hours
-   from md_recipe_time_rule
-   where recipe_key=$1
-     and is_active=true
-     and calc_type='QTY_SURFACE'
-     and (qty_min is null or $2 >= qty_min)
-     and (qty_max is null or $2 <= qty_max)
-     and (surface_min_dm2 is null or $3 >= surface_min_dm2)
-     and (surface_max_dm2 is null or $3 <= surface_max_dm2)
-   order by priority,id
-   limit 1
- `,[recipeKey,totalQty,totalSurface]);
-
- const hours=Number(qtySurface.rows[0]?.standard_hours);
- return Number.isFinite(hours)?Math.round(hours*60):null;
-}
 
 export async function POST(req:NextRequest){
  const denied=await requireApiUser();
@@ -546,7 +508,7 @@ export async function POST(req:NextRequest){
      // v193: Batch đã Schedule trên Chemical Line → tự tính lại Loading/Process/
      // NDT/Unloading theo Qty/Surface mới và kéo dãn lịch (giữ Loading Start).
      if(targetBatch.schedule_id){
-      await autoAdjustChemicalSchedule(c,targetBatch.id,newProcessMinutes).catch((e:any)=>{
+      await autoAdjustChemicalSchedule(c,targetBatch.id,newProcessMinutes,{previousProcessMinutes:Number(targetBatch.process_minutes||0)}).catch((e:any)=>{
        throw new Error(`Thêm Job làm thay đổi thời gian Chemical Line: ${e instanceof Error?e.message:String(e)}`);
       });
      }

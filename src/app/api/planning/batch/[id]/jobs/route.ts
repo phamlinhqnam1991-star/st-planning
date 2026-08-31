@@ -222,7 +222,7 @@ export async function POST(
    await c.query("begin");
 
    const batchQ=await c.query(`
-     select id,batch_no,standard_operation,recipe_key,status,
+     select id,batch_no,standard_operation,recipe_key,status,process_minutes,
             coalesce(total_qty,0) total_qty,
             coalesce(total_surface_dm2,0) total_surface_dm2
      from planning_batch
@@ -405,7 +405,7 @@ export async function POST(
 
    // v193: Batch đã Schedule trên Chemical Line → tự tính lại Loading/Process/
    // NDT/Unloading theo Qty/Surface mới và kéo dãn lịch (giữ Loading Start).
-   await autoAdjustChemicalSchedule(c,batchId,totals.processMinutes).catch((e:any)=>{
+   await autoAdjustChemicalSchedule(c,batchId,totals.processMinutes,{previousProcessMinutes:Number(batch.process_minutes||0)}).catch((e:any)=>{
      throw new Error(`Thêm Job làm thay đổi thời gian Chemical Line: ${e instanceof Error?e.message:String(e)}`);
    });
 
@@ -462,7 +462,7 @@ export async function DELETE(
    await c.query("begin");
 
    const batchQ=await c.query(`
-     select id,batch_no,standard_operation,status,
+     select id,batch_no,standard_operation,status,process_minutes,
             coalesce(total_qty,0) total_qty,
             coalesce(total_surface_dm2,0) total_surface_dm2
      from planning_batch
@@ -522,7 +522,7 @@ export async function DELETE(
    const totals=await refreshBatchTotals(c,batchId);
 
    // v193: bớt Job → thu lại thời gian Chemical Line theo Qty/Surface mới.
-   await autoAdjustChemicalSchedule(c,batchId,totals.processMinutes).catch((e:any)=>{
+   await autoAdjustChemicalSchedule(c,batchId,totals.processMinutes,{previousProcessMinutes:Number(batch.process_minutes||0)}).catch((e:any)=>{
      throw new Error(`Bỏ Job làm thay đổi thời gian Chemical Line: ${e instanceof Error?e.message:String(e)}`);
    });
 

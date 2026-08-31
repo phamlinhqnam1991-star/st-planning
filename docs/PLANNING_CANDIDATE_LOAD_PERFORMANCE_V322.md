@@ -19,7 +19,7 @@ không lọc). Break-down:
 3. **`candidates/route.ts`** — thêm `_debug.timing {queryMs, recipeMs, mapMs, totalMs}`
    (đã có `viewMs/loadMs/db`), log server đầy đủ.
 4. **UX** — notice "Đang tải Candidate metadata… (Ns)" đếm giây + nút **"Thử lại"**
-   khi lỗi (cả `/planning` và `/planning/v2`).
+   khi lỗi trên `/planning`.
 
 Kết quả đo (dữ liệu thật): cold-start còn ~2.1s cho context (+ query chính lạnh 5–11s,
 phụ thuộc buffer DB); load ấm ~0.35–0.9s.
@@ -37,4 +37,4 @@ phòng khi bật lại sau này. Snapshot test row đã được dọn khỏi DB
 
 ## Rollback
 
-Chỉ đổi code (live-recipe.ts, candidates route, 2 component UI). Không có migration SQL.
+Chỉ đổi code (live-recipe.ts, candidates route và Planning Board UI). Không có migration SQL.
