@@ -1,3 +1,13 @@
+# v341 — Tối ưu tốc độ mở trang Công thức & Rule
+
+- Nền code: v340.
+- **Trước**: mỗi lần mở trang chạy 13 query, trong đó 2 query quét `md_process_requirement` (**2.1M rows**) — đặc biệt query giá trị MD:REQ có thể trả về hàng trăm nghìn row → payload khổng lồ, mở trang rất chậm.
+- **Sau**:
+  - `masterValuesQ` bỏ nhánh `REQ:` (chỉ còn md_part + md_material_finish — nhỏ).
+  - Danh sách requirement_code cache **5 phút** (`unstable_cache`, tag `config-recipe`), refresh sau Import Master.
+  - Giá trị của từng mã yêu cầu **lazy-load** qua endpoint mới `GET /api/config/recipe-condition-values?column=MD:REQ:<code>` — chỉ fetch khi người dùng chọn cột MD:REQ trong builder "Áp dụng cho Job" (có trạng thái "Đang tải giá trị...").
+- **Migration bắt buộc**: `supabase/migrations/060_process_requirement_lookup_indexes.sql` — 2 index cho md_process_requirement (tránh seq-scan 2.1M rows). Có rollback kèm theo.
+
 # v340 — Danh mục Recipe: 1 Recipe No có thể có nhiều Recipe Name
 
 - Nền code: v339.

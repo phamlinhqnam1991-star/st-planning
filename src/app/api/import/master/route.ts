@@ -1,5 +1,6 @@
 import {NextResponse} from "next/server";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {revalidateTag} from "next/cache";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {getPool} from "@/lib/db";
 import {rebuildAllStRoutingDerived} from "@/lib/st-operation-flow";
@@ -66,6 +67,8 @@ export async function POST(req:Request){
    }).eq("id",batchId);
    invalidatePlanningStaticData();
    invalidateConfigHealth();
+   // v341: refresh cache danh sách requirement code (MD:REQ:*) sau import master.
+   revalidateTag("config-recipe",{expire:0});
    return NextResponse.json({...result,bridgeRebuildRun,affectedRoutingCodes:affected.length});
   }catch(e){
    await client.query("rollback");throw e;

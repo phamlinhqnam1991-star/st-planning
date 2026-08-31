@@ -1,7 +1,7 @@
 "use client";
 
 import {safeJson} from "@/lib/fetch-json";
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {useRouter} from "next/navigation";
 import {refreshConfigPage} from "@/lib/config/config-client";
 import {parseSelectionRule} from "@/lib/batch-key-recipe";
@@ -125,6 +125,11 @@ export function MainOperationRecipeMappingManager({
    return map;
  },[timeRules]);
 
+ // v341: giá trị MD:REQ:* lazy-load (chỉ khi người dùng chọn cột MD:REQ trong
+ // builder điều kiện) — tránh tải 2.1M rows của md_process_requirement khi mở trang.
+ const [reqValues,setReqValues]=useState<Record<string,string[]>>({});
+ const [reqLoading,setReqLoading]=useState<Record<string,boolean>>({});
+
  const valuesByColumn=useMemo(()=>{
    const map=new Map<string,string[]>();
    for(const v of [...columnValues,...masterValues]){
@@ -133,9 +138,17 @@ export function MainOperationRecipeMappingManager({
      if(!arr.includes(v.value))arr.push(v.value);
      map.set(v.column,arr);
    }
+   // v341: giá trị MD:REQ:* được lazy-load (chỉ khi người dùng chọn cột đó) —
+   // không tải toàn bộ md_process_requirement (2.1M rows) khi mở trang.
+   for(const [col,vals] of Object.entries(reqValues)){
+     if(!vals.length)continue;
+     const arr=map.get(col)||[];
+     for(const v of vals){if(!arr.includes(v))arr.push(v);}
+     map.set(col,arr);
+   }
    for(const arr of map.values())arr.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:"base"}));
    return map;
- },[columnValues,masterValues]);
+ },[columnValues,masterValues,reqValues]);
  const [busy,setBusy]=useState(false);
  const [operationCode,setOperationCode]=useState("");
  const [standardOperation,setStandardOperation]=useState("");
@@ -147,6 +160,24 @@ export function MainOperationRecipeMappingManager({
  const [batchKeyTemplate,setBatchKeyTemplate]=useState("");
  const [batchNoPrefix,setBatchNoPrefix]=useState("");
  const [filter,setFilter]=useState("");
+ const conditionColumnsKey=conditions.map(c=>c.column).join("|");
+ useEffect(()=>{
+  for(const cond of conditions){
+   if(!cond.column.startsWith("MD:REQ:"))continue;
+   const code=cond.column.slice("MD:REQ:".length);
+   if(!code||reqValues[cond.column]||reqLoading[cond.column])continue;
+   setReqLoading(prev=>({...prev,[cond.column]:true}));
+   (async()=>{
+    try{
+     const r=await fetch(`/api/config/recipe-condition-values?column=${encodeURIComponent(cond.column)}`,{cache:"no-store"});
+     const d=await r.json().catch(()=>({}));
+     if(Array.isArray(d.values))setReqValues(prev=>({...prev,[cond.column]:d.values as string[]}));
+    }catch{/* graceful — người dùng vẫn có thể gõ tay */}
+    finally{setReqLoading(prev=>({...prev,[cond.column]:false}));}
+   })();
+  }
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[conditionColumnsKey]);
 
  const visible=useMemo(()=>{
    const q=filter.trim().toUpperCase();
@@ -382,7 +413,7 @@ export function MainOperationRecipeMappingManager({
             value={c.value}
             onChange={e=>updateCondition(i,"value",e.target.value)}
            >
-            <option value="">— Chọn giá trị unique —</option>
+            <option value="">{c.column.startsWith("MD:REQ:")&&reqLoading[c.column]?"Đang tải giá trị...":"— Chọn giá trị unique —"}</option>
             {[...new Set([...(valuesByColumn.get(c.column)||[]),...(c.value?[c.value]:[])])].map(v=>
              <option key={v} value={v}>{v}</option>
             )}

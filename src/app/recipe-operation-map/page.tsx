@@ -4,7 +4,25 @@ import {MainOperationRecipeMappingManager} from "@/components/main-operation-rec
 import {OperationRecipeAllowedManager} from "@/components/operation-recipe-allowed-manager";
 import {ProcessRecipeManager} from "@/components/process-recipe-manager";
 import {getPool} from "@/lib/db";
+import {unstable_cache} from "next/cache";
 export const dynamic="force-dynamic";
+
+// v341: danh sách mã yêu cầu (MD:REQ:*) — cache 5 phút thay vì quét
+// md_process_requirement (2.1M rows) mỗi lần mở trang. Giá trị của từng mã
+// được lazy-load qua /api/config/recipe-condition-values khi người dùng chọn
+// cột đó trong builder điều kiện.
+const getRequirementCodes=unstable_cache(async()=>{
+ const c=await getPool().connect();
+ try{
+  const q=await c.query(`
+    select distinct requirement_code
+    from md_process_requirement
+    where is_active=true and nullif(trim(requirement_code),'') is not null
+    order by requirement_code
+  `);
+  return q.rows;
+ }finally{c.release();}
+},["config-recipe-req-codes"],{revalidate:300,tags:["config-recipe"]});
 
 // Recipe Catalog + Runtime Operation Code → Recipe are maintained together here.
 // ① is the runtime mapping used by Planning Board; ② is the canonical Recipe Catalog.
@@ -100,14 +118,8 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
      union all select 'TOPCOAT_NAME', topcoat_name from md_material_finish where is_active=true and nullif(trim(topcoat_name),'') is not null
      union all select 'ANTIABRASION_NAME', antiabrasion_name from md_material_finish where is_active=true and nullif(trim(antiabrasion_name),'') is not null
      union all select 'VARINISH_NAME', varinish_name from md_material_finish where is_active=true and nullif(trim(varinish_name),'') is not null
-     union all select 'REQ:'||requirement_code, requirement_value from md_process_requirement where is_active=true and nullif(trim(requirement_value),'') is not null
    `),
-   c.query(`
-     select distinct requirement_code
-     from md_process_requirement
-     where is_active=true and nullif(trim(requirement_code),'') is not null
-     order by requirement_code
-   `),
+   getRequirementCodes(),
    c.query(`select recipe_key,calc_type,priority,fixed_hours,standard_hours
             from md_recipe_time_rule where is_active=true
             order by recipe_key,priority,id`),
@@ -155,7 +167,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
         {key:"MD:PART_DESCRIPTION",label:"Part Description (Master)"},
         {key:"MD:SURFACE_DM2",label:"Surface dm² (Master)"}
        ];
-       const mdReq=(masterReqCodesQ.rows as any[]).map((x:any)=>({key:`MD:REQ:${String(x.requirement_code).trim().toUpperCase()}`,label:`Yêu cầu (Req): ${String(x.requirement_code).trim().toUpperCase()} (Master)`}));
+       const mdReq=(masterReqCodesQ as any[]).map((x:any)=>({key:`MD:REQ:${String(x.requirement_code).trim().toUpperCase()}`,label:`Yêu cầu (Req): ${String(x.requirement_code).trim().toUpperCase()} (Master)`}));
        const masterColumns=[...mdFixed,...mdReq];
        const masterValues=(masterValuesQ.rows as any[]).map((x:any)=>({column:`MD:${String(x.k).trim().toUpperCase()}`,value:String(x.v)}));
        return <MainOperationRecipeMappingManager
