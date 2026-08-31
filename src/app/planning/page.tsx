@@ -1,6 +1,7 @@
 import {AppTabs} from "@/components/app-tabs";
 import {PlanningViewTabs} from "@/components/planning-view-tabs";
 import {PlanningCandidateShell} from "@/components/planning-candidate-shell";
+import {LogoutButton} from "@/components/logout-button";
 import {getPool} from "@/lib/db";
 import {getRecentPlanningBatches} from "@/lib/planning/recent-batches";
 import {getPlanningStaticData} from "@/lib/planning/planning-static-cache";
@@ -38,7 +39,10 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
   return <main className="erp-shell">
    <header className="erp-header">
     <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
-    <div className="erp-env">PLANNING BOARD</div>
+    <div style={{display:"flex",alignItems:"center",gap:10}}>
+     <div className="erp-env">PLANNING BOARD</div>
+     <LogoutButton/>
+    </div>
    </header>
    <AppTabs active="planning"/>
    <section className="erp-content erp-content-full planning-page planning-candidate-page">

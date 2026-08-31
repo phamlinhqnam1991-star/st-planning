@@ -1,3 +1,16 @@
+# v333 — Trang đăng nhập + nút Đăng xuất (fix 401 trên Vercel)
+
+- Nền code: v332.
+- **Vấn đề**: mọi API route yêu cầu Supabase session (`requireApiUser`) nhưng app **không có trang đăng nhập** (`/login` chỉ redirect, `login-form` là dead code) → trên production không thể tạo session → mọi API trả 401 "Phiên đăng nhập đã hết hạn".
+- **Fix**:
+  - `src/components/login-form.tsx` (client): đăng nhập email/password qua `supabase.auth.signInWithPassword`, redirect `/planning`.
+  - `src/app/login/page.tsx`: render form; đã có session thì redirect thẳng `/planning`.
+  - `src/components/logout-button.tsx`: `signOut()` → `/login`, gắn vào header Planning Board.
+- **Yêu cầu cấu hình** (không phải migration):
+  - Supabase: Authentication → Providers → **Email** bật.
+  - Tạo user: Authentication → Users → Add user (email + password).
+  - Vercel: `ADMIN_EMAILS` (nếu set) phải chứa email đăng nhập, nếu không API trả 403.
+
 # v332 — Tạo/Thêm Batch nhanh hơn nhiều (gộp SQL + bỏ full reload)
 
 - Nền code: v331.

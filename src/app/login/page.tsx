@@ -1,2 +1,20 @@
 import {redirect} from "next/navigation";
-export default function LoginPage(){redirect("/master-data")}
+import {createClient} from "@/lib/supabase/server";
+import {LoginForm} from "@/components/login-form";
+
+// v333: đã đăng nhập rồi thì vào thẳng Planning Board.
+export const dynamic="force-dynamic";
+
+export default async function LoginPage(){
+ const supabase=await createClient();
+ const {data:{user}}=await supabase.auth.getUser();
+ if(user)redirect("/planning");
+
+ return <main className="erp-shell">
+  <header className="erp-header">
+   <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
+   <div className="erp-env">LOGIN</div>
+  </header>
+  <LoginForm/>
+ </main>;
+}
