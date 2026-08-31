@@ -1,3 +1,11 @@
+# v342 — Fix duplicate key "uq_process_recipe_active_lookup" khi thêm Recipe cùng No khác Name
+
+- Nền code: v341.
+- **Lỗi**: thêm Recipe cùng `Process Family + Group + No` nhưng khác `Recipe Name` → `duplicate key value violates unique constraint "uq_process_recipe_active_lookup"`.
+- **Nguyên nhân**: migration 012 (H) cố tình tạo `unique(process_family, recipe_group, recipe_no) where is_active` — "chỉ 1 recipe ACTIVE cho mỗi No" — mâu thuẫn với logic v340 (1 No nhiều Name).
+- **Fix**: migration `061_recipe_no_multi_name_lookup.sql` — đổi index thành `unique(family, group, no, upper(trim(coalesce(recipe_name,'')))) where is_active` → cùng No khác Name được phép cùng active; cùng No + cùng Name (không phân biệt hoa/thường) vẫn bị chặn trùng. Rollback kèm theo.
+- **Thứ tự deploy**: chạy migration 061 TRƯỚC code v340/v342.
+
 # v341 — Tối ưu tốc độ mở trang Công thức & Rule
 
 - Nền code: v340.
