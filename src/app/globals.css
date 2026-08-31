@@ -3594,16 +3594,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="1"] tbody tr:hover td:nth-child(-n+1){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="1"] tr.priority-cat3>td:nth-child(-n+1){
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tbody tr.priority-cat3>td:nth-child(-n+1){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="1"] tr.priority-cat5>td:nth-child(-n+1){
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tbody tr.priority-cat5>td:nth-child(-n+1){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="1"] tr.priority-sales>td:nth-child(-n+1){
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tbody tr.priority-sales>td:nth-child(-n+1){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="1"] tr.priority-current-month>td:nth-child(-n+1){
+.planning-candidate-table.candidate-freeze-on[data-fc="1"] tbody tr.priority-current-month>td:nth-child(-n+1){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="1"] tr.planning-row-selected>td:nth-child(-n+1){
@@ -3660,16 +3660,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="2"] tbody tr:hover td:nth-child(-n+2){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="2"] tr.priority-cat3>td:nth-child(-n+2){
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tbody tr.priority-cat3>td:nth-child(-n+2){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="2"] tr.priority-cat5>td:nth-child(-n+2){
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tbody tr.priority-cat5>td:nth-child(-n+2){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="2"] tr.priority-sales>td:nth-child(-n+2){
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tbody tr.priority-sales>td:nth-child(-n+2){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="2"] tr.priority-current-month>td:nth-child(-n+2){
+.planning-candidate-table.candidate-freeze-on[data-fc="2"] tbody tr.priority-current-month>td:nth-child(-n+2){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="2"] tr.planning-row-selected>td:nth-child(-n+2){
@@ -3735,16 +3735,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody tr:hover td:nth-child(-n+3){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="3"] tr.priority-cat3>td:nth-child(-n+3){
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody tr.priority-cat3>td:nth-child(-n+3){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="3"] tr.priority-cat5>td:nth-child(-n+3){
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody tr.priority-cat5>td:nth-child(-n+3){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="3"] tr.priority-sales>td:nth-child(-n+3){
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody tr.priority-sales>td:nth-child(-n+3){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="3"] tr.priority-current-month>td:nth-child(-n+3){
+.planning-candidate-table.candidate-freeze-on[data-fc="3"] tbody tr.priority-current-month>td:nth-child(-n+3){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="3"] tr.planning-row-selected>td:nth-child(-n+3){
@@ -3819,16 +3819,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody tr:hover td:nth-child(-n+4){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="4"] tr.priority-cat3>td:nth-child(-n+4){
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody tr.priority-cat3>td:nth-child(-n+4){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="4"] tr.priority-cat5>td:nth-child(-n+4){
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody tr.priority-cat5>td:nth-child(-n+4){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="4"] tr.priority-sales>td:nth-child(-n+4){
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody tr.priority-sales>td:nth-child(-n+4){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="4"] tr.priority-current-month>td:nth-child(-n+4){
+.planning-candidate-table.candidate-freeze-on[data-fc="4"] tbody tr.priority-current-month>td:nth-child(-n+4){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="4"] tr.planning-row-selected>td:nth-child(-n+4){
@@ -3912,16 +3912,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody tr:hover td:nth-child(-n+5){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="5"] tr.priority-cat3>td:nth-child(-n+5){
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody tr.priority-cat3>td:nth-child(-n+5){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="5"] tr.priority-cat5>td:nth-child(-n+5){
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody tr.priority-cat5>td:nth-child(-n+5){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="5"] tr.priority-sales>td:nth-child(-n+5){
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody tr.priority-sales>td:nth-child(-n+5){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="5"] tr.priority-current-month>td:nth-child(-n+5){
+.planning-candidate-table.candidate-freeze-on[data-fc="5"] tbody tr.priority-current-month>td:nth-child(-n+5){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="5"] tr.planning-row-selected>td:nth-child(-n+5){
@@ -4014,16 +4014,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody tr:hover td:nth-child(-n+6){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="6"] tr.priority-cat3>td:nth-child(-n+6){
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody tr.priority-cat3>td:nth-child(-n+6){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="6"] tr.priority-cat5>td:nth-child(-n+6){
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody tr.priority-cat5>td:nth-child(-n+6){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="6"] tr.priority-sales>td:nth-child(-n+6){
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody tr.priority-sales>td:nth-child(-n+6){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="6"] tr.priority-current-month>td:nth-child(-n+6){
+.planning-candidate-table.candidate-freeze-on[data-fc="6"] tbody tr.priority-current-month>td:nth-child(-n+6){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="6"] tr.planning-row-selected>td:nth-child(-n+6){
@@ -4125,16 +4125,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody tr:hover td:nth-child(-n+7){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="7"] tr.priority-cat3>td:nth-child(-n+7){
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody tr.priority-cat3>td:nth-child(-n+7){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="7"] tr.priority-cat5>td:nth-child(-n+7){
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody tr.priority-cat5>td:nth-child(-n+7){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="7"] tr.priority-sales>td:nth-child(-n+7){
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody tr.priority-sales>td:nth-child(-n+7){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="7"] tr.priority-current-month>td:nth-child(-n+7){
+.planning-candidate-table.candidate-freeze-on[data-fc="7"] tbody tr.priority-current-month>td:nth-child(-n+7){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="7"] tr.planning-row-selected>td:nth-child(-n+7){
@@ -4245,16 +4245,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody tr:hover td:nth-child(-n+8){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="8"] tr.priority-cat3>td:nth-child(-n+8){
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody tr.priority-cat3>td:nth-child(-n+8){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="8"] tr.priority-cat5>td:nth-child(-n+8){
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody tr.priority-cat5>td:nth-child(-n+8){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="8"] tr.priority-sales>td:nth-child(-n+8){
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody tr.priority-sales>td:nth-child(-n+8){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="8"] tr.priority-current-month>td:nth-child(-n+8){
+.planning-candidate-table.candidate-freeze-on[data-fc="8"] tbody tr.priority-current-month>td:nth-child(-n+8){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="8"] tr.planning-row-selected>td:nth-child(-n+8){
@@ -4374,16 +4374,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody tr:hover td:nth-child(-n+9){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="9"] tr.priority-cat3>td:nth-child(-n+9){
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody tr.priority-cat3>td:nth-child(-n+9){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="9"] tr.priority-cat5>td:nth-child(-n+9){
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody tr.priority-cat5>td:nth-child(-n+9){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="9"] tr.priority-sales>td:nth-child(-n+9){
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody tr.priority-sales>td:nth-child(-n+9){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="9"] tr.priority-current-month>td:nth-child(-n+9){
+.planning-candidate-table.candidate-freeze-on[data-fc="9"] tbody tr.priority-current-month>td:nth-child(-n+9){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="9"] tr.planning-row-selected>td:nth-child(-n+9){
@@ -4512,16 +4512,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody tr:hover td:nth-child(-n+10){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="10"] tr.priority-cat3>td:nth-child(-n+10){
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody tr.priority-cat3>td:nth-child(-n+10){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="10"] tr.priority-cat5>td:nth-child(-n+10){
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody tr.priority-cat5>td:nth-child(-n+10){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="10"] tr.priority-sales>td:nth-child(-n+10){
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody tr.priority-sales>td:nth-child(-n+10){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="10"] tr.priority-current-month>td:nth-child(-n+10){
+.planning-candidate-table.candidate-freeze-on[data-fc="10"] tbody tr.priority-current-month>td:nth-child(-n+10){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="10"] tr.planning-row-selected>td:nth-child(-n+10){
@@ -4659,16 +4659,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody tr:hover td:nth-child(-n+11){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="11"] tr.priority-cat3>td:nth-child(-n+11){
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody tr.priority-cat3>td:nth-child(-n+11){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="11"] tr.priority-cat5>td:nth-child(-n+11){
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody tr.priority-cat5>td:nth-child(-n+11){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="11"] tr.priority-sales>td:nth-child(-n+11){
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody tr.priority-sales>td:nth-child(-n+11){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="11"] tr.priority-current-month>td:nth-child(-n+11){
+.planning-candidate-table.candidate-freeze-on[data-fc="11"] tbody tr.priority-current-month>td:nth-child(-n+11){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="11"] tr.planning-row-selected>td:nth-child(-n+11){
@@ -4815,16 +4815,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody tr:hover td:nth-child(-n+12){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="12"] tr.priority-cat3>td:nth-child(-n+12){
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody tr.priority-cat3>td:nth-child(-n+12){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="12"] tr.priority-cat5>td:nth-child(-n+12){
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody tr.priority-cat5>td:nth-child(-n+12){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="12"] tr.priority-sales>td:nth-child(-n+12){
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody tr.priority-sales>td:nth-child(-n+12){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="12"] tr.priority-current-month>td:nth-child(-n+12){
+.planning-candidate-table.candidate-freeze-on[data-fc="12"] tbody tr.priority-current-month>td:nth-child(-n+12){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="12"] tr.planning-row-selected>td:nth-child(-n+12){
@@ -4980,16 +4980,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody tr:hover td:nth-child(-n+13){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="13"] tr.priority-cat3>td:nth-child(-n+13){
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody tr.priority-cat3>td:nth-child(-n+13){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="13"] tr.priority-cat5>td:nth-child(-n+13){
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody tr.priority-cat5>td:nth-child(-n+13){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="13"] tr.priority-sales>td:nth-child(-n+13){
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody tr.priority-sales>td:nth-child(-n+13){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="13"] tr.priority-current-month>td:nth-child(-n+13){
+.planning-candidate-table.candidate-freeze-on[data-fc="13"] tbody tr.priority-current-month>td:nth-child(-n+13){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="13"] tr.planning-row-selected>td:nth-child(-n+13){
@@ -5154,16 +5154,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody tr:hover td:nth-child(-n+14){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="14"] tr.priority-cat3>td:nth-child(-n+14){
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody tr.priority-cat3>td:nth-child(-n+14){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="14"] tr.priority-cat5>td:nth-child(-n+14){
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody tr.priority-cat5>td:nth-child(-n+14){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="14"] tr.priority-sales>td:nth-child(-n+14){
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody tr.priority-sales>td:nth-child(-n+14){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="14"] tr.priority-current-month>td:nth-child(-n+14){
+.planning-candidate-table.candidate-freeze-on[data-fc="14"] tbody tr.priority-current-month>td:nth-child(-n+14){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="14"] tr.planning-row-selected>td:nth-child(-n+14){
@@ -5337,16 +5337,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody tr:hover td:nth-child(-n+15){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="15"] tr.priority-cat3>td:nth-child(-n+15){
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody tr.priority-cat3>td:nth-child(-n+15){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="15"] tr.priority-cat5>td:nth-child(-n+15){
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody tr.priority-cat5>td:nth-child(-n+15){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="15"] tr.priority-sales>td:nth-child(-n+15){
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody tr.priority-sales>td:nth-child(-n+15){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="15"] tr.priority-current-month>td:nth-child(-n+15){
+.planning-candidate-table.candidate-freeze-on[data-fc="15"] tbody tr.priority-current-month>td:nth-child(-n+15){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="15"] tr.planning-row-selected>td:nth-child(-n+15){
@@ -5529,16 +5529,16 @@ button,a,input,select,textarea{touch-action:manipulation}
 .planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody tr:hover td:nth-child(-n+16){
  background:#f2f7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="16"] tr.priority-cat3>td:nth-child(-n+16){
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody tr.priority-cat3>td:nth-child(-n+16){
  background:#fff1f0!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="16"] tr.priority-cat5>td:nth-child(-n+16){
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody tr.priority-cat5>td:nth-child(-n+16){
  background:#fff8e8!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="16"] tr.priority-sales>td:nth-child(-n+16){
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody tr.priority-sales>td:nth-child(-n+16){
  background:#eef7ff!important;
 }
-.planning-candidate-table.candidate-freeze-on[data-fc="16"] tr.priority-current-month>td:nth-child(-n+16){
+.planning-candidate-table.candidate-freeze-on[data-fc="16"] tbody tr.priority-current-month>td:nth-child(-n+16){
  background:#f2f8ef!important;
 }
 .planning-candidate-table.candidate-freeze-on[data-fc="16"] tr.planning-row-selected>td:nth-child(-n+16){

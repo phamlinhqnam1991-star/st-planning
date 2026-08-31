@@ -1,3 +1,12 @@
+# v337 — Fix dòng priority chẵn mất tint khi Freeze Pane bật
+
+- Nền code: v336.
+- Bug: khi freeze bật, dòng priority ở vị trí **CHẴN** (vd CAT5) hiển thị màu zebra `#fcfdff` thay vì màu priority trên các ô đóng băng → "cùng CAT5 nhưng dòng vàng, dòng không vàng".
+- Nguyên nhân: rule khôi phục zebra dòng chẵn `[data-fc] tbody tr:nth-child(even) td:nth-child(-n+K)` có specificity `(0,5,3)` **cao hơn** rule khôi phục tint `[data-fc] tr.priority-*>td:nth-child(-n+K)` `(0,5,2)` → zebra thắng trên ô đóng băng của dòng chẵn.
+- Fix: thêm `tbody` vào 64 rule tint trong vùng freeze → `(0,5,3)` = zebra, đứng sau trong block → tint thắng theo thứ tự. Hành vi khớp với trạng thái không freeze (TD tint phủ TR zebra).
+- Đã verify bằng computed style trên mock đầy đủ CSS thật: dòng chẵn/lẻ CAT5 đều vàng, dòng thường vẫn zebra.
+- Không có migration mới.
+
 # v336 — Fix highlight cột Priority khi Freeze Pane bật
 
 - Nền code: v335.
