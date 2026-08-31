@@ -1,12 +1,21 @@
 import {NextResponse} from "next/server";
 import {getConfigHealth} from "@/lib/config/config-health";
-import {getDbHostInfo} from "@/lib/db";
+import {getPool,getDbHostInfo} from "@/lib/db";
 
 export async function GET(req:Request){
   const fresh=new URL(req.url).searchParams.has("fresh");
+  // v325: _timingMs must be a REAL DB round-trip (select 1), not the unstable_cache
+  // read time — and this forces pool init so db.* reflects the actual host.
+  const started=Date.now();
+  const probeClient=await getPool().connect();
+  try{
+    await probeClient.query("select 1");
+  }finally{
+    probeClient.release();
+  }
   const health=await getConfigHealth();
   return NextResponse.json(
-    {health,db:getDbHostInfo()},
+    {health,db:getDbHostInfo(),_timingMs:Date.now()-started},
     {
       headers:{
         "Cache-Control":fresh

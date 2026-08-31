@@ -5,6 +5,22 @@ import type {BatchOption,Candidate,PlanningScope,RecipeOption,SnapshotMeta,TimeR
 const CHUNK=60;
 const PARALLEL=3;
 
+// v325: quick server+DB health probe used right after a Candidate timeout —
+// distinguishes "Candidate load itself is slow" from "connection is dead".
+async function probeServer():Promise<string>{
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),8000);
+ try{
+  const started=Date.now();
+  const r=await fetch("/api/config/health?fresh=1",{cache:"no-store",signal:controller.signal});
+  const d=await r.json().catch(()=>({}));
+  const ms=Date.now()-started;
+  return `Server+DB OK trong ${ms}ms (db=${(d as any).db?.label||"?"}, _timingMs=${(d as any)._timingMs??"?"})`;
+ }catch{
+  return "Server+DB check FAILED trong 8s — server/Next không phản hồi, không phải lỗi payload";
+ }finally{clearTimeout(timer);}
+}
+
 export function usePlanningV2Data(initialScope:PlanningScope){
  const [scope,setScope]=useState(initialScope);
  const [loadedScope,setLoadedScope]=useState(initialScope);
@@ -40,7 +56,7 @@ export function usePlanningV2Data(initialScope:PlanningScope){
   let timedOut=false;
   // v323: hard client timeout — a wedged connection must never leave the UI
   // spinning ("Đang tải Candidate metadata… (65s)") forever.
-  const timer=setTimeout(()=>{timedOut=true;controller.abort();},25_000);
+  const timer=setTimeout(()=>{timedOut=true;controller.abort();},40_000);
   setLoading(true);setError("");setErrorDetail("");setRouteError("");
   if(next?.force){routeCache.current.clear();routeRequested.current.clear();}
   const requestScope=next?.keepLoadedScope?loadedScope:scope;
@@ -95,9 +111,12 @@ export function usePlanningV2Data(initialScope:PlanningScope){
   }catch(e){
    if(current===seq.current){
     if(timedOut){
-     console.error(`[planning-v2] candidates TIMEOUT after 25s`);
-     setErrorDetail("Client timeout: request bị hủy sau 25s. Kiểm tra kết nối mạng/DB, xem log server ([candidates] ...).");
-     setError("Mất quá 25s khi tải Candidate (timeout) — kiểm tra kết nối DB/mạng, bấm Thử lại.");
+     console.error(`[planning-v2] candidates TIMEOUT after 40s`);
+     // v325: self-diagnostic — probe the server+DB right after a timeout to
+     // tell apart a slow Candidate load from a dead connection.
+     const probe=await probeServer();
+     setErrorDetail(`Client timeout: request bị hủy sau 40s. ${probe}. Gửi dev dòng log [candidates]/[db] nếu có.`);
+     setError("Mất quá 40s khi tải Candidate (timeout) — kiểm tra kết nối DB/mạng, bấm Thử lại.");
     }else if((e as Error)?.name!=="AbortError"){
      setError(e instanceof Error?e.message:String(e));
     }

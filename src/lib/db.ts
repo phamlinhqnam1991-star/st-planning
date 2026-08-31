@@ -1,4 +1,4 @@
-import {Pool} from "pg";
+import {Pool,Client} from "pg";
 import dns from "node:dns";
 import net from "node:net";
 
@@ -122,6 +122,46 @@ async function pickCandidate(candidates:DbCandidate[]):Promise<{cand:DbCandidate
  return {cand:candidates[0],host:null,index:0};
 }
 
+type LatencyPick={
+ cand:DbCandidate;
+ host:string|null;
+ ms:number|null;
+ probeMs:{label:string;ms:number|null}[];
+};
+
+// v325: when DNS is healthy, CONNECT to both the configured host and the
+// Supabase direct host, then keep whichever connects faster. Some networks
+// (e.g. IPv6-enabled ISPs) reach db.<ref>.supabase.co much better than the
+// IPv4 pooler; this makes the app self-select the fast path once per process
+// instead of always assuming the pooler is best.
+async function latencyPick(candidates:DbCandidate[],chosen:DbCandidate,chosenHost:string|null):Promise<LatencyPick>{
+ const probeTargets=candidates.filter(c=>c.label==="configured"||c.label==="supabase-direct");
+ if(chosen.label!=="configured"||probeTargets.length<2){
+  return {cand:chosen,host:chosenHost,ms:null,probeMs:[]};
+ }
+ const probeMs:{label:string;ms:number|null}[]=[];
+ for(const cand of probeTargets){
+  let u:URL;
+  try{u=new URL(cand.url);}catch{probeMs.push({label:cand.label,ms:null});continue;}
+  if(net.isIP(u.hostname)!==0){probeMs.push({label:cand.label,ms:null});continue;}
+  const started=Date.now();
+  const probe=new Client({connectionString:cand.url,ssl:{rejectUnauthorized:false},connectionTimeoutMillis:4000});
+  try{
+   await probe.connect();
+   probeMs.push({label:cand.label,ms:Date.now()-started});
+  }catch{
+   probeMs.push({label:cand.label,ms:null});
+  }finally{
+   probe.end().catch(()=>{});
+  }
+ }
+ const ok=probeMs.filter(r=>r.ms!==null) as {label:string;ms:number}[];
+ if(!ok.length)return {cand:chosen,host:chosenHost,ms:null,probeMs};
+ const fastest=ok.reduce((a,b)=>(b.ms<a.ms?b:a));
+ const cand=candidates.find(c=>c.label===fastest.label)??chosen;
+ return {cand,host:null,ms:fastest.ms,probeMs};
+}
+
 async function initPool():Promise<Pool>{
  if(globalWithPool.__stPlanningPoolPromise)return globalWithPool.__stPlanningPoolPromise;
  const promise=(async()=>{
@@ -131,7 +171,10 @@ async function initPool():Promise<Pool>{
   const candidates=override
    ?[{label:"override",url:override,ipv4:false}]
    :buildCandidates(connectionString);
-  const {cand,host,index}=await pickCandidate(candidates);
+  const picked=await pickCandidate(candidates);
+  const latency=await latencyPick(candidates,picked.cand,picked.host);
+  const cand=latency.cand;
+  const host=latency.host;
   let u:URL;
   try{u=new URL(cand.url);}catch{u=new URL(connectionString);}
   const info:DbHostInfo={
@@ -141,7 +184,9 @@ async function initPool():Promise<Pool>{
    ipOverride:Boolean(cand.ipv4&&host)
   };
   globalWithPool.__stPlanningDbInfo=info;
-  if(index>0||info.ipOverride){
+  if(latency.ms!==null){
+   console.warn(`[db] latency probe: ${latency.probeMs.map(p=>`${p.label}=${p.ms==null?"FAIL":p.ms+"ms"}`).join(" ")} -> using ${cand.label}`);
+  }else if(picked.index>0||info.ipOverride){
    console.warn(`[db] Supabase host fallback -> ${cand.label} ${info.host}:${info.port}${info.ipOverride?` (IPv4 ${host})`:""}`);
   }else{
    console.log(`[db] connect ${info.host}:${info.port} (${cand.label})`);
