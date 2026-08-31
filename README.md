@@ -1,3 +1,14 @@
+# v340 — Danh mục Recipe: 1 Recipe No có thể có nhiều Recipe Name
+
+- Nền code: v339.
+- `POST /api/process-recipe` (② Danh mục Recipe):
+  - **Cùng No + cùng Name** → cập nhật/reactivate recipe đã có (hành vi cũ giữ nguyên).
+  - **Cùng No + khác Name** → tạo **Recipe mới (variant)**: `recipe_key = family|group|no|NAME` — 1 Recipe No giờ có thể có nhiều Recipe Name, mỗi tên là 1 Recipe độc lập (mapping ①, Batch, lịch sử riêng).
+  - **Chưa có No** → tạo mới key canonical `family|group|no` (giữ cũ).
+  - Không nhập Name khi No đã tồn tại → báo lỗi hướng dẫn nhập Name; Recipe Name không được chứa `|` (vì đi vào recipe_key + batch_key).
+- UI: thêm hint trên form "+ Thêm Process Recipe" giải thích quy tắc.
+- Không có migration mới (md_process_recipe.recipe_key là PK, không unique theo No — API tự enforce).
+
 # v339 — Lọc cột kiểu Excel (mũi tên ▼ trên header MỌI cột)
 
 - Nền code: v338.

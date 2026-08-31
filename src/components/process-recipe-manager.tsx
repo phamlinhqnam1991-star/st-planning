@@ -265,6 +265,7 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,operations,sour
     <label>Batch Key<input className="input" value={form.batch_key} placeholder="Để trống = Family | Group | Tên Recipe" onChange={e=>setForm({...form,batch_key:e.target.value})}/></label>
     <label>Note<input className="input" value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/></label>
    </div>
+   {!edit&&<div className="notice recipe-multi-name-hint"><b>1 Recipe No có thể có nhiều Recipe Name:</b> nếu Recipe No đã tồn tại nhưng bạn chọn <b>Recipe Name khác</b>, hệ thống sẽ tạo thêm một Recipe mới (recipe_key riêng) thay vì ghi đè tên cũ. Cùng Recipe No + cùng Recipe Name thì vẫn cập nhật recipe đã có.</div>}
    {edit&&<div className="notice"><b>Khóa Recipe được giữ nguyên:</b> Process Family, Recipe Group và Recipe No không thể đổi sau khi tạo vì đã liên kết mapping, batch và lịch sử. Recipe Name vẫn có thể chọn lại từ một cột All Open Job khác.</div>}
    <div className="recipe-actions"><button className="btn primary" disabled={busy} onClick={save}>{edit?"Lưu thay đổi":"Thêm Recipe"}</button>{edit&&<button className="btn" onClick={clear}>Hủy</button>}</div>
   </div>

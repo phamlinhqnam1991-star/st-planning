@@ -31,6 +31,10 @@ function validateInput(body:any){
   return {error:"Process Family, Recipe Group và Recipe No là bắt buộc."} as const;
  if(/[|]/.test(family)||/[|]/.test(group)||/[|]/.test(no))
   return {error:"Process Family, Recipe Group và Recipe No không được chứa ký tự |."} as const;
+ // v340: Recipe Name đi vào recipe_key của variant (family|group|no|NAME) nên
+ // cũng không được chứa ký tự | (và | phá luôn batch_key family|group|NAME).
+ if(name&&/[|]/.test(name))
+  return {error:"Recipe Name không được chứa ký tự |."} as const;
  if(noSource&&!selectedNo)return {error:"Đã chọn cột nguồn Recipe No nhưng chưa chọn giá trị."} as const;
  if(nameSource&&!name)return {error:"Đã chọn cột nguồn Recipe Name nhưng chưa chọn giá trị."} as const;
  return {family,group,no,selectedNo,name,groupSource,noSource,nameSource,note:clean(body.note)||null,batchKey:clean(body.batch_key)||null} as const;
@@ -82,19 +86,27 @@ export async function POST(req:NextRequest){
    await assertOpenJobSelection(c,groupSource,null,"Recipe Group");
    await assertOpenJobSelection(c,noSource,selectedNo,"Recipe No");
    await assertOpenJobSelection(c,nameSource,name||null,"Recipe Name");
-   const existing=await c.query(`
+
+   // v340: 1 Recipe No có thể có NHIỀU Recipe Name.
+   // - Cùng No + cùng Name → edit/reactivate đúng recipe đó (hành vi cũ khi trùng tên).
+   // - Cùng No nhưng khác Name → tạo VARIANT riêng: recipe_key = family|group|no|NAME.
+   // - Chưa có recipe nào cho No → tạo mới key canonical family|group|no (giữ cũ).
+   const nameNorm=normalizeCode(name||"");
+
+   const sameIdentity=await c.query(`
      select recipe_key,is_active
      from md_process_recipe
      where process_family=$1
        and recipe_group=$2
        and upper(trim(coalesce(recipe_no,'')))=upper(trim($3))
+       and ($4='' or upper(trim(coalesce(recipe_name,'')))=$4)
      order by is_active desc,case when source_system='MANUAL' then 0 else 1 end,updated_at desc
      limit 1
      for update
-   `,[family,group,no]);
+   `,[family,group,no,nameNorm]);
 
-   if(existing.rowCount){
-    const recipeKey=String(existing.rows[0].recipe_key);
+   if(sameIdentity.rowCount){
+    const recipeKey=String(sameIdentity.rows[0].recipe_key);
     await c.query(`
       update md_process_recipe
       set recipe_name=$2,
@@ -110,7 +122,61 @@ export async function POST(req:NextRequest){
     `,[recipeKey,name||null,groupSource,noSource,nameSource,batchKey||makeBatchKey(family,group,name),note]);
     await c.query("commit");
     invalidateConfigHealth();
-    return NextResponse.json({ok:true,recipe_key:recipeKey,updated:true,reactivated:!existing.rows[0].is_active});
+    return NextResponse.json({ok:true,recipe_key:recipeKey,updated:true,reactivated:!sameIdentity.rows[0].is_active});
+   }
+
+   const anyNo=await c.query(`
+     select recipe_key,is_active
+     from md_process_recipe
+     where process_family=$1
+       and recipe_group=$2
+       and upper(trim(coalesce(recipe_no,'')))=upper(trim($3))
+     order by is_active desc,case when source_system='MANUAL' then 0 else 1 end,updated_at desc
+     limit 1
+     for update
+   `,[family,group,no]);
+
+   if(anyNo.rowCount){
+    // Đã có Recipe cùng No nhưng KHÁC tên → tạo variant riêng.
+    if(!nameNorm)
+     throw new Error(`Recipe No ${no} đã tồn tại. Hãy nhập Recipe Name để tạo thêm Recipe (1 Recipe No có thể có nhiều Recipe Name).`);
+    const variantKey=`${key}|${nameNorm}`;
+    const variant=await c.query(`
+      select recipe_key,is_active
+      from md_process_recipe
+      where recipe_key=$1
+      for update
+    `,[variantKey]);
+
+    if(variant.rowCount){
+     await c.query(`
+      update md_process_recipe
+      set recipe_name=$2,
+          recipe_group_source_column=coalesce($3,recipe_group_source_column),
+          recipe_no_source_column=coalesce($4,recipe_no_source_column),
+          recipe_name_source_column=$5,
+          batch_key=$6,
+          source_system='MANUAL',
+          note=$7,
+          is_active=true,
+          updated_at=now()
+      where recipe_key=$1
+     `,[variantKey,name||null,groupSource,noSource,nameSource,batchKey||makeBatchKey(family,group,name),note]);
+     await c.query("commit");
+     invalidateConfigHealth();
+     return NextResponse.json({ok:true,recipe_key:variantKey,updated:true,variant:true,reactivated:!variant.rows[0].is_active});
+    }
+
+    await c.query(`
+     insert into md_process_recipe(
+       recipe_key,process_family,recipe_group,recipe_group_source_column,
+       recipe_no,recipe_no_source_column,recipe_name,recipe_name_source_column,
+       batch_key,source_system,note,is_active
+     ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,'MANUAL',$10,true)
+    `,[variantKey,family,group,groupSource,no,noSource,name||null,nameSource,batchKey||makeBatchKey(family,group,name),note]);
+    await c.query("commit");
+    invalidateConfigHealth();
+    return NextResponse.json({ok:true,recipe_key:variantKey,created:true,variant:true});
    }
 
    await c.query(`
