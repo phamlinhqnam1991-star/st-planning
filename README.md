@@ -1,3 +1,12 @@
+# v338 — Lọc theo trạng thái từng cột Main Planning (Route Matrix)
+
+- Nền code: v337.
+- Panel **Sort / Filter → "Main Planning (Route Matrix)"**: mỗi cột Main Planning (CMSA, CPBILP, PRIMER, TOPCOAT1…) có 1 dropdown lọc theo trạng thái của cột đó: `All / Có occurrence / Không occurrence / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / RUNNING / HOLD / COMPLETED / DONE / WAITING`.
+- Kết hợp nhiều cột cùng lúc (AND); nút "Xóa hết" để bỏ toàn bộ.
+- Filter được lưu cùng Default View (`filters.routeMain`), tương thích ngược với preset cũ.
+- Lưu ý: lọc theo trạng thái cột cần dữ liệu Route Matrix — nếu bảng đang trống khi vừa đặt lọc, Route Matrix sẽ tải xong và các dòng hiện ra.
+- Không có migration mới.
+
 # v337 — Fix dòng priority chẵn mất tint khi Freeze Pane bật
 
 - Nền code: v336.

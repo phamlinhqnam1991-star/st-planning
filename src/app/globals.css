@@ -6605,3 +6605,11 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .planning-candidate-table.candidate-freeze-on tbody tr.priority-cat5 td.candidate-priority-cell:not(.x){background:#ffedbd!important}
 .planning-candidate-table.candidate-freeze-on tbody tr.priority-sales td.candidate-priority-cell:not(.x){background:#d7ebff!important}
 .planning-candidate-table.candidate-freeze-on tbody tr.priority-current-month td.candidate-priority-cell:not(.x){background:#dff0d8!important}
+
+/* v338: lọc theo trạng thái cột Main Planning (Route Matrix) */
+.candidate-route-filter{display:grid;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed #d8dee7}
+.candidate-route-filter .candidate-sort-title b{font-size:11px}
+.candidate-route-filter-grid{max-height:280px;overflow-y:auto;padding:4px 2px;grid-template-columns:repeat(auto-fill,minmax(115px,1fr))!important}
+.candidate-route-filter-grid label select{font-size:10px;padding:4px 6px}
+.candidate-route-filter-grid::-webkit-scrollbar{width:8px}
+.candidate-route-filter-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px}

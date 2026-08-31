@@ -330,6 +330,8 @@ function collapsedColumnLayoutFromVisible(keys:string[]){
 /* v260 — Excel-style Freeze Pane (chọn vị trí rồi chốt; lưu localStorage). */
 const FREEZE_STORAGE_KEY="st-planning:freeze:v1";
 const FREEZE_MAX_COLS=16;
+// v338: các trạng thái có thể lọc trên cột Main Planning.
+const ROUTE_STATUS_FILTER_OPTIONS=["READY","PLANNED","PLANNED-UNSCHEDULED","SCHEDULED","RUNNING","HOLD","COMPLETED","DONE","WAITING"];
 type FreezeCfg={mode:"off"|"header"|"col"; col?:number};
 const loadFreeze=():FreezeCfg=>{
   if(typeof window==="undefined")return {mode:"off"};
@@ -375,6 +377,8 @@ type CandidateViewPreset={
   primer1:string;
   primer2:string;
   primer3:string;
+  // v338: lọc theo trạng thái từng cột Main Planning (Route Matrix).
+  routeMain?:Record<string,string>;
  };
  sortRules:SortRule[];
  density?:"normal"|"compact"|"ultra";
@@ -468,6 +472,8 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
  const [filterPrimer3,setFilterPrimer3]=useState(initialView?.filters?.primer3||"");
  // v334: chip lọc nhanh theo trạng thái — "" = tất cả, hoặc ELIGIBLE / PLANNED / WAIT / NO CHAIN.
  const [statusFilter,setStatusFilter]=useState("");
+ // v338: lọc theo trạng thái từng cột Main Planning — map normalized op → giá trị lọc.
+ const [filterRouteMain,setFilterRouteMain]=useState<Record<string,string>>({});
  const [sortRules,setSortRules]=useState<SortRule[]>(
   initialView&&Array.isArray(initialView.sortRules)&&initialView.sortRules.length
    ?(initialView.sortRules as SortRule[])
@@ -856,6 +862,7 @@ useEffect(()=>{
    setFilterPrimer1(preset.filters?.primer1||"");
    setFilterPrimer2(preset.filters?.primer2||"");
    setFilterPrimer3(preset.filters?.primer3||"");
+   setFilterRouteMain(preset.filters?.routeMain||{});
 
    const validSortFields=new Set(candidateSortFields.map(x=>x.key));
    const rules=(preset.sortRules||[])
@@ -943,7 +950,8 @@ useEffect(()=>{
       nextOperation:filterNextOperation,
       primer1:filterPrimer1,
       primer2:filterPrimer2,
-      primer3:filterPrimer3
+      primer3:filterPrimer3,
+      routeMain:filterRouteMain
      },
      sortRules:[...sortRules],
      density:candidateDensity,
@@ -1030,7 +1038,7 @@ useEffect(()=>{
      columns:next,
      columnLayout:[...nextLayout],
      stView:[...effectiveStView],
-     filters:existing?.filters ?? {nextMain:filterNextMain,nextOperation:filterNextOperation,primer1:filterPrimer1,primer2:filterPrimer2,primer3:filterPrimer3},
+     filters:existing?.filters ?? {nextMain:filterNextMain,nextOperation:filterNextOperation,primer1:filterPrimer1,primer2:filterPrimer2,primer3:filterPrimer3,routeMain:filterRouteMain},
      sortRules:existing?.sortRules ?? [...sortRules],
      density:existing?.density ?? candidateDensity,
      routeFocus:existing?.routeFocus ?? routeFocus
@@ -1477,6 +1485,20 @@ const currentPriorityMonth=useMemo(()=>{
    return Boolean(nextOp)&&effectiveStView.has(nextOp);
  };
 
+ const routeStatusFilterPass=(x:Candidate)=>{
+   const entries=Object.entries(filterRouteMain);
+   if(!entries.length)return true;
+   const route=Array.isArray(x.route_status)?x.route_status:[];
+   for(const [op,val] of entries){
+    if(!op||!val)continue;
+    const items=route.filter(r=>normalized(r.standard_operation)===op);
+    if(val==="__ANY__"){if(!items.length)return false;continue;}
+    if(val==="__NONE__"){if(items.length)return false;continue;}
+    if(!items.some(r=>normalized(r.route_status)===val))return false;
+   }
+   return true;
+  };
+
  const displayCandidates=useMemo(()=>{
    const filtered=candidates.filter(x=>
      (!filterNextMain || normalized(x.next_standard_operation||"END")===normalized(filterNextMain)) &&
@@ -1485,6 +1507,7 @@ const currentPriorityMonth=useMemo(()=>{
      (!filterPrimer2 || normalized(x.part_master_primer2)===normalized(filterPrimer2)) &&
      (!filterPrimer3 || normalized(x.part_master_primer3)===normalized(filterPrimer3)) &&
      routeOpMatch(x) &&
+     routeStatusFilterPass(x) &&
      (statusFilter===""
        || (statusFilter==="NO_CHAIN"&&x.has_planning_chain===false)
        || (statusFilter==="ELIGIBLE"&&x.planning_status==="ELIGIBLE")
@@ -1529,7 +1552,7 @@ const currentPriorityMonth=useMemo(()=>{
    });
  },[
    candidates,filterNextMain,filterNextOperation,
-   filterPrimer1,filterPrimer2,filterPrimer3,sortRules,stOperations,effectiveStView,statusFilter
+   filterPrimer1,filterPrimer2,filterPrimer3,sortRules,stOperations,effectiveStView,statusFilter,filterRouteMain
  ]);
 
  const candidateIdentityKey=useMemo(
@@ -1537,8 +1560,8 @@ const currentPriorityMonth=useMemo(()=>{
   [candidates]
  );
  const displayRuleKey=useMemo(()=>JSON.stringify({
-  filterNextMain,filterNextOperation,filterPrimer1,filterPrimer2,filterPrimer3,sortRules
- }),[filterNextMain,filterNextOperation,filterPrimer1,filterPrimer2,filterPrimer3,sortRules]);
+  filterNextMain,filterNextOperation,filterPrimer1,filterPrimer2,filterPrimer3,statusFilter,filterRouteMain,sortRules
+ }),[filterNextMain,filterNextOperation,filterPrimer1,filterPrimer2,filterPrimer3,statusFilter,filterRouteMain,sortRules]);
  useEffect(()=>{
   setCandidateDomLimit(CANDIDATE_INITIAL_DOM_ROWS);
  },[candidateIdentityKey,displayRuleKey]);
@@ -1928,6 +1951,7 @@ const currentPriorityMonth=useMemo(()=>{
    setFilterPrimer1("");
    setFilterPrimer2("");
    setFilterPrimer3("");
+   setFilterRouteMain({});
    saveSortRules([
     {field:"next_main",direction:"asc"},
     {field:"next_operation",direction:"asc"},
@@ -2913,6 +2937,37 @@ const currentPriorityMonth=useMemo(()=>{
        </label>
       </div>
 
+      {/* v338: lọc theo trạng thái từng cột Main Planning (Route Matrix) */}
+      <div className="candidate-route-filter">
+       <div className="candidate-sort-title">
+        <b>Main Planning (Route Matrix) — lọc theo trạng thái từng cột</b>
+        {Object.keys(filterRouteMain).length>0&&(
+         <button className="btn small" type="button" onClick={()=>setFilterRouteMain({})}>Xóa hết ({Object.keys(filterRouteMain).length})</button>
+        )}
+       </div>
+       <div className="candidate-filter-grid candidate-route-filter-grid">
+        {routeColumns.map(col=>{
+         const op=normalized(col.label);
+         const val=filterRouteMain[op]||"";
+         return <label key={col.key} title={`${col.label} — lọc Candidate theo trạng thái cột này`}>{col.label}
+          <select className="input" value={val} onChange={e=>{
+           const v=e.target.value;
+           setFilterRouteMain(prev=>{
+            const next={...prev};
+            if(v)next[op]=v;else delete next[op];
+            return next;
+           });
+          }}>
+           <option value="">All</option>
+           <option value="__ANY__">Có occurrence</option>
+           <option value="__NONE__">Không occurrence</option>
+           {ROUTE_STATUS_FILTER_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
+          </select>
+         </label>;
+        })}
+       </div>
+      </div>
+
       <div className="candidate-sort-rules">
        <div className="candidate-sort-title">
         <b>Sort Priority</b>
@@ -3107,7 +3162,7 @@ const currentPriorityMonth=useMemo(()=>{
           columns:[...configurableActiveColumns],
           columnLayout:[...effectiveColumnLayout],
           stView:[...effectiveStView],
-          filters:existing?.filters ?? {nextMain:filterNextMain,nextOperation:filterNextOperation,primer1:filterPrimer1,primer2:filterPrimer2,primer3:filterPrimer3},
+          filters:existing?.filters ?? {nextMain:filterNextMain,nextOperation:filterNextOperation,primer1:filterPrimer1,primer2:filterPrimer2,primer3:filterPrimer3,routeMain:filterRouteMain},
           sortRules:existing?.sortRules ?? [...sortRules],
           density:existing?.density ?? candidateDensity,
           routeFocus:existing?.routeFocus ?? routeFocus
