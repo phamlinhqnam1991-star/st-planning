@@ -6412,47 +6412,6 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .chain-preview .cp.ok{background:#dcfce7;border-color:#86efac;color:#15803d}
 .chain-preview .cp.miss{background:#fee2e2;border-color:#fecaca;color:#b91c1c}
 
-/* ============ v223: Cảnh báo Job chưa cấu hình ST (Planning Board) ============ */
-.missing-jobs-panel{border-color:#fcd34d}
-.missing-jobs-panel .erp-panel-head b{color:#b45309}
-.missing-groups{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-.missing-chip{font-size:11px;background:#fffbeb;border:1px solid #fde68a;border-radius:99px;padding:4px 10px;color:#78350f;font-weight:600}
-.missing-chip b{color:#b45309}
-.missing-details summary{cursor:pointer;font-size:12px;font-weight:700;color:#1d4ed8;padding:6px 0}
-.missing-reason{font-size:11px;color:#b45309;font-weight:600}
-
-/* ============ v224: Thêm Operation chưa hiện trên Planning Board ============ */
-.missing-ops-panel{border-color:#93c5fd}
-.missing-ops-panel .erp-panel-head b{color:#1d4ed8}
-.missing-ops-defaults{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:10px}
-.missing-ops-defaults label{font-size:11px;font-weight:700;color:#475569}
-.missing-ops-defaults .input{width:100%}
-.missing-op-tag{font-size:11px;font-weight:600;background:#dbeafe;color:#1d4ed8;border-radius:99px;padding:3px 9px;white-space:nowrap}
-.missing-op-tag.warn{background:#fef3c7;color:#b45309}
-.missing-op-tag.idle{background:#e2e8f0;color:#64748b}
-.missing-ops-row-idle td{opacity:.55}
-
-/* ============ v225: Các công đoạn được hiển thị trên Planning Board ============ */
-.visible-ops-panel{border-color:#bbf7d0}
-.visible-ops-panel .erp-panel-head b{color:#15803d}
-.visible-chip{font-size:11px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:99px;padding:4px 10px;color:#166534;font-weight:600;white-space:nowrap}
-.visible-chip.warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
-.visible-chip b{color:#15803d}
-.visible-chip.warn b{color:#b45309}
-.visible-status{font-size:11px;font-weight:700;border-radius:99px;padding:3px 9px;white-space:nowrap}
-.visible-status.ok{background:#dcfce7;color:#15803d}
-.visible-status.warn{background:#fee2e2;color:#b91c1c}
-
-/* ============ v229: Panel công đoạn trung gian đang có Job ============ */
-.intermediate-ops-panel{border-color:#c7d2fe}
-.intermediate-ops-panel .erp-panel-head b{color:#4338ca}
-
-/* v279 — Planning Board server-side pagination */
-.planning-pagination,.planning-page-size{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
-.planning-pagination span{font-size:12px;color:var(--muted,#58606b)}
-.planning-page-size{font-size:12px;color:var(--muted,#58606b)}
-.planning-page-size .input{min-width:68px;padding:4px 6px}
-
 /* ===== v282 — Chẩn đoán Recipe + So sánh Cấu hình ↔ Board ===== */
 .recipe-diagnosis-panel,.recipe-compare-panel{
  margin-top:10px;
@@ -6625,107 +6584,12 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
   }
 }
 
-/* =========================================================
-   Planning Board V2 (TEST) — src/components/planning-v2/*
-   Same design tokens as the rest of the app.
-   ========================================================= */
-.planning-v2-root{display:grid;gap:14px}
-.planning-v2-banner{
- display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
- padding:12px 16px;background:linear-gradient(90deg,#eaf1ff,#f8fafc);
- border:1px solid #d8e2f5;border-radius:12px;
-}
-.planning-v2-banner b{font-size:15px}
-.planning-v2-banner span{display:block;color:#667085;font-size:12px;margin-top:2px}
-.planning-v2-statline{display:flex;gap:8px;flex-wrap:wrap}
-.planning-v2-statline span{
- padding:5px 10px;background:#fff;border:1px solid #d8dee7;border-radius:999px;
- font-size:12px;font-weight:700;color:#475467;white-space:nowrap;
-}
-.planning-v2-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
-.planning-v2-main{min-width:0}
-.planning-v2-grid-panel{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.planning-v2-grid-toolbar{
- display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;
- border-bottom:1px solid var(--line);background:#fafbfc;
-}
-.planning-v2-grid-toolbar .input{width:auto;min-width:180px;flex:0 1 260px;padding:8px 10px;font-size:13px}
-.planning-v2-grid-toolbar select.input{min-width:150px;flex:0 1 auto}
-.planning-v2-check{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#475467;white-space:nowrap}
-.planning-v2-check input{accent-color:var(--brand)}
-.planning-v2-table-wrap{overflow:auto;max-height:calc(100vh - 320px)}
-.planning-v2-table{min-width:1100px;border-collapse:separate;border-spacing:0}
-.planning-v2-table th{
- position:sticky;top:0;z-index:2;background:#f3f6fb;border-bottom:1px solid var(--line);
- padding:9px 10px;font-size:12px;white-space:nowrap;
-}
-.planning-v2-table td{padding:8px 10px;font-size:13px;vertical-align:top}
-.planning-v2-table tbody tr:hover td{background:#f7faff}
-.planning-v2-table tr.planning-v2-no-chain td{background:#fff7ed}
-.planning-v2-table tr.planning-v2-no-chain:hover td{background:#ffedd5}
-.planning-v2-mode{
- display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;
- background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;letter-spacing:.02em;
-}
-.planning-v2-route-head{min-width:96px;font-size:11px;color:#344054}
-.planning-v2-table .route-status-cell{min-width:96px;cursor:pointer;white-space:nowrap}
-.planning-v2-table .route-status-cell:hover{outline:1px solid var(--brand);outline-offset:-1px}
-.planning-v2-table .route-status-cell.planning-v2-selected-route{background:#dbeafe!important}
-.planning-v2-batch-panel{
- position:sticky;top:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;
- display:grid;gap:12px;padding:14px;
-}
-.planning-v2-batch-summary{
- display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid #e4e7ec;border-radius:10px;overflow:hidden;
-}
-.planning-v2-batch-summary>div{padding:8px 9px;border-right:1px solid #e4e7ec;border-bottom:1px solid #e4e7ec;min-height:52px}
-.planning-v2-batch-summary>div:nth-child(4n){border-right:0}
-.planning-v2-batch-summary>div:nth-child(n+5){border-bottom:0}
-.planning-v2-batch-summary span{display:block;color:#667085;font-size:10px;text-transform:uppercase;margin-bottom:4px}
-.planning-v2-batch-summary b{font-size:14px}
-.planning-v2-batch-info{
- display:flex;justify-content:space-between;align-items:center;gap:8px;
- padding:9px 10px;background:#f8fafc;border:1px solid #d8dee7;border-radius:10px;font-size:12px;
-}
-.planning-v2-batch-info b{font-size:12px;overflow-wrap:anywhere;max-width:60%}
-.planning-v2-batch-info .warn{display:block;color:#b45309}
-.planning-v2-selected-list{display:grid;gap:6px;max-height:220px;overflow:auto}
-.planning-v2-selected-list>div{
- display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:7px 9px;
- background:#fafbfc;border:1px solid #eef1f5;border-radius:8px;font-size:12px;
-}
-.planning-v2-selected-list b{grid-column:1;font-size:12px}
-.planning-v2-selected-list span{grid-column:2;color:#475467;font-size:11px}
-.planning-v2-selected-list small{grid-column:1 / -1;color:#98a2b3;font-size:10px}
-.planning-snapshot-status{
- display:flex;gap:10px;align-items:center;flex-wrap:wrap;
- padding:8px 12px;border-radius:10px;font-size:12px;border:1px solid var(--line);background:#fafbfc;
-}
-.planning-snapshot-status b{font-size:11px;letter-spacing:.04em}
-.planning-snapshot-status.is-hit{background:#ecfdf3;border-color:#abefc6}
-.planning-snapshot-status.is-hit b{color:#067647}
-.planning-snapshot-status.is-miss{background:#fef9c3;border-color:#fde047}
-.planning-snapshot-status.is-miss b{color:#854d0e}
-.planning-snapshot-status.is-fallback{background:#ffefe5;border-color:#ffc7a8}
-.planning-snapshot-status.is-fallback b{color:#b42318}
-@media(max-width:1150px){
- .planning-v2-layout{grid-template-columns:1fr}
- .planning-v2-batch-panel{position:static}
- .planning-v2-grid-toolbar .input{flex:1 1 100%}
-}
-@media(max-width:650px){
- .planning-v2-banner{flex-direction:column;align-items:flex-start}
- .planning-v2-batch-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
- .planning-v2-batch-summary>div:nth-child(2n){border-right:0}
- .planning-v2-batch-summary>div:nth-child(n+3){border-bottom:0}
-}
-
 /* v321: diagnostics for Candidate load failures */
-.planning-v2-debug{margin-top:8px;font-size:12px}
-.planning-v2-debug summary{cursor:pointer;color:#175cd3;font-weight:650}
-.planning-v2-debug pre{
+.planning-debug{margin-top:8px;font-size:12px}
+.planning-debug summary{cursor:pointer;color:#175cd3;font-weight:650}
+.planning-debug pre{
  margin:8px 0 0;padding:10px;background:#0f203b;color:#d6e2f5;border-radius:8px;
  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;
  white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;
 }
-.planning-v2-debugline{font-size:11px;color:#667085;margin-top:6px}
+.planning-debugline{font-size:11px;color:#667085;margin-top:6px}

@@ -67,6 +67,19 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
  const [sourceDataError,setSourceDataError]=useState("");
  const [routeError,setRouteError]=useState("");
  const [boardKey,setBoardKey]=useState(`${initial.areaId}|${initial.op}|${initial.recipeKey}`);
+ // v331: availableBatches/nextOperations chuyển sang state để refresh tại chỗ
+ // sau khi tạo/thêm Batch (trước đây phải location.reload() mới thấy Batch mới
+ // trong Target Batch dropdown).
+ const [availableBatchesState,setAvailableBatchesState]=useState(availableBatches);
+ const [nextOperationsState,setNextOperationsState]=useState(nextOperations);
+ const refreshDeferredData=useCallback(async()=>{
+  try{
+   const r=await fetch("/api/planning/deferred-data",{cache:"no-store"});
+   const d=await r.json().catch(()=>({}));
+   if(Array.isArray(d.availableBatches))setAvailableBatchesState(d.availableBatches);
+   if(Array.isArray(d.nextOperations))setNextOperationsState(d.nextOperations);
+  }catch{/* graceful — board vẫn hoạt động với dữ liệu cũ */}
+ },[]);
  const loadSeq=useRef(0);
  const didAutoLoad=useRef(false);
  const routeRequestedIds=useRef<Set<number>>(new Set());
@@ -106,6 +119,7 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
    // v298: small worker pool — up to ROUTE_MAX_PARALLEL chunk requests in
    // flight instead of awaiting each chunk one by one.
    let nextChunk=0;
+   const fetchedMap=new Map<number,any[]>();
    const worker=async()=>{
     while(nextChunk<chunks.length){
      if(seq!==loadSeq.current)return;
@@ -121,16 +135,22 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
      if(seq!==loadSeq.current)return;
 
      const routeMap=new Map<number,any[]>((d.rows||[]).map((x:any)=>[Number(x.candidate_id),Array.isArray(x.route_status)?x.route_status:[]]));
-     for(const id of chunk)routeStatusCache.current.set(id,routeMap.get(id)||[]);
-     const chunkSet=new Set(chunk);
-     setCandidates(prev=>prev.map(row=>
-      chunkSet.has(Number(row.id))
-       ?{...row,route_status:routeStatusCache.current.get(Number(row.id))||[],route_status_loaded:true}
-       :row
-     ));
+     for(const id of chunk){
+      const status=routeMap.get(id)||[];
+      routeStatusCache.current.set(id,status);
+      fetchedMap.set(id,status);
+     }
     }
    };
    await Promise.all(Array.from({length:Math.min(ROUTE_MAX_PARALLEL,chunks.length)},()=>worker()));
+   if(seq===loadSeq.current&&fetchedMap.size){
+    // v331: ONE batched state update for every Route Matrix chunk instead of
+    // one update per chunk — the Candidate table re-renders once, not N times.
+    setCandidates(prev=>prev.map(row=>{
+     const status=fetchedMap.get(Number(row.id));
+     return status!==undefined?{...row,route_status:status,route_status_loaded:true}:row;
+    }));
+   }
   }catch(e){
    if(seq===loadSeq.current){
     setRouteError(e instanceof Error?e.message:String(e));
@@ -207,6 +227,8 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
    // v328: progressive chunked load — same API, same SQL/pagination mode as the
    // legacy paged path (business logic untouched). Small pages finish within
    // the timeout even on high-latency links; rows render as pages arrive.
+   // v331: measured faster than the v330 all-in-one load on production data,
+   // so this remains the default.
    const CHUNK_PAGE=200;
    const mapRows=(arr:any[])=>arr.map((x:any)=>{
     const id=Number(x.id);
@@ -329,24 +351,25 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
    <button className="btn primary" disabled={loading}>{loading?"Loading...":"Load Candidates"}</button>
   </form>
   {error&&<div className="notice section">Lỗi: {error}
-   {errorDetail&&<details className="planning-v2-debug"><summary>Chi tiết kỹ thuật (copy gửi cho dev)</summary><pre>{errorDetail}</pre></details>}
+   {errorDetail&&<details className="planning-debug"><summary>Chi tiết kỹ thuật (copy gửi cho dev)</summary><pre>{errorDetail}</pre></details>}
    <div className="row" style={{marginTop:8}}><button className="btn primary" onClick={()=>void load()}>Thử lại</button></div>
   </div>}
   {routeError&&<div className="notice section">Candidate đã tải; Route Matrix lỗi: {routeError}</div>}
   {sourceDataError&&<div className="notice section">{sourceDataError}</div>}
-  {loading&&<div className="notice section">Đang tải Candidate metadata… {loadElapsed>0&&<span className="muted">({loadElapsed}s)</span>}</div>}
+  {loading&&<div className="notice section">Đang tải Candidate Jobs… {loadElapsed>0&&<span className="muted">({loadElapsed}s)</span>}</div>}
   {!loading&&loadingMore&&<div className="notice section">Đang tải tiếp Jobs… đã hiển thị {candidates.length.toLocaleString("vi-VN")} dòng</div>}
   {!loading&&routeLoading&&<div className="notice section">Candidate đã hiển thị. Route Matrix của các dòng đang xem đang tải dần…</div>}
   {!op&&!areaId&&<div className="notice section">Chọn Area để xem toàn bộ Candidate thuộc Area, hoặc chọn thêm Standard Operation để lọc chi tiết.</div>}
   <div className="section">
    <PlanningBoardClient
     key={boardKey}
-    candidates={candidates} availableBatches={availableBatches} standardOperation={loadedOp}
+    candidates={candidates} availableBatches={availableBatchesState} standardOperation={loadedOp}
     areaMode={Boolean(loadedAreaId&&!loadedOp)} selectedAreaId={loadedAreaId} mainOperations={mainOperations}
-    stOperations={stOperations} nextOperations={nextOperations} sourceColumnNames={sourceColumns} operationMappings={operationMappings} recipeKey={loadedRecipeKey}
+    stOperations={stOperations} nextOperations={nextOperationsState} sourceColumnNames={sourceColumns} operationMappings={operationMappings} recipeKey={loadedRecipeKey}
     timeRules={timeRules} today={initial.today} initialView={initialView} initialServerViews={serverViews} pagination={pagination}
     onVisibleCandidateIds={ensureRouteStatuses}
     onReloadCandidates={()=>void load({useLoadedScope:true})}
+    onAfterMutation={()=>{void load({useLoadedScope:true});void refreshDeferredData();}}
    />
   </div>
  </>;

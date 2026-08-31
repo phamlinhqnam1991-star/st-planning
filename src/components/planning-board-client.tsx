@@ -383,6 +383,7 @@ type CandidateViewPreset={
 const LEGACY_COLUMN_STORAGE_KEY="st-planning:candidate-columns:v5";
 // v298: pagination is gone — ALL Candidates render progressively instead.
 // 100 rows paint immediately; each scroll approach appends 100 more.
+// v331: measured faster than rendering every row at once on production data.
 const CANDIDATE_INITIAL_DOM_ROWS=100;
 const CANDIDATE_DOM_ROW_STEP=100;
 
@@ -406,7 +407,8 @@ export function PlanningBoardClient({
  initialServerViews,
  pagination,
  onVisibleCandidateIds,
- onReloadCandidates
+ onReloadCandidates,
+ onAfterMutation
 }:{
  candidates:Candidate[];
  availableBatches:BatchTargetOption[];
@@ -426,6 +428,9 @@ export function PlanningBoardClient({
  pagination:{page:number;pageSize:number;totalCandidates:number;totalPages:number};
  onVisibleCandidateIds?:(ids:number[])=>void;
  onReloadCandidates?:()=>void;
+ // v331: sau khi tạo/thêm Batch xong — refresh dữ liệu tại chỗ thay vì
+ // location.reload() (trang cũ phải SSR + tải lại toàn bộ Candidates).
+ onAfterMutation?:()=>void;
 }){
  const [selected,setSelected]=useState<number[]>([]);
  const [busy,setBusy]=useState(false);
@@ -1183,24 +1188,7 @@ useEffect(()=>{
 
  function normalized(v:unknown){return String(v??"").trim().toUpperCase();}
 
- function getActualOperationSequence(x:Candidate,operation:unknown){
-   const target=normalized(operation);
-   if(!target)return 999999;
-
-   // all_operation is the real production routing of this Job.
-   // Example: CPBILP | PIONBL | BSAUNSLD | PPRSLVT
-   const route=String(x.all_operation||"")
-    .replace(/^\s*\[|\]\s*$/g,"")
-    .split(/\s*\|\s*/)
-    .map(v=>normalized(v))
-    .filter(Boolean);
-
-   const index=route.findIndex(v=>v===target);
-   return index>=0?index:999999;
- }
-
-
- const currentPriorityMonth=useMemo(()=>{
+const currentPriorityMonth=useMemo(()=>{
    const m=String(today||"").match(/^(\d{4})-(\d{2})-\d{2}$/);
    if(!m)return "";
 
@@ -1789,13 +1777,6 @@ useEffect(()=>{
    return first?paintSelectionKey(first.candidate,op):"";
  },[selectedTargets,standardOperation]);
 
- const paintSelectionLocked=(x:Candidate)=>{
-   if(!isPaintSelectionOperation)return false;
-   const key=paintSelectionKey(x);
-   if(!key)return true;
-   return Boolean(selectedPaintKey && key!==selectedPaintKey);
- };
-
  // Single source for row/checkbox/drag selection:
  // a Candidate row may be PLANNED at Current Main while any later Main remains
  // READY for plan-ahead. Route-cell selection must therefore target the exact occurrence.
@@ -2048,7 +2029,11 @@ useEffect(()=>{
        (d.ruleName?` · Rule: ${d.ruleName}`:"")
      );
 
-     setTimeout(()=>location.reload(),1200);
+     // v331: xoá selection rồi refresh dữ liệu tại chỗ (candidates + deferred
+     // data) — không còn full page reload.
+     setSelected([]);
+     setTargetBatchId("");
+     setTimeout(()=>onAfterMutation?.(),800);
    }catch(e){
      setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`);
    }finally{
@@ -2073,17 +2058,13 @@ useEffect(()=>{
        `NO CHAIN ${d.noChain??d.sequenceCheck??0} · `+
        `AllOperation ${d.allOperationJobs||0}`
      );
-     setTimeout(()=>location.reload(),1200);
+     setTimeout(()=>onAfterMutation?.(),800);
    }catch(e){
      setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`);
    }finally{
      setBusy(false);
    }
  }
-
- const columnLabel=(key:string)=>{
-   return allColumns.find(c=>c.key===key)?.label||key;
- };
 
  const currentMainView=(x:Candidate)=>{
    if(x.has_planning_chain===false){
@@ -3179,9 +3160,9 @@ useEffect(()=>{
        </tr>
       </thead>
       <tbody>
-       {renderedCandidates.map((x,rowIndex)=>
+       {renderedCandidates.map((x)=>
         <tr
-         key={`${x.id}-${x.job_num}-${x.standard_operation}-${x.source_operation_code}-${rowIndex}`}
+         key={String(x.job_num)}
          className={`${selectableTargetFor(x)&&selected.includes(selectableTargetFor(x)!.id)?"planning-row-selected ":""}${dragCandidateId===x.id?"planning-row-dragging ":""}${priorityClass(x.priority_type)}`.trim()}
          draggable={Boolean(selectableTargetFor(x))&&!operationSelectionLocked(x)&&!paintSelectionLockedForTarget(x)}
          onDragStart={e=>{

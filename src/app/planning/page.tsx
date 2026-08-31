@@ -5,6 +5,7 @@ import {getPool} from "@/lib/db";
 import {getRecentPlanningBatches} from "@/lib/planning/recent-batches";
 import {getPlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {resolvePlanningView} from "@/lib/planning/planning-view-server";
+import {loadPlanningCandidateMetadata} from "@/lib/planning/candidate-data";
 
 export const dynamic="force-dynamic";
 
@@ -17,17 +18,20 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
  // v298: pagination removed — the board always loads ALL Candidates in one
  // request (pageSize=all). The server no longer runs the filtered COUNT query.
 
- // v283: SSR renders only the Planning shell + cached master data.
- // Candidate metadata is fetched immediately after mount, while Route Matrix is
- // lazy-loaded afterwards. This keeps the first HTML response independent from
- // the heavy Candidate/route_status SQL.
+ // v329: SSR preloads the light Candidate metadata (Recipe dropdown + Time
+ // Rules for the Batch panel) via loadPlanningCandidateMetadata — two small
+ // queries that never touch the heavy Candidate SQL. They are injected into
+ // the initial props, so the filters are usable from the very first HTML
+ // render and the client no longer waits for the heavy load to get them.
+ // Route Matrix stays lazy-loaded afterwards.
  const staticDataPromise=getPlanningStaticData();
  const c=await getPool().connect();
  try{
-  const [{initialView,serverViews},batchesQ,staticData]=await Promise.all([
+  const [{initialView,serverViews},batchesQ,staticData,metadata]=await Promise.all([
    resolvePlanningView(c,op,areaId),
    getRecentPlanningBatches(c,100),
-   staticDataPromise
+   staticDataPromise,
+   loadPlanningCandidateMetadata(c,{op,recipeKey})
   ]);
   const today=new Date().toISOString().slice(0,10);
 
@@ -51,7 +55,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
      operationMappings={staticData.operationMappings as any[]}
      initial={{
       areaId,op,recipeKey,previousBatchNo,
-      candidates:[],recipeOptions:[],timeRules:[],
+      candidates:[],recipeOptions:metadata.recipeOptions,timeRules:metadata.timeRules,
       initialView,serverViews,
       pagination:{page:1,pageSize:0,totalCandidates:0,totalPages:1},
       today

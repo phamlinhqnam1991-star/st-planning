@@ -1,20 +1,61 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {substituteTemplate} from "@/lib/batch-key-recipe";
-import {loadLiveRecipeContext,bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
-import {recipeAllowedForJob} from "@/lib/planning/batch-utils";
+import {bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
+import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 
 import {requireApiUser} from "@/lib/api-auth";
 const clean=(v:unknown)=>String(v??"").trim();
-const num=(v:unknown)=>{
- const n=Number(v);
- return Number.isFinite(n)?n:null;
-};
 
 function validBatchPrefix(v:unknown){
  const x=clean(v).toUpperCase();
  return /^[A-Z0-9]{3}$/.test(x)?x:"";
+}
+
+// v331: batched writes — 1 INSERT + 1 UPDATE cho MỌI Job thay vì 2×N
+// round-trip nối tiếp (N = số Job chọn trong 1 lần tạo/thêm Batch).
+// Trên DB mạng (Supabase/Vercel), mỗi round-trip ~10-50ms, N=50 → tiết kiệm
+// hàng giây.
+async function insertBatchJobs(c:any,batchId:number,rows:any[]){
+ if(!rows.length)return;
+ await c.query(`
+  insert into planning_batch_job(
+   batch_id,planning_job_operation_id,job_num,
+   source_operation_code,standard_operation,
+   source_seq_snapshot,planning_seq_snapshot,operation_instance_key_snapshot,
+   qty,surface_dm2
+  )
+  select $1,x.id,x.job_num,x.source_operation_code,x.standard_operation,
+         x.source_seq,x.planning_seq,x.operation_instance_key,x.qty,x.surface
+  from unnest(
+   $2::bigint[],$3::text[],$4::text[],$5::text[],
+   $6::int[],$7::int[],$8::text[],$9::numeric[],$10::numeric[]
+  ) as x(id,job_num,source_operation_code,standard_operation,
+         source_seq,planning_seq,operation_instance_key,qty,surface)
+ `,[
+  batchId,
+  rows.map(r=>r.id),
+  rows.map(r=>String(r.job_num||"")),
+  rows.map(r=>String(r.source_operation_code||"")),
+  rows.map(r=>String(r.standard_operation||"")),
+  rows.map(r=>Number(r.source_seq)||0),
+  rows.map(r=>Number(r.planning_seq)||0),
+  rows.map(r=>String(r.operation_instance_key||"")),
+  rows.map(r=>Number(r.plan_qty)||0),
+  rows.map(r=>Number(r.plan_surface)||0)
+ ]);
+}
+
+async function markOpsPlanned(c:any,ids:number[],recipeKey:string|null){
+ if(!ids.length)return;
+ await c.query(`
+  update planning_job_operation
+     set status='PLANNED',
+         recipe_key=coalesce($2,recipe_key),
+         updated_at=now()
+   where id=any($1::bigint[])
+ `,[ids,recipeKey]);
 }
 
 function paintFieldName(operation:string){
@@ -333,7 +374,9 @@ export async function POST(req:NextRequest){
 
    // v266: recipe + Mã lô mẫu + Prefix của từng Job theo CẤU HÌNH HIỆN TẠI
    // (paint theo Part → Operation Code theo điều kiện/ưu tiên). Rule đã gộp vào đây.
-   const recipeCtx=await loadLiveRecipeContext(c);
+   // v331: dùng live recipe context CACHE 60s (giống candidates route) thay vì
+   // đọc lại 5 bảng recipe/master mỗi lần tạo Batch.
+   const recipeCtx=await getCachedLiveRecipeContext(c);
    const matches=q.rows.map((r:any)=>({
      row:r,
      match:bestRecipeMatch(recipeCtx,{
@@ -379,21 +422,48 @@ export async function POST(req:NextRequest){
    }
 
    if(recipeKey){
-     for(const r of q.rows){
-       // v264: kiểm tra theo cấu hình HIỆN TẠI — không bắt buộc trùng recipe cũ
-       // trong DB (p.recipe_key chỉ là giá trị lúc Rebuild, có thể cũ).
-       const allowed=await recipeAllowedForJob(c,{
-         source_operation_code:r.source_operation_code,
-         standard_operation:r.standard_operation,
-         part_num:r.part_num,
-         revision_num:r.revision_num
-       },recipeKey);
+     // v331: set-based check — 1 query cho MỌI job thay vì 1 query/job (trước
+     // đây N job = N round-trip nối tiếp). Điều kiện giữ nguyên semantics của
+     // recipeAllowedForJob: Operation Code → Recipe (ưu tiên) hoặc Part+Rev
+     // → Recipe (fallback), cả hai phải có md_process_recipe active.
+     const disallowedQ=await c.query(`
+      select p.job_num
+      from planning_job_operation p
+      join open_job_current j on j.job_num=p.job_num
+      where p.id=any($1::bigint[])
+        and not (
+          exists(
+            select 1 from md_main_operation_recipe ocr
+            where upper(trim(ocr.operation_code))=upper(trim(p.source_operation_code))
+              and ocr.recipe_key=$2
+              and ocr.is_active=true
+              and exists(
+                select 1 from md_process_recipe r
+                where r.recipe_key=ocr.recipe_key and r.is_active=true
+              )
+          )
+          or exists(
+            select 1 from md_part_process_recipe ppr
+            where ppr.part_num=j.part_num
+              and ppr.revision_num=j.revision_num
+              and ppr.standard_operation=p.standard_operation
+              and ppr.recipe_key=$2
+              and ppr.is_active=true
+              and exists(
+                select 1 from md_process_recipe r
+                where r.recipe_key=ppr.recipe_key and r.is_active=true
+              )
+          )
+        )
+      order by p.job_num
+     `,[ids,recipeKey]);
 
-       if(!allowed)
-         throw new Error(
-           `Recipe đã chọn không hợp lệ cho Operation Code ${r.source_operation_code} / Job ${r.job_num} (theo cấu hình hiện tại).`
-         );
-     }
+     if(disallowedQ.rowCount)
+       throw new Error(
+         `Recipe đã chọn không hợp lệ cho Job: `+
+         disallowedQ.rows.map((x:any)=>x.job_num).join(", ")+
+         ` (theo cấu hình hiện tại).`
+       );
    }
 
    // Add selected Jobs to an existing Batch when requested.
@@ -439,29 +509,8 @@ export async function POST(req:NextRequest){
        validateSamePaint([...existingPaintQ.rows,...q.rows],standardOperation);
      }
 
-     for(const r of q.rows){
-       await c.query(`
-        insert into planning_batch_job(
-         batch_id,planning_job_operation_id,job_num,
-         source_operation_code,standard_operation,
-         source_seq_snapshot,planning_seq_snapshot,operation_instance_key_snapshot,
-         qty,surface_dm2
-        )
-        values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       `,[
-        targetBatch.id,r.id,r.job_num,r.source_operation_code,r.standard_operation,
-        r.source_seq,r.planning_seq,r.operation_instance_key,
-        r.plan_qty,r.plan_surface
-       ]);
-
-       await c.query(`
-        update planning_job_operation
-           set status='PLANNED',
-               recipe_key=coalesce($2,recipe_key),
-               updated_at=now()
-         where id=$1
-       `,[r.id,recipeKey]);
-     }
+     await insertBatchJobs(c,targetBatch.id,q.rows);
+     await markOpsPlanned(c,q.rows.map((r:any)=>r.id),recipeKey);
 
      const totalsQ=await c.query(`
       select
@@ -643,45 +692,21 @@ export async function POST(req:NextRequest){
 
    const batchId=batchQ.rows[0].id;
 
-   for(const r of q.rows){
-     await c.query(`
-       insert into planning_batch_job(
-         batch_id,planning_job_operation_id,job_num,
-         source_operation_code,standard_operation,
-         source_seq_snapshot,planning_seq_snapshot,operation_instance_key_snapshot,
-         qty,surface_dm2
-       )
-       values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-     `,[
-       batchId,r.id,r.job_num,r.source_operation_code,r.standard_operation,
-       r.source_seq,r.planning_seq,r.operation_instance_key,
-       r.plan_qty,r.plan_surface
-     ]);
-
-     await c.query(`
-       update planning_job_operation
-       set status='PLANNED',
-           recipe_key=coalesce($2,recipe_key),
-           updated_at=now()
-       where id=$1
-     `,[r.id,recipeKey]);
-
-     // v312: Current Main and all future Main(s) are already plan-ahead READY.
-     // Creating this Batch changes only this exact Planning Operation to PLANNED.
-   }
+   await insertBatchJobs(c,batchId,q.rows);
+   await markOpsPlanned(c,q.rows.map((r:any)=>r.id),recipeKey);
 
    await c.query("commit");
 
    return NextResponse.json({
-     ok:true,
-     batchId,
-     batchNo,
-     batchKey:suggestedBatchKey,
-     totalJobs:q.rows.length,
-     totalQty,
-     totalSurface,
-     processMinutes,
-     plannedEnd:endTimestamp
+    ok:true,
+    batchId,
+    batchNo,
+    batchKey:suggestedBatchKey,
+    totalJobs:q.rows.length,
+    totalQty,
+    totalSurface,
+    processMinutes,
+    plannedEnd:endTimestamp
    });
  }catch(e){
    await c.query("rollback");

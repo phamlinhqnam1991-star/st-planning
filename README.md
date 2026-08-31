@@ -1,3 +1,45 @@
+# v332 — Tạo/Thêm Batch nhanh hơn nhiều (gộp SQL + bỏ full reload)
+
+- Nền code: v331.
+- **Server (`POST /api/planning/batch`)**:
+  - Dùng `getCachedLiveRecipeContext` (cache 60s) thay vì `loadLiveRecipeContext` — không đọc lại 5 bảng recipe/master mỗi lần tạo Batch.
+  - Check `recipeAllowedForJob` từ vòng lặp N query → **1 query set-based** cho mọi Job.
+  - Insert `planning_batch_job` + update status từ 2×N round-trip → **1 INSERT (unnest) + 1 UPDATE (id=any)** cho cả nhánh tạo mới lẫn thêm vào batch có sẵn.
+  - Trên DB mạng (Supabase/Vercel, mỗi round-trip 10-50ms), N=50 Job → tiết kiệm hàng giây.
+- **Client (Planning Board)**:
+  - Bỏ `location.reload()` sau khi tạo/rebuild → refresh **tại chỗ**: `onReloadCandidates()` (tải lại Candidates, không reload trang) + `refreshDeferredData()` (`/api/planning/deferred-data` — cập nhật Target Batch dropdown + Công đoạn ST).
+  - Clear selection sau khi tạo Batch.
+- Không có migration mới; không đổi contract API trả về.
+- Lưu ý: `src/app/api/planning/batch/[id]/jobs` (Batch Detail thêm job) vẫn dùng vòng lặp per-job như cũ — có thể áp dụng pattern tương tự sau nếu cần.
+
+# v331 — Revert về chunk + lazy (v328) kèm 2 fix jank
+
+- Nền code: v330 (thử nghiệm all-in-one + render hết — **đo thực tế CHẬM hơn** trên dữ liệu production, đã revert).
+- **Revert**: tải Candidate về chunked 200/page render dần (v328) + progressive DOM 100 dòng/IntersectionObserver (v298) + Route Matrix lazy theo dòng đang xem.
+- **Fix 1 — gộp cập nhật Route Matrix**: trước đây mỗi chunk route-status (60 id) `setCandidates` 1 lần → cả bảng re-render N lần; giờ gom hết vào 1 Map và **setCandidates 1 lần duy nhất** sau khi tất cả worker xong.
+- **Fix 2 — row key ổn định**: key dòng từ `id-job-op-sourceCode-rowIndex` → chỉ còn `job_num` → React tái sử dụng DOM, không remount cả bảng khi filter/status đổi.
+- Giữ nguyên v329 (SSR preload metadata) + v324 (light + source columns nền) + v325 (timeout probe).
+- Không có migration mới; không đổi business API.
+
+# v330 — Bỏ chunk & lazy, hiện tất cả Candidate trên 1 trang (ĐÃ REVERT ở v331 — đo chậm hơn)
+
+- Nền code: v329.
+- `planning-candidate-shell.tsx`: bỏ progressive chunked load (v328) — 1 request duy nhất `pageSize=all` trả **toàn bộ Candidate**; xóa `loadingMore`, notice "Đang tải tiếp Jobs…".
+- `planning-board-client.tsx`: bỏ progressive DOM (v298: 100 dòng + IntersectionObserver) — **render toàn bộ** dòng cùng lúc; xóa sentinel + `candidateDomLimit`.
+- Route Matrix: vì mọi dòng render ngay nên visibility effect kích hoạt 1 lần với **toàn bộ id** → status tải ngay sau load (endpoint route-status vẫn tự chunk 60 id/pool 3 bên trong).
+- Cột All Open Source vẫn light + fetch nền 1 lần cho tất cả job (giữ — nếu gộp vào payload chính sẽ làm request nặng thêm ~2.8MB, bảng vẽ chậm hơn).
+- Vẫn giữ timeout 60s client / 58s server + probe tự chẩn đoán.
+- Không có migration mới; không đổi business API.
+
+# v329 — SSR preload Candidate metadata (Planning Board mở nhanh hơn)
+
+- Nền code: v328 (bản sau cleanup 2026-08-31).
+- `/planning` SSR chạy `loadPlanningCandidateMetadata` (2 query nhẹ: Recipe dropdown + Time Rules Batch panel) song song với view/static data, truyền thẳng vào `initial.recipeOptions` / `initial.timeRules`.
+- Bộ lọc (Recipe dropdown, Time Rules) dùng được ngay từ HTML đầu tiên, không còn chờ query Candidate nặng.
+- Load Candidate giữ nguyên v324 light + v328 chunked; Route Matrix / cột All Open Source vẫn lazy.
+- Message loading đổi "Đang tải Candidate metadata…" → "Đang tải Candidate Jobs…".
+- Không có migration mới; không đổi business API.
+
 # v313 — NO_CHAIN rescue: NextOperation Main = Current Main
 
 - Nền code: v312.
