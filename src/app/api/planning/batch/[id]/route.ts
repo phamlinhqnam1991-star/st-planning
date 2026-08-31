@@ -2,6 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {refreshBatchTotals,recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
 
+import {requireApiUser} from "@/lib/api-auth";
 const clean=(v:unknown)=>String(v??"").trim();
 
 async function getBatch(c:any,batchId:number,forUpdate=false){
@@ -38,13 +39,6 @@ async function recipeAllowedForBatch(c:any,batchId:number,recipeKey:string){
      where
        exists(
          select 1
-         from md_operation_recipe_mapping orm
-         where orm.standard_operation=$1
-           and orm.recipe_key=$2
-           and orm.is_active=true
-       )
-       or exists(
-         select 1
          from md_main_operation_recipe ocr
          where ocr.operation_code=$3
            and ocr.recipe_key=$2
@@ -78,6 +72,8 @@ export async function GET(
  _req:NextRequest,
  {params}:{params:Promise<{id:string}>}
 ){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const {id}=await params;
  const batchId=Number(id);
  if(!Number.isFinite(batchId))
@@ -94,13 +90,6 @@ export async function GET(
     where r.is_active=true
       and (
         r.recipe_key=$2
-        or exists(
-          select 1
-          from md_operation_recipe_mapping orm
-          where orm.standard_operation=$1
-            and orm.recipe_key=r.recipe_key
-            and orm.is_active=true
-        )
         or exists(
           select 1
           from planning_batch_job bj
@@ -145,6 +134,8 @@ export async function PATCH(
  req:NextRequest,
  {params}:{params:Promise<{id:string}>}
 ){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const {id}=await params;
  const batchId=Number(id);
  const body=await req.json().catch(()=>({}));
@@ -229,6 +220,8 @@ export async function DELETE(
  _req:NextRequest,
  {params}:{params:Promise<{id:string}>}
 ){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const {id}=await params;
  const batchId=Number(id);
 

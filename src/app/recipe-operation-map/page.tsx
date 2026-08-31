@@ -6,9 +6,9 @@ import {ProcessRecipeManager} from "@/components/process-recipe-manager";
 import {getPool} from "@/lib/db";
 export const dynamic="force-dynamic";
 
-// v266: GỘP 3 màn hình (Danh mục Recipe + Operation → Recipe + Batch Key/Recipe Rules)
-// thành 1 trang "Công thức & Rule". ① chính: Công đoạn → Recipe (kèm Mã lô mẫu/Prefix);
-// ② Danh mục Recipe (thu gọn); ③ Công đoạn chính → Recipe được phép (thu gọn, nâng cao).
+// Recipe Catalog + Runtime Operation Code → Recipe are maintained together here.
+// ① is the runtime mapping used by Planning Board; ② is the canonical Recipe Catalog.
+// ③ is a legacy/reference allowed-list, not the Planning Board proposal source.
 
 export default async function Page({searchParams}:{searchParams:Promise<{part?:string}>}){
  const sp=await searchParams;
@@ -16,10 +16,17 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
  const c=await getPool().connect();
  try{
   const [sourceOpsQ,opsQ,chemicalRecipesQ,chemicalMapsQ,recipesQ,mapsQ,columnsQ,columnValuesQ,unmappedQ,masterValuesQ,masterReqCodesQ,timeRulesQ,partQ]=await Promise.all([
-   c.query(`select operation_code,operation_name
-            from md_operation
-            where is_active=true
-            order by operation_code`),
+   c.query(`select distinct o.operation_code,o.operation_name
+            from md_operation o
+            join md_st_operation_scope s
+              on upper(trim(s.operation_code))=upper(trim(o.operation_code))
+             and s.is_active=true
+             and coalesce(s.operation_type,'PLANNING_OPERATION')='PLANNING_OPERATION'
+            join md_st_operation_mapping m
+              on upper(trim(m.source_operation_code))=upper(trim(o.operation_code))
+             and m.is_active=true
+            where o.is_active=true
+            order by o.operation_code`),
    c.query(`select standard_operation from md_operation_master where is_active=true order by standard_operation`),
    c.query(`select recipe_key,process_family,recipe_group,recipe_no,recipe_name,batch_key
             from md_process_recipe
@@ -36,7 +43,9 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
             join md_process_recipe r on r.recipe_key=m.recipe_key
             where m.is_active=true and r.is_active=true
             order by m.operation_code,m.priority,r.recipe_no`),
-   c.query(`select recipe_key,process_family,recipe_group,recipe_no,recipe_name,batch_key,source_system,note,is_active
+   c.query(`select recipe_key,process_family,recipe_group,recipe_group_source_column,
+                   recipe_no,recipe_no_source_column,recipe_name,recipe_name_source_column,
+                   batch_key,source_system,note,is_active
             from md_process_recipe where is_active=true
             order by process_family,recipe_group,recipe_no nulls last,recipe_name limit 3000`),
    c.query(`select m.standard_operation,m.recipe_key,m.source_slot,m.is_default,
@@ -50,17 +59,25 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
             where is_active=true
             group by source_column
             order by source_column`),
-   c.query(`select source_column,source_value
+   c.query(`select source_column,source_value,coalesce(nullif(trim(display_name),''),source_value) display_name
             from md_open_job_column_value
             where is_active=true
               and nullif(trim(source_value),'') is not null
             order by source_column,source_value`),
-   c.query(`select o.operation_code,o.operation_name
+   c.query(`select distinct o.operation_code,o.operation_name
             from md_operation o
+            join md_st_operation_scope s
+              on upper(trim(s.operation_code))=upper(trim(o.operation_code))
+             and s.is_active=true
+             and coalesce(s.operation_type,'PLANNING_OPERATION')='PLANNING_OPERATION'
+            join md_st_operation_mapping sm
+              on upper(trim(sm.source_operation_code))=upper(trim(o.operation_code))
+             and sm.is_active=true
             where o.is_active=true
               and not exists(
                 select 1 from md_main_operation_recipe m
-                where m.operation_code=o.operation_code and m.is_active=true
+                where upper(trim(m.operation_code))=upper(trim(o.operation_code))
+                  and m.is_active=true
               )
             order by o.operation_code`),
    // v269: cột MASTER DATA (file Master Data) cho điều kiện "Áp dụng cho Job".
@@ -109,13 +126,13 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
     <section className="erp-content">
      <ConfigPageHeader
       title="Công thức & Rule"
-      subtitle="Một nơi duy nhất: Công đoạn → Recipe (kèm điều kiện áp dụng, Mã lô mẫu, Prefix số lô) · Danh mục Recipe · Công đoạn chính → Recipe được phép."
+      subtitle="Quản lý Danh mục Recipe và mapping runtime Operation Code → Recipe (điều kiện, ưu tiên, Mã lô mẫu, Prefix số lô) dùng trực tiếp cho Planning Board."
       purpose="Xác định Operation Code nào dùng Recipe nào (kèm độ ưu tiên, mặc định, điều kiện 'Áp dụng cho Job', Mã lô mẫu và Prefix số lô) — nguồn đề xuất Recipe trên Planning Board."
       impact="Đây là cầu nối giữa cấu hình công đoạn và công thức sản xuất: Job không resolve được Recipe sẽ không tạo lô được. Thay đổi ở đây ảnh hưởng ngay tới đề xuất trên Planning Board."
       prev={{label:"Trợ lý Operation (ST Operation Flow)",href:"/st-operation-flow"}}
       next={{label:"Thời gian Loading / Unloading",href:"/recipe-time-loading"}}
      />
-     <div className="notice recipe-note"><b>Cách dùng:</b> Phần <b>① Công đoạn → Recipe</b> là nơi chính: chọn công đoạn → chọn recipe → đặt <b>Ưu tiên</b> (số nhỏ trước), <b>Mặc định</b>, mục <b>Áp dụng cho Job</b>, <b>Mã lô mẫu</b> (vd <span className="mono">PRIMER-{`{MATERIAL}`}</span>) và <b>Prefix số lô</b> (3 ký tự). Trong mục <b>Áp dụng cho Job</b>: chọn cột → toán tử <b>=</b> sẽ hiện <b>danh sách giá trị unique</b> của cột đó để chọn (không cần gõ tay); toán tử <b>trống / rỗng</b> dành cho Job có cột để trống. Cột có 2 nguồn: <b>All Open Job</b> và <b>Part Master (file Master Data)</b> — các cột <b>(Master)</b> như Alloy, Temper, TSA, Primer… được lấy theo Part + Revision, dùng khi All Open Job thiếu dữ liệu. Hệ thống chọn recipe khớp ĐIỀU KIỆN của Job trước, rồi Ưu tiên → Mặc định → cập nhật trước. Phần ② ③ thu gọn, chỉ mở khi cần. Danh sách <b>Operation Code chưa gán Recipe</b> ở cuối trang giúp bạn cấu hình đủ từng công đoạn.</div>
+     <div className="notice recipe-note"><b>Luồng chuẩn:</b> (1) tạo/sửa/ngưng Recipe ở <b>② Danh mục Recipe</b>; (2) gán Recipe cho <b>Operation Code</b> ở <b>① Công đoạn → Recipe</b>. Chỉ mapping ở phần ① mới được Planning Board dùng. Operation Code phải thuộc ST Scope loại <b>Planning Operation</b> và đã có Source → Main Mapping. Nếu nhiều Recipe cho cùng mã: Recipe có điều kiện khớp Job thắng trước; sau đó <b>Priority</b> nhỏ hơn → <b>Mặc định</b> → mapping cập nhật trước. Không có điều kiện = fallback cho mọi Job. Phần <b>③</b> chỉ là danh sách reference cũ, không điều khiển đề xuất Recipe.</div>
 
      {(()=>{
        const mdFixed:{key:string;label:string}[]=[
@@ -155,13 +172,15 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
        />;
      })()}
 
-     <details className="config-section-collapsible" open={false}>
-      <summary>② Danh mục Recipe — thêm recipe nếu thiếu (thường đã có sẵn từ Import Master)</summary>
+     <details className="config-section-collapsible" open>
+      <summary>② Danh mục Recipe — thêm / sửa / ngưng Recipe trước khi mapping vào Operation Code</summary>
       <ProcessRecipeManager
        recipes={recipesQ.rows as any}
        operations={opsQ.rows as any}
        partRows={partQ.rows as any}
        partQuery={part}
+       sourceColumns={(columnsQ.rows as any[]).map((x:any)=>String(x.source_column))}
+       columnValues={(columnValuesQ.rows as any[]).map((x:any)=>({column:String(x.source_column),value:String(x.source_value),label:String(x.display_name||x.source_value)}))}
       />
      </details>
 

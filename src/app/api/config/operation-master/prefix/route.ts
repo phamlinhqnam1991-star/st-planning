@@ -1,5 +1,6 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 
 const clean=(v:unknown)=>String(v??"").trim().toUpperCase();
 
@@ -30,6 +31,7 @@ export async function POST(req:Request){
   if(!q.rowCount)
    return NextResponse.json({error:"Không tìm thấy Standard Operation."},{status:404});
 
+  invalidateConfigHealth();
   return NextResponse.json({ok:true,row:q.rows[0]});
  }catch(e){
   return NextResponse.json(

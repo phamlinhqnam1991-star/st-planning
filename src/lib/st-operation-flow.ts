@@ -6,7 +6,7 @@ export const cleanCode=(v:unknown)=>String(v??"").trim().toUpperCase();
 /**
  * Canonical ST configuration chain:
  * md_operation (raw/source operation catalog)
- * -> md_st_operation_scope (belongs to ST + PLANNING_OPERATION/ST_SCOPE_ONLY)
+ * -> md_st_operation_scope (PLANNING_OPERATION / ST_SCOPE_ONLY; Intermediate is AUTO-derived)
  * -> md_st_operation_mapping (source -> Main Operation)
  * -> md_operation_master + md_planning_operation_scope (Main Operation)
  * -> md_st_group
@@ -15,8 +15,81 @@ export const cleanCode=(v:unknown)=>String(v??"").trim().toUpperCase();
  * -> derived ST routing + planning_job_operation.
  */
 export async function rebuildAllStRoutingDerived(c:PoolClient){
-  // Rebuild the derived ST Routing from the CURRENT user-managed ST Scope.
-  // Config changes are rare, so correctness is preferred over incremental complexity.
+  // v297: ST Routing Chain · Standardized is generated automatically from the
+  // full raw routing span between the FIRST and LAST Main Planning occurrence.
+  // Therefore raw operations between Main Planning steps do not need to be
+  // manually classified INTERMEDIATE just to appear in ST Routing.
+  await c.query(`
+    create temporary table if not exists _cfg_st_steps(
+      part_num text,
+      revision_num text,
+      source_seq integer,
+      operation_code text,
+      operation_detail_code text,
+      operation_detail_name text,
+      primary key(part_num,revision_num,source_seq)
+    ) on commit drop
+  `);
+  await c.query(`truncate table _cfg_st_steps`);
+
+  await c.query(`
+    with winner_mapping as (
+      select source_operation_code,standard_operation_rule
+      from (
+        select
+          upper(trim(m.source_operation_code)) source_operation_code,
+          upper(trim(m.standard_operation_rule)) standard_operation_rule,
+          row_number() over(
+            partition by upper(trim(m.source_operation_code))
+            order by
+              case
+                when m.mapping_rule='DIRECT' then 0
+                when m.mapping_rule='SEQUENCE/FALLBACK' then 1
+                else 2
+              end,
+              coalesce(m.sort_order,2147483647),
+              m.updated_at desc nulls last,
+              m.created_at desc nulls last,
+              m.id desc
+          ) rn
+        from md_st_operation_mapping m
+        join md_st_operation_scope s
+          on s.is_active=true
+         and s.operation_type='PLANNING_OPERATION'
+         and upper(trim(s.operation_code))=upper(trim(m.source_operation_code))
+        where m.is_active=true
+      ) x
+      where rn=1
+    ), main_span as (
+      select
+        d.part_num,d.revision_num,
+        min(d.source_seq)::int first_main_seq,
+        max(d.source_seq)::int last_main_seq
+      from md_routing_detailed d
+      join winner_mapping m
+        on m.source_operation_code=upper(trim(d.operation_code))
+      join md_planning_operation_scope p
+        on p.is_active=true
+       and upper(trim(p.standard_operation))=m.standard_operation_rule
+      where d.is_active=true
+        and upper(trim(d.operation_code))<>'PIONBL'
+      group by d.part_num,d.revision_num
+    )
+    insert into _cfg_st_steps(
+      part_num,revision_num,source_seq,operation_code,operation_detail_code,operation_detail_name
+    )
+    select
+      d.part_num,d.revision_num,d.source_seq,d.operation_code,
+      d.operation_detail_code,d.operation_detail_name
+    from md_routing_detailed d
+    join main_span s
+      on s.part_num=d.part_num
+     and s.revision_num=d.revision_num
+     and d.source_seq between s.first_main_seq and s.last_main_seq
+    where d.is_active=true
+    order by d.part_num,d.revision_num,d.source_seq
+  `);
+
   await c.query(`
     create temporary table if not exists _cfg_st_sig(
       part_num text,
@@ -35,11 +108,7 @@ export async function rebuildAllStRoutingDerived(c:PoolClient){
       d.revision_num,
       string_agg(coalesce(nullif(d.operation_detail_code,''),d.operation_code),'>' order by d.source_seq),
       count(*)::int
-    from md_routing_detailed d
-    join md_st_operation_scope s
-      on upper(trim(s.operation_code))=upper(trim(d.operation_code))
-     and s.is_active=true
-    where d.is_active=true
+    from _cfg_st_steps d
     group by d.part_num,d.revision_num
   `);
 
@@ -61,10 +130,7 @@ export async function rebuildAllStRoutingDerived(c:PoolClient){
     on conflict(routing_signature) do nothing
   `);
 
-  // Part -> derived ST Routing is fully regenerated from the canonical scope.
-  await c.query(`
-    update md_part_routing set is_active=false,updated_at=now()
-  `);
+  await c.query(`update md_part_routing set is_active=false,updated_at=now()`);
   await c.query(`
     insert into md_part_routing(part_num,revision_num,routing_code,is_active,updated_at)
     select x.part_num,x.revision_num,s.routing_code,true,now()
@@ -76,7 +142,6 @@ export async function rebuildAllStRoutingDerived(c:PoolClient){
       updated_at=now()
   `);
 
-  // Rebuild route rows for all currently used signatures from one representative Part/Rev.
   await c.query(`
     delete from md_st_routing r
     using md_st_routing_summary s
@@ -103,13 +168,9 @@ export async function rebuildAllStRoutingDerived(c:PoolClient){
       d.operation_detail_name,
       true
     from representative r
-    join md_routing_detailed d
+    join _cfg_st_steps d
       on d.part_num=r.part_num
      and d.revision_num=r.revision_num
-     and d.is_active=true
-    join md_st_operation_scope scope
-      on upper(trim(scope.operation_code))=upper(trim(d.operation_code))
-     and scope.is_active=true
     order by r.routing_code,d.source_seq
   `);
 
@@ -123,9 +184,55 @@ export async function rebuildAllStRoutingDerived(c:PoolClient){
 
   await c.query(`select public.refresh_st_operation_mapping(null)`);
 
-  // Database-function guard for upgraded/legacy environments: even if a stale
-  // active Source mapping exists, ST_SCOPE_ONLY may never expose a standardized
-  // Main Operation to Planning Board or Scheduling.
+  // v297: md_st_routing now contains raw Intermediate rows too. Preserve the
+  // existing HE-BAKE business rule by looking at the nearest PLANNING source
+  // operations, not the immediately adjacent raw row.
+  await c.query(`
+    with hb as (
+      select
+        r.routing_code,r.seq,
+        (
+          select upper(trim(rp.operation_code))
+          from md_st_routing rp
+          join md_st_operation_mapping mp
+            on mp.is_active=true and upper(trim(mp.source_operation_code))=upper(trim(rp.operation_code))
+          join md_st_operation_scope sp
+            on sp.is_active=true and sp.operation_type='PLANNING_OPERATION'
+           and upper(trim(sp.operation_code))=upper(trim(rp.operation_code))
+          where rp.is_active=true and rp.routing_code=r.routing_code and rp.seq<r.seq
+          order by rp.seq desc limit 1
+        ) prev_planning_code,
+        (
+          select upper(trim(rn.operation_code))
+          from md_st_routing rn
+          join md_st_operation_mapping mn
+            on mn.is_active=true and upper(trim(mn.source_operation_code))=upper(trim(rn.operation_code))
+          join md_st_operation_scope sn
+            on sn.is_active=true and sn.operation_type='PLANNING_OPERATION'
+           and upper(trim(sn.operation_code))=upper(trim(rn.operation_code))
+          where rn.is_active=true and rn.routing_code=r.routing_code and rn.seq>r.seq
+          order by rn.seq asc limit 1
+        ) next_planning_code
+      from md_st_routing r
+      where r.is_active=true and upper(trim(r.operation_code))='HE-BAKE'
+    )
+    update md_st_routing r
+    set standard_operation=case
+          when hb.prev_planning_code=upper('PLA-ZiNi') or hb.next_planning_code='PLA-CC' then 'HE-BAKE after plating'
+          when hb.next_planning_code in ('A-DBLST','M-DBLST') then 'HE-BAKE before blasting'
+          else 'HE-BAKE'
+        end,
+        mapping_rule=case
+          when hb.prev_planning_code=upper('PLA-ZiNi') or hb.next_planning_code in ('PLA-CC','A-DBLST','M-DBLST') then 'SEQUENCE'
+          else 'SEQUENCE/FALLBACK'
+        end
+    from hb
+    where r.routing_code=hb.routing_code and r.seq=hb.seq
+  `);
+
+  // Explicit ST_SCOPE_ONLY remains trace-only and may never become a Main.
+  // Legacy manual INTERMEDIATE classification is intentionally ignored in v297;
+  // bridge membership is inferred from the standardized route itself.
   await c.query(`
     update md_st_routing r
        set standard_operation=null,

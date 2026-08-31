@@ -2,7 +2,10 @@ import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {assertResourceAndChemicalCapacity,resolveChemicalScheduleWindow} from "@/lib/chemical-line-schedule-server";
 
+import {requireApiUser} from "@/lib/api-auth";
 export async function POST(req:Request){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const b=await req.json().catch(()=>({}));
  const batchId=Number(b.batch_id||0);const requested=new Date(String(b.planned_start||""));
  const manualDuration=Number(b.duration_minutes||0);const recipeKey=String(b.recipe_key||"").trim();

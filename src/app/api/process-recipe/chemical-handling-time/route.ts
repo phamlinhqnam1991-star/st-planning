@@ -1,5 +1,6 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 
 const nullableNumber=(v:unknown)=>v==null||String(v).trim()===""?null:Number(v);
 
@@ -18,6 +19,7 @@ export async function POST(req:Request){
     nullableNumber(b.surface_min_dm2),nullableNumber(b.surface_max_dm2),Math.round(duration),
     String(b.note||"").trim()||null
    ]);
+  invalidateConfigHealth();
   return NextResponse.json({ok:true,row:q.rows[0]});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:400})}
  finally{c.release()}
@@ -27,5 +29,6 @@ export async function DELETE(req:Request){
  const id=Number((await req.json().catch(()=>({}))).id);
  if(!id)return NextResponse.json({error:"Missing id"},{status:400});
  const q=await getPool().query(`update md_chemical_handling_time_rule set is_active=false,updated_at=now() where id=$1 returning id`,[id]);
+ invalidateConfigHealth();
  return NextResponse.json({ok:Boolean(q.rowCount)});
 }

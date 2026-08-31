@@ -2,6 +2,8 @@
 
 import {safeJson} from "@/lib/fetch-json";
 import {useMemo,useState} from "react";
+import {useRouter} from "next/navigation";
+import {refreshConfigPage} from "@/lib/config/config-client";
 
 type Recipe={
  recipe_key:string;
@@ -30,6 +32,7 @@ type Rule={
 };
 
 export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:Rule[]}){
+ const router=useRouter();
  const [busy,setBusy]=useState(false);
  const [calcType,setCalcType]=useState<"FIXED_HOURS"|"QTY_SURFACE">("FIXED_HOURS");
  const [familyFilter,setFamilyFilter]=useState("ALL");
@@ -119,7 +122,8 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
      });
      const d=await safeJson(r);
      if(!r.ok)throw new Error(d.error||"Save failed");
-     location.reload();
+     clear();
+     refreshConfigPage(router);
    }catch(e){
      alert(e instanceof Error?e.message:String(e));
    }finally{setBusy(false)}
@@ -136,7 +140,8 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
      });
      const d=await safeJson(x);
      if(!x.ok)throw new Error(d.error||"Remove failed");
-     location.reload();
+     clear();
+     refreshConfigPage(router);
    }catch(e){
      alert(e instanceof Error?e.message:String(e));
    }finally{setBusy(false)}

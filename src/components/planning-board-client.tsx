@@ -2,6 +2,7 @@
 
 import {Fragment,useEffect,useLayoutEffect,useMemo,useRef,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
+import {safeJson} from "@/lib/fetch-json";
 
 const formatNumber=(value:unknown, maxDecimals=2)=>{
  const n=Number(value??0);
@@ -42,6 +43,12 @@ type RouteStatusItem={
  planned_end:string|null;
  recipe_no:string|null;
  recipe_name:string|null;
+ // v290: live Recipe of this exact route occurrence (not the representative Candidate row).
+ effective_recipe_key?:string|null;
+ effective_recipe_no?:string|null;
+ effective_recipe_name?:string|null;
+ batch_key_suggest?:string|null;
+ batch_prefix_suggest?:string|null;
 };
 
 type Candidate={
@@ -71,6 +78,10 @@ type Candidate={
  priority_type:string|null;
  recipe_required:boolean;
  planning_status:"LOCKED"|"ELIGIBLE"|"PLANNED";
+ has_planning_chain?:boolean;
+ next_operation_type?:"PLANNING_OPERATION"|"INTERMEDIATE"|"ST_SCOPE_ONLY"|null;
+ intermediate_previous_main?:string|null;
+ intermediate_next_main?:string|null;
  source_seq:number|null;
  batch_no:string|null;
  batch_id:number|null;
@@ -113,6 +124,7 @@ type Candidate={
  last_changed_at:string|null;
  source_data:Record<string,unknown>|null;
  route_status:RouteStatusItem[];
+ route_status_loaded?:boolean;
 };
 
 
@@ -179,6 +191,75 @@ type MainOperationMaster={
  planning_sort_order:number|null;
 };
 
+type OperationMappingMaster={
+ source_operation_code:string;
+ st_group:string|null;
+ standard_operation_rule:string;
+ mapping_rule?:string|null;
+ sort_order?:number|null;
+};
+
+const splitAllOperationForView=(value:unknown)=>{
+ const x=String(value??"").trim().replace(/^\[/,"").replace(/\]$/,"").trim();
+ if(!x)return [] as string[];
+ return x.split(/\s*\|\s*/).map(v=>v.replace(/^\[/,"").replace(/\]$/,"").trim()).filter(Boolean);
+};
+
+const deriveMainOperationsFromAllOperation=(
+ allOperation:unknown,
+ mappingBySource:Map<string,OperationMappingMaster>,
+ scopeCanonical:Map<string,string>
+)=>{
+ const raw=splitAllOperationForView(allOperation);
+ const primerCodes=new Set<string>();
+ const topcoatCodes=new Set<string>();
+ for(const [code,m] of mappingBySource){
+  const group=String(m.st_group??"").trim().toUpperCase();
+  if(group==="PRIMER")primerCodes.add(code);
+  if(group==="TOPCOAT")topcoatCodes.add(code);
+ }
+ let primerOccurrence=0;
+ let topcoatOccurrence=0;
+ const out:string[]=[];
+ const seen=new Set<string>();
+ const canonical=(name:string)=>scopeCanonical.get(name.trim().toUpperCase())||"";
+
+ for(let i=0;i<raw.length;i++){
+  const sourceCode=raw[i].trim();
+  const key=sourceCode.toUpperCase();
+  if(!sourceCode||key==="PIONBL")continue;
+  const mapping=mappingBySource.get(key);
+  if(!mapping)continue;
+
+  let standardOperation="";
+  if(primerCodes.has(key)){
+   primerOccurrence++;
+   standardOperation=canonical(primerOccurrence===1?"PRIMER":primerOccurrence===2?"PRIMER2":"PRIMER3");
+  }else if(topcoatCodes.has(key)){
+   topcoatOccurrence++;
+   standardOperation=canonical(topcoatOccurrence===1?"TOPCOAT1":"TOPCOAT2");
+  }else if(key==="HE-BAKE"){
+   const prev=String(raw[i-1]??"").trim().toUpperCase();
+   const next=String(raw[i+1]??"").trim().toUpperCase();
+   const target=(prev==="PLA-ZINI"||next==="PLA-CC")
+    ?"HE-BAKE AFTER PLATING"
+    :(next==="A-DBLST"||next==="M-DBLST")
+     ?"HE-BAKE BEFORE BLASTING"
+     :"HE-BAKE";
+   standardOperation=canonical(target);
+  }else{
+   standardOperation=canonical(String(mapping.standard_operation_rule??""));
+  }
+
+  if(!standardOperation)continue;
+  const normalizedMain=standardOperation.trim().toUpperCase();
+  if(seen.has(normalizedMain))continue;
+  seen.add(normalizedMain);
+  out.push(standardOperation);
+ }
+ return out;
+};
+
 type CandidateColumn={
  key:string;
  label:string;
@@ -228,6 +309,23 @@ const CANDIDATE_SORT_SPECIAL_FIELDS=[
 const SORT_STORAGE_KEY="st-planning:candidate-sort:v1";
 const VIEW_STORAGE_KEY="st-planning:candidate-view-by-operation:v1";
 const COLUMN_STORAGE_KEY="st-planning:candidate-columns:v6";
+const COLUMN_LAYOUT_STORAGE_KEY="st-planning:candidate-column-layout:v1";
+const ALL_OPEN_JOB_GROUP_KEY="group:allopen";
+
+function collapsedColumnLayoutFromVisible(keys:string[]){
+ const out:string[]=[];
+ let groupAdded=false;
+ for(const raw of keys){
+  const key=String(raw||"");
+  if(key.startsWith("source:")){
+   if(!groupAdded){out.push(ALL_OPEN_JOB_GROUP_KEY);groupAdded=true;}
+   continue;
+  }
+  if(key && !out.includes(key))out.push(key);
+ }
+ if(!groupAdded)out.push(ALL_OPEN_JOB_GROUP_KEY);
+ return out;
+}
 
 /* v260 — Excel-style Freeze Pane (chọn vị trí rồi chốt; lưu localStorage). */
 const FREEZE_STORAGE_KEY="st-planning:freeze:v1";
@@ -266,6 +364,9 @@ type BatchTargetOption={
 
 type CandidateViewPreset={
  columns:string[];
+ // v292: virtual layout item. All Open Job columns can stay collapsed in one group
+ // while selected source columns are extracted before/after the group.
+ columnLayout?:string[];
  // v241: VIEW CÔNG ĐOẠN ST (tách riêng) — danh sách next operation được chọn hiển thị.
  stView?:string[];
  filters:{
@@ -280,24 +381,12 @@ type CandidateViewPreset={
  routeFocus?:boolean;
 };
 const LEGACY_COLUMN_STORAGE_KEY="st-planning:candidate-columns:v5";
+// v298: pagination is gone — ALL Candidates render progressively instead.
+// 100 rows paint immediately; each scroll approach appends 100 more.
+const CANDIDATE_INITIAL_DOM_ROWS=100;
+const CANDIDATE_DOM_ROW_STEP=100;
 
-// v248: đọc phản hồi AN TOÀN — nếu máy chủ trả HTML (route lỗi / chạy quá lâu bị cắt),
-// hiện thông báo rõ thay vì lỗi "Unexpected token '<'".
-async function safeJson(r:Response){
-  const text=await r.text();
-  let d:any={};
-  try{d=text?JSON.parse(text):{}}catch{d={html:true,status:r.status}}
-  if(!r.ok){
-   if(d.html){
-    throw new Error(
-     `Máy chủ trả về lỗi (HTTP ${r.status}) — thường do route chạy quá lâu bị cắt hoặc route lỗi. `+
-     `Nếu là Rebuild Chain: bấm lại lần nữa; vẫn lỗi → báo trợ lý để tối ưu.`
-    );
-   }
-   throw new Error(d.error||`HTTP ${r.status}: ${String(d.message||d.error||"")}`);
-  }
-  return d;
-}
+// Client fetch dùng safeJson chung từ @/lib/fetch-json để mọi màn hình báo lỗi HTTP/HTML nhất quán.
 
 export function PlanningBoardClient({
  candidates,
@@ -308,10 +397,16 @@ export function PlanningBoardClient({
  mainOperations,
  stOperations,
  nextOperations,
+ sourceColumnNames,
+ operationMappings,
  recipeKey,
  timeRules,
  today,
- initialView
+ initialView,
+ initialServerViews,
+ pagination,
+ onVisibleCandidateIds,
+ onReloadCandidates
 }:{
  candidates:Candidate[];
  availableBatches:BatchTargetOption[];
@@ -321,16 +416,29 @@ export function PlanningBoardClient({
  mainOperations:MainOperationMaster[];
  stOperations:{operation_code:string;standard_operation:string|null;config_status?:string|null}[];
  nextOperations:{operation_code:string;jobs:number}[];
+ sourceColumnNames:string[];
+ operationMappings:OperationMappingMaster[];
  recipeKey:string;
  timeRules:TimeRule[];
  today:string;
  initialView?:CandidateViewPreset|null;
+ initialServerViews?:Record<string,unknown>|null;
+ pagination:{page:number;pageSize:number;totalCandidates:number;totalPages:number};
+ onVisibleCandidateIds?:(ids:number[])=>void;
+ onReloadCandidates?:()=>void;
 }){
  const [selected,setSelected]=useState<number[]>([]);
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
  const [targetBatchId,setTargetBatchId]=useState("");
  usePopupMessage(message);
+ // v298: pagination removed — clear row selection whenever a fresh Candidate
+ // set (new total) arrives.
+ const paginationKey=`${pagination.page}|${pagination.pageSize}|${pagination.totalCandidates}`;
+ useEffect(()=>{
+  setSelected([]);
+  setTargetBatchId("");
+ },[paginationKey]);
  const [columnPickerOpen,setColumnPickerOpen]=useState(false);
  const [columnSearch,setColumnSearch]=useState("");
  const [operationPickerOpen,setOperationPickerOpen]=useState(false);
@@ -340,6 +448,11 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
  const [visibleColumns,setVisibleColumns]=useState<string[]|null>(
   initialView&&Array.isArray(initialView.columns)&&initialView.columns.length
    ?initialView.columns
+   :null
+ );
+ const [columnLayout,setColumnLayout]=useState<string[]|null>(
+  initialView&&Array.isArray(initialView.columnLayout)&&initialView.columnLayout.length
+   ?initialView.columnLayout
    :null
  );
  const [displayRulesOpen,setDisplayRulesOpen]=useState(false);
@@ -359,13 +472,25 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
  );
  const [viewLoadedFor,setViewLoadedFor]=useState("");
  const [viewMessage,setViewMessage]=useState("");
- const [serverViews,setServerViews]=useState<Record<string,CandidateViewPreset>|null>(null);
+ const [serverViews,setServerViews]=useState<Record<string,CandidateViewPreset>|null>(
+  initialServerViews&&typeof initialServerViews==="object"
+   ?initialServerViews as Record<string,CandidateViewPreset>
+   :null
+ );
  const [dragColumnKey,setDragColumnKey]=useState("");
  const [dragSortIndex,setDragSortIndex]=useState<number|null>(null);
  const [dragCandidateId,setDragCandidateId]=useState<number|null>(null);
  const [fullView,setFullView]=useState(false);
+ const [candidateDomLimit,setCandidateDomLimit]=useState(CANDIDATE_INITIAL_DOM_ROWS);
+ const candidateDomSentinelRef=useRef<HTMLTableRowElement|null>(null);
  const [candidateDensity,setCandidateDensity]=useState<"normal"|"compact"|"ultra">(initialView?.density??"compact");
  const [routeFocus,setRouteFocus]=useState(Boolean(initialView?.routeFocus));
+ // v282: Chẩn đoán Recipe + So sánh Cấu hình ↔ Board.
+ const [recipeDiag,setRecipeDiag]=useState<any|null>(null);
+ const [recipeDiagLoading,setRecipeDiagLoading]=useState(false);
+ const [recipeCompare,setRecipeCompare]=useState<any|null>(null);
+ const [recipeCompareLoading,setRecipeCompareLoading]=useState(false);
+ const [recipeCompareOpen,setRecipeCompareOpen]=useState(false);
 useEffect(()=>{
   if(!fullView)return;
   const old=document.body.style.overflow;
@@ -378,59 +503,98 @@ useEffect(()=>{
   };
  },[fullView]);
 
- // Append every original All Open Job column from source_data.
- // This stays dynamic when the imported Excel adds/removes source columns.
+ // v283: use the server-cached All Open Job column catalog, but preserve
+ // the existing board order as closely as possible: keys from the first loaded
+ // source_data row come first, then catalog-only columns are appended. This
+ // avoids scanning source_data for every Candidate without changing saved views.
  const sourceColumns=useMemo(()=>{
-   const out:string[]=[];
-   const seen=new Set<string>();
-   for(const row of candidates){
-     for(const key of Object.keys(row.source_data||{})){
-       if(!seen.has(key)){
-         seen.add(key);
-         out.push(key);
-       }
-     }
+   const out=Object.keys(candidates[0]?.source_data||{});
+   const seen=new Set(out);
+   for(const key of sourceColumnNames){
+    if(!seen.has(key)){seen.add(key);out.push(key);}
    }
    return out;
- },[candidates]);
+ },[sourceColumnNames,candidates.length?candidates[0]?.source_data:null]);
+
+ // v291: VIEW CÔNG ĐOẠN ST has one job-filter responsibility only:
+ // Candidate Jobs are included when RAW NextOperation belongs to this set.
+ const defaultStView=useMemo(()=>{
+   const set=new Set<string>();
+   for(const x of (stOperations||[])){
+    if(String(x.config_status)==="ST_SCOPE_ONLY")continue;
+    const c=normalized(x.operation_code);
+    if(c)set.add(c);
+   }
+   return set;
+  },[stOperations]);
+
+ const effectiveStView=useMemo(
+   ()=>new Set(stViewOverride??[...defaultStView]),
+   [stViewOverride,defaultStView]
+  );
 
  const routeColumns=useMemo<CandidateColumn[]>(()=>{
-   // One Main / Standard Operation = one permanent physical Candidate column.
-   // The selected Area controls which master columns are shown.
-   const selectedArea=selectedAreaId?Number(selectedAreaId):null;
+   // v291 canonical UI rule:
+   // VIEW ST filters rows by RAW NextOperation; Main columns come from the
+   // displayed Jobs' own AllOperation, standardized with the same mapping/scope.
+   const mappingBySource=new Map<string,OperationMappingMaster>();
+   for(const m of operationMappings||[]){
+    const source=normalized(m.source_operation_code);
+    if(source&&!mappingBySource.has(source))mappingBySource.set(source,m);
+   }
+
+   const scopeCanonical=new Map<string,string>();
+   for(const op of mainOperations){
+    const key=normalized(op.standard_operation);
+    if(key&&!scopeCanonical.has(key))scopeCanonical.set(key,String(op.standard_operation));
+   }
+
+   const needed=new Set<string>();
+   for(const row of candidates){
+    const nextOp=normalized(row.next_operation);
+    if(!nextOp||!effectiveStView.has(nextOp))continue;
+    for(const main of deriveMainOperationsFromAllOperation(row.all_operation,mappingBySource,scopeCanonical)){
+     needed.add(normalized(main));
+    }
+   }
+
+   const ordered=[...mainOperations].sort((a,b)=>{
+    const ap=a.planning_sort_order==null?Number.NaN:Number(a.planning_sort_order);
+    const bp=b.planning_sort_order==null?Number.NaN:Number(b.planning_sort_order);
+    const aScope=a.operation_sort==null?999999:Number(a.operation_sort);
+    const bScope=b.operation_sort==null?999999:Number(b.operation_sort);
+    const ao=Number.isFinite(ap)?ap:aScope;
+    const bo=Number.isFinite(bp)?bp:bScope;
+    if(ao!==bo)return ao-bo;
+    const aa=a.area_sort==null?999999:Number(a.area_sort);
+    const ba=b.area_sort==null?999999:Number(b.area_sort);
+    if(aa!==ba)return aa-ba;
+    const ag=a.st_group_sort==null?999999:Number(a.st_group_sort);
+    const bg=b.st_group_sort==null?999999:Number(b.st_group_sort);
+    if(ag!==bg)return ag-bg;
+    return normalized(a.standard_operation).localeCompare(normalized(b.standard_operation),undefined,{numeric:true,sensitivity:"base"});
+   });
+
    const seen=new Set<string>();
    const columns:CandidateColumn[]=[];
-
-   for(const op of mainOperations){
-     if(selectedArea && Number(op.area_id)!==selectedArea)continue;
-
-     const mainOperation=normalized(op.standard_operation);
-     if(!mainOperation||seen.has(mainOperation))continue;
-     seen.add(mainOperation);
-
-     columns.push({
-      key:`route-main:${mainOperation}`,
-      label:mainOperation,
-      group:"route"
-     });
+   for(const op of ordered){
+    const mainOperation=normalized(op.standard_operation);
+    if(!mainOperation||!needed.has(mainOperation)||seen.has(mainOperation))continue;
+    seen.add(mainOperation);
+    columns.push({key:`route-main:${mainOperation}`,label:mainOperation,group:"route"});
    }
-
-   // PIONBL is progress-only and may not be in Planning Operation Scope.
-   if(
-    candidates.some(row=>
-     (row.route_status||[]).some(item=>normalized(item.source_operation)==="PIONBL")
-    ) &&
-    !seen.has("PIONBL")
-   ){
-     columns.push({
-      key:"route-main:PIONBL",
-      label:"PIONBL",
-      group:"route"
-     });
-   }
-
    return columns;
- },[mainOperations,selectedAreaId,candidates]);
+ },[mainOperations,operationMappings,candidates,effectiveStView]);
+
+ const configurableColumns=useMemo<CandidateColumn[]>(()=>[
+   ...PLANNING_COLUMNS,
+   ...sourceColumns.map(col=>({
+     key:`source:${col}`,
+     label:col,
+     group:"allopen" as const
+   }))
+ ],[sourceColumns]);
+
  const allColumns=useMemo<CandidateColumn[]>(()=>[
    ...PLANNING_COLUMNS,
    ...routeColumns,
@@ -462,9 +626,9 @@ useEffect(()=>{
    return result;
  },[allColumns]);
 
- // SSR and first client render both show all columns.
- // Saved browser preference is applied only after hydration to avoid mismatch.
- // v261: nếu SSR đã có Default View (initialView) thì không đè — tránh nháy lại 169 cột.
+ // v291: user column preferences control only planning/info + All Open Job
+ // fields. Route/Main columns are automatic from the displayed Jobs' AllOperation
+ // and cannot be hidden by an old Columns preset.
  useEffect(()=>{
    if(initialView&&Array.isArray(initialView.columns)&&initialView.columns.length)return;
    try{
@@ -472,38 +636,29 @@ useEffect(()=>{
        window.localStorage.getItem(COLUMN_STORAGE_KEY) ||
        window.localStorage.getItem(LEGACY_COLUMN_STORAGE_KEY);
 
+     const valid=new Set(configurableColumns.map(x=>x.key));
      if(!raw){
-       setVisibleColumns(allColumns.map(x=>x.key));
+       setVisibleColumns(configurableColumns.map(x=>x.key));
        return;
      }
 
      const saved=JSON.parse(raw);
      if(Array.isArray(saved)){
-       const valid=new Set(allColumns.map(x=>x.key));
        let next=saved.filter((x:unknown)=>typeof x==="string"&&valid.has(x)) as string[];
-
-       // On a new column-schema version, surface status fields and the Route Status Matrix once.
-       // After it is saved, the user remains free to hide/reorder any matrix column.
        if(!window.localStorage.getItem(COLUMN_STORAGE_KEY)){
          for(const key of ["status","batch_no","previous_status","previous_batch_no","actual_progress"]){
-           if(valid.has(key) && !next.includes(key))next.push(key);
+           if(valid.has(key)&&!next.includes(key))next.push(key);
          }
-
-         for(const col of routeColumns){
-           if(valid.has(col.key) && !next.includes(col.key))next.push(col.key);
-         }
-
          window.localStorage.setItem(COLUMN_STORAGE_KEY,JSON.stringify(next));
        }
-
        setVisibleColumns(next);
      }else{
-       setVisibleColumns(allColumns.map(x=>x.key));
+       setVisibleColumns(configurableColumns.map(x=>x.key));
      }
    }catch{
-     setVisibleColumns(allColumns.map(x=>x.key));
+     setVisibleColumns(configurableColumns.map(x=>x.key));
    }
- },[allColumns]);
+ },[configurableColumns]);
 
  useEffect(()=>{
    try{
@@ -521,11 +676,113 @@ useEffect(()=>{
    }catch{}
  },[]);
 
- const activeColumns=visibleColumns??allColumns.map(x=>x.key);
- const isColumnVisible=(key:string)=>activeColumns.includes(key);
+ const configurableKeySet=useMemo(()=>new Set(configurableColumns.map(x=>x.key)),[configurableColumns]);
+ const configurableActiveColumns=useMemo(()=>{
+   const source=visibleColumns??configurableColumns.map(x=>x.key);
+   const seen=new Set<string>();
+   return source.filter(key=>{
+    if(!configurableKeySet.has(key)||key.startsWith("route-main:")||seen.has(key))return false;
+    seen.add(key);return true;
+   });
+ },[visibleColumns,configurableColumns,configurableKeySet]);
+
+ // v292: Column Layout is a light-weight layout layer on top of visibility.
+ // All Open Job source columns that are not explicitly extracted live inside
+ // one virtual package. The package itself can move as one item.
+ const effectiveColumnLayout=useMemo(()=>{
+   const visibleSet=new Set(configurableActiveColumns);
+   const raw=columnLayout??collapsedColumnLayoutFromVisible(configurableActiveColumns);
+   const out:string[]=[];
+   const seen=new Set<string>();
+   let hasGroup=false;
+   for(const item0 of raw){
+    const item=String(item0||"");
+    if(item===ALL_OPEN_JOB_GROUP_KEY){
+     if(!hasGroup){out.push(item);hasGroup=true;}
+     continue;
+    }
+    if(!visibleSet.has(item)||!configurableKeySet.has(item)||seen.has(item))continue;
+    seen.add(item);out.push(item);
+   }
+   if(!hasGroup){out.push(ALL_OPEN_JOB_GROUP_KEY);hasGroup=true;}
+
+   // Planning columns are individual layout items. If an old preset did not
+   // contain them, keep every visible planning column before the package.
+   const groupIndex=Math.max(0,out.indexOf(ALL_OPEN_JOB_GROUP_KEY));
+   const missingPlanning=configurableActiveColumns.filter(key=>!key.startsWith("source:")&&!seen.has(key));
+   if(missingPlanning.length)out.splice(groupIndex,0,...missingPlanning);
+   return out;
+ },[columnLayout,configurableActiveColumns,configurableKeySet]);
+
+ const explicitSourceKeys=useMemo(
+  ()=>new Set(effectiveColumnLayout.filter(key=>key.startsWith("source:"))),
+  [effectiveColumnLayout]
+ );
+ // v293: package membership is independent from visibility. Every catalogued
+ // All Open Job column belongs to the package by default; only columns that the
+ // planner explicitly extracts before/after the package are removed from it.
+ const allSourceColumnKeys=useMemo(
+  ()=>sourceColumns.map(col=>`source:${col}`),
+  [sourceColumns]
+ );
+ const groupedSourceColumns=useMemo(
+  ()=>allSourceColumnKeys.filter(key=>!explicitSourceKeys.has(key)),
+  [allSourceColumnKeys,explicitSourceKeys]
+ );
+ // The package is a layout bucket, not a command to render all 188+ columns.
+ // Preserve the existing visibility set so opening Planning Board stays light.
+ const visibleGroupedSourceColumns=useMemo(
+  ()=>groupedSourceColumns.filter(key=>configurableActiveColumns.includes(key)),
+  [groupedSourceColumns,configurableActiveColumns]
+ );
+
+ const activeColumns=useMemo(()=>{
+   const routeKeys=routeColumns.map(x=>x.key);
+   const out:string[]=[];
+   let routeInserted=false;
+   for(const item of effectiveColumnLayout){
+    if(item===ALL_OPEN_JOB_GROUP_KEY){
+     // Keep the automatic Main Operation matrix adjacent to the All Open Job
+     // package, exactly where the package is positioned by the planner.
+     if(!routeInserted){out.push(...routeKeys);routeInserted=true;}
+     out.push(...visibleGroupedSourceColumns);
+     continue;
+    }
+    if(configurableActiveColumns.includes(item))out.push(item);
+   }
+   if(!routeInserted)out.push(...routeKeys);
+   return out;
+ },[effectiveColumnLayout,visibleGroupedSourceColumns,configurableActiveColumns,routeColumns]);
+ const isColumnVisible=(key:string)=>
+   key.startsWith("route-main:")
+    ?routeColumns.some(x=>x.key===key)
+    :configurableActiveColumns.includes(key);
+
+ useEffect(()=>{
+  if(columnLayout!==null)return;
+  let next:string[]|null=null;
+  // A server Default View has priority. For legacy presets without columnLayout,
+  // collapse their current visible All Open Job columns into one package.
+  if(initialView){
+   next=Array.isArray(initialView.columnLayout)&&initialView.columnLayout.length
+    ?initialView.columnLayout
+    :collapsedColumnLayoutFromVisible(configurableActiveColumns);
+  }else{
+   try{
+    const raw=window.localStorage.getItem(COLUMN_LAYOUT_STORAGE_KEY);
+    const parsed=raw?JSON.parse(raw):null;
+    if(Array.isArray(parsed)&&parsed.length)next=parsed.map((x:unknown)=>String(x));
+   }catch{}
+   if(!next)next=collapsedColumnLayoutFromVisible(configurableActiveColumns);
+  }
+  setColumnLayout(next);
+ },[columnLayout,configurableActiveColumns,initialView]);
 
  // v227: Default View lưu trên MÁY CHỦ (dùng chung mọi môi trường).
  useEffect(()=>{
+   // SSR/API already supplied the relevant OP/AREA/SYSTEM presets. Do not
+   // issue a second board-view request on every PlanningBoard mount.
+   if(initialServerViews&&typeof initialServerViews==="object")return;
    let alive=true;
    fetch("/api/planning/board-view",{cache:"no-store"})
     .then(r=>safeJson(r))
@@ -537,7 +794,7 @@ useEffect(()=>{
     })
     .catch(()=>{if(alive)setServerViews({});});
    return ()=>{alive=false;};
- },[]);
+ },[initialServerViews]);
 
  const readOperationViews=():Record<string,CandidateViewPreset>=>{
    // Ưu tiên dữ liệu từ máy chủ; nếu chưa tải xong thì đọc legacy localStorage.
@@ -575,12 +832,17 @@ useEffect(()=>{
      :"System";
 
  const applyViewPreset=(preset:CandidateViewPreset)=>{
-   const validColumns=new Set(allColumns.map(x=>x.key));
+   const validColumns=new Set(configurableColumns.map(x=>x.key));
    const cols=Array.isArray(preset.columns)
-    ? preset.columns.filter(x=>validColumns.has(x))
-    : allColumns.map(x=>x.key);
+    ? preset.columns.filter(x=>validColumns.has(x)&&!x.startsWith("route-main:"))
+    : configurableColumns.map(x=>x.key);
 
    setVisibleColumns(cols);
+   setColumnLayout(
+    Array.isArray(preset.columnLayout)&&preset.columnLayout.length
+     ?preset.columnLayout.map(x=>String(x))
+     :collapsedColumnLayoutFromVisible(cols)
+   );
    if(Array.isArray(preset.stView))setStViewOverride(preset.stView);
    setFilterNextMain(preset.filters?.nextMain||"");
    setFilterNextOperation(preset.filters?.nextOperation||"");
@@ -666,7 +928,8 @@ useEffect(()=>{
 
  const saveCurrentDefault=async()=>{
    const payload:CandidateViewPreset={
-     columns:[...activeColumns],
+     columns:[...configurableActiveColumns],
+     columnLayout:[...effectiveColumnLayout],
      stView:[...effectiveStView],
      filters:{
       nextMain:filterNextMain,
@@ -751,13 +1014,14 @@ useEffect(()=>{
    }else{
      setViewLoadedFor("");
    }
- },[standardOperation,selectedAreaId,allColumns,serverViews]);
- const persistColumnsToView=async(next:string[])=>{
+ },[standardOperation,selectedAreaId,configurableColumns,serverViews]);
+ const persistColumnsToView=async(next:string[],nextLayout:string[]=effectiveColumnLayout)=>{
    try{
     const views=readOperationViews();
     const existing=views[exactViewKey];
     const payload:CandidateViewPreset={
      columns:next,
+     columnLayout:[...nextLayout],
      stView:[...effectiveStView],
      filters:existing?.filters ?? {nextMain:filterNextMain,nextOperation:filterNextOperation,primer1:filterPrimer1,primer2:filterPrimer2,primer3:filterPrimer3},
      sortRules:existing?.sortRules ?? [...sortRules],
@@ -775,69 +1039,133 @@ useEffect(()=>{
    }catch{}
  };
 
- const saveColumns=(next:string[])=>{
-   setVisibleColumns(next);
-   try{window.localStorage.setItem(COLUMN_STORAGE_KEY,JSON.stringify(next))}catch{}
-   // v237: ghi luôn vào Default View máy chủ — tránh view tái áp dụng ghi đè
-   // (trước đây chỉ lưu localStorage nên sau F5 / fetch xong cột quay về hết).
-   void persistColumnsToView(next);
+ const normalizeLayoutForVisible=(layout:string[],visible:string[])=>{
+   const visibleSet=new Set(visible);
+   const out:string[]=[];
+   const seen=new Set<string>();
+   let hasGroup=false;
+   for(const raw of layout){
+    const item=String(raw||"");
+    if(item===ALL_OPEN_JOB_GROUP_KEY){
+     if(!hasGroup){out.push(item);hasGroup=true;}
+     continue;
+    }
+    if(!visibleSet.has(item)||!configurableKeySet.has(item)||seen.has(item))continue;
+    seen.add(item);out.push(item);
+   }
+   if(!hasGroup)out.push(ALL_OPEN_JOB_GROUP_KEY);
+   const groupIndex=Math.max(0,out.indexOf(ALL_OPEN_JOB_GROUP_KEY));
+   const missingPlanning=visible.filter(key=>!key.startsWith("source:")&&!seen.has(key));
+   if(missingPlanning.length)out.splice(groupIndex,0,...missingPlanning);
+   return out;
  };
 
- // v245: đổi VIEW CÔNG ĐOẠN ST → lọc NGAY trên dữ liệu đã tải (không tải lại trang,
- // không chậm). Muốn nạp job của công đoạn MỚI tick (chưa có trong trang hiện tại)
- // → bấm nút "Áp dụng & tải lại" (tải lại 1 lần có chủ đích).
+ const saveColumns=(next:string[],nextLayout?:string[])=>{
+   const seen=new Set<string>();
+   const sanitized=next.filter(key=>{
+    if(!configurableKeySet.has(key)||key.startsWith("route-main:")||seen.has(key))return false;
+    seen.add(key);return true;
+   });
+   const layout=normalizeLayoutForVisible(nextLayout??effectiveColumnLayout,sanitized);
+   setVisibleColumns(sanitized);
+   setColumnLayout(layout);
+   try{
+    window.localStorage.setItem(COLUMN_STORAGE_KEY,JSON.stringify(sanitized));
+    window.localStorage.setItem(COLUMN_LAYOUT_STORAGE_KEY,JSON.stringify(layout));
+   }catch{}
+   // Route/Main columns are automatic and are deliberately not persisted here.
+   void persistColumnsToView(sanitized,layout);
+ };
+
+ // v245/v291: đổi VIEW CÔNG ĐOẠN ST → lọc NGAY trên dữ liệu đã tải.
+ // Main columns update from the matching Jobs' AllOperation; to fetch Jobs from
+ // newly selected NextOperations that are not on this page yet, press Apply.
  const changeStView=(next:string[])=>{
    setStViewOverride(next);
  };
 
  const toggleColumn=(key:string)=>{
-   const next=isColumnVisible(key)
-     ? activeColumns.filter(x=>x!==key)
-     : [...activeColumns,key];
-   saveColumns(next);
+   if(key.startsWith("route-main:"))return;
+   if(configurableActiveColumns.includes(key)){
+    saveColumns(
+     configurableActiveColumns.filter(x=>x!==key),
+     effectiveColumnLayout.filter(x=>x!==key)
+    );
+    return;
+   }
+   const nextVisible=[...configurableActiveColumns,key];
+   if(key.startsWith("source:")){
+    // Source columns enter the All Open Job package by default.
+    saveColumns(nextVisible,effectiveColumnLayout);
+   }else{
+    const nextLayout=[...effectiveColumnLayout];
+    const groupIndex=nextLayout.indexOf(ALL_OPEN_JOB_GROUP_KEY);
+    nextLayout.splice(groupIndex<0?nextLayout.length:groupIndex,0,key);
+    saveColumns(nextVisible,nextLayout);
+   }
  };
 
- const moveColumn=(key:string,direction:-1|1)=>{
-   const current=[...activeColumns];
+ const moveLayoutItemTo=(key:string,targetIndex:number)=>{
+   const current=[...effectiveColumnLayout];
    const index=current.indexOf(key);
    if(index<0)return;
-
-   const target=index+direction;
-   if(target<0 || target>=current.length)return;
-
-   [current[index],current[target]]=[current[target],current[index]];
-   saveColumns(current);
- };
-
- const moveColumnTo=(key:string,targetIndex:number)=>{
-   const current=[...activeColumns];
-   const index=current.indexOf(key);
-   if(index<0)return;
-
    const next=[...current];
    next.splice(index,1);
    const safe=Math.max(0,Math.min(targetIndex,next.length));
    next.splice(safe,0,key);
-   saveColumns(next);
+   saveColumns(configurableActiveColumns,next);
+ };
+ const moveLayoutItem=(key:string,direction:-1|1)=>{
+   const index=effectiveColumnLayout.indexOf(key);
+   if(index<0)return;
+   const target=index+direction;
+   if(target<0||target>=effectiveColumnLayout.length)return;
+   moveLayoutItemTo(key,target);
+ };
+
+ const placeSourceRelativeToGroup=(key:string,side:"before"|"after")=>{
+   if(!key.startsWith("source:"))return;
+   const nextVisible=configurableActiveColumns.includes(key)
+    ?[...configurableActiveColumns]
+    :[...configurableActiveColumns,key];
+   const nextLayout=effectiveColumnLayout.filter(x=>x!==key);
+   let groupIndex=nextLayout.indexOf(ALL_OPEN_JOB_GROUP_KEY);
+   if(groupIndex<0){nextLayout.push(ALL_OPEN_JOB_GROUP_KEY);groupIndex=nextLayout.length-1;}
+   const insertAt=side==="before"?groupIndex:groupIndex+1;
+   nextLayout.splice(insertAt,0,key);
+   saveColumns(nextVisible,nextLayout);
+ };
+
+ const putSourceInGroup=(key:string)=>{
+   if(!key.startsWith("source:"))return;
+   const nextVisible=configurableActiveColumns.includes(key)
+    ?[...configurableActiveColumns]
+    :[...configurableActiveColumns,key];
+   saveColumns(nextVisible,effectiveColumnLayout.filter(x=>x!==key));
+ };
+
+ const collapseAllOpenJobColumns=()=>{
+   const nextLayout=effectiveColumnLayout.filter(x=>!x.startsWith("source:"));
+   saveColumns(configurableActiveColumns,nextLayout);
  };
 
  const orderedColumnChoices=useMemo(()=>{
    const byKey=new Map<string,CandidateColumn>(
-    allColumns.map((c:CandidateColumn)=>[c.key,c] as [string,CandidateColumn])
+    configurableColumns.map((c:CandidateColumn)=>[c.key,c] as [string,CandidateColumn])
    );
    const ordered:CandidateColumn[]=[];
 
-   for(const key of activeColumns){
+   for(const key of configurableActiveColumns){
      const col=byKey.get(key);
      if(col)ordered.push(col);
    }
 
-   for(const col of allColumns){
-     if(!activeColumns.includes(col.key))ordered.push(col);
+   for(const col of configurableColumns){
+     if(!configurableActiveColumns.includes(col.key))ordered.push(col);
    }
 
    return ordered;
- },[allColumns,activeColumns]);
+ },[configurableColumns,configurableActiveColumns]);
 
  const filteredColumnChoices=orderedColumnChoices.filter(c=>{
    const q=columnSearch.trim().toUpperCase();
@@ -1129,21 +1457,6 @@ useEffect(()=>{
  // "Công đoạn"). Mặc định = các công đoạn ST đã cấu hình (panel, trừ ST_SCOPE_ONLY);
  // user có thể tick thêm công đoạn khác (vd trung gian) hoặc bỏ bớt — bỏ hết → trống.
  // Panel "Các công đoạn được hiển thị" (VIEW CÔNG ĐOẠN CHÍNH) giữ nguyên vai trò cấu hình.
- const defaultStView=useMemo(()=>{
-   const set=new Set<string>();
-   for(const x of (stOperations||[])){
-    if(String(x.config_status)==="ST_SCOPE_ONLY")continue;
-    const c=normalized(x.operation_code);
-    if(c)set.add(c);
-   }
-   return set;
-  },[stOperations]);
-
- const effectiveStView=useMemo(
-   ()=>new Set(stViewOverride??[...defaultStView]),
-   [stViewOverride,defaultStView]
-  );
-
  const allNextOps=useMemo(()=>{
    const seen=new Set<string>();
    const panel=new Set<string>();
@@ -1224,6 +1537,40 @@ useEffect(()=>{
    filterPrimer1,filterPrimer2,filterPrimer3,sortRules,stOperations,effectiveStView
  ]);
 
+ const candidateIdentityKey=useMemo(
+  ()=>candidates.map(x=>String(x.id)).join(","),
+  [candidates]
+ );
+ const displayRuleKey=useMemo(()=>JSON.stringify({
+  filterNextMain,filterNextOperation,filterPrimer1,filterPrimer2,filterPrimer3,sortRules
+ }),[filterNextMain,filterNextOperation,filterPrimer1,filterPrimer2,filterPrimer3,sortRules]);
+ useEffect(()=>{
+  setCandidateDomLimit(CANDIDATE_INITIAL_DOM_ROWS);
+ },[candidateIdentityKey,displayRuleKey]);
+ useEffect(()=>{
+  const node=candidateDomSentinelRef.current;
+  if(!node||candidateDomLimit>=displayCandidates.length)return;
+  const observer=new IntersectionObserver(entries=>{
+   if(entries.some(x=>x.isIntersecting)){
+    setCandidateDomLimit(v=>Math.min(displayCandidates.length,v+CANDIDATE_DOM_ROW_STEP));
+   }
+  },{rootMargin:"600px 0px"});
+  observer.observe(node);
+  return ()=>observer.disconnect();
+ },[candidateDomLimit,displayCandidates.length]);
+ const renderedCandidates=useMemo(
+  ()=>displayCandidates.slice(0,candidateDomLimit),
+  [displayCandidates,candidateDomLimit]
+ );
+ const visibleCandidateIdsKey=useMemo(
+  ()=>renderedCandidates.map(x=>String(x.id)).join(","),
+  [renderedCandidates]
+ );
+ useEffect(()=>{
+  if(!onVisibleCandidateIds||!visibleCandidateIdsKey)return;
+  onVisibleCandidateIds(visibleCandidateIdsKey.split(",").map(Number).filter(Number.isFinite));
+ },[visibleCandidateIdsKey,onVisibleCandidateIds]);
+
  const eligibleCandidates=useMemo(
    ()=>displayCandidates.filter(x=>x.planning_status==="ELIGIBLE"),
    [displayCandidates]
@@ -1231,6 +1578,16 @@ useEffect(()=>{
 
  const plannedCandidates=useMemo(
    ()=>displayCandidates.filter(x=>x.planning_status==="PLANNED"),
+   [displayCandidates]
+ );
+
+ const waitingCandidates=useMemo(
+   ()=>displayCandidates.filter(x=>x.planning_status==="LOCKED"&&x.has_planning_chain!==false),
+   [displayCandidates]
+ );
+
+ const noChainCandidates=useMemo(
+   ()=>displayCandidates.filter(x=>x.has_planning_chain===false),
    [displayCandidates]
  );
 
@@ -1313,22 +1670,51 @@ useEffect(()=>{
    [selectedTargets]
  );
 
- // v266: Tổng hợp đề xuất Recipe + Mã lô + Prefix cho các Job đang chọn,
- // theo CẤU HÌNH HIỆN TẠI (paint theo Part → Operation Code điều kiện/ưu tiên).
- const suggestionSummary=useMemo(()=>{
-   if(!selectedRows.length)return null;
+ // v290: Tổng hợp Recipe theo CHÍNH Planning Operation target đang được chọn.
+ // Candidate row chỉ là dòng đại diện để hiển thị; với plan-ahead v312, checkbox/cell
+ // có thể trỏ tới bất kỳ Current/Next Planning Job Operation đang READY (vd row CPBILP nhưng target TSAUNSLD).
+ // Không được dùng candidate.effective_recipe_key trong trường hợp đó.
+ const selectedRecipeTargets=useMemo(()=>selectedTargets.map(target=>{
+   const routeItem=target.routeItem;
+   const exactCandidateTarget=
+     normalized(target.standardOperation)===normalized(target.candidate.standard_operation) &&
+     normalized(target.sourceOperation)===normalized(target.candidate.source_operation_code);
 
-   const withRecipe=selectedRows.filter(x=>x.effective_recipe_key);
-   const keys=[...new Set(withRecipe.map(x=>x.effective_recipe_key))];
-   const labels=[...new Set(withRecipe.map(x=>
-     `${x.recipe_no||"—"}${x.recipe_name?` · ${x.recipe_name}`:""}`
-   ))];
-   const batchKeys=[...new Set(withRecipe.map(x=>x.batch_key_suggest).filter(Boolean))];
-   const prefixes=[...new Set(withRecipe.map(x=>x.batch_prefix_suggest).filter(Boolean))];
+   if(routeItem){
+     return {
+       target,
+       recipeKey:routeItem.effective_recipe_key||null,
+       recipeNo:routeItem.effective_recipe_no||null,
+       recipeName:routeItem.effective_recipe_name||null,
+       batchKey:routeItem.batch_key_suggest||null,
+       batchPrefix:routeItem.batch_prefix_suggest||null
+     };
+   }
 
    return {
-     count:selectedRows.length,
-     unmatchedCount:selectedRows.length-withRecipe.length,
+     target,
+     recipeKey:exactCandidateTarget?target.candidate.effective_recipe_key:null,
+     recipeNo:exactCandidateTarget?target.candidate.recipe_no:null,
+     recipeName:exactCandidateTarget?target.candidate.recipe_name:null,
+     batchKey:exactCandidateTarget?target.candidate.batch_key_suggest:null,
+     batchPrefix:exactCandidateTarget?target.candidate.batch_prefix_suggest:null
+   };
+ }),[selectedTargets]);
+
+ const suggestionSummary=useMemo(()=>{
+   if(!selectedRecipeTargets.length)return null;
+
+   const withRecipe=selectedRecipeTargets.filter(x=>x.recipeKey);
+   const keys=[...new Set(withRecipe.map(x=>x.recipeKey).filter(Boolean))];
+   const labels=[...new Set(withRecipe.map(x=>
+     `${x.recipeNo||"—"}${x.recipeName?` · ${x.recipeName}`:""}`
+   ))];
+   const batchKeys=[...new Set(withRecipe.map(x=>x.batchKey).filter(Boolean))];
+   const prefixes=[...new Set(withRecipe.map(x=>x.batchPrefix).filter(Boolean))];
+
+   return {
+     count:selectedRecipeTargets.length,
+     unmatchedCount:selectedRecipeTargets.length-withRecipe.length,
      unanimousRecipe:keys.length===1?keys[0]:null,
      unanimousRecipeLabel:labels.length===1?labels[0]:null,
      unanimousKey:batchKeys.length===1?batchKeys[0]:null,
@@ -1336,7 +1722,63 @@ useEffect(()=>{
      allSameRecipe:keys.length===1,
      mixedRecipes:keys.length>1
    };
- },[selectedRows]);
+ },[selectedRecipeTargets]);
+
+ // Chẩn đoán đúng target Operation, không chẩn đoán Candidate row đại diện.
+ const firstUnmatchedTarget=useMemo(
+  ()=>selectedRecipeTargets.find(x=>!x.recipeKey)||null,
+  [selectedRecipeTargets]
+ );
+
+ const runRecipeDiagnosis=async()=>{
+   const unresolved=firstUnmatchedTarget;
+   if(!unresolved)return;
+   const target=unresolved.target;
+   setRecipeDiagLoading(true);
+   setRecipeDiag(null);
+   try{
+    const r=await fetch("/api/planning/recipe-diagnosis",{
+     method:"POST",
+     headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({
+      mode:"job",
+      source_operation_code:target.sourceOperation,
+      standard_operation:target.standardOperation,
+      part_num:target.candidate.part_num,
+      revision_num:target.candidate.revision_num,
+      source_data:target.candidate.source_data||null
+     })
+    });
+    const data=await safeJson(r);
+    if(!r.ok)throw new Error(data?.error||"Lỗi máy chủ.");
+    setRecipeDiag(data);
+   }catch(e){
+    setRecipeDiag({error:e instanceof Error?e.message:String(e)});
+   }finally{
+    setRecipeDiagLoading(false);
+   }
+ };
+
+ const runRecipeCompare=async()=>{
+   setRecipeCompareLoading(true);
+   try{
+    const r=await fetch("/api/planning/recipe-diagnosis",{
+     method:"POST",
+     headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({mode:"compare"})
+    });
+    const data=await safeJson(r);
+    if(!r.ok)throw new Error(data?.error||"Lỗi máy chủ.");
+    setRecipeCompare(data);
+    setRecipeCompareOpen(true);
+   }catch(e){
+    setRecipeCompare({error:e instanceof Error?e.message:String(e)});
+    setRecipeCompareOpen(true);
+   }finally{
+    setRecipeCompareLoading(false);
+   }
+ };
+
 
  const selectedPaintKey=useMemo(()=>{
    const firstTarget=selectedTargets[0];
@@ -1355,9 +1797,9 @@ useEffect(()=>{
  };
 
  // Single source for row/checkbox/drag selection:
- // a Candidate row may be PLANNED at its previous/current Main while a later
- // immediate Main is already READY after Schedule Gate.
- const selectableTargetFor=(row:Candidate)=>{
+ // a Candidate row may be PLANNED at Current Main while any later Main remains
+ // READY for plan-ahead. Route-cell selection must therefore target the exact occurrence.
+ const computeSelectableTarget=(row:Candidate)=>{
    const route=(row.route_status||[])
     .filter(r=>r.standard_operation&&normalized(r.standard_operation)!=="PIONBL")
     .sort((a,b)=>Number(a.source_seq||0)-Number(b.source_seq||0));
@@ -1414,6 +1856,16 @@ useEffect(()=>{
 
    return null;
  };
+
+ // v283: this used to sort/scan route_status repeatedly for checkbox, row
+ // class, drag, toggle-all and Batch Builder. Compute once per Candidate data
+ // revision and reuse the result throughout the render.
+ const selectableTargetMap=useMemo(()=>{
+  const map=new Map<number,ReturnType<typeof computeSelectableTarget>>();
+  for(const row of candidates)map.set(Number(row.id),computeSelectableTarget(row));
+  return map;
+ },[candidates]);
+ const selectableTargetFor=(row:Candidate)=>selectableTargetMap.get(Number(row.id))??null;
 
  const paintSelectionLockedForTarget=(row:Candidate)=>{
    const target=selectableTargetFor(row);
@@ -1576,7 +2028,11 @@ useEffect(()=>{
        body:JSON.stringify({
          planning_job_operation_ids:selected,
          standard_operation:effectiveOperation,
-         recipe_key:recipeKey||suggestionSummary?.unanimousRecipe||null,
+         // v290: toolbar Recipe belongs to the loaded Standard Operation filter.
+         // If Route Matrix selection has advanced to another Main, ignore that
+         // filter Recipe and use the exact target Operation suggestion instead.
+         recipe_key:(standardOperation&&normalized(standardOperation)===normalized(effectiveOperation)?recipeKey:"")
+           ||suggestionSummary?.unanimousRecipe||null,
          target_batch_id:targetBatchId?Number(targetBatchId):null
        })
      });
@@ -1602,7 +2058,7 @@ useEffect(()=>{
 
  async function rebuild(){
    setBusy(true);
-   setMessage("Đang rebuild Planning Chain (Routing Detail theo Part/Rev)...");
+   setMessage("Đang rebuild Planning Chain (AllOperation theo từng Job)...");
 
    try{
      const r=await fetch("/api/planning/rebuild",{method:"POST"});
@@ -1611,9 +2067,11 @@ useEffect(()=>{
      setMessage(
        `Rebuild xong: ${d.jobs} Jobs · ${d.operations} operations · `+
        `${d.eligible} eligible · ${d.locked} locked · `+
-       `NextOperation ${d.nextAnchored||0} · Fallback LastOp ${d.fallbackAnchored||0} · `+
-       `Sequence Check ${d.sequenceCheck||0} · `+
-       `Routing Detail ${d.routingDetailJobs||0} · AllOperation fallback ${d.allOperationFallbackJobs||0}`
+       `Bridge Pair ${d.bridgePairAnchored||0} · `+
+       `AllOperation fallback ${d.allOperationFallbackAnchored??d.rawPairAnchored??0} · `+
+       `NextOp=Current Main ${d.directNextMainAnchored||0} · `+
+       `NO CHAIN ${d.noChain??d.sequenceCheck??0} · `+
+       `AllOperation ${d.allOperationJobs||0}`
      );
      setTimeout(()=>location.reload(),1200);
    }catch(e){
@@ -1628,34 +2086,35 @@ useEffect(()=>{
  };
 
  const currentMainView=(x:Candidate)=>{
-   const target=selectableTargetFor(x);
-   if(target){
-    const item=target.routeItem;
-    const status=item?.route_status||(
-      x.planning_status==="ELIGIBLE" ? "READY" :
-      x.planning_status==="PLANNED" ? "PLANNED-UNSCHEDULED" :
-      "WAITING"
-    );
+   if(x.has_planning_chain===false){
     return {
-     operation:target.standardOperation||x.standard_operation||"—",
-     status:String(status||"—"),
-     item
+     operation:"—",
+     status:"NO CHAIN",
+     item:null as RouteStatusItem|null
     };
    }
 
-   // No selectable READY target: show the Candidate representative Main
-   // instead of depending on whichever route column happens to be first.
+   // v308: Current Main is the FIRST live Planning occurrence created from the
+   // exact All Open Job LastLaborOp + NextOperation pair. Do not replace it
+   // with another READY/PLANNED route target. Next Main(s) remain selectable in
+   // the dynamic route cells / Batch Builder.
+   const currentItem=(x.route_status||[]).find(
+    r=>Number(r.planning_job_operation_id)===Number(x.id)
+   )||null;
+   const status=currentItem?.route_status||(
+    x.planning_status==="PLANNED"
+     ? (x.batch_no?"PLANNED-UNSCHEDULED":"PLANNED")
+     : x.planning_status==="LOCKED"
+      ? "WAIT PREV"
+      : x.planning_status==="ELIGIBLE"
+       ? "READY"
+       : String(x.planning_status||"—")
+   );
+
    return {
-    operation:x.standard_operation||x.next_standard_operation||"—",
-    status:
-      x.planning_status==="PLANNED"
-       ? (x.batch_no?"PLANNED-UNSCHEDULED":"PLANNED")
-       : x.planning_status==="LOCKED"
-        ? "WAIT PREV"
-        : x.planning_status==="ELIGIBLE"
-         ? "READY"
-         : String(x.planning_status||"—"),
-    item:null as RouteStatusItem|null
+    operation:x.standard_operation||"—",
+    status:String(status||"—"),
+    item:currentItem
    };
  };
 
@@ -1760,9 +2219,9 @@ useEffect(()=>{
    }
 
    if(status==="WAITING"){
+    const waiting=waitingDisplayFor(candidate,item);
     setMessage(
-     `${candidate.job_num} · ${op}: WAITING. `+
-     `Main trước phải được Schedule trước khi công đoạn này mở READY.`
+     `${candidate.job_num} · ${op}: ${waiting.label}. ${waiting.reason}`
     );
     return;
    }
@@ -1809,7 +2268,7 @@ useEffect(()=>{
    setSelected(prev=>[...new Set([...prev,id])]);
  };
 
- const waitingDisplayFor=(candidate:Candidate,item:RouteStatusItem)=>{
+ function waitingDisplayFor(candidate:Candidate,item:RouteStatusItem){
    if(normalized(item.route_status)!=="WAITING")
     return {label:String(item.route_status||""),reason:"",kind:""};
 
@@ -1824,8 +2283,8 @@ useEffect(()=>{
 
    if(Number(item.source_seq)===immediate){
     return {
-     label:"WAIT PREV",
-     reason:"Waiting for Previous Main Schedule",
+     label:"WAIT",
+     reason:"Chain chưa được chuẩn hóa theo plan-ahead v312; hãy Rebuild Chain hoặc kiểm tra route.",
      kind:"route-status-wait-prev"
     };
    }
@@ -1835,10 +2294,14 @@ useEffect(()=>{
     reason:"Future Main Operation",
     kind:"route-status-wait-future"
    };
- };
+ }
 
  const renderRouteStatusCell=(x:Candidate,key:string)=>{
    const mainOperation=normalized(key.slice("route-main:".length));
+
+   if(x.route_status_loaded===false){
+    return <td key={key} className="route-status-cell route-status-loading" title={`${mainOperation} · đang tải Route Matrix`}>…</td>;
+   }
 
    const items=(x.route_status||[])
     .filter(r=>
@@ -2231,18 +2694,31 @@ useEffect(()=>{
     <div className="erp-panel-head candidate-sticky-toolbar">
      <b>Candidate Jobs</b>
      <div className="row">
-      <span>{eligibleCandidates.length} ELIGIBLE · {plannedCandidates.length} PLANNED</span>
+      <span>
+       {eligibleCandidates.length} ELIGIBLE · {plannedCandidates.length} PLANNED · {waitingCandidates.length} WAIT
+       {noChainCandidates.length>0?` · ${noChainCandidates.length} NO CHAIN`:""}
+       {` · Tất cả ${pagination.totalCandidates} job (không phân trang)`}
+      </span>
       <button className="btn small" type="button" onClick={()=>setDisplayRulesOpen(x=>!x)}>
        Sort / Filter
       </button>
       <button className="btn small" type="button" onClick={()=>setColumnPickerOpen(x=>!x)}>
-       Columns ({activeColumns.length}/{allColumns.length})
+       Columns ({configurableActiveColumns.length}/{configurableColumns.length}) · AOJ Group ({groupedSourceColumns.length}) · Main ({routeColumns.length})
       </button>
       <button className="btn small" type="button" onClick={()=>setOperationPickerOpen(x=>!x)} title="VIEW CÔNG ĐOẠN ST — chọn các NEXT OPERATION được hiển thị trên Candidate Jobs">
        Công đoạn ({effectiveStView.size}/{allNextOps.length})
       </button>
       <button className="btn small" type="button" onClick={()=>setFullView(x=>!x)} title="ESC để thoát Full View">
        {fullView?"Exit Full View":"Full View"}
+      </button>
+      <button
+       className="btn small"
+       type="button"
+       onClick={runRecipeCompare}
+       disabled={recipeCompareLoading}
+       title="So sánh cấu hình Recipe (Công thức & Rule) với nhu cầu thực tế trên board — tìm mapping thiếu / mapping không được dùng"
+      >
+       {recipeCompareLoading?"Đang so sánh…":"⇄ So sánh Recipe"}
       </button>
       <button
        className="btn small"
@@ -2290,6 +2766,76 @@ useEffect(()=>{
         ? `${paintSelectionField(standardOperation)} = ${selectedPaintKey} · Các Job khác loại sơn đã bị khóa.`
         : `Chọn Job đầu tiên để khóa theo ${paintSelectionField(standardOperation)}. Job thiếu loại sơn cũng không được chọn.`}
       </span>
+     </div>}
+
+    {/* v282: Modal So sánh Cấu hình Recipe ↔ Board */}
+    {recipeCompareOpen&&recipeCompare&&
+     <div className="recipe-compare-panel">
+      <div className="recipe-diagnosis-head">
+       <b>⇄ So sánh Cấu hình Recipe ↔ Board</b>
+       <button className="btn small" type="button" onClick={()=>setRecipeCompareOpen(false)}>×</button>
+      </div>
+      {recipeCompare.error?(
+       <div className="notice">Lỗi: {recipeCompare.error}</div>
+      ):(
+       <>
+        <div className="recipe-compare-section">
+         <div className="recipe-compare-title">
+          <b>① Board CẦN nhưng CẤU HÌNH THIẾU</b>
+          <small>Operation Code của các Job ELIGIBLE đang chờ trên board — nếu chưa có mapping thì Job báo "Chưa có Recipe".</small>
+         </div>
+         {recipeCompare.boardNeeds?.length?(
+          <div className="table-wrap">
+           <table className="erp-table recipe-compare-table">
+            <thead>
+             <tr><th>Operation Code</th><th>Công đoạn chính</th><th className="num">Job chờ</th><th>Job mẫu</th><th>Cấu hình</th><th></th></tr>
+            </thead>
+            <tbody>
+             {recipeCompare.boardNeeds.map((x:any,i:number)=>
+              <tr key={i} className={x.config_found?"":"row-warn"}>
+               <td><b>{x.source_operation_code}</b></td>
+               <td>{x.standard_operation||"—"}</td>
+               <td className="num">{x.waiting_jobs}</td>
+               <td><small>{(x.sample_jobs||[]).join(", ")}</small></td>
+               <td>{x.config_found?<span className="job-state state-eligible">✓ Đã có</span>:<span className="job-state state-changed">✕ Thiếu</span>}</td>
+               <td>
+                {!x.config_found&&
+                 <a className="btn small" href={`/recipe-operation-map?op=${encodeURIComponent(x.source_operation_code)}`}>Cấu hình →</a>}
+               </td>
+              </tr>
+             )}
+            </tbody>
+           </table>
+          </div>
+         ):<div className="notice">Không có Job ELIGIBLE nào đang chờ trên board.</div>}
+        </div>
+
+        <div className="recipe-compare-section">
+         <div className="recipe-compare-title">
+          <b>② CẤU HÌNH CÓ nhưng BOARD KHÔNG dùng</b>
+          <small>Mapping đã tạo nhưng không khớp Job nào trên board — có thể gõ sai mã, hoặc nằm ở bảng reference cũ không còn điều khiển đề xuất.</small>
+         </div>
+         {recipeCompare.configUnused?.length?(
+          <div className="table-wrap">
+           <table className="erp-table recipe-compare-table">
+            <thead>
+             <tr><th>Operation Code</th><th>Recipe</th><th>Vấn đề</th></tr>
+            </thead>
+            <tbody>
+             {recipeCompare.configUnused.map((x:any,i:number)=>
+              <tr key={i}>
+               <td><b>{x.operation_code}</b></td>
+               <td><b>{x.recipe_no||x.recipe_key}</b><small>{x.recipe_name||""}</small></td>
+               <td><small>{x.issue}</small></td>
+              </tr>
+             )}
+            </tbody>
+           </table>
+          </div>
+         ):<div className="notice">Mọi mapping đang hoạt động đều khớp ít nhất 1 Job trên board.</div>}
+        </div>
+       </>
+      )}
      </div>}
 
     {displayRulesOpen&&
@@ -2409,104 +2955,129 @@ useEffect(()=>{
      </div>}
 
     {columnPickerOpen&&
-     <div className="candidate-column-picker">
+     <div className="candidate-column-picker candidate-column-package-picker">
       <div className="candidate-column-picker-head">
        <b>Chọn cột hiển thị</b>
+       <small>
+        v293: <b>toàn bộ cột trong catalog All Open Job mặc định thuộc Nhóm cột All Open Job</b>. Cột nào bạn đưa ra Trước/Sau nhóm mới được tách khỏi gói. Nhóm không tự bật hiển thị toàn bộ cột, nên Planning Board vẫn nhẹ.
+       </small>
        <input
         className="input"
         value={columnSearch}
         onChange={e=>setColumnSearch(e.target.value)}
-        placeholder="Tìm tên cột..."
+        placeholder="Tìm cột để đưa ra trước / sau Nhóm All Open Job..."
        />
        <div className="row">
-        <button className="btn small" type="button" onClick={()=>saveColumns(allColumns.map(x=>x.key))}>Select All</button>
-        <button className="btn small" type="button" onClick={()=>saveColumns(PLANNING_COLUMNS.map(x=>x.key))}>Planning Only</button>
-        <button className="btn small" type="button" onClick={()=>saveColumns([])}>Clear</button>
+        <button className="btn small" type="button" onClick={()=>{
+         const keys=configurableColumns.map(x=>x.key);
+         saveColumns(keys,collapsedColumnLayoutFromVisible(keys));
+        }}>Select All</button>
+        <button className="btn small" type="button" onClick={()=>{
+         const keys=PLANNING_COLUMNS.map(x=>x.key);
+         saveColumns(keys,[...keys,ALL_OPEN_JOB_GROUP_KEY]);
+        }}>Planning Only</button>
+        <button className="btn small" type="button" onClick={collapseAllOpenJobColumns}>Gom All Open Job</button>
+        <button className="btn small" type="button" onClick={()=>saveColumns([],[ALL_OPEN_JOB_GROUP_KEY])}>Clear</button>
        </div>
       </div>
 
-      <div className="candidate-column-picker-grid candidate-column-order-grid">
-       {filteredColumnChoices.map(c=>{
-        const visible=isColumnVisible(c.key);
-        const orderIndex=activeColumns.indexOf(c.key);
+      <div className="candidate-column-package-summary">
+       <b>Thứ tự bố cục</b>
+       <span>
+        {configurableActiveColumns.filter(x=>x.startsWith("source:")).length}/{sourceColumns.length} cột All Open Job đang hiển thị · {groupedSourceColumns.length} cột thuộc nhóm · {visibleGroupedSourceColumns.length} cột trong nhóm đang hiển thị
+       </span>
+      </div>
 
+      <div className="candidate-column-picker-grid candidate-column-order-grid candidate-column-layout-grid">
+       {effectiveColumnLayout.map((item,index)=>{
+        const isGroup=item===ALL_OPEN_JOB_GROUP_KEY;
+        const c=isGroup?null:configurableColumns.find(x=>x.key===item);
+        if(!isGroup&&!c)return null;
+        const label=isGroup?"📦 Nhóm cột All Open Job":c!.label;
+        const groupLabel=isGroup
+         ?`${groupedSourceColumns.length} cột nằm trong nhóm`
+         :(c!.group==="planning"?"Planning":"All Open Job · đã đưa ra khỏi nhóm");
         return <div
-         key={c.key}
-         className={`candidate-column-choice candidate-column-order-item ${visible?"is-visible":""} ${dragColumnKey===c.key?"is-dragging":""}`}
-         draggable={visible}
+         key={item}
+         className={`candidate-column-choice candidate-column-order-item candidate-column-layout-item ${isGroup?"is-column-package":"is-visible"} ${dragColumnKey===item?"is-dragging":""}`}
+         draggable
          onDragStart={e=>{
-          if(!visible)return;
-          setDragColumnKey(c.key);
+          setDragColumnKey(item);
           e.dataTransfer.effectAllowed="move";
-          e.dataTransfer.setData("text/plain",c.key);
+          e.dataTransfer.setData("text/plain",item);
          }}
          onDragOver={e=>{
-          if(!visible || !dragColumnKey || dragColumnKey===c.key)return;
-          e.preventDefault();
-          e.dataTransfer.dropEffect="move";
+          if(!dragColumnKey||dragColumnKey===item)return;
+          e.preventDefault();e.dataTransfer.dropEffect="move";
          }}
          onDrop={e=>{
           e.preventDefault();
-          if(!dragColumnKey || dragColumnKey===c.key)return;
-          const from=activeColumns.indexOf(dragColumnKey);
-          const to=activeColumns.indexOf(c.key);
-          if(from>=0 && to>=0)moveColumnTo(dragColumnKey,to);
+          if(!dragColumnKey||dragColumnKey===item)return;
+          moveLayoutItemTo(dragColumnKey,index);
           setDragColumnKey("");
          }}
          onDragEnd={()=>setDragColumnKey("")}
         >
-         <label className="candidate-column-toggle">
-          <input
-           type="checkbox"
-           checked={visible}
-           onChange={()=>toggleColumn(c.key)}
-          />
-          <span>{c.label}</span>
-          <small>{c.group==="planning"?"Planning":"All Open Job"}</small>
-         </label>
-
-         {visible&&
-          <div className="candidate-column-order-actions">
-           <span className="candidate-column-order-number">{orderIndex+1}</span>
-           <button
-            className="btn small"
-            type="button"
-            title="Đưa cột lên trước"
-            disabled={orderIndex<=0}
-            onClick={()=>moveColumn(c.key,-1)}
-           >↑</button>
-           <button
-            className="btn small"
-            type="button"
-            title="Đưa cột xuống sau"
-            disabled={orderIndex<0||orderIndex>=activeColumns.length-1}
-            onClick={()=>moveColumn(c.key,1)}
-           >↓</button>
-           <button
-            className="btn small"
-            type="button"
-            title="Đưa lên đầu"
-            disabled={orderIndex<=0}
-            onClick={()=>moveColumnTo(c.key,0)}
-           >⇤</button>
-           <button
-            className="btn small"
-            type="button"
-            title="Đưa xuống cuối"
-            disabled={orderIndex<0||orderIndex>=activeColumns.length-1}
-            onClick={()=>moveColumnTo(c.key,activeColumns.length-1)}
-           >⇥</button>
-          </div>}
-        </div>
+         <div className="candidate-column-toggle candidate-column-package-label">
+          {!isGroup&&<input type="checkbox" checked onChange={()=>toggleColumn(item)}/>} 
+          <span>{label}</span>
+          <small>{groupLabel}</small>
+         </div>
+         <div className="candidate-column-order-actions">
+          <span className="candidate-column-order-number">{index+1}</span>
+          <button className="btn small" type="button" title="Đưa lên trước" disabled={index<=0} onClick={()=>moveLayoutItem(item,-1)}>↑</button>
+          <button className="btn small" type="button" title="Đưa xuống sau" disabled={index>=effectiveColumnLayout.length-1} onClick={()=>moveLayoutItem(item,1)}>↓</button>
+          <button className="btn small" type="button" title="Đưa lên đầu" disabled={index<=0} onClick={()=>moveLayoutItemTo(item,0)}>⇤</button>
+          <button className="btn small" type="button" title="Đưa xuống cuối" disabled={index>=effectiveColumnLayout.length-1} onClick={()=>moveLayoutItemTo(item,effectiveColumnLayout.length-1)}>⇥</button>
+          {!isGroup&&c!.group==="allopen"&&
+           <button className="btn small" type="button" title="Đưa cột này trở lại Nhóm cột All Open Job" onClick={()=>putSourceInGroup(item)}>Vào nhóm</button>}
+         </div>
+        </div>;
        })}
       </div>
+
+      {columnSearch.trim()&&<>
+       <div className="candidate-column-search-title">
+        <b>Kết quả tìm cột</b>
+        <small>Tất cả cột All Open Job mặc định ở trong nhóm. Đưa Trước/Sau nhóm để tách cột ra; checkbox chỉ điều khiển ẩn/hiện.</small>
+       </div>
+       <div className="candidate-column-picker-grid candidate-column-search-grid">
+        {filteredColumnChoices.map(c=>{
+         const visible=isColumnVisible(c.key);
+         const isSource=c.key.startsWith("source:");
+         const explicit=isSource&&effectiveColumnLayout.includes(c.key);
+         const groupIndex=effectiveColumnLayout.indexOf(ALL_OPEN_JOB_GROUP_KEY);
+         const itemIndex=effectiveColumnLayout.indexOf(c.key);
+         const location=isSource&&!explicit
+          ?`Trong Nhóm All Open Job · ${visible?"đang hiển thị":"đang ẩn"}`
+          :!visible
+           ?"Đang ẩn"
+           :isSource
+            ?(itemIndex>=0&&groupIndex>=0&&itemIndex<groupIndex?"Trước nhóm":"Sau nhóm")
+            :"Planning";
+         return <div key={c.key} className={`candidate-column-choice candidate-column-search-item ${visible?"is-visible":""}`}>
+          <label className="candidate-column-toggle">
+           <input type="checkbox" checked={visible} onChange={()=>toggleColumn(c.key)}/>
+           <span>{c.label}</span>
+           <small>{location}</small>
+          </label>
+          {isSource&&<div className="candidate-column-search-actions">
+           <button className="btn small" type="button" onClick={()=>placeSourceRelativeToGroup(c.key,"before")}>← Trước nhóm</button>
+           <button className="btn small" type="button" onClick={()=>putSourceInGroup(c.key)}>Trong nhóm</button>
+           <button className="btn small" type="button" onClick={()=>placeSourceRelativeToGroup(c.key,"after")}>Sau nhóm →</button>
+          </div>}
+         </div>;
+        })}
+        {!filteredColumnChoices.length&&<div className="candidate-column-empty">Không có cột nào khớp tìm kiếm.</div>}
+       </div>
+      </>}
      </div>}
 
     {operationPickerOpen&&
      <div className="candidate-column-picker candidate-operation-picker">
       <div className="candidate-column-picker-head">
        <b>VIEW CÔNG ĐOẠN ST — chọn công đoạn hiển thị trên Candidate Jobs</b>
-       <small>Chú thích "· hiện X/Y job": Y = tổng job ở công đoạn đó trong All Open Jobs; X = số job đã hiện trên Candidate Jobs. Nếu X &lt; Y: (1) mới tick → bấm "Áp dụng & tải lại"; (2) đã áp dụng mà vẫn thiếu → bấm Rebuild Chain (job chưa có dòng lập kế hoạch ELIGIBLE); (3) vẫn thiếu → kiểm tra bộ lọc Sort/Filter đang bật. Tick/bỏ tick lọc NGAY không tải lại trang.</small>
+       <small>VIEW này chỉ lọc Job theo RAW NextOperation. Main Operation columns bên dưới được tự động sinh từ AllOperation của các Job đang hiển thị. "· hiện X/Y job": Y = tổng job trong All Open Jobs; X = số job đã tải trên Candidate Jobs. Tick/bỏ tick lọc ngay; chọn công đoạn mới chưa có trong trang thì bấm "Áp dụng & nạp Candidate".</small>
        <input
         className="input"
         value={opSearch}
@@ -2516,11 +3087,12 @@ useEffect(()=>{
        <div className="row">
         <button className="btn small" type="button" onClick={()=>changeStView(allNextOps.map(o=>o.code))}>Chọn hết ({allNextOps.length})</button>
         <button className="btn small" type="button" onClick={()=>changeStView([])}>Bỏ hết</button>
-        <button className="btn small primary" type="button" title="Lưu view rồi tải lại trang 1 lần — dùng khi bạn tick thêm công đoạn MỚI mà job của nó chưa có trong trang hiện tại" onClick={()=>{
+        <button className="btn small primary" type="button" title="Lưu view rồi nạp lại Candidate bằng API — không reload toàn trang" onClick={async()=>{
          const views=readOperationViews();
          const existing=views[exactViewKey];
          const payload:CandidateViewPreset={
-          columns:[...activeColumns],
+          columns:[...configurableActiveColumns],
+          columnLayout:[...effectiveColumnLayout],
           stView:[...effectiveStView],
           filters:existing?.filters ?? {nextMain:filterNextMain,nextOperation:filterNextOperation,primer1:filterPrimer1,primer2:filterPrimer2,primer3:filterPrimer3},
           sortRules:existing?.sortRules ?? [...sortRules],
@@ -2530,10 +3102,18 @@ useEffect(()=>{
          const nextViews={...views,[exactViewKey]:payload};
          setServerViews(nextViews);
          try{window.localStorage.setItem(VIEW_STORAGE_KEY,JSON.stringify(nextViews));}catch{}
-         fetch("/api/planning/board-view",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"save",view_key:exactViewKey,payload})})
-          .catch(()=>{});
-         setTimeout(()=>location.reload(),350);
-        }}>Áp dụng & tải lại</button>
+         try{
+          const r=await fetch("/api/planning/board-view",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"save",view_key:exactViewKey,payload})});
+          const d=await safeJson(r);
+          if(!r.ok)throw new Error(d?.error||"Không lưu được VIEW CÔNG ĐOẠN ST.");
+          setOperationPickerOpen(false);
+          if(onReloadCandidates)onReloadCandidates();
+          else location.reload();
+         }catch(e){
+          setViewMessage(`Không lưu được VIEW CÔNG ĐOẠN ST: ${e instanceof Error?e.message:String(e)}`);
+          setTimeout(()=>setViewMessage(""),2600);
+         }
+        }}>Áp dụng & nạp Candidate</button>
         <button className="btn small" type="button" onClick={()=>setOperationPickerOpen(false)}>Đóng</button>
        </div>
       </div>
@@ -2599,7 +3179,7 @@ useEffect(()=>{
        </tr>
       </thead>
       <tbody>
-       {displayCandidates.map((x,rowIndex)=>
+       {renderedCandidates.map((x,rowIndex)=>
         <tr
          key={`${x.id}-${x.job_num}-${x.standard_operation}-${x.source_operation_code}-${rowIndex}`}
          className={`${selectableTargetFor(x)&&selected.includes(selectableTargetFor(x)!.id)?"planning-row-selected ":""}${dragCandidateId===x.id?"planning-row-dragging ":""}${priorityClass(x.priority_type)}`.trim()}
@@ -2639,6 +3219,10 @@ useEffect(()=>{
          {!activeColumns.includes("priority")&&renderCurrentMainCell(x)}
         </tr>
        )}
+       {renderedCandidates.length<displayCandidates.length&&
+        <tr ref={candidateDomSentinelRef} className="candidate-dom-sentinel"><td colSpan={2+activeColumns.length}>
+         Đang hiển thị {renderedCandidates.length}/{displayCandidates.length} dòng — cuộn xuống để tải thêm.
+        </td></tr>}
        {!displayCandidates.length&&
         <tr><td colSpan={2+activeColumns.length} className="muted">
          Không có Candidate phù hợp với filter hiện tại.
@@ -2682,7 +3266,7 @@ useEffect(()=>{
         <>
          <b>✓ Recipe đề xuất cho lô:</b>
          <span className="mono">{suggestionSummary.unanimousRecipeLabel||suggestionSummary.unanimousRecipe}</span>
-         <span>theo cấu hình (Operation → Recipe / Part)</span>
+         <span>theo công đoạn đang Build Batch (Operation target → Recipe / Part)</span>
          {suggestionSummary.unanimousKey&&<span className="mono">Batch Key: {suggestionSummary.unanimousKey}</span>}
          {suggestionSummary.unanimousPrefix&&<span className="mono">Prefix: {suggestionSummary.unanimousPrefix}</span>}
         </>
@@ -2697,6 +3281,81 @@ useEffect(()=>{
            : <>{suggestionSummary.unmatchedCount} Job chưa có Recipe — cấu hình tại{" "}
                <a href="/recipe-operation-map">Công thức & Rule</a>.</>}
          </span>
+         {!suggestionSummary.mixedRecipes&&firstUnmatchedTarget&&
+          <button
+           className="btn small"
+           type="button"
+           onClick={runRecipeDiagnosis}
+           disabled={recipeDiagLoading}
+          >
+           {recipeDiagLoading?"Đang phân tích…":"🔍 Xem lý do"}
+          </button>}
+        </>
+       )}
+      </div>}
+
+     {/* v282: Panel Chẩn đoán Recipe — vì sao Job chưa có Recipe */}
+     {recipeDiag&&
+      <div className="recipe-diagnosis-panel">
+       <div className="recipe-diagnosis-head">
+        <b>🔍 Chẩn đoán Recipe</b>
+        <button className="btn small" type="button" onClick={()=>setRecipeDiag(null)}>×</button>
+       </div>
+       {recipeDiag.error?(
+        <div className="notice">Lỗi: {recipeDiag.error}</div>
+       ):(
+        <>
+         <div className="recipe-diagnosis-job">
+          <small>Job</small>
+          <b>{firstUnmatchedTarget?.target.candidate.job_num}</b>
+          <span className="mono">{recipeDiag.jobSummary}</span>
+         </div>
+         <div className="recipe-diagnosis-steps">
+          {(recipeDiag.steps||[]).map((s:any,i:number)=>
+           <div key={i} className={`recipe-step recipe-step-${s.result}`}>
+            <span className="recipe-step-icon">
+             {s.result==="ok"?"✓":s.result==="fail"?"✕":s.result==="skip"?"—":"ℹ"}
+            </span>
+            <div>
+             <b>{s.step}. {s.title}</b>
+             <small>{s.detail}</small>
+            </div>
+           </div>
+          )}
+         </div>
+         {recipeDiag.candidates&&recipeDiag.candidates.length>0&&
+          <div className="recipe-diagnosis-candidates">
+           <b>Các mapping hiện có cho “{firstUnmatchedTarget?.target.sourceOperation}”:</b>
+           <div className="table-wrap">
+            <table className="erp-table recipe-candidate-table">
+             <thead>
+              <tr><th>Recipe</th><th>Ưu tiên</th><th>Mặc định</th><th>Điều kiện</th><th>Khớp Job?</th></tr>
+             </thead>
+             <tbody>
+              {recipeDiag.candidates.map((x:any,i:number)=>
+               <tr key={i} className={x.matches?"":"row-muted"}>
+                <td><b>{x.recipe_no||"—"}</b><small>{x.recipe_name||""}</small></td>
+                <td className="num">{x.priority??"—"}</td>
+                <td>{x.is_default?"✓":""}</td>
+                <td><small>{x.selection_rule?x.selection_rule:"Không lọc"}</small></td>
+                <td>
+                 {x.matches
+                  ?<span className="job-state state-eligible">Khớp</span>
+                  :<span className="job-state state-changed" title={(x.mismatchedConditions||[]).join("\n")}>Không khớp</span>}
+                </td>
+               </tr>
+              )}
+             </tbody>
+            </table>
+           </div>
+          </div>}
+         <div className="recipe-diagnosis-conclusion">
+          <b>Kết luận:</b> {recipeDiag.conclusion}
+         </div>
+         <div className="recipe-diagnosis-action">
+          <b>Cách xử lý:</b> {recipeDiag.action}{" "}
+          <a href={recipeDiag.actionHref} className="btn small primary">Mở Công thức & Rule →</a>
+         </div>
         </>
        )}
       </div>}

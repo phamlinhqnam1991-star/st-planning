@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const nullableNumber=(v:unknown)=>{
@@ -71,6 +72,7 @@ export async function POST(req:NextRequest){
    ]);
   }finally{c.release()}
 
+  invalidateConfigHealth();
   return NextResponse.json({ok:true});
  }catch(e){
   return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500});
@@ -137,6 +139,7 @@ export async function PATCH(req:NextRequest){
    ]);
   }finally{c.release()}
 
+  invalidateConfigHealth();
   return NextResponse.json({ok:true});
  }catch(e){
   return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500});
@@ -159,6 +162,7 @@ export async function DELETE(req:NextRequest){
    `,[id]);
   }finally{c.release()}
 
+  invalidateConfigHealth();
   return NextResponse.json({ok:true});
  }catch(e){
   return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500});

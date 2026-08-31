@@ -1,10 +1,13 @@
 "use client";
 import {safeJson} from "@/lib/fetch-json";
 import { useMemo,useState } from "react";
+import {useRouter} from "next/navigation";
+import {refreshConfigPage} from "@/lib/config/config-client";
 
 type Row={id:number;sort_order:number;st_group:string;source_operation_code:string;source_label:string|null;standard_operation_rule:string;mapping_rule:string;is_active:boolean;note?:string|null};
 const RULES=["DIRECT","OCCURRENCE","SEQUENCE","SEQUENCE/FALLBACK"];
 export function OperationMappingManager({rows,groups,sourceOperations}:{rows:Row[];groups:string[];sourceOperations:string[]}){
+ const router=useRouter();
  const [q,setQ]=useState(""); const [busy,setBusy]=useState(false); const [edit,setEdit]=useState<Row|null>(null);
  const [form,setForm]=useState({st_group:groups[0]||"",source_operation_code:"",source_label:"",standard_operation_rule:"",mapping_rule:"DIRECT"});
  const filtered=useMemo(()=>rows.filter(r=>[r.st_group,r.source_operation_code,r.source_label,r.standard_operation_rule,r.mapping_rule].join(" ").toLowerCase().includes(q.toLowerCase())),[rows,q]);
@@ -13,12 +16,12 @@ export function OperationMappingManager({rows,groups,sourceOperations}:{rows:Row
   if(!form.st_group||!form.source_operation_code||!form.standard_operation_rule)return alert("Vui lòng nhập đủ ST Group, Operation Code và Standard Operation.");
   setBusy(true);try{
    const method=edit?"PATCH":"POST";const body=edit?{...form,id:edit.id}:form;
-   const r=await fetch("/api/master/operation-mapping",{method,headers:{"content-type":"application/json"},body:JSON.stringify(body)});const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Save failed");location.reload();
+   const r=await fetch("/api/master/operation-mapping",{method,headers:{"content-type":"application/json"},body:JSON.stringify(body)});const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Save failed");cancel();refreshConfigPage(router);
   }catch(e){alert(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
  }
  async function remove(r:Row){
   if(!confirm(`Bỏ ${r.source_operation_code} khỏi nhóm ${r.st_group}?\n\nDữ liệu không bị DELETE; mapping sẽ chuyển inactive.`))return;
-  setBusy(true);try{const x=await fetch("/api/master/operation-mapping",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id:r.id})});const d=await safeJson(x);if(!x.ok)throw new Error(d.error||"Remove failed");location.reload()}catch(e){alert(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
+  setBusy(true);try{const x=await fetch("/api/master/operation-mapping",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id:r.id})});const d=await safeJson(x);if(!x.ok)throw new Error(d.error||"Remove failed");refreshConfigPage(router)}catch(e){alert(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
  }
  function startEdit(r:Row){setEdit(r);setForm({st_group:r.st_group,source_operation_code:r.source_operation_code,source_label:r.source_label||"",standard_operation_rule:r.standard_operation_rule,mapping_rule:r.mapping_rule});window.scrollTo({top:0,behavior:"smooth"})}
  function cancel(){setEdit(null);setForm({st_group:groups[0]||"",source_operation_code:"",source_label:"",standard_operation_rule:"",mapping_rule:"DIRECT"})}

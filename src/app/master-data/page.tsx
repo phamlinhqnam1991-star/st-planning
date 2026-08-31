@@ -13,6 +13,7 @@ const sub=[
  {key:"strouting",label:"ST Routing Master",href:"/master/strouting"},
  {key:"stroutingchain",label:"ST Routing Chain",href:"/master/stroutingchain"},
  {key:"partrouting",label:"Part → Routing",href:"/master/partrouting"},
+ {key:"operationrecipemapping",label:"Main Op → Recipe",href:"/master/operation-recipe-mapping"},
 ];
 export default async function Page(){
  let data:any=null,err="";
@@ -27,7 +28,8 @@ export default async function Page(){
   ["Process Requirement","Yêu cầu process theo Part + Revision",c.md_process_requirement,"/master/requirement"],
   ["ST Routing Master","Danh mục routing ST chuẩn hóa",c.md_st_routing_summary,"/master/strouting"],
   ["ST Routing Chain","Chuỗi operation ST chuẩn hóa",c.md_st_routing,"/master/stroutingchain"],
-  ["Part → Routing","Map Part + Revision → RoutingCode",c.md_part_routing,"/master/partrouting"]
+  ["Part → Routing","Map Part + Revision → RoutingCode",c.md_part_routing,"/master/partrouting"],
+  ["Main Operation → Recipe","Mapping Standard Operation → Recipe (reference)",c.md_operation_recipe_mapping,"/master/operation-recipe-mapping"]
  ];
  return <main className="erp-shell">
   <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">MASTER DATA</div></header>

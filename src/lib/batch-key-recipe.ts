@@ -82,11 +82,14 @@ export function parseSelectionRule(json:string|null|undefined):BatchKeyRuleCondi
   try{
     const arr=JSON.parse(json);
     if(!Array.isArray(arr))return [];
+    const operators=new Set<BatchKeyRuleCondition["operator"]>([
+      "equals","contains","not_empty","is_empty","starts_with","ends_with"
+    ]);
     return arr
       .map((x:any)=>({
         id:Number(x?.id)||0,
         source_column:String(x?.source_column??x?.column??"").trim(),
-        operator:(x?.operator as BatchKeyRuleCondition["operator"])||"equals",
+        operator:operators.has(x?.operator) ? x.operator as BatchKeyRuleCondition["operator"] : "equals",
         source_value:(x?.source_value??x?.value)==null?null:String(x?.source_value??x?.value),
         is_active:x?.is_active!==false
       }))
@@ -94,6 +97,25 @@ export function parseSelectionRule(json:string|null|undefined):BatchKeyRuleCondi
   }catch{
     return [];
   }
+}
+
+/**
+ * Validates then rewrites a selection_rule into the single canonical JSON shape.
+ * Old `{column,value}` inputs remain accepted, but nothing new is persisted in
+ * that legacy shape. Invalid JSON is rejected rather than silently becoming
+ * "Không lọc".
+ */
+export function canonicalizeSelectionRule(json:unknown):string|null{
+  if(json==null || String(json).trim()==="")return null;
+  let raw:unknown;
+  try{raw=typeof json==="string"?JSON.parse(json):json;}catch{
+    throw new Error("Điều kiện áp dụng cho Job không phải JSON hợp lệ.");
+  }
+  if(!Array.isArray(raw))throw new Error("Điều kiện áp dụng cho Job phải là danh sách điều kiện.");
+  if(raw.length>8)throw new Error("Chỉ được khai báo tối đa 8 điều kiện áp dụng cho Job.");
+  const parsed=parseSelectionRule(JSON.stringify(raw));
+  if(parsed.length!==raw.length)throw new Error("Mỗi điều kiện phải có tên cột hợp lệ.");
+  return parsed.length?JSON.stringify(parsed.map(({id,...condition})=>condition)):null;
 }
 
 /**

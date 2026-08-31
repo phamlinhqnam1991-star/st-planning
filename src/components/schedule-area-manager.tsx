@@ -2,6 +2,7 @@
 import {safeJson} from "@/lib/fetch-json";
 import {useEffect,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
+import {notifyConfigHealthChanged} from "@/lib/config/config-client";
 
 type Op={standard_operation:string;st_group:string};
 type StGroup={st_group:string;area_code:string;area_name:string};
@@ -32,8 +33,9 @@ export function ScheduleAreaManager(){
   planner_owner:"BOTH",display_order:"0",default_rows:"20",
   allow_manual_plan:true,allow_auto_plan:true
  });
- async function load(){
-  const r=await fetch("/api/config/schedule-areas",{cache:"no-store"});const d=await safeJson(r);
+ async function load(fresh=false){
+  const url=fresh?`/api/config/schedule-areas?fresh=${Date.now()}`:"/api/config/schedule-areas";
+  const r=await fetch(url,fresh?{cache:"no-store"}:undefined);const d=await safeJson(r);
   if(!r.ok){setStatus(d.error||"Load failed");return}
   setAreas(d.areas||[]);
   setOps(d.operations||[]);
@@ -45,7 +47,7 @@ export function ScheduleAreaManager(){
  async function saveArea(){
   const r=await fetch("/api/config/schedule-areas",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(form)});
   const d=await safeJson(r);if(!r.ok){setStatus(d.error);return}
-  setStatus("Đã lưu Schedule Area.");await load();
+  setStatus("Đã lưu Schedule Area.");notifyConfigHealthChanged();await load(true);
  }
  async function edit(a:Area){
   const rows=prompt("Default rows",String(a.default_rows));if(rows===null)return;
@@ -54,12 +56,12 @@ export function ScheduleAreaManager(){
   const r=await fetch("/api/config/schedule-areas",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({
    ...a,schedule_area_name:name,default_rows:Number(rows),display_order:Number(order)
   })});
-  const d=await safeJson(r);if(!r.ok)setStatus(d.error);else{setStatus("Đã cập nhật.");await load()}
+  const d=await safeJson(r);if(!r.ok)setStatus(d.error);else{setStatus("Đã cập nhật.");notifyConfigHealthChanged();await load(true)}
  }
  async function saveOps(){
   const operations=[...document.querySelectorAll<HTMLInputElement>('input[name="schedule-area-op"]:checked')].map(x=>x.value);
   const r=await fetch("/api/config/schedule-areas",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({schedule_area_code:selected,operations})});
-  const d=await safeJson(r);if(!r.ok)setStatus(d.error);else{setStatus("Đã lưu Standard Operation → Schedule Area.");await load()}
+  const d=await safeJson(r);if(!r.ok)setStatus(d.error);else{setStatus("Đã lưu Standard Operation → Schedule Area.");notifyConfigHealthChanged();await load(true)}
  }
  function toggleStGroup(stGroup:string,checked:boolean){
   const related=ops.filter(x=>x.st_group===stGroup).map(x=>x.standard_operation);

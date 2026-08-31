@@ -1,6 +1,8 @@
 "use client";
 import {safeJson} from "@/lib/fetch-json";
 import {useState} from "react";
+import {useRouter} from "next/navigation";
+import {refreshConfigPage} from "@/lib/config/config-client";
 
 type Op={standard_operation:string};
 type Recipe={recipe_key:string;process_family:string;recipe_group:string;recipe_no:string|null;recipe_name:string|null;batch_key:string};
@@ -14,6 +16,7 @@ type OpMap={standard_operation:string;recipe_key:string;source_slot:string|null;
 export function OperationRecipeAllowedManager({operations,recipes,mappings}:{
  operations:Op[];recipes:Recipe[];mappings:OpMap[];
 }){
+ const router=useRouter();
  const [busy,setBusy]=useState(false);
  const [mapForm,setMapForm]=useState({standard_operation:operations[0]?.standard_operation||"",recipe_key:recipes[0]?.recipe_key||"",source_slot:"",is_default:false});
 
@@ -21,14 +24,14 @@ export function OperationRecipeAllowedManager({operations,recipes,mappings}:{
   if(!mapForm.standard_operation||!mapForm.recipe_key)return alert("Chọn Operation và Recipe.");
   setBusy(true);try{
    const r=await fetch("/api/process-recipe/operation-map",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(mapForm)});
-   const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Mapping failed");location.reload()
+   const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Mapping failed");refreshConfigPage(router)
   }catch(e){alert(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
  }
  async function removeMap(m:OpMap){
   if(!confirm(`Bỏ recipe khỏi ${m.standard_operation}?`))return;
   setBusy(true);try{
    const r=await fetch("/api/process-recipe/operation-map",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({standard_operation:m.standard_operation,recipe_key:m.recipe_key})});
-   const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Remove failed");location.reload()
+   const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Remove failed");refreshConfigPage(router)
   }catch(e){alert(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
  }
 

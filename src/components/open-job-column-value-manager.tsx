@@ -2,6 +2,7 @@
 
 import {safeJson} from "@/lib/fetch-json";
 import {useEffect,useState} from "react";
+import {notifyConfigHealthChanged} from "@/lib/config/config-client";
 
 type Row={
  id:number;
@@ -59,6 +60,7 @@ export function OpenJobColumnValueManager(){
    const d=await safeJson(r);
    if(!r.ok)throw new Error(d.error||"Rebuild failed");
    setMessage("Đã quét xong. Danh sách giá trị đã cập nhật.");
+   notifyConfigHealthChanged();
    load();
   }catch(e){setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`)}finally{setBusy(false)}
  }
@@ -75,6 +77,7 @@ export function OpenJobColumnValueManager(){
    if(!r.ok)throw new Error(d.error||"Add failed");
    setNewColumn("");setNewValue("");
    setMessage("Đã thêm giá trị.");
+   notifyConfigHealthChanged();
    load();
   }catch(e){setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`)}finally{setBusy(false)}
  }
@@ -90,6 +93,7 @@ export function OpenJobColumnValueManager(){
    const d=await safeJson(r);
    if(!r.ok)throw new Error(d.error||"Save failed");
    setEditing(null);
+   notifyConfigHealthChanged();
    load();
   }catch(e){setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`)}finally{setBusy(false)}
  }
@@ -103,6 +107,7 @@ export function OpenJobColumnValueManager(){
    });
    const d=await safeJson(r);
    if(!r.ok)throw new Error(d.error||"Remove failed");
+   notifyConfigHealthChanged();
    load();
   }catch(e){setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`)}finally{setBusy(false)}
  }

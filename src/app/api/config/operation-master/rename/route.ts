@@ -1,5 +1,7 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 
 const clean=(v:unknown)=>String(v??"").trim().toUpperCase();
 
@@ -121,6 +123,8 @@ export async function POST(req:Request){
   `,[oldName]);
 
   await c.query("commit");
+  invalidatePlanningStaticData();
+  invalidateConfigHealth();
 
   return NextResponse.json({
    ok:true,

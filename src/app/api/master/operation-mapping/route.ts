@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
+import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 import { syncPlanningChains } from "@/lib/planning/sync-planning-chains";
 
 const RULES=["DIRECT","OCCURRENCE","SEQUENCE","SEQUENCE/FALLBACK"];
@@ -102,6 +104,8 @@ export async function POST(req:NextRequest){
       await c.query(`insert into md_st_operation_mapping_history(mapping_id,action,source_operation_code,new_st_group,new_standard_operation_rule,new_mapping_rule,changed_by)
         values($1,'ADD',$2,$3,$4,$5,$6)`,[id,source,stGroup,standard,rule,user.email||null]);
       await refresh(c); await c.query("commit");
+      invalidatePlanningStaticData();
+      invalidateConfigHealth();
       return NextResponse.json({ok:true,id});
     }catch(e){await c.query("rollback");throw e}finally{c.release()}
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500})}
@@ -124,7 +128,7 @@ export async function PATCH(req:NextRequest){
       await c.query(`update md_st_operation_mapping set st_group=$2,source_label=$3,standard_operation_rule=$4,mapping_rule=$5,is_active=true,updated_at=now() where id=$1`,[id,stGroup,label,standard,rule]);
       await c.query(`insert into md_st_operation_mapping_history(mapping_id,action,source_operation_code,old_st_group,new_st_group,old_standard_operation_rule,new_standard_operation_rule,old_mapping_rule,new_mapping_rule,changed_by)
         values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[id,stGroup===old.st_group?"UPDATE":"MOVE",old.source_operation_code,old.st_group,stGroup,old.standard_operation_rule,standard,old.mapping_rule,rule,user.email||null]);
-      await refresh(c); await c.query("commit"); return NextResponse.json({ok:true});
+      await refresh(c); await c.query("commit"); invalidatePlanningStaticData(); invalidateConfigHealth(); return NextResponse.json({ok:true});
     }catch(e){await c.query("rollback");throw e}finally{c.release()}
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500})}
 }
@@ -140,7 +144,7 @@ export async function DELETE(req:NextRequest){
       await c.query("update md_st_operation_mapping set is_active=false,updated_at=now() where id=$1",[id]);
       await c.query(`insert into md_st_operation_mapping_history(mapping_id,action,source_operation_code,old_st_group,old_standard_operation_rule,old_mapping_rule,changed_by)
         values($1,'DEACTIVATE',$2,$3,$4,$5,$6)`,[id,old.source_operation_code,old.st_group,old.standard_operation_rule,old.mapping_rule,user.email||null]);
-      await refresh(c); await c.query("commit"); return NextResponse.json({ok:true});
+      await refresh(c); await c.query("commit"); invalidatePlanningStaticData(); invalidateConfigHealth(); return NextResponse.json({ok:true});
     }catch(e){await c.query("rollback");throw e}finally{c.release()}
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500})}
 }

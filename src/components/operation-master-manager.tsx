@@ -2,6 +2,8 @@
 
 import {safeJson} from "@/lib/fetch-json";
 import {useState} from "react";
+import {useRouter} from "next/navigation";
+import {refreshConfigPage} from "@/lib/config/config-client";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 
 type Row={
@@ -21,6 +23,7 @@ type Row={
 };
 
 export function OperationMasterManager({rows}:{rows:Row[]}){
+ const router=useRouter();
  const [editing,setEditing]=useState<string|null>(null);
  const [name,setName]=useState("");
  const [prefixEditing,setPrefixEditing]=useState<string|null>(null);
@@ -75,7 +78,7 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
 
    setMessage(`Đã đổi ${editing} → ${next}.`);
    setEditing(null);
-   setTimeout(()=>location.reload(),700);
+   refreshConfigPage(router);
   }catch(e){
    setMessage(e instanceof Error?e.message:"Không đổi được tên công đoạn.");
   }finally{
@@ -90,7 +93,7 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
    const d=await safeJson(r);
    if(!r.ok)throw new Error(d.error||"Không lưu được Planning Order.");
    setMessage(`Đã lưu thứ tự ${operation}: ${d.row.planning_sort_order??"chưa gán"}.`);
-   setSortEditing(null);setTimeout(()=>location.reload(),500);
+   setSortEditing(null);refreshConfigPage(router);
   }catch(e){setMessage(e instanceof Error?e.message:"Không lưu được Planning Order.");}
   finally{setBusy(false);}
  }
@@ -127,7 +130,7 @@ export function OperationMasterManager({rows}:{rows:Row[]}){
 
    setMessage(`Đã lưu ${operation} → Prefix ${prefix}.`);
    setPrefixEditing(null);
-   setTimeout(()=>location.reload(),600);
+   refreshConfigPage(router);
   }catch(e){
    setMessage(e instanceof Error?e.message:"Không lưu được Batch Prefix.");
   }finally{

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
-import { unlockNextAfterScheduledBatch,healScheduledHandoffs } from "@/lib/planning/unlock-next-after-schedule";
 import {assertResourceAndChemicalCapacity,chemicalScheduleColumns,resolveChemicalScheduleWindow} from "@/lib/chemical-line-schedule-server";
 
+import {requireApiUser} from "@/lib/api-auth";
 function asDate(v:any){const d=new Date(v);return Number.isNaN(d.getTime())?null:d}
 // Planner override giờ bắt đầu Process/NDT/Unloading (ISO hoặc null = tự động).
 function parseOverrides(body:any){
@@ -17,6 +17,8 @@ function parseOverrides(body:any){
 }
 
 export async function POST(req:Request){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const batchId=Number(body.batchId);
  const resourceCode=String(body.resourceCode||"").trim();
@@ -139,11 +141,10 @@ export async function POST(req:Request){
     where id=$1
   `,[batchId,effectiveStart,end]);
 
-  const unlockedNext=await unlockNextAfterScheduledBatch(c,batchId);
-  const healedNext=await healScheduledHandoffs(c);
-
+  // v312: Scheduling no longer unlocks later Main(s); they are already
+  // plan-ahead READY. Schedule only records the actual state of this Batch.
   await c.query("commit");
-  return NextResponse.json({ok:true,schedule:iq.rows[0],unlockedNext,healedNext});
+  return NextResponse.json({ok:true,schedule:iq.rows[0]});
  }catch(e:any){
   await c.query("rollback");
   return NextResponse.json({error:e?.message||"Schedule failed"},{status:400});
@@ -151,6 +152,8 @@ export async function POST(req:Request){
 }
 
 export async function PATCH(req:Request){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const scheduleId=Number(body.scheduleId);
  const resourceCode=String(body.resourceCode||"").trim();
@@ -251,11 +254,8 @@ export async function PATCH(req:Request){
     where id=$1
   `,[current.batch_id,start,end]);
 
-  const unlockedNext=await unlockNextAfterScheduledBatch(c,Number(current.batch_id));
-  const healedNext=await healScheduledHandoffs(c);
-
   await c.query("commit");
-  return NextResponse.json({ok:true,schedule:uq.rows[0],unlockedNext,healedNext});
+  return NextResponse.json({ok:true,schedule:uq.rows[0]});
  }catch(e:any){
   await c.query("rollback");
   return NextResponse.json({error:e?.message||"Schedule move failed"},{status:400});

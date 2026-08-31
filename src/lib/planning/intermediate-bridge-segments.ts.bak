@@ -1,0 +1,596 @@
+import {createHash,randomUUID} from "node:crypto";
+import type {PoolClient} from "pg";
+
+const clean=(v:unknown)=>String(v??"").trim().toUpperCase();
+
+export type BridgeRebuildMode="FULL"|"INCREMENTAL";
+export type BridgeRebuildStatus="RUNNING"|"READY_TO_FINALIZE"|"FINALIZING"|"COMPLETED"|"CANCELLED"|"FAILED";
+
+export type BridgeRebuildRun={
+ runId:string;
+ mode:BridgeRebuildMode;
+ status:BridgeRebuildStatus;
+ totalRoutings:number;
+ processedRoutings:number;
+ lastRoutingCode:string|null;
+ chunkSize:number;
+ startedAt:string|null;
+ updatedAt:string|null;
+ completedAt:string|null;
+ errorMessage:string|null;
+};
+
+type RouteRow={
+ routing_code:string;
+ seq:number;
+ operation_code:string;
+ standard_operation:string;
+};
+
+type DiscoveredSegment={
+ bridgeKey:string;
+ previousMain:string;
+ nextMain:string;
+ intermediateOperations:string[];
+ routeEvidence:{routingCode:string;previousMainSeq:number;nextMainSeq:number}[];
+};
+
+const makeBridgeKey=(previousMain:string,nextMain:string,ops:string[])=>
+ `AUTO|${createHash("sha1").update(`${previousMain}|${ops.join(">")}|${nextMain}`).digest("hex")}`;
+
+const asRun=(r:any):BridgeRebuildRun=>({
+ runId:String(r.run_id),
+ mode:String(r.mode) as BridgeRebuildMode,
+ status:String(r.status) as BridgeRebuildStatus,
+ totalRoutings:Number(r.total_routings||0),
+ processedRoutings:Number(r.processed_routings||0),
+ lastRoutingCode:r.last_routing_code==null?null:String(r.last_routing_code),
+ chunkSize:Number(r.chunk_size||150),
+ startedAt:r.started_at==null?null:String(r.started_at),
+ updatedAt:r.updated_at==null?null:String(r.updated_at),
+ completedAt:r.completed_at==null?null:String(r.completed_at),
+ errorMessage:r.error_message==null?null:String(r.error_message)
+});
+
+function discoverSegments(
+ rows:RouteRow[],
+ planningMain:Set<string>,
+ excludedOperations:Set<string>
+){
+ const byRoute=new Map<string,RouteRow[]>();
+ for(const row of rows){
+  if(!row.routing_code||!Number.isFinite(row.seq)||!row.operation_code)continue;
+  const list=byRoute.get(row.routing_code)||[];
+  list.push(row);byRoute.set(row.routing_code,list);
+ }
+
+ const aggregate=new Map<string,DiscoveredSegment>();
+ let leadingIntermediate=0;
+ let trailingIntermediate=0;
+ let inferredOccurrences=0;
+
+ for(const [routingCode,routeRows] of byRoute){
+  routeRows.sort((a,b)=>a.seq-b.seq);
+  let previousMain:string|null=null;
+  let previousMainSeq:number|null=null;
+  let buffer:string[]=[];
+  let sawMain=false;
+
+  for(const row of routeRows){
+   const isMain=!!row.standard_operation && row.standard_operation!=="PIONBL" && planningMain.has(row.standard_operation);
+   const excluded=excludedOperations.has(row.operation_code) || row.operation_code==="PIONBL";
+
+   if(isMain){
+    if(previousMain&&previousMainSeq!==null&&buffer.length){
+     const key=makeBridgeKey(previousMain,row.standard_operation,buffer);
+     let seg=aggregate.get(key);
+     if(!seg){
+      seg={
+       bridgeKey:key,
+       previousMain,
+       nextMain:row.standard_operation,
+       intermediateOperations:[...buffer],
+       routeEvidence:[]
+      };
+      aggregate.set(key,seg);
+     }
+     seg.routeEvidence.push({routingCode,previousMainSeq,nextMainSeq:row.seq});
+    }
+    previousMain=row.standard_operation;
+    previousMainSeq=row.seq;
+    buffer=[];
+    sawMain=true;
+    continue;
+   }
+
+   if(!excluded){
+    if(previousMain){buffer.push(row.operation_code);inferredOccurrences++;}
+    else leadingIntermediate++;
+   }
+  }
+  if(sawMain&&buffer.length)trailingIntermediate+=buffer.length;
+ }
+
+ return {aggregate,leadingIntermediate,trailingIntermediate,inferredOccurrences};
+}
+
+async function insertValues(
+ c:PoolClient,
+ sqlPrefix:string,
+ rows:unknown[][],
+ onConflict:string,
+ chunkRows=1000
+){
+ if(!rows.length)return;
+ for(let offset=0;offset<rows.length;offset+=chunkRows){
+  const chunk=rows.slice(offset,offset+chunkRows);
+  const params:unknown[]=[];
+  let p=1;
+  const values=chunk.map(row=>`(${row.map(v=>{params.push(v);return `$${p++}`}).join(",")})`).join(",");
+  await c.query(`${sqlPrefix} values ${values} ${onConflict}`,params);
+ }
+}
+
+
+async function sourceFingerprint(c:PoolClient){
+ const q=await c.query(`
+  select concat_ws('|',
+   coalesce((select max(updated_at)::text from md_st_routing_summary),''),
+   coalesce((select max(updated_at)::text from md_st_operation_mapping),''),
+   coalesce((select max(updated_at)::text from md_planning_operation_scope),''),
+   coalesce((select max(updated_at)::text from md_st_operation_scope),'')
+  ) fingerprint
+ `);
+ return createHash("sha1").update(String(q.rows[0]?.fingerprint||"")).digest("hex");
+}
+
+async function lookupSnapshots(c:PoolClient){
+ const [mainQ,excludedQ]=await Promise.all([
+  c.query(`
+   select upper(trim(standard_operation)) standard_operation
+   from md_planning_operation_scope
+   where is_active=true
+  `),
+  c.query(`
+   select upper(trim(operation_code)) operation_code
+   from md_st_operation_scope
+   where is_active=true and operation_type='ST_SCOPE_ONLY'
+  `)
+ ]);
+ return {
+  planningMainCodes:mainQ.rows.map((r:any)=>clean(r.standard_operation)).filter(Boolean),
+  excludedOperationCodes:["PIONBL",...excludedQ.rows.map((r:any)=>clean(r.operation_code)).filter(Boolean)]
+ };
+}
+
+/**
+ * Starts a durable rebuild run. FULL snapshots every active standardized
+ * routing_code. INCREMENTAL snapshots only the supplied routing codes; codes
+ * that are no longer active are intentionally kept in the run list so Finalize
+ * can remove their old route evidence.
+ */
+export async function startIntermediateBridgeRebuild(
+ c:PoolClient,
+ opts:{mode?:BridgeRebuildMode;routingCodes?:string[];chunkSize?:number;cancelExisting?:boolean}={}
+):Promise<BridgeRebuildRun>{
+ const mode:BridgeRebuildMode=opts.mode||"FULL";
+ const chunkSize=Math.max(25,Math.min(500,Number(opts.chunkSize||150)));
+
+ const existing=await c.query(`
+  select * from md_intermediate_bridge_rebuild_run
+  where status in ('RUNNING','READY_TO_FINALIZE','FINALIZING','FAILED')
+  order by updated_at desc limit 1
+  for update
+ `);
+ if(existing.rowCount&&!opts.cancelExisting)return asRun(existing.rows[0]);
+ if(existing.rowCount&&opts.cancelExisting){
+  await c.query(`
+   update md_intermediate_bridge_rebuild_run
+      set status='CANCELLED',completed_at=now(),updated_at=now(),error_message=null
+    where run_id=$1
+  `,[existing.rows[0].run_id]);
+ }
+
+ const {planningMainCodes,excludedOperationCodes}=await lookupSnapshots(c);
+ const fingerprint=await sourceFingerprint(c);
+ const runId=`BR_${new Date().toISOString().replace(/[-:.TZ]/g,"").slice(0,14)}_${randomUUID().slice(0,8).toUpperCase()}`;
+ let routingCodes:string[]=[];
+ if(mode==="FULL"){
+  const q=await c.query(`
+   select distinct r.routing_code
+   from md_st_routing r
+   join md_st_routing_summary s
+     on s.routing_code=r.routing_code and s.is_active=true
+   where r.is_active=true
+   order by r.routing_code
+  `);
+  routingCodes=q.rows.map((r:any)=>String(r.routing_code));
+ }else{
+  routingCodes=[...new Set((opts.routingCodes||[]).map(clean).filter(Boolean))].sort();
+ }
+
+ const status:BridgeRebuildStatus=routingCodes.length?"RUNNING":"READY_TO_FINALIZE";
+ const totalRoutings=routingCodes.length;
+ await c.query(`
+  insert into md_intermediate_bridge_rebuild_run(
+   run_id,mode,status,total_routings,processed_routings,last_routing_code,chunk_size,
+   planning_main_codes,excluded_operation_codes,source_fingerprint,started_at,updated_at
+  ) values($1,$2,$3,$4,0,null,$5,$6::text[],$7::text[],$8,now(),now())
+ `,[runId,mode,status,totalRoutings,chunkSize,planningMainCodes,excludedOperationCodes,fingerprint]);
+
+ if(routingCodes.length){
+  await insertValues(
+   c,
+   `insert into md_intermediate_bridge_rebuild_route(run_id,route_index,routing_code)`,
+   routingCodes.map((code,i)=>[runId,i+1,code]),
+   `on conflict(run_id,routing_code) do nothing`
+  );
+ }
+ return await getIntermediateBridgeRebuildRun(c,runId) as BridgeRebuildRun;
+}
+
+export async function getIntermediateBridgeRebuildRun(c:PoolClient,runId:string):Promise<BridgeRebuildRun|null>{
+ const q=await c.query(`select * from md_intermediate_bridge_rebuild_run where run_id=$1`,[runId]);
+ return q.rowCount?asRun(q.rows[0]):null;
+}
+
+export async function getLatestIncompleteIntermediateBridgeRebuild(c:PoolClient):Promise<BridgeRebuildRun|null>{
+ const q=await c.query(`
+  select * from md_intermediate_bridge_rebuild_run
+  where status in ('RUNNING','READY_TO_FINALIZE','FINALIZING','FAILED')
+  order by updated_at desc limit 1
+ `);
+ return q.rowCount?asRun(q.rows[0]):null;
+}
+
+export async function getIntermediateBridgeRebuildOverview(c:PoolClient){
+ const [run,activeQ]=await Promise.all([
+  getLatestIncompleteIntermediateBridgeRebuild(c),
+  c.query(`
+   select
+    count(*) filter(where is_active=true and source='AUTO_ROUTING')::int active_segments,
+    coalesce(sum(route_count) filter(where is_active=true and source='AUTO_ROUTING'),0)::int active_route_evidence
+   from md_intermediate_bridge_segment
+  `)
+ ]);
+ return {
+  run,
+  activeSegments:Number(activeQ.rows[0]?.active_segments||0),
+  activeRouteEvidence:Number(activeQ.rows[0]?.active_route_evidence||0)
+ };
+}
+
+export async function processIntermediateBridgeRebuildChunk(
+ c:PoolClient,
+ runId:string,
+ requestedChunkSize?:number
+){
+ const lock=await c.query(`select * from md_intermediate_bridge_rebuild_run where run_id=$1 for update`,[runId]);
+ if(!lock.rowCount)throw new Error("Không tìm thấy Auto Bridge rebuild run.");
+ const run=asRun(lock.rows[0]);
+ const currentFingerprint=await sourceFingerprint(c);
+ if(String(lock.rows[0].source_fingerprint||"")!==currentFingerprint){
+  throw new Error("Nguồn ST Routing/Main Planning đã thay đổi trong lúc Rebuild. Hãy Hủy & làm lại để tránh trộn hai generation.");
+ }
+ if(!["RUNNING","FAILED"].includes(run.status)){
+  return {run,batchStart:null,batchEnd:null,routingsProcessed:0,segmentsFound:0,inferredOccurrences:0,leadingIntermediate:0,trailingIntermediate:0};
+ }
+ const chunkSize=Math.max(25,Math.min(500,Number(requestedChunkSize||run.chunkSize||150)));
+ if(run.status==="FAILED"){
+  await c.query(`update md_intermediate_bridge_rebuild_run set status='RUNNING',error_message=null,updated_at=now() where run_id=$1`,[runId]);
+ }
+
+ const routeQ=await c.query(`
+  select route_index,routing_code
+  from md_intermediate_bridge_rebuild_route
+  where run_id=$1 and processed_at is null
+  order by route_index
+  limit $2
+  for update skip locked
+ `,[runId,chunkSize]);
+
+ if(!routeQ.rowCount){
+  await c.query(`
+   update md_intermediate_bridge_rebuild_run
+      set status='READY_TO_FINALIZE',processed_routings=total_routings,updated_at=now()
+    where run_id=$1
+  `,[runId]);
+  return {
+   run:await getIntermediateBridgeRebuildRun(c,runId),batchStart:null,batchEnd:null,
+   routingsProcessed:0,segmentsFound:0,inferredOccurrences:0,leadingIntermediate:0,trailingIntermediate:0
+  };
+ }
+
+ const routingCodes=routeQ.rows.map((r:any)=>String(r.routing_code));
+ const rowsQ=await c.query(`
+  select
+   r.routing_code,
+   r.seq,
+   upper(trim(coalesce(r.operation_code,''))) operation_code,
+   upper(trim(coalesce(r.standard_operation,''))) standard_operation
+  from md_st_routing r
+  join md_st_routing_summary s
+    on s.routing_code=r.routing_code and s.is_active=true
+  where r.is_active=true and r.routing_code=any($1::text[])
+  order by r.routing_code,r.seq
+ `,[routingCodes]);
+
+ const planningMain=new Set<string>((lock.rows[0].planning_main_codes||[]).map(clean).filter(Boolean));
+ const excluded=new Set<string>((lock.rows[0].excluded_operation_codes||[]).map(clean).filter(Boolean));
+ const rows:RouteRow[]=rowsQ.rows.map((r:any)=>({
+  routing_code:String(r.routing_code),seq:Number(r.seq),operation_code:clean(r.operation_code),standard_operation:clean(r.standard_operation)
+ }));
+ const found=discoverSegments(rows,planningMain,excluded);
+
+ const stageSegments:unknown[][]=[];
+ const stageOps:unknown[][]=[];
+ const stageRoutes:unknown[][]=[];
+ for(const seg of found.aggregate.values()){
+  stageSegments.push([runId,seg.bridgeKey,seg.previousMain,seg.nextMain,seg.intermediateOperations.join(" > "),seg.routeEvidence.length]);
+  seg.intermediateOperations.forEach((op,i)=>stageOps.push([runId,seg.bridgeKey,i+1,op]));
+  seg.routeEvidence.forEach(ev=>stageRoutes.push([runId,seg.bridgeKey,ev.routingCode,ev.previousMainSeq,ev.nextMainSeq]));
+ }
+
+ await insertValues(
+  c,
+  `insert into md_intermediate_bridge_stage_segment(run_id,bridge_key,previous_main_operation,next_main_operation,intermediate_signature,route_count)`,
+  stageSegments,
+  `on conflict(run_id,bridge_key) do update set
+    previous_main_operation=excluded.previous_main_operation,
+    next_main_operation=excluded.next_main_operation,
+    intermediate_signature=excluded.intermediate_signature,
+    route_count=md_intermediate_bridge_stage_segment.route_count+excluded.route_count`
+ );
+ await insertValues(
+  c,
+  `insert into md_intermediate_bridge_stage_operation(run_id,bridge_key,sequence_no,operation_code)`,
+  stageOps,
+  `on conflict(run_id,bridge_key,sequence_no) do update set operation_code=excluded.operation_code`
+ );
+ await insertValues(
+  c,
+  `insert into md_intermediate_bridge_stage_route(run_id,bridge_key,routing_code,previous_main_seq,next_main_seq)`,
+  stageRoutes,
+  `on conflict do nothing`
+ );
+
+ await c.query(`
+  update md_intermediate_bridge_rebuild_route
+     set processed_at=now()
+   where run_id=$1 and route_index=any($2::int[])
+ `,[runId,routeQ.rows.map((r:any)=>Number(r.route_index))]);
+ const progress=await c.query(`
+  update md_intermediate_bridge_rebuild_run r
+     set processed_routings=x.processed,
+         last_routing_code=$2,
+         status=case when x.processed>=r.total_routings then 'READY_TO_FINALIZE' else 'RUNNING' end,
+         updated_at=now(),error_message=null
+    from (
+      select count(*) filter(where processed_at is not null)::int processed
+      from md_intermediate_bridge_rebuild_route where run_id=$1
+    ) x
+   where r.run_id=$1
+   returning r.*
+ `,[runId,routingCodes[routingCodes.length-1]]);
+
+ return {
+  run:asRun(progress.rows[0]),
+  batchStart:Number(routeQ.rows[0].route_index),
+  batchEnd:Number(routeQ.rows[routeQ.rows.length-1].route_index),
+  routingsProcessed:routingCodes.length,
+  segmentsFound:found.aggregate.size,
+  inferredOccurrences:found.inferredOccurrences,
+  leadingIntermediate:found.leadingIntermediate,
+  trailingIntermediate:found.trailingIntermediate
+ };
+}
+
+export async function markIntermediateBridgeRebuildFailed(c:PoolClient,runId:string,error:string){
+ await c.query(`
+  update md_intermediate_bridge_rebuild_run
+     set status='FAILED',error_message=$2,updated_at=now()
+   where run_id=$1 and status not in ('COMPLETED','CANCELLED')
+ `,[runId,error.slice(0,4000)]);
+}
+
+export async function cancelIntermediateBridgeRebuild(c:PoolClient,runId:string){
+ const q=await c.query(`
+  update md_intermediate_bridge_rebuild_run
+     set status='CANCELLED',completed_at=now(),updated_at=now(),error_message=null
+   where run_id=$1 and status not in ('COMPLETED','CANCELLED')
+   returning *
+ `,[runId]);
+ await c.query(`delete from md_intermediate_bridge_rebuild_route where run_id=$1`,[runId]);
+ await c.query(`delete from md_intermediate_bridge_stage_route where run_id=$1`,[runId]);
+ await c.query(`delete from md_intermediate_bridge_stage_operation where run_id=$1`,[runId]);
+ await c.query(`delete from md_intermediate_bridge_stage_segment where run_id=$1`,[runId]);
+ return q.rowCount?asRun(q.rows[0]):await getIntermediateBridgeRebuildRun(c,runId);
+}
+
+/**
+ * Publishes staged data in one DB transaction. Readers continue seeing the old
+ * ACTIVE bridge set until the surrounding transaction commits.
+ *
+ * FULL: replace the entire AUTO_ROUTING generation.
+ * INCREMENTAL: replace only route evidence for routing_codes in this run, then
+ * recompute affected segment counts. Unaffected routes/segments are preserved.
+ */
+export async function finalizeIntermediateBridgeRebuild(c:PoolClient,runId:string){
+ const lock=await c.query(`select * from md_intermediate_bridge_rebuild_run where run_id=$1 for update`,[runId]);
+ if(!lock.rowCount)throw new Error("Không tìm thấy Auto Bridge rebuild run.");
+ const run=asRun(lock.rows[0]);
+ if(run.status==="COMPLETED")return {run,published:false};
+ const currentFingerprint=await sourceFingerprint(c);
+ if(String(lock.rows[0].source_fingerprint||"")!==currentFingerprint){
+  throw new Error("Nguồn ST Routing/Main Planning đã thay đổi sau khi Rebuild bắt đầu. Không Finalize generation cũ; hãy Hủy & làm lại.");
+ }
+ if(run.processedRoutings<run.totalRoutings||!["READY_TO_FINALIZE","FINALIZING"].includes(run.status)){
+  throw new Error(`Rebuild chưa xử lý xong (${run.processedRoutings}/${run.totalRoutings}).`);
+ }
+ await c.query(`update md_intermediate_bridge_rebuild_run set status='FINALIZING',updated_at=now() where run_id=$1`,[runId]);
+
+ // Upsert the staged segment definitions first; bridge_key is the stable
+ // Previous Main + ordered Intermediate signature + Next Main identity.
+ await c.query(`
+  insert into md_intermediate_bridge_segment(
+   bridge_key,previous_main_operation,next_main_operation,intermediate_signature,
+   source,route_count,is_active,updated_at
+  )
+  select
+   bridge_key,previous_main_operation,next_main_operation,intermediate_signature,
+   'AUTO_ROUTING',route_count,true,now()
+  from md_intermediate_bridge_stage_segment
+  where run_id=$1
+  on conflict(bridge_key) do update set
+   previous_main_operation=excluded.previous_main_operation,
+   next_main_operation=excluded.next_main_operation,
+   intermediate_signature=excluded.intermediate_signature,
+   source='AUTO_ROUTING',
+   route_count=excluded.route_count,
+   is_active=true,
+   updated_at=now()
+ `,[runId]);
+
+ if(run.mode==="FULL"){
+  // Children are not read unless their segment is active. Replacing all AUTO
+  // children inside this transaction keeps the old generation visible until commit.
+  await c.query(`
+   delete from md_intermediate_bridge_operation o
+   using md_intermediate_bridge_segment s
+   where s.id=o.segment_id and s.source='AUTO_ROUTING'
+  `);
+  await c.query(`
+   delete from md_intermediate_bridge_route r
+   using md_intermediate_bridge_segment s
+   where s.id=r.segment_id and s.source='AUTO_ROUTING'
+  `);
+  await c.query(`
+   update md_intermediate_bridge_segment s
+      set is_active=false,route_count=0,updated_at=now()
+    where s.source='AUTO_ROUTING'
+      and not exists(
+       select 1 from md_intermediate_bridge_stage_segment st
+       where st.run_id=$1 and st.bridge_key=s.bridge_key
+      )
+  `,[runId]);
+ }else{
+  // Remove only evidence belonging to changed/inactive routing codes. A code
+  // may no longer exist in md_st_routing; it is still present in the run list.
+  await c.query(`
+   delete from md_intermediate_bridge_route r
+   using md_intermediate_bridge_segment s
+   where s.id=r.segment_id and s.source='AUTO_ROUTING'
+     and exists(
+      select 1 from md_intermediate_bridge_rebuild_route rr
+      where rr.run_id=$1 and rr.routing_code=r.routing_code
+     )
+  `,[runId]);
+
+  // Operation sequence is signature-defined. Refresh only staged segments.
+  await c.query(`
+   delete from md_intermediate_bridge_operation o
+   using md_intermediate_bridge_segment s
+   where s.id=o.segment_id and s.source='AUTO_ROUTING'
+     and exists(
+      select 1 from md_intermediate_bridge_stage_segment st
+      where st.run_id=$1 and st.bridge_key=s.bridge_key
+     )
+  `,[runId]);
+ }
+
+ await c.query(`
+  insert into md_intermediate_bridge_operation(segment_id,sequence_no,operation_code)
+  select s.id,st.sequence_no,st.operation_code
+  from md_intermediate_bridge_stage_operation st
+  join md_intermediate_bridge_segment s on s.bridge_key=st.bridge_key
+  where st.run_id=$1
+  on conflict(segment_id,sequence_no) do update set operation_code=excluded.operation_code
+ `,[runId]);
+ await c.query(`
+  insert into md_intermediate_bridge_route(segment_id,routing_code,previous_main_seq,next_main_seq)
+  select s.id,st.routing_code,st.previous_main_seq,st.next_main_seq
+  from md_intermediate_bridge_stage_route st
+  join md_intermediate_bridge_segment s on s.bridge_key=st.bridge_key
+  where st.run_id=$1
+  on conflict do nothing
+ `,[runId]);
+
+ if(run.mode==="INCREMENTAL"){
+  // Recompute counts from actual evidence because unaffected routing evidence
+  // remains in place during an incremental publish.
+  await c.query(`
+   update md_intermediate_bridge_segment s
+      set route_count=x.route_count,
+          is_active=(x.route_count>0),
+          updated_at=now()
+     from (
+      select s2.id,count(r.id)::int route_count
+      from md_intermediate_bridge_segment s2
+      left join md_intermediate_bridge_route r on r.segment_id=s2.id
+      where s2.source='AUTO_ROUTING'
+      group by s2.id
+     ) x
+    where s.id=x.id
+  `);
+ }
+
+ const totals=await c.query(`
+  select
+   count(*) filter(where is_active=true and source='AUTO_ROUTING')::int segments,
+   coalesce(sum(route_count) filter(where is_active=true and source='AUTO_ROUTING'),0)::int route_rows,
+   (select count(*)::int from md_intermediate_bridge_operation o join md_intermediate_bridge_segment s on s.id=o.segment_id where s.is_active=true and s.source='AUTO_ROUTING') operation_rows
+  from md_intermediate_bridge_segment
+ `);
+ // Staging is no longer needed after a successful atomic publish. Keep only
+ // the lightweight run header for audit/status history.
+ await c.query(`delete from md_intermediate_bridge_rebuild_route where run_id=$1`,[runId]);
+ await c.query(`delete from md_intermediate_bridge_stage_route where run_id=$1`,[runId]);
+ await c.query(`delete from md_intermediate_bridge_stage_operation where run_id=$1`,[runId]);
+ await c.query(`delete from md_intermediate_bridge_stage_segment where run_id=$1`,[runId]);
+
+ const done=await c.query(`
+  update md_intermediate_bridge_rebuild_run
+     set status='COMPLETED',completed_at=now(),updated_at=now(),error_message=null
+   where run_id=$1
+   returning *
+ `,[runId]);
+ return {
+  run:asRun(done.rows[0]),published:true,
+  segments:Number(totals.rows[0]?.segments||0),
+  routeRows:Number(totals.rows[0]?.route_rows||0),
+  operationRows:Number(totals.rows[0]?.operation_rows||0)
+ };
+}
+
+export type IntermediateBridgeRule={
+ segmentId:number;
+ operationCode:string;
+ previousMainOperation:string;
+ nextMainOperation:string;
+ source:"AUTO_ROUTING";
+ routeCount:number;
+};
+
+export async function loadIntermediateBridgeRules(c:PoolClient):Promise<IntermediateBridgeRule[]>{
+ const q=await c.query(`
+  select
+   s.id segment_id,
+   upper(trim(o.operation_code)) operation_code,
+   upper(trim(s.previous_main_operation)) previous_main_operation,
+   upper(trim(s.next_main_operation)) next_main_operation,
+   s.source,
+   s.route_count
+  from md_intermediate_bridge_segment s
+  join md_intermediate_bridge_operation o on o.segment_id=s.id
+  where s.is_active=true and s.source='AUTO_ROUTING'
+  order by s.route_count desc,s.id,o.sequence_no
+ `);
+ return q.rows.map((r:any)=>({
+  segmentId:Number(r.segment_id),
+  operationCode:clean(r.operation_code),
+  previousMainOperation:clean(r.previous_main_operation),
+  nextMainOperation:clean(r.next_main_operation),
+  source:"AUTO_ROUTING",
+  routeCount:Number(r.route_count||0)
+ }));
+}

@@ -1,10 +1,13 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 
+import {requireApiUser} from "@/lib/api-auth";
 export async function POST(
  req:Request,
  {params}:{params:Promise<{id:string}>}
 ){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const {id}=await params;
  const eventId=Number(id);
  const body=await req.json().catch(()=>({}));

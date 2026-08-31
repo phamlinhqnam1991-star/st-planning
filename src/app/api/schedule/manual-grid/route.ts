@@ -2,6 +2,7 @@ import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {assertResourceAndChemicalCapacity,chemicalScheduleColumns,resolveChemicalScheduleWindow} from "@/lib/chemical-line-schedule-server";
 
+import {requireApiUser} from "@/lib/api-auth";
 const clean=(v:unknown)=>String(v??"").trim();
 const validBatchPrefix=(v:unknown)=>{
  const x=clean(v).toUpperCase();
@@ -24,6 +25,8 @@ function parseOverrides(body:any){
 }
 
 export async function POST(req:Request){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const requestedScheduleArea=clean(body.schedule_area_code).toUpperCase();
  const requestedStGroup=clean(body.st_group);

@@ -1,11 +1,14 @@
 "use client";
 import {safeJson} from "@/lib/fetch-json";
 import {useState} from "react";
+import {useRouter} from "next/navigation";
+import {refreshConfigPage} from "@/lib/config/config-client";
 
 type Rule={id:number;phase:"LOADING"|"UNLOADING";priority:number;qty_min:number|null;qty_max:number|null;surface_min_dm2:number|null;surface_max_dm2:number|null;duration_minutes:number;note:string|null};
 const hhmm=(n:number)=>`${String(Math.floor(n/60)).padStart(2,"0")}:${String(n%60).padStart(2,"0")}`;
 
 export function ChemicalHandlingTimeManager({rules}:{rules:Rule[]}){
+ const router=useRouter();
  const [form,setForm]=useState({phase:"LOADING",priority:"100",qty_min:"",qty_max:"",surface_min_dm2:"",surface_max_dm2:"",duration:"00:30",note:""});
  const [busy,setBusy]=useState(false);const [message,setMessage]=useState("");
  const patch=(x:Partial<typeof form>)=>setForm(v=>({...v,...x}));
@@ -15,11 +18,11 @@ export function ChemicalHandlingTimeManager({rules}:{rules:Rule[]}){
   setBusy(true);setMessage("");
   const res=await fetch("/api/process-recipe/chemical-handling-time",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...form,duration_minutes:duration})});
   const data=await safeJson(res);setBusy(false);
-  if(!res.ok){setMessage(data.error||"Không lưu được rule.");return} location.reload();
+  if(!res.ok){setMessage(data.error||"Không lưu được rule.");return} refreshConfigPage(router);
  }
  async function remove(id:number){
   if(!confirm("Ngưng sử dụng rule này?"))return;
-  await fetch("/api/process-recipe/chemical-handling-time",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id})});location.reload();
+  await fetch("/api/process-recipe/chemical-handling-time",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id})});refreshConfigPage(router);
  }
  return <section className="erp-table-panel section">
   <div className="erp-panel-head"><div><b>Chemical Line · Loading / Unloading Time</b><small className="planning-sub">Chọn Duration theo Priority, Qty và tổng Surface dm². Min/Max để trống nghĩa là không giới hạn.</small></div><span>{rules.length} rules</span></div>

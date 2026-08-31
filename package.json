@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "clean:delivery": "rm -rf node_modules .next tsconfig.tsbuildinfo vv.txt .env.local"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",

@@ -106,11 +106,16 @@ export async function applyOperationFlow(c: PoolClient, b: ApplyFlowPayload) {
     [source, sourceName, sourceOrder]
   );
   await c.query(
-    `insert into md_st_operation_scope(operation_code,operation_type,is_active)
-     values($1,$2,true)
-     on conflict(operation_code) do update set operation_type=excluded.operation_type,is_active=true`,
-    [source, operationType]
+    `insert into md_st_operation_scope(operation_code,operation_type,previous_main_operation,next_main_operation,is_active)
+     values($1,$2,$3,$4,true)
+     on conflict(operation_code) do update set
+      operation_type=excluded.operation_type,
+      previous_main_operation=excluded.previous_main_operation,
+      next_main_operation=excluded.next_main_operation,
+      is_active=true,updated_at=now()`,
+    [source, operationType, null, null]
   );
+
 
   if (operationType === "ST_SCOPE_ONLY") {
     await deactivateSourceMappings(c, source, "DEACTIVATE");

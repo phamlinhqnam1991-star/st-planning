@@ -22,7 +22,8 @@ const masterTabs=[
  {key:"sourceoperation",label:"Source Operation",href:"/master/sourceoperation"},{key:"routing",label:"Routing Detail",href:"/master/routing"},
  {key:"finish",label:"Material Finish",href:"/master/finish"},{key:"requirement",label:"Process Requirement",href:"/master/requirement"},
  {key:"strouting",label:"ST Routing Master",href:"/master/strouting"},{key:"stroutingchain",label:"ST Routing Chain",href:"/master/stroutingchain"},
- {key:"partrouting",label:"Part → Routing",href:"/master/partrouting"}
+ {key:"partrouting",label:"Part → Routing",href:"/master/partrouting"},
+ {key:"operationrecipemapping",label:"Main Op → Recipe",href:"/master/operation-recipe-mapping"}
 ];
 export const dynamic="force-dynamic";
 export default async function Page({params,searchParams}:{params:Promise<{table:string}>,searchParams:Promise<{q?:string;p?:string}>}){

@@ -2,7 +2,10 @@ import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
 
+import {requireApiUser} from "@/lib/api-auth";
 export async function POST(){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const c=await getPool().connect();
 
  try{

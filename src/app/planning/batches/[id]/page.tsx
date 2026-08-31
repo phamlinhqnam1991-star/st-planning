@@ -127,9 +127,11 @@ export default async function Page({
            )
            or exists(
              select 1
-             from md_operation_recipe_mapping orm0
-             where orm0.standard_operation=p.standard_operation
-               and orm0.is_active=true
+             from md_part_process_recipe ppr0
+             where ppr0.part_num=j.part_num
+               and ppr0.revision_num=j.revision_num
+               and ppr0.standard_operation=p.standard_operation
+               and ppr0.is_active=true
            )
          ) recipe_required,
 
@@ -275,9 +277,11 @@ export default async function Page({
            )
            or exists(
              select 1
-             from md_operation_recipe_mapping orm0
-             where orm0.standard_operation=p.standard_operation
-               and orm0.is_active=true
+             from md_part_process_recipe ppr0
+             where ppr0.part_num=j.part_num
+               and ppr0.revision_num=j.revision_num
+               and ppr0.standard_operation=p.standard_operation
+               and ppr0.is_active=true
            )
          ) recipe_required,
 

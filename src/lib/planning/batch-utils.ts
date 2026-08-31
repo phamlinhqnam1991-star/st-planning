@@ -94,19 +94,59 @@ export async function refreshBatchTotals(c:PoolClient,batchId:number){
 
 export async function recomputeJobPlanningStatus(c:PoolClient,jobNum:string){
  const q=await c.query(`
-   select id,status,planning_seq
-   from planning_job_operation
-   where job_num=$1 and is_active=true
-   order by planning_seq
+   with live as (
+     select
+       p.*,
+       count(*) over(
+         partition by upper(trim(p.standard_operation)),upper(trim(p.source_operation_code))
+       ) source_main_count
+     from planning_job_operation p
+     where p.job_num=$1
+       and p.is_active=true
+       and upper(trim(p.standard_operation))<>'PIONBL'
+   )
+   select
+     p.id,p.status,p.planning_seq,p.source_seq,
+     p.operation_instance_key,p.source_operation_code,p.standard_operation,
+     p.previous_standard_operation_snapshot,
+     exists(
+       select 1
+       from planning_batch_job bj
+       join planning_batch b
+         on b.id=bj.batch_id
+        and b.status<>'CANCELLED'
+       where bj.job_num=p.job_num
+         and (
+           bj.planning_job_operation_id=p.id
+           or (
+             bj.source_seq_snapshot=p.source_seq
+             and upper(trim(bj.source_operation_code))=upper(trim(p.source_operation_code))
+             and upper(trim(bj.standard_operation))=upper(trim(p.standard_operation))
+           )
+           or (
+             nullif(trim(bj.operation_instance_key_snapshot),'') is not null
+             and upper(trim(bj.operation_instance_key_snapshot))=
+                 upper(trim(p.operation_instance_key))
+           )
+           or (
+             p.source_main_count=1
+             and upper(trim(bj.source_operation_code))=upper(trim(p.source_operation_code))
+             and upper(trim(bj.standard_operation))=upper(trim(p.standard_operation))
+           )
+         )
+     ) is_planned
+   from live p
+   order by p.planning_seq,p.source_seq,p.id
  `,[jobNum]);
 
- let firstUnplanned=true;
-
+ // v312: syncPlanningChains() already resolved physical position from
+ // LastLaborOp + NextOperation and keeps only Current Main + future Main(s)
+ // active. Every active unbatched Main is plan-ahead READY. Batch/Schedule
+ // history changes the displayed/working state but never gates later Main(s).
  for(const r of q.rows){
-   if(r.status==="PLANNED")continue;
+   const status=Boolean(r.is_planned)?"PLANNED":"ELIGIBLE";
 
-   const status=firstUnplanned?"ELIGIBLE":"LOCKED";
-   firstUnplanned=false;
+   if(r.status===status)continue;
 
    await c.query(`
      update planning_job_operation
@@ -114,13 +154,13 @@ export async function recomputeJobPlanningStatus(c:PoolClient,jobNum:string){
      where id=$1
    `,[r.id,status]);
  }
+
 }
 
 // =====================================================================
-// v264: Recipe có hợp lệ cho 1 Job theo CẤU HÌNH HIỆN TẠI không?
-// (không bám recipe cũ p.recipe_key). Hợp lệ khi recipe nằm trong ÍT NHẤT
-// 1 trong 3 lớp: Standard Operation → Recipe / Operation Code → Recipe /
-// Part + Rev → Recipe. Dùng khi tạo lô & thêm Job vào lô.
+// v280: Recipe có hợp lệ cho 1 Job theo cấu hình hiện tại không?
+// Chỉ dùng hai nguồn: Operation Code → Recipe (ưu tiên) hoặc Part + Revision
+// → Recipe (fallback). Không dùng Standard Operation → Recipe cũ để tự cho phép.
 // =====================================================================
 export async function recipeAllowedForJob(
   c:PoolClient,
@@ -131,16 +171,14 @@ export async function recipeAllowedForJob(
     select 1
     where
       exists(
-        select 1 from md_operation_recipe_mapping orm
-        where orm.standard_operation=$1
-          and orm.recipe_key=$2
-          and orm.is_active=true
-      )
-      or exists(
         select 1 from md_main_operation_recipe ocr
-        where ocr.operation_code=$3
+        where upper(trim(ocr.operation_code))=upper(trim($3))
           and ocr.recipe_key=$2
           and ocr.is_active=true
+          and exists(
+            select 1 from md_process_recipe r
+            where r.recipe_key=ocr.recipe_key and r.is_active=true
+          )
       )
       or exists(
         select 1 from md_part_process_recipe ppr
@@ -149,6 +187,10 @@ export async function recipeAllowedForJob(
           and ppr.standard_operation=$1
           and ppr.recipe_key=$2
           and ppr.is_active=true
+          and exists(
+            select 1 from md_process_recipe r
+            where r.recipe_key=ppr.recipe_key and r.is_active=true
+          )
       )
     limit 1
   `,[

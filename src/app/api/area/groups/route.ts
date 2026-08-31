@@ -1,5 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 
 export async function PUT(req:NextRequest){
  const body=await req.json().catch(()=>({}));
@@ -70,6 +72,8 @@ export async function PUT(req:NextRequest){
   }
 
   await c.query("commit");
+  invalidatePlanningStaticData();
+  invalidateConfigHealth();
   return NextResponse.json({ok:true});
  }catch(e){
   await c.query("rollback");

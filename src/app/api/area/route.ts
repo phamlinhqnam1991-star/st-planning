@@ -1,9 +1,12 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 
 const clean=(v:unknown)=>String(v??"").trim();
 
-export async function GET(){
+export async function GET(req:NextRequest){
+ const fresh=new URL(req.url).searchParams.has("fresh");
  const c=await getPool().connect();
 
  try{
@@ -31,7 +34,7 @@ export async function GET(){
    areas:areasQ.rows,
    mappings:mapsQ.rows,
    groups:[...new Set(groupsQ.rows.map(x=>x.st_group).filter(Boolean))]
-  });
+  },{headers:{"Cache-Control":fresh?"no-store":"public, max-age=30, s-maxage=30, stale-while-revalidate=120"}});
  }catch(e){
   return NextResponse.json(
    {error:e instanceof Error?e.message:String(e)},
@@ -66,6 +69,8 @@ export async function POST(req:NextRequest){
    returning id,area_code,area_name,description,sort_order,is_active
   `,[areaCode,areaName,description,sortOrder]);
 
+  invalidatePlanningStaticData();
+  invalidateConfigHealth();
   return NextResponse.json({ok:true,area:q.rows[0]});
  }catch(e){
   return NextResponse.json(
@@ -119,6 +124,8 @@ export async function PUT(req:NextRequest){
    set ${fields.join(",")},updated_at=now()
    where id=$${values.length}
   `,values);
+  invalidatePlanningStaticData();
+  invalidateConfigHealth();
 
   return NextResponse.json({ok:true});
  }catch(e){

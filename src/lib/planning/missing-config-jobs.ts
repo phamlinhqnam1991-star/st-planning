@@ -18,14 +18,26 @@ export type MissingRow = {
 };
 
 const REASON_SQL = `case
-    when s.operation_code is null then '1. NextOperation CHƯA khai báo ST Scope'
+    when exists (
+      select 1 from md_intermediate_bridge_operation bo
+      join md_intermediate_bridge_segment bs on bs.id=bo.segment_id and bs.is_active=true
+      where upper(trim(bo.operation_code))=upper(trim(j.next_operation))
+    ) and not exists (
+      select 1 from planning_job_operation po where po.job_num=j.job_num and po.is_active=true
+    ) then '4I. AUTO INTERMEDIATE có Segment nhưng chưa có canonical Planning Chain / Next Main không có trong AllOperation'
+    when exists (
+      select 1 from md_intermediate_bridge_operation bo
+      join md_intermediate_bridge_segment bs on bs.id=bo.segment_id and bs.is_active=true
+      where upper(trim(bo.operation_code))=upper(trim(j.next_operation))
+    ) then '5I. Intermediate Segment đã resolve nhưng chain chưa READY (cần Rebuild Chain / kiểm tra dữ liệu)' 
+    when s.operation_code is null then '1. NextOperation CHƯA khai báo Main Planning/ST Scope và không thuộc Auto Bridge'
     when s.operation_type='ST_SCOPE_ONLY' then '2. NextOperation loại ST_SCOPE_ONLY (chỉ hiển thị)'
     when m.id is null then '3. Thuộc ST nhưng CHƯA gán Source → Main Mapping'
     when not exists (
       select 1 from planning_job_operation po
       where po.job_num=j.job_num and po.is_active=true
     ) then '4. Cấu hình đủ nhưng CHƯA có Planning Chain (cần Rebuild Chain)'
-    else '5. Có chain nhưng chưa có dòng SẴN SÀNG (đang chờ / mới chạy)'
+    else '5. Có chain nhưng chưa có dòng READY/PLANNED (chain stale hoặc cần Rebuild Chain)'
   end`;
 
 const FROM_SQL = `from open_job_current j
@@ -86,6 +98,8 @@ export type MissingOperation = {
 export const OPERATION_GROUP_LABEL: Record<string, string> = {
   "1": "Chưa khai báo ST Scope",
   "2": "Loại ST_SCOPE_ONLY (chỉ hiển thị)",
+  "4I": "AUTO INTERMEDIATE chưa có canonical chain",
+  "5I": "AUTO INTERMEDIATE đang chờ Main trước",
   "3": "Thuộc ST nhưng chưa mapping",
   "4": "Đủ cấu hình nhưng chưa Rebuild Chain",
   "5": "Có chain nhưng chưa có dòng sẵn sàng",
@@ -99,6 +113,18 @@ export async function missingOperations(c: PoolClient): Promise<MissingOperation
         upper(trim(j.next_operation)) operation_code,
         count(*)::int so_job,
         min(case
+          when exists(
+            select 1 from md_intermediate_bridge_operation bo
+            join md_intermediate_bridge_segment bs on bs.id=bo.segment_id and bs.is_active=true
+            where upper(trim(bo.operation_code))=upper(trim(j.next_operation))
+          ) and not exists(
+            select 1 from planning_job_operation po where po.job_num=j.job_num and po.is_active=true
+          ) then '4I'
+          when exists(
+            select 1 from md_intermediate_bridge_operation bo
+            join md_intermediate_bridge_segment bs on bs.id=bo.segment_id and bs.is_active=true
+            where upper(trim(bo.operation_code))=upper(trim(j.next_operation))
+          ) then '5I'
           when s.operation_code is null then '1'
           when s.operation_type='ST_SCOPE_ONLY' then '2'
           when m.id is null then '3'

@@ -1,6 +1,8 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {syncAllStDerived} from "@/lib/st-operation-flow";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 
 const clean=(v:unknown)=>String(v??"").trim();
 
@@ -57,6 +59,8 @@ export async function POST(req:Request){
 
     const sync=await remapAll(c);
     await c.query("commit");
+    invalidatePlanningStaticData();
+    invalidateConfigHealth();
     return NextResponse.json({
       ok:true,
       action:"add",
@@ -83,6 +87,8 @@ export async function POST(req:Request){
   // User requirement: every add/remove/order change remaps/syncs all.
   const sync=await remapAll(c);
   await c.query("commit");
+  invalidatePlanningStaticData();
+  invalidateConfigHealth();
   return NextResponse.json({ok:true,action:"set-order",row:q.rows[0],sync});
  }catch(e){
   if(c){try{await c.query("rollback")}catch{}}
@@ -154,6 +160,8 @@ export async function DELETE(req:Request){
 
   const sync=await remapAll(c);
   await c.query("commit");
+  invalidatePlanningStaticData();
+  invalidateConfigHealth();
 
   return NextResponse.json({
     ok:true,

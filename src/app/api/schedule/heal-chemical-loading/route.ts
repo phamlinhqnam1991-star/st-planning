@@ -13,6 +13,7 @@
 //     điều độ rồi lưu lại. Không sửa được (bị cấn giờ) → báo cáo rõ.
 // =====================================================================
 import {getPool} from "@/lib/db";
+import {requireApiUser} from "@/lib/api-auth";
 import {
  assertResourceAndChemicalCapacity,
  chemicalScheduleColumns,
@@ -23,6 +24,8 @@ export const runtime="nodejs";
 export const maxDuration=60;
 
 export async function POST(){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const pool=getPool();
  const client=await pool.connect();
 

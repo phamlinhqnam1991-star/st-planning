@@ -5,6 +5,7 @@ import {loadLiveRecipeContext,bestRecipeMatch,mergeJobData} from "@/lib/planning
 import {recipeAllowedForJob} from "@/lib/planning/batch-utils";
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 
+import {requireApiUser} from "@/lib/api-auth";
 const clean=(v:unknown)=>String(v??"").trim();
 const num=(v:unknown)=>{
  const n=Number(v);
@@ -102,6 +103,8 @@ async function resolveProcessMinutes(
 }
 
 export async function POST(req:NextRequest){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const body=await req.json();
  const ids=Array.isArray(body.planning_job_operation_ids)
    ? body.planning_job_operation_ids.map(Number).filter(Number.isFinite)
@@ -663,8 +666,8 @@ export async function POST(req:NextRequest){
        where id=$1
      `,[r.id,recipeKey]);
 
-     // Do not unlock the next Main at Batch creation.
-     // The next Main becomes ELIGIBLE only after this Batch is SCHEDULED.
+     // v312: Current Main and all future Main(s) are already plan-ahead READY.
+     // Creating this Batch changes only this exact Planning Operation to PLANNED.
    }
 
    await c.query("commit");

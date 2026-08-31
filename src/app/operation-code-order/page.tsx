@@ -12,10 +12,12 @@ export default async function Page(){
    with active_scope as (
     select
      upper(trim(operation_code)) operation_code,
-     case when bool_or(operation_type='ST_SCOPE_ONLY')
-      then 'ST_SCOPE_ONLY' else 'PLANNING_OPERATION' end operation_type
+     case
+      when bool_or(operation_type='ST_SCOPE_ONLY') then 'ST_SCOPE_ONLY'
+      else 'PLANNING_OPERATION'
+     end operation_type
     from public.md_st_operation_scope
-    where is_active=true
+    where is_active=true and operation_type<>'INTERMEDIATE'
     group by upper(trim(operation_code))
    )
    select s.operation_code,o.operation_name,o.planning_sort_order,s.operation_type

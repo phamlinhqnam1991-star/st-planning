@@ -2,6 +2,8 @@ import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {syncAllStDerived} from "@/lib/st-operation-flow";
 import {applyOperationFlow,validateApplyPayload,clean,type ApplyFlowPayload} from "@/lib/st-operation-flow-apply";
+import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 
 export const runtime="nodejs";
 export const maxDuration=300;
@@ -51,6 +53,8 @@ export async function POST(req: Request) {
     }
     const sync = await syncAllStDerived(c);
     await c.query("commit");
+    invalidatePlanningStaticData();
+    invalidateConfigHealth();
     return NextResponse.json({
       ok: true,
       applied,

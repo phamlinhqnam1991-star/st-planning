@@ -120,7 +120,7 @@ export default async function Page(){
   <section className="erp-content erp-content-full guide-page">
    <div className="erp-page-head guide-head">
     <div><h2>Logic & Hướng dẫn vận hành</h2><p>Tài liệu đầy đủ: luồng dữ liệu, logic điều độ, mapping, cách dùng từng màn hình — cập nhật theo code hiện tại.</p></div>
-    <div className="guide-version"><b>v277</b><span>{new Date().toLocaleDateString("vi-VN")}</span></div>
+    <div className="guide-version"><b>v282</b><span>{new Date().toLocaleDateString("vi-VN")}</span></div>
    </div>
 
    <div className="guide-jump">
@@ -414,7 +414,7 @@ export default async function Page(){
     sub="Cấu hình đúng 1 lần, các bảng điều độ tự chạy">
     <ol className="lg-steps">
      <li><b>Main Operation Master</b> — khai báo các Operation chính (BSASLD, CPBILP…) + ST Group + Batch Prefix 3 ký tự.</li>
-     <li><b>ST Operation Flow</b> — thứ tự luân chuyển công đoạn (chuỗi operation của job).</li>
+     <li><b>ST Operation Flow</b> — chỉ cấu hình <b>Planning Operation</b> (Source → Main) hoặc <b>ST_SCOPE_ONLY</b>. <b>Intermediate được suy ra tự động</b> từ các operation nằm giữa hai Main Planning liên tiếp trong ST Routing Chain · Standardized.</li>
      <li><b>ST Scope & Operation Order</b> — phạm vi + thứ tự operation dùng cho điều độ.</li>
      <li><b>Source → Main Mapping</b> — map Operation từ dữ liệu nguồn sang Operation chuẩn.</li>
      <li><b>ST Group Master + Physical Area Master</b> — nhóm + khu vực vật lý (gắn batch).</li>
@@ -438,6 +438,8 @@ export default async function Page(){
     <Faq q='"Recipe chưa cấu hình Process Time"' a={<>Vào Cấu hình → Process Recipe → Process Time, thêm FIXED_HOURS (giờ) cho recipe đó. Thiếu → không đề xuất / save được.</>}/>
     <Faq q='"Lưu 1 dòng có làm mất các dòng khác không?"' a={<>Không. Mỗi Save chỉ xử lý đúng dòng đó; các dòng đang nhập dở giữ nguyên, Timeline cập nhật ngay không cần F5.</>}/>
     <Faq q='"Vì sao Loading Start = Process Start?"' a={<>Đó là lô <b>nối tiếp</b> (Loading 0 phút) — hoặc dữ liệu cũ lưu sai trước bản v210. Sửa: Edit → Save Edit lại dòng đó.</>}/>
+    <Faq q='"Job có NextOperation trung gian nhưng không có trong AllOperation thì làm sao?"' a={<>Không cần cấu hình Intermediate bằng tay. Hệ thống tự lấy <b>routing_code + seq + operation_code</b> trong <b>ST Routing Chain · Standardized</b>, suy ra operation nằm giữa hai Main Planning và resolve đúng Next Main trong canonical Planning Chain. Nếu routing/Main thay đổi, bấm <b>Rebuild Auto Bridge Segments</b>.</>}/>
+    <Faq q='"NextOperation là Main Planning nhưng resolver vẫn NO CHAIN thì sao?"' a={<>Fallback cuối v313: nếu <b>NextOperation</b> khớp một Main Planning occurrence hợp lệ thì chính Main đó là <b>Current Main</b>. Các <b>Next Main</b> sau đó lấy theo đúng thứ tự Main trong <b>AllOperation</b> của Job. Nếu cùng NextOperation lặp nhiều occurrence mà LastLaborOp vẫn không xác định được vị trí duy nhất thì hệ thống giữ <b>NO CHAIN</b>, không đoán.</>}/>
     <Faq q='"Kéo lô vào dòng không được?"' a={<>Kéo-thả dùng trên máy tính. Kiểm tra: dòng phải trống + Operation của lô phải thuộc vùng. Máy cảm ứng thì bấm vào thẻ lô để vào dòng trống đầu tiên.</>}/>
     <Faq q='"Tôi muốn lô BSAUNSLD chạy ngay sau CPBILP trên cùng FB, không loading"' a={<>Tự động: 2 lô cùng job + lô trước đã điều độ đúng FB → hệ thống tự nối tiếp. Hoặc thủ công: <b>kéo dòng sau thả lên dòng trước</b> để tạo liên kết, rồi Đề xuất.</>}/>
     <Faq q='"Schedule Table xếp thế nào?"' a={<>Xếp theo đúng thứ tự lô như bảng điều độ: thứ tự thao tác (↑↓) trước, rồi theo giờ Loading Start, trùng giờ thì theo FB rồi Batch.</>}/>

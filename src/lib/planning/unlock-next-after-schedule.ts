@@ -30,6 +30,7 @@ export async function unlockNextAfterScheduledBatch(c:any,batchId:number){
    select id,planning_seq,source_seq
    from planning_job_operation
    where job_num=$1
+     and is_active=true
      and (
        id=$2
        or (
@@ -46,8 +47,11 @@ export async function unlockNextAfterScheduledBatch(c:any,batchId:number){
        )
      )
    order by
-     case when id=$2 then 0 else 1 end,
-     is_active desc,
+     case
+       when id=$2 then 0
+       when operation_instance_key=$3 and $3 is not null then 1
+       else 2
+     end,
      updated_at desc,
      id desc
    limit 1
@@ -65,8 +69,11 @@ export async function unlockNextAfterScheduledBatch(c:any,batchId:number){
   const current=currentQ.rows[0];
 
   // Immediate next active Main only. PIONBL is skipped from Planning.
+  // IMPORTANT: find the immediate row first regardless of its status. If the
+  // immediate row is already PLANNED/ELIGIBLE, do not skip over it and unlock
+  // a second future Main.
   const nextQ=await c.query(`
-   select id
+   select id,status
    from planning_job_operation
    where job_num=$1
      and is_active=true
@@ -78,12 +85,12 @@ export async function unlockNextAfterScheduledBatch(c:any,batchId:number){
          and source_seq>$3
        )
      )
-     and status='LOCKED'
    order by planning_seq,source_seq,id
    limit 1
   `,[row.job_num,Number(current.planning_seq),Number(current.source_seq)]);
 
   if(!nextQ.rowCount)continue;
+  if(String(nextQ.rows[0].status)!=='LOCKED')continue;
 
   const uq=await c.query(`
    update planning_job_operation
@@ -97,54 +104,4 @@ export async function unlockNextAfterScheduledBatch(c:any,batchId:number){
  }
 
  return unlocked;
-}
-
-/**
- * Self-heal all historical schedule handoffs.
- * Useful after deploy/rebuild: if the immediate previous Main already has
- * a non-cancelled planning_schedule, the next LOCKED Main becomes ELIGIBLE.
- *
- * This is idempotent and does not unlock the second/third future Main.
- */
-export async function healScheduledHandoffs(c:any){
- const q=await c.query(`
-  with ordered as (
-   select
-    p.id,
-    p.job_num,
-    p.planning_seq,
-    p.source_seq,
-    p.status,
-    lag(p.id) over(
-      partition by p.job_num
-      order by p.planning_seq,p.source_seq,p.id
-    ) previous_id
-   from planning_job_operation p
-   where p.is_active=true
-     and p.standard_operation<>'PIONBL'
-  ),
-  unlockable as (
-   select cur.id
-   from ordered cur
-   where cur.status='LOCKED'
-     and cur.previous_id is not null
-     and exists(
-       select 1
-       from planning_batch_job bj
-       join planning_schedule ps
-         on ps.batch_id=bj.batch_id
-        and ps.status<>'CANCELLED'
-       join planning_batch b
-         on b.id=bj.batch_id
-        and b.status<>'CANCELLED'
-       where bj.planning_job_operation_id=cur.previous_id
-     )
-  )
-  update planning_job_operation p
-     set status='ELIGIBLE',updated_at=now()
-   where p.id in(select id from unlockable)
-   returning p.id
- `);
-
- return q.rowCount||0;
 }

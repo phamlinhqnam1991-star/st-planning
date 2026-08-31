@@ -16,6 +16,7 @@ const tables=[
   "md_area",
   "md_st_group",
   "md_process_recipe",
+  "md_operation_recipe_mapping",
 ] as const;
 
 export async function getStats(){

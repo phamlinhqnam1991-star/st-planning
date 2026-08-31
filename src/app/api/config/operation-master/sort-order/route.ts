@@ -1,5 +1,7 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 
 export async function POST(req:Request){
  let c:any=null;
@@ -31,6 +33,8 @@ export async function POST(req:Request){
     sort_order=coalesce($2,md_planning_operation_scope.sort_order),is_active=true,updated_at=now()
   `,[q.rows[0].standard_operation,order]);
   await c.query("commit");
+  invalidatePlanningStaticData();
+  invalidateConfigHealth();
   return NextResponse.json({ok:true,row:q.rows[0]});
  }catch(e){
   if(c){try{await c.query("rollback")}catch{}}

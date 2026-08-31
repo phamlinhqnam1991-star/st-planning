@@ -1,7 +1,10 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 
+import {requireApiUser} from "@/lib/api-auth";
 export async function PUT(req:Request){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const ids=Array.isArray(body.schedule_ids)
   ? body.schedule_ids.map(Number).filter(Number.isFinite)

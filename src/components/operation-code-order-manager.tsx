@@ -2,6 +2,8 @@
 
 import {safeJson} from "@/lib/fetch-json";
 import {useState} from "react";
+import {useRouter} from "next/navigation";
+import {refreshConfigPage} from "@/lib/config/config-client";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 
 type Row={
@@ -12,6 +14,7 @@ type Row={
 };
 
 export function OperationCodeOrderManager({rows}:{rows:Row[]}){
+ const router=useRouter();
  const [editing,setEditing]=useState<string|null>(null);
  const [value,setValue]=useState("");
  const [busy,setBusy]=useState(false);
@@ -52,7 +55,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
     `Đã lưu ${operationCode} = ${d.row.planning_sort_order??"chưa gán"} và mapping/sync lại toàn bộ.`
    );
    setEditing(null);
-   setTimeout(()=>location.reload(),500);
+   refreshConfigPage(router);
   }catch(e){
    setMessage(e instanceof Error?e.message:"Không lưu được Planning Order.");
   }finally{
@@ -85,7 +88,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
    setNewName("");
    setNewOrder("");
    setAddOpen(false);
-   setTimeout(()=>location.reload(),650);
+   refreshConfigPage(router);
   }catch(e){
    setMessage(e instanceof Error?e.message:"Không thêm được Operation Code.");
   }finally{
@@ -110,7 +113,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
     `Đã bỏ ${row.operation_code} khỏi ST Scope; `+
     `${d.deactivated_mappings||0} mapping được deactivate; đã mapping/sync lại toàn bộ.`
    );
-   setTimeout(()=>location.reload(),650);
+   refreshConfigPage(router);
   }catch(e){
    setMessage(e instanceof Error?e.message:"Không remove được Operation Code.");
   }finally{
@@ -126,7 +129,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
      Trang này chỉ chỉnh ST Scope và thứ tự RAW NextOperation. Thêm mới đầy đủ dùng ST Operation Flow.
     </small>
    </div>
-   <button className="btn primary" type="button" disabled={busy} onClick={()=>{window.location.href="/st-operation-flow"}}>＋ Add / Configure Full Flow</button>
+   <button className="btn primary" type="button" disabled={busy} onClick={()=>router.push("/st-operation-flow")}>＋ Add / Configure Full Flow</button>
   </div>
 
 

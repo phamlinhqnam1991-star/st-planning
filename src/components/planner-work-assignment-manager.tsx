@@ -2,6 +2,7 @@
 
 import {useEffect,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
+import {notifyConfigHealthChanged} from "@/lib/config/config-client";
 
 type Area={
  schedule_area_code:string;
@@ -40,14 +41,12 @@ export function PlannerWorkAssignmentManager(){
  const [loading,setLoading]=useState(true);
  const [busyCode,setBusyCode]=useState("");
 
- async function load(){
+ async function load(fresh=false){
   setLoading(true);
 
   try{
-   const r=await fetch(
-    "/api/config/planner-work-assignment",
-    {cache:"no-store"}
-   );
+   const url=fresh?`/api/config/planner-work-assignment?fresh=${Date.now()}`:"/api/config/planner-work-assignment";
+   const r=await fetch(url,fresh?{cache:"no-store"}:undefined);
 
    const d=await readJsonSafe(r);
 
@@ -103,7 +102,8 @@ export function PlannerWorkAssignmentManager(){
     }.`
    );
 
-   await load();
+   notifyConfigHealthChanged();
+   await load(true);
   }catch(e){
    setStatus(
     `Lỗi: ${e instanceof Error?e.message:"Không thể chuyển khu vực."}`

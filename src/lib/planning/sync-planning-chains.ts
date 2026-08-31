@@ -1,16 +1,21 @@
 import type {PoolClient} from "pg";
 import {pickBestRecipeForJob,type RecipeCandidateItem} from "@/lib/batch-key-recipe";
+import {loadIntermediateBridgeRules,type IntermediateBridgeRule} from "@/lib/planning/intermediate-bridge-segments";
 
 type Mapping={
+ id:number;
  source_operation_code:string;
  st_group:string;
  standard_operation_rule:string;
  mapping_rule:string;
  sort_order:number;
+ created_at:string|null;
+ updated_at:string|null;
 };
 
 type RawPlanningOp={
  sourceSeq:number;
+ planningSeq:number;
  sourceCode:string;
  standardOperation:string;
  stGroup:string;
@@ -39,111 +44,494 @@ function splitAllOperation(v:unknown){
 
 type PlanningAnchor={
  startIndex:number;
- mode:"NEXT_OPERATION"|"LAST_OPERATION_FALLBACK"|"SEQUENCE_CHECK";
+ mode:"BRIDGE_PAIR"|"ALLOPERATION_FALLBACK"|"DIRECT_NEXT_MAIN"|"NO_CHAIN";
  reason:string;
+ targetInstanceKey?:string|null;
+ requiredPreviousInstanceKey?:string|null;
 };
+
+const normCode=(v:unknown)=>clean(v).toUpperCase();
+
+/**
+ * v313 canonical physical-position rule.
+ *
+ * The primary All Open Job position fields remain:
+ *   LastLaborOp + NextOperation
+ *
+ * Resolver order:
+ *   1) ACTIVE Intermediate Bridge Segment (MANUAL > AUTO_ROUTING)
+ *   2) AllOperation fallback -> nearest UPCOMING Main Planning occurrence
+ *   3) If the result would be NO_CHAIN but NextOperation itself is a live
+ *      Main Planning occurrence, NextOperation is Current Main.
+ *   4) Next Main(s) are the following Main Planning occurrences from this
+ *      same Job's AllOperation-derived canonical route.
+ *   5) NO CHAIN only when no unique Current Main can still be resolved.
+ *
+ * Schedule/Batch history never chooses the physical position. It is applied
+ * only after the Current Main + Next Main(s) have been located.
+ */
+
+/**
+ * Resolve a pair that lives inside an ACTIVE Intermediate Bridge Segment.
+ * MANUAL rules override AUTO_ROUTING rules.
+ *
+ * For every canonical consecutive Main pair in this Job we reconstruct the
+ * physical bridge sequence using RAW source codes at the boundaries:
+ *
+ *   PreviousMain.sourceCode -> intermediate[] -> NextMain.sourceCode
+ *
+ * Then LastLaborOp + NextOperation must match one exact adjacent pair in that
+ * sequence. Batch/Schedule history is deliberately NOT consulted here.
+ *
+ * null = no Segment matches the pair. NO_CHAIN = Segment(s) match but the
+ * winning source/priority still cannot identify one canonical Main occurrence.
+ */
+function bridgePairAnchor(
+ full:RawPlanningOp[],
+ lastOperation:string,
+ nextOperation:string,
+ rules:IntermediateBridgeRule[]
+):PlanningAnchor|null{
+ const last=normCode(lastOperation);
+ const next=normCode(nextOperation);
+ if(!last||!next)return null;
+
+ type Match={previous:RawPlanningOp;target:RawPlanningOp;rule:IntermediateBridgeRule};
+ const matches:Match[]=[];
+
+ for(const rule of rules){
+  const previousMain=normCode(rule.previousMainOperation);
+  const nextMain=normCode(rule.nextMainOperation);
+  if(!previousMain||!nextMain)continue;
+
+  for(let i=0;i<full.length-1;i++){
+   const previous=full[i];
+   const target=full[i+1];
+   if(normCode(previous.standardOperation)!==previousMain)continue;
+   if(normCode(target.standardOperation)!==nextMain)continue;
+
+   const physical=[
+    normCode(previous.sourceCode),
+    ...rule.intermediateOperations.map(normCode),
+    normCode(target.sourceCode)
+   ].filter(Boolean);
+
+   let pairFound=false;
+   for(let k=0;k<physical.length-1;k++){
+    if(physical[k]===last&&physical[k+1]===next){
+     pairFound=true;
+     break;
+    }
+   }
+   if(pairFound)matches.push({previous,target,rule});
+  }
+ }
+
+ if(!matches.length)return null;
+
+ // MANUAL > AUTO_ROUTING. Within MANUAL, higher priority wins.
+ const sourceRank=(x:Match)=>x.rule.source==="MANUAL"?2:1;
+ const maxSourceRank=Math.max(...matches.map(sourceRank));
+ let winners=matches.filter(x=>sourceRank(x)===maxSourceRank);
+ if(maxSourceRank===2){
+  const maxPriority=Math.max(...winners.map(x=>Number(x.rule.priority||0)));
+  winners=winners.filter(x=>Number(x.rule.priority||0)===maxPriority);
+ }
+
+ const byTarget=new Map<string,Match>();
+ for(const match of winners){
+  const key=`${match.previous.instanceKey}\u0001${match.target.instanceKey}`;
+  if(!byTarget.has(key))byTarget.set(key,match);
+ }
+
+ if(byTarget.size===1){
+  const best=[...byTarget.values()][0];
+  const sourceLabel=best.rule.source==="MANUAL"
+   ?`MANUAL priority ${best.rule.priority}`
+   :"AUTO";
+  return {
+   startIndex:best.target.sourceSeq-1,
+   mode:"BRIDGE_PAIR",
+   targetInstanceKey:best.target.instanceKey,
+   requiredPreviousInstanceKey:best.previous.instanceKey,
+   reason:`Pair ${lastOperation} -> ${nextOperation} locates ${sourceLabel} Bridge ${best.previous.standardOperation} -> [${best.rule.intermediateOperations.join(" -> ")}] -> ${best.target.standardOperation}`
+  };
+ }
+
+ return {
+  startIndex:-1,
+  mode:"NO_CHAIN",
+  reason:`Pair ${lastOperation} -> ${nextOperation} matches ${byTarget.size} ${maxSourceRank===2?"MANUAL":"AUTO"} Main occurrences; Bridge result is ambiguous`
+ };
+}
+
+/**
+ * v311 AllOperation fallback.
+ *
+ * This runs ONLY when no ACTIVE Manual/Auto Segment matches the pair.
+ * It still uses only LastLaborOp + NextOperation as physical-position input.
+ * The nearest UPCOMING Planning Main is selected from this Job's own
+ * AllOperation-derived canonical route.
+ *
+ * Resolution strength:
+ *  1) exact adjacent LastLaborOp -> NextOperation in AllOperation;
+ *  2) both codes exist in route -> nearest ordered Last/Next occurrence pair;
+ *  3) if one code is absent from AllOperation, use the unique occurrence of the
+ *     other member of the same All Open Job pair as the route anchor;
+ *  4) if neither code exists in AllOperation but the canonical route still has
+ *     Planning Mains, use the FIRST Main Planning occurrence as Current Main;
+ *  5) ambiguous/no usable occurrence -> no fallback.
+ *
+ * No Schedule history is used to pick an occurrence.
+ */
+function allOperationFallbackAnchor(
+ raw:string[],
+ full:RawPlanningOp[],
+ lastOperation:string,
+ nextOperation:string
+):PlanningAnchor|null{
+ const last=normCode(lastOperation);
+ const next=normCode(nextOperation);
+ if(!last||!next||!raw.length||!full.length)return null;
+
+ const upper=raw.map(normCode);
+ const lastPositions:number[]=[];
+ const nextPositions:number[]=[];
+ for(let i=0;i<upper.length;i++){
+  if(upper[i]===last)lastPositions.push(i);
+  if(upper[i]===next)nextPositions.push(i);
+ }
+
+ type PositionCandidate={
+  minSourceSeq:number;
+  kind:"EXACT_PAIR"|"ORDERED_PAIR"|"NEXT_ONLY_IN_ALLOPERATION"|"LAST_ONLY_IN_ALLOPERATION";
+  lastIndex:number|null;
+  nextIndex:number|null;
+ };
+ let positionCandidates:PositionCandidate[]=[];
+
+ // 1) Exact adjacent pair in AllOperation.
+ for(const li of lastPositions){
+  if(li+1<upper.length&&upper[li+1]===next){
+   positionCandidates.push({
+    minSourceSeq:li+2, // sourceSeq of NextOperation (1-based)
+    kind:"EXACT_PAIR",
+    lastIndex:li,
+    nextIndex:li+1
+   });
+  }
+ }
+
+ // 2) Both codes exist but are not adjacent: use the nearest ordered pair.
+ if(!positionCandidates.length&&lastPositions.length&&nextPositions.length){
+  const ordered:{lastIndex:number;nextIndex:number;gap:number}[]=[];
+  for(const li of lastPositions){
+   for(const ni of nextPositions){
+    if(ni>li)ordered.push({lastIndex:li,nextIndex:ni,gap:ni-li});
+   }
+  }
+  if(ordered.length){
+   const minGap=Math.min(...ordered.map(x=>x.gap));
+   positionCandidates=ordered
+    .filter(x=>x.gap===minGap)
+    .map(x=>({
+     minSourceSeq:x.nextIndex+1,
+     kind:"ORDERED_PAIR" as const,
+     lastIndex:x.lastIndex,
+     nextIndex:x.nextIndex
+    }));
+  }
+ }
+
+ // 3) One member is not represented in AllOperation. This is common for an
+ // Intermediate raw operation. Use the unique occurrence of the other member
+ // of the SAME LastLaborOp + NextOperation pair; never use any other field.
+ if(!positionCandidates.length){
+  if(lastPositions.length===0&&nextPositions.length===1){
+   const ni=nextPositions[0];
+   positionCandidates=[{
+    minSourceSeq:ni+1,
+    kind:"NEXT_ONLY_IN_ALLOPERATION",
+    lastIndex:null,
+    nextIndex:ni
+   }];
+  }else if(nextPositions.length===0&&lastPositions.length===1){
+   const li=lastPositions[0];
+   positionCandidates=[{
+    // LastLaborOp is already behind the physical cursor. Current Main must be
+    // the first Planning Main strictly AFTER that source occurrence.
+    minSourceSeq:li+2,
+    kind:"LAST_ONLY_IN_ALLOPERATION",
+    lastIndex:li,
+    nextIndex:null
+   }];
+  }
+ }
+
+ // 4) Neither member of the All Open Job pair is represented in AllOperation.
+ // The Job still has a valid canonical Planning route, so use the FIRST Main
+ // Planning occurrence as Current Main. This is the final AllOperation fallback
+ // before NO CHAIN and intentionally does not consult Schedule/Batch history.
+ if(!positionCandidates.length&&lastPositions.length===0&&nextPositions.length===0){
+  const firstMain=full[0]||null;
+  if(firstMain){
+   return {
+    startIndex:firstMain.sourceSeq-1,
+    mode:"ALLOPERATION_FALLBACK",
+    targetInstanceKey:firstMain.instanceKey,
+    requiredPreviousInstanceKey:null,
+    reason:`No active Bridge matched ${lastOperation} -> ${nextOperation}; neither pair code exists in AllOperation, so fallback selects first Main Planning ${firstMain.standardOperation} (${firstMain.sourceCode})`
+   };
+  }
+ }
+
+ if(!positionCandidates.length)return null;
+
+ type MainCandidate={
+  target:RawPlanningOp;
+  previous:RawPlanningOp|null;
+  position:PositionCandidate;
+ };
+ const resolved:MainCandidate[]=[];
+
+ for(const position of positionCandidates){
+  const target=full.find(op=>op.sourceSeq>=position.minSourceSeq)||null;
+  if(!target)continue;
+  const targetIndex=full.findIndex(op=>op.instanceKey===target.instanceKey);
+  const previous=targetIndex>0?full[targetIndex-1]:null;
+  resolved.push({target,previous,position});
+ }
+
+ if(!resolved.length)return null;
+
+ // Different raw occurrence candidates are acceptable only when they resolve
+ // to the same canonical Current Main occurrence. Otherwise return no fallback
+ // and let currentAnchor produce NO CHAIN instead of guessing.
+ const byTarget=new Map<string,MainCandidate>();
+ for(const candidate of resolved){
+  if(!byTarget.has(candidate.target.instanceKey)){
+   byTarget.set(candidate.target.instanceKey,candidate);
+  }
+ }
+ if(byTarget.size!==1)return null;
+
+ const best=[...byTarget.values()][0];
+ const nextIsCurrentMain=
+  best.position.nextIndex!==null &&
+  best.target.sourceSeq===best.position.nextIndex+1 &&
+  normCode(best.target.sourceCode)===next;
+
+ const kindLabel={
+  EXACT_PAIR:"exact pair",
+  ORDERED_PAIR:"nearest ordered pair",
+  NEXT_ONLY_IN_ALLOPERATION:"NextOperation occurrence",
+  LAST_ONLY_IN_ALLOPERATION:"LastLaborOp occurrence"
+ }[best.position.kind];
+
+ return {
+  startIndex:best.target.sourceSeq-1,
+  mode:"ALLOPERATION_FALLBACK",
+  targetInstanceKey:best.target.instanceKey,
+  // If NextOperation itself is the Main source, that Main is physically READY.
+  // Otherwise the Job is between Planning Mains and normal handoff still
+  // requires the immediate Previous Main to have a real Schedule.
+  requiredPreviousInstanceKey:nextIsCurrentMain?null:(best.previous?.instanceKey||null),
+  reason:`No active Bridge matched ${lastOperation} -> ${nextOperation}; AllOperation ${kindLabel} locates nearest upcoming Main ${best.target.standardOperation} (${best.target.sourceCode})`
+ };
+}
+
+/**
+ * v313 final NO_CHAIN rescue.
+ *
+ * Business rule: when NextOperation itself is a Main Planning operation, it is
+ * the Current Main even if the pair/Bridge resolver would otherwise return
+ * NO_CHAIN. Once that Current Main occurrence is known, planningChainFromAnchor
+ * keeps this occurrence and every following Main from the SAME Job AllOperation,
+ * so Next Main Planning is derived from AllOperation automatically.
+ *
+ * We only accept a unique canonical occurrence. If the same raw source code is
+ * repeated, LastLaborOp is used only to disambiguate the occurrence inside the
+ * same AllOperation. We never guess between two remaining occurrences.
+ */
+function directNextMainAnchor(
+ raw:string[],
+ full:RawPlanningOp[],
+ lastOperation:string,
+ nextOperation:string
+):PlanningAnchor|null{
+ const next=normCode(nextOperation);
+ if(!next||!full.length)return null;
+
+ const directCandidates=full.filter(op=>normCode(op.sourceCode)===next);
+ if(!directCandidates.length)return null;
+
+ const makeAnchor=(target:RawPlanningOp,detail:string):PlanningAnchor=>({
+  startIndex:target.sourceSeq-1,
+  mode:"DIRECT_NEXT_MAIN",
+  targetInstanceKey:target.instanceKey,
+  requiredPreviousInstanceKey:null,
+  reason:`NO_CHAIN rescue: NextOperation ${nextOperation} is Main Planning ${target.standardOperation} (${target.sourceCode}); ${detail}. Following Next Main(s) come from this Job AllOperation`
+ });
+
+ // Normal case: this Job has one canonical occurrence for NextOperation.
+ if(directCandidates.length===1){
+  return makeAnchor(directCandidates[0],"unique canonical Main occurrence selected as Current Main");
+ }
+
+ // Repeated raw operation: use the same physical pair only to identify WHICH
+ // occurrence of NextOperation is current. This does not change Main mapping.
+ const upper=raw.map(normCode);
+ const last=normCode(lastOperation);
+ const candidateBySourceSeq=new Map<number,RawPlanningOp>();
+ for(const op of directCandidates)candidateBySourceSeq.set(op.sourceSeq,op);
+
+ if(last){
+  const exact:RawPlanningOp[]=[];
+  for(let i=1;i<upper.length;i++){
+   if(upper[i]!==next||upper[i-1]!==last)continue;
+   const candidate=candidateBySourceSeq.get(i+1);
+   if(candidate)exact.push(candidate);
+  }
+  const exactByInstance=new Map<string,RawPlanningOp>();
+  for(const candidate of exact)exactByInstance.set(candidate.instanceKey,candidate);
+  const exactUnique=[...exactByInstance.values()];
+  if(exactUnique.length===1){
+   return makeAnchor(exactUnique[0],`exact AllOperation pair ${lastOperation} -> ${nextOperation} identifies the repeated occurrence`);
+  }
+
+  // If not adjacent, use the nearest ordered LastLaborOp -> NextOperation pair.
+  // This mirrors the existing AllOperation fallback but the target MUST remain
+  // the NextOperation Main itself.
+  const lastPositions:number[]=[];
+  const nextPositions:number[]=[];
+  for(let i=0;i<upper.length;i++){
+   if(upper[i]===last)lastPositions.push(i);
+   if(upper[i]===next&&candidateBySourceSeq.has(i+1))nextPositions.push(i);
+  }
+
+  const ordered:{lastIndex:number;nextIndex:number;gap:number}[]=[];
+  for(const li of lastPositions){
+   for(const ni of nextPositions){
+    if(ni>li)ordered.push({lastIndex:li,nextIndex:ni,gap:ni-li});
+   }
+  }
+  if(ordered.length){
+   const minGap=Math.min(...ordered.map(x=>x.gap));
+   const nearest=ordered.filter(x=>x.gap===minGap);
+   const resolvedByInstance=new Map<string,RawPlanningOp>();
+   for(const pair of nearest){
+    const candidate=candidateBySourceSeq.get(pair.nextIndex+1);
+    if(candidate)resolvedByInstance.set(candidate.instanceKey,candidate);
+   }
+   const resolved=[...resolvedByInstance.values()];
+   if(resolved.length===1){
+    return makeAnchor(resolved[0],`nearest ordered AllOperation pair ${lastOperation} -> ${nextOperation} identifies the repeated occurrence`);
+   }
+  }
+ }
+
+ return null;
+}
 
 function currentAnchor(
  raw:string[],
+ full:RawPlanningOp[],
  lastOperation:string,
- nextOperation:string
+ nextOperation:string,
+ bridgeRules:IntermediateBridgeRule[]
 ):PlanningAnchor{
- const upper=raw.map(x=>x.toUpperCase());
- const next=(nextOperation||"").trim().toUpperCase();
- const last=(lastOperation||"").trim().toUpperCase();
-
- // 1) NEXT OPERATION is always the primary current-position marker.
- // Start Planning from the exact NextOperation position.
- if(next){
-   const nextIndexes:number[]=[];
-   for(let i=0;i<upper.length;i++){
-     if(upper[i]===next)nextIndexes.push(i);
-   }
-
-   if(nextIndexes.length){
-     let nextIndex=nextIndexes[0];
-
-     // If the same operation code occurs more than once in AllOperation,
-     // LastLaborOp is used ONLY to disambiguate which occurrence of
-     // NextOperation is current. NextOperation is still the anchor.
-     if(nextIndexes.length>1 && last){
-       let lastIndex=-1;
-       for(let i=upper.length-1;i>=0;i--){
-         if(upper[i]===last){
-           lastIndex=i;
-           break;
-         }
-       }
-       const afterLast=nextIndexes.find(i=>i>lastIndex);
-       if(afterLast!==undefined)nextIndex=afterLast;
-     }
-
-     return {
-       startIndex:nextIndex,
-       mode:"NEXT_OPERATION",
-       reason:`NextOperation ${nextOperation} found at AllOperation position ${nextIndex+1}`
-     };
-   }
- }
-
- // 2) Only when NextOperation cannot be found, fallback to LastLaborOp.
- // Start from the operation immediately AFTER LastLaborOp.
- if(last){
-   let lastIndex=-1;
-   for(let i=upper.length-1;i>=0;i--){
-     if(upper[i]===last){
-       lastIndex=i;
-       break;
-     }
-   }
-
-   if(lastIndex>=0){
-     return {
-       startIndex:lastIndex+1,
-       mode:"LAST_OPERATION_FALLBACK",
-       reason:next
-         ? `NextOperation ${nextOperation} not found; fallback after LastLaborOp ${lastOperation}`
-         : `NextOperation blank; fallback after LastLaborOp ${lastOperation}`
-     };
-   }
- }
-
- // 3) If neither position can be resolved, DO NOT guess from the first operation.
- return {
+ const last=clean(lastOperation);
+ const next=clean(nextOperation);
+ if(!next){
+  return {
    startIndex:-1,
-   mode:"SEQUENCE_CHECK",
-   reason:next
-     ? `NextOperation ${nextOperation} not found and LastLaborOp ${lastOperation||"(blank)"} cannot be resolved`
-     : `NextOperation and LastLaborOp cannot be resolved`
+   mode:"NO_CHAIN",
+   reason:`NO CHAIN: NextOperation is blank`
+  };
+ }
+
+ // v313: LastLaborOp may be incomplete/stale while NextOperation itself is an
+ // unambiguous Main Planning occurrence. The agreed rule still makes that Main
+ // the Current Main and lets AllOperation provide all following Next Main(s).
+ if(!last){
+  const directNextMain=directNextMainAnchor(raw,full,last,next);
+  if(directNextMain)return directNextMain;
+  return {
+   startIndex:-1,
+   mode:"NO_CHAIN",
+   reason:`NO CHAIN: LastLaborOp is blank and NextOperation ${next} is not one unique Main Planning occurrence`
+  };
+ }
+
+ // Existing resolver remains authoritative. A matched-but-ambiguous Bridge
+ // still blocks the generic AllOperation fallback exactly as before v313. The
+ // ONLY new override is the agreed direct NextOperation-is-Main rescue.
+ const bridgeAnchor=bridgePairAnchor(full,last,next,bridgeRules);
+ if(bridgeAnchor){
+  if(bridgeAnchor.mode!=="NO_CHAIN")return bridgeAnchor;
+  const directNextMain=directNextMainAnchor(raw,full,last,next);
+  return directNextMain||bridgeAnchor;
+ }
+
+ // No Segment matched -> inspect this Job's own AllOperation and select the
+ // nearest upcoming Main Planning occurrence.
+ const allOperationAnchor=allOperationFallbackAnchor(raw,full,last,next);
+ if(allOperationAnchor)return allOperationAnchor;
+
+ // v313: only at the point we would return NO_CHAIN, apply the agreed fallback:
+ // if NextOperation itself is Main Planning, that exact Main is Current Main.
+ // planningChainFromAnchor(full, ...) then derives every Next Main from
+ // AllOperation, preserving the canonical source occurrence/order.
+ const directNextMain=directNextMainAnchor(raw,full,last,next);
+ if(directNextMain)return directNextMain;
+
+ return {
+  startIndex:-1,
+  mode:"NO_CHAIN",
+  reason:`NO CHAIN: ${last} -> ${next} is not resolved by an active Manual/Auto Segment, AllOperation fallback, or the direct NextOperation Main rule`
  };
 }
 
 function standardize(
  raw:string[],
- mappingBySource:Map<string,Mapping[]>,
+ mappingBySource:Map<string,Mapping>,
  planningScope:Set<string>
 ):RawPlanningOp[]{
  const primerCodes=new Set<string>();
  const topcoatCodes=new Set<string>();
 
- for(const [code,maps] of mappingBySource){
-   if(maps.some(m=>m.st_group==="PRIMER"))primerCodes.add(code);
-   if(maps.some(m=>m.st_group==="TOPCOAT"))topcoatCodes.add(code);
+ for(const [code,mapping] of mappingBySource){
+   if(mapping.st_group==="PRIMER")primerCodes.add(code);
+   if(mapping.st_group==="TOPCOAT")topcoatCodes.add(code);
  }
 
  let primerOccurrence=0;
  let topcoatOccurrence=0;
  const stdOccurrence=new Map<string,number>();
+ const seenSourceOccurrence=new Set<string>();
  const result:RawPlanningOp[]=[];
 
  for(let i=0;i<raw.length;i++){
-   const sourceCode=raw[i];
+   const sourceCode=clean(raw[i]);
    const key=sourceCode.toUpperCase();
-   const maps=mappingBySource.get(key)||[];
-   if(!maps.length)continue;
+   const sourceSeq=i+1;
+   if(!sourceCode)continue;
+
+   // PIONBL remains in AllOperation/source trace but is never a Main Planning row.
+   if(key==="PIONBL")continue;
+
+   const mapping=mappingBySource.get(key);
+   if(!mapping)continue;
+
+   // Guard against an accidental duplicate of the same ORIGINAL source
+   // occurrence. Do not dedupe by Standard Operation: the same Main may
+   // legitimately appear again later in one route.
+   const sourceOccurrenceKey=`${sourceSeq}|${key}`;
+   if(seenSourceOccurrence.has(sourceOccurrenceKey))continue;
+   seenSourceOccurrence.add(sourceOccurrenceKey);
 
    let standardOperation="";
-   let stGroup=maps[0].st_group;
+   let stGroup=mapping.st_group;
 
    if(primerCodes.has(key)){
      primerOccurrence++;
@@ -156,8 +544,8 @@ function standardize(
      standardOperation=topcoatOccurrence===1?"TOPCOAT1":"TOPCOAT2";
      stGroup="TOPCOAT";
    }else if(key==="HE-BAKE"){
-     const prev=(raw[i-1]||"").toUpperCase();
-     const next=(raw[i+1]||"").toUpperCase();
+     const prev=clean(raw[i-1]).toUpperCase();
+     const next=clean(raw[i+1]).toUpperCase();
 
      if(prev==="PLA-ZINI" || next==="PLA-CC")
        standardOperation="HE-BAKE after plating";
@@ -168,13 +556,8 @@ function standardize(
 
      stGroup="HE-BAKE";
    }else{
-     const direct=
-       maps.find(m=>m.mapping_rule==="DIRECT") ||
-       maps.find(m=>m.mapping_rule==="SEQUENCE/FALLBACK") ||
-       maps[0];
-
-     standardOperation=direct.standard_operation_rule;
-     stGroup=direct.st_group;
+     standardOperation=mapping.standard_operation_rule;
+     stGroup=mapping.st_group;
    }
 
    if(!planningScope.has(standardOperation))continue;
@@ -182,8 +565,12 @@ function standardize(
    const occ=(stdOccurrence.get(standardOperation)||0)+1;
    stdOccurrence.set(standardOperation,occ);
 
+   // planningSeq is assigned only AFTER standardize + scope filter + dedupe,
+   // but it remains the ordinal in the FULL Planning route, not the current
+   // suffix from NextOperation. This keeps history/predecessor identity stable.
    result.push({
-     sourceSeq:i+1,
+     sourceSeq,
+     planningSeq:result.length+1,
      sourceCode,
      standardOperation,
      stGroup,
@@ -199,16 +586,10 @@ function standardize(
  * Planning only works with MAIN operations that survive standardize()
  * and belong to the active md_planning_operation_scope.
  *
- * NextOperation is still the actual shop-floor position marker, even when it
- * is an intermediate operation such as MASKING / UNMASKING / inspection /
- * preparation or any other non-planning operation.
- *
- * Rule:
- * - if NextOperation itself is a main Planning operation -> use it;
- * - if NextOperation is an intermediate operation -> skip forward to the
- *   nearest main Planning operation in AllOperation;
- * - never jump backward to a previous main operation;
- * - if there is no later main Planning operation -> no Candidate is created.
+ * v313: The chain suffix is anchored after LastLaborOp + NextOperation
+ * has been resolved by an ACTIVE Manual/Auto Bridge, by the AllOperation
+ * fallback, or by the final direct NextOperation-is-Main rule. NO_CHAIN produces
+ * no live rows only after all three routes fail.
  */
 function planningChainFromAnchor(
  full:RawPlanningOp[],
@@ -216,26 +597,52 @@ function planningChainFromAnchor(
 ):RawPlanningOp[]{
  if(anchor.startIndex<0)return [];
 
- // sourceSeq is 1-based, startIndex is 0-based.
- // For NEXT_OPERATION this includes the exact operation when it is a main op.
- // For an intermediate operation there is no matching item in `full`, so the
- // first returned item is automatically the nearest following main operation.
- const minimumSourceSeq=anchor.startIndex+1;
+ if(anchor.targetInstanceKey){
+   const index=full.findIndex(x=>x.instanceKey===anchor.targetInstanceKey);
+   return index>=0?full.slice(index):[];
+ }
 
+ // sourceSeq is 1-based, startIndex is 0-based.
+ const minimumSourceSeq=anchor.startIndex+1;
  return full.filter(op=>op.sourceSeq>=minimumSourceSeq);
 }
 
 export async function syncPlanningChains(c:PoolClient){
- const [mappingQ,scopeQ,jobsQ,paintQ,chemicalQ,existingQ,batchHistoryQ,routingDetailQ,masterPartQ,masterFinishQ,masterReqQ]=await Promise.all([
+ // v298: Planning Chain consumes the last COMPLETED/ACTIVE Auto Bridge snapshot.
+ // Bridge discovery is intentionally NOT executed here; Full discovery now runs
+ // chunked/resumable via /api/config/intermediate-bridges/rebuild. This keeps a
+ // normal Chain rebuild from reintroducing the old long-running DB request.
+ const [mappingQ,scopeQ,jobsQ,paintQ,chemicalQ,existingQ,batchHistoryQ,masterPartQ,masterFinishQ,masterReqQ]=await Promise.all([
    c.query(`
-     select m.source_operation_code,m.st_group,m.standard_operation_rule,m.mapping_rule,m.sort_order
-     from md_st_operation_mapping m
-     join md_st_operation_scope scope
-       on upper(trim(scope.operation_code))=upper(trim(m.source_operation_code))
-      and scope.is_active=true
-      and scope.operation_type='PLANNING_OPERATION'
-     where m.is_active=true
-     order by m.source_operation_code,m.sort_order
+     with ranked as (
+       select
+         m.id,m.source_operation_code,m.st_group,m.standard_operation_rule,
+         m.mapping_rule,m.sort_order,m.created_at,m.updated_at,
+         row_number() over(
+           partition by upper(trim(m.source_operation_code))
+           order by
+             case
+               when m.mapping_rule='DIRECT' then 0
+               when m.mapping_rule='SEQUENCE/FALLBACK' then 1
+               else 2
+             end,
+             coalesce(m.sort_order,2147483647),
+             m.updated_at desc nulls last,
+             m.created_at desc nulls last,
+             m.id desc
+         ) rn
+       from md_st_operation_mapping m
+       join md_st_operation_scope scope
+         on upper(trim(scope.operation_code))=upper(trim(m.source_operation_code))
+        and scope.is_active=true
+        and scope.operation_type='PLANNING_OPERATION'
+       where m.is_active=true
+     )
+     select id,source_operation_code,st_group,standard_operation_rule,
+            mapping_rule,sort_order,created_at,updated_at
+     from ranked
+     where rn=1
+     order by source_operation_code
    `),
    c.query(`
      select standard_operation
@@ -269,33 +676,28 @@ export async function syncPlanningChains(c:PoolClient){
    c.query(`
      select
        bj.job_num,
-       bj.operation_instance_key_snapshot,
-       bj.standard_operation,
-       bj.source_seq_snapshot,
+       bj.planning_job_operation_id,
+       coalesce(
+         nullif(trim(bj.operation_instance_key_snapshot),''),
+         p.operation_instance_key
+       ) operation_instance_key_snapshot,
+       coalesce(nullif(trim(bj.standard_operation),''),p.standard_operation) standard_operation,
+       coalesce(nullif(trim(bj.source_operation_code),''),p.source_operation_code) source_operation_code,
+       coalesce(bj.source_seq_snapshot,p.source_seq) source_seq_snapshot,
        b.status batch_status,
        exists(
          select 1
          from planning_schedule ps
          where ps.batch_id=b.id
            and ps.status<>'CANCELLED'
+           and ps.planned_start is not null
        ) is_scheduled
      from planning_batch_job bj
      join planning_batch b
        on b.id=bj.batch_id
       and b.status<>'CANCELLED'
-   `),
-   // v247: Routing Detail (theo Part + Revision) — nguồn CHÍNH cho tuyến đường
-   // của Job, chính xác hơn AllOperation (chỉ là phần còn lại từ vị trí hiện tại).
-   // Chỉ lấy routing của các Part đang có Job mở để giữ query nhẹ.
-   c.query(`
-     select rd.part_num,rd.revision_num,rd.source_seq,rd.operation_code
-     from md_routing_detailed rd
-     join open_job_current j
-       on j.part_num=rd.part_num
-      and j.revision_num=rd.revision_num
-      and j.is_open=true
-     where rd.is_active=true
-     order by rd.part_num,rd.revision_num,rd.source_seq
+     left join planning_job_operation p
+       on p.id=bj.planning_job_operation_id
    `),
    // v269: cột Master Data theo Part+Revision (MD:...) để khớp điều kiện recipe.
    c.query(`
@@ -311,29 +713,28 @@ export async function syncPlanningChains(c:PoolClient){
    c.query(`
      select part_num,revision_num,requirement_code,requirement_value
      from md_process_requirement where is_active=true
-   `)
+   `),
  ]);
 
  const planningScope=new Set<string>(
    scopeQ.rows.map((r:any)=>clean(r.standard_operation)).filter(Boolean)
  );
 
- // v247: tuyến đường chuẩn theo Part + Revision từ md_routing_detailed.
- const routingByPartRev=new Map<string,string[]>();
- for(const r of routingDetailQ.rows){
-   const k=`${clean(r.part_num).toUpperCase()}\u0001${clean(r.revision_num).toUpperCase()}`;
-   const arr=routingByPartRev.get(k)||[];
-   arr.push(clean(r.operation_code));
-   routingByPartRev.set(k,arr);
- }
-
- const mappingBySource=new Map<string,Mapping[]>();
+ // v288: AllOperation of EACH Job is the only source of source occurrence
+ // identity. Never derive source_seq from a Part/Revision join because multiple
+ // open Jobs of the same Part/Rev can multiply the routing rows.
+ const mappingBySource=new Map<string,Mapping>();
  for(const r of mappingQ.rows){
    const k=clean(r.source_operation_code).toUpperCase();
-   const arr=mappingBySource.get(k)||[];
-   arr.push(r as Mapping);
-   mappingBySource.set(k,arr);
+   if(k)mappingBySource.set(k,r as Mapping);
  }
+
+ const intermediateRules=await loadIntermediateBridgeRules(c);
+ const bridgeDiscovery={
+  source:"ACTIVE_SNAPSHOT",
+  segments:intermediateRules.length,
+  operationRows:intermediateRules.reduce((n,r)=>n+r.intermediateOperations.length,0)
+ };
 
  const paintRecipes=new Map<string,string>();
  for(const r of paintQ.rows){
@@ -409,19 +810,43 @@ export async function syncPlanningChains(c:PoolClient){
    existingByJob.set(job,map);
  }
 
- // Durable PLANNED history from actual Batch membership.
- // IMPORTANT: PLANNED is validated by the exact Job + Standard Operation +
- // original source sequence. We intentionally do NOT trust a stale
- // planning_job_operation.status='PLANNED' by itself.
+ // Durable PLANNED/SCHEDULED history from actual Batch membership.
  //
- // This prevents a CPBILP Batch from accidentally marking BSAUNSLD as PLANNED.
+ // Identity priority:
+ // 1) operation_instance_key_snapshot (stable Main + occurrence identity),
+ // 2) Standard Operation + original source sequence,
+ // 3) Standard Operation + source Operation Code only when that pair occurs
+ //    exactly once in the current full route.
+ //
+ // source_seq can move after Routing Detail / ST Mapping is rebuilt. Relying
+ // on source_seq alone caused a historical scheduled CPBILP to be missed,
+ // which reset CPBILP to ELIGIBLE and left immediate-next BSAUNSLD LOCKED.
+ // We still keep the exact-sequence check as a safe fallback for old history.
  const plannedHistoryExactByJob=new Map<string,Set<string>>();
  const scheduledHistoryExactByJob=new Map<string,Set<string>>();
+ const plannedHistoryInstanceByJob=new Map<string,Set<string>>();
+ const scheduledHistoryInstanceByJob=new Map<string,Set<string>>();
+ const plannedHistorySourceByJob=new Map<string,Set<string>>();
+ const scheduledHistorySourceByJob=new Map<string,Set<string>>();
 
  for(const r of batchHistoryQ.rows){
    const job=clean(r.job_num);
-   const std=clean(r.standard_operation);
+   const std=clean(r.standard_operation).toUpperCase();
+   const sourceCode=clean(r.source_operation_code).toUpperCase();
+   const instanceKey=clean(r.operation_instance_key_snapshot).toUpperCase();
    const sourceSeq=Number(r.source_seq_snapshot);
+
+   if(instanceKey){
+     const plannedSet=plannedHistoryInstanceByJob.get(job)||new Set<string>();
+     plannedSet.add(instanceKey);
+     plannedHistoryInstanceByJob.set(job,plannedSet);
+
+     if(Boolean(r.is_scheduled)){
+       const scheduledSet=scheduledHistoryInstanceByJob.get(job)||new Set<string>();
+       scheduledSet.add(instanceKey);
+       scheduledHistoryInstanceByJob.set(job,scheduledSet);
+     }
+   }
 
    if(std && Number.isFinite(sourceSeq)){
      const key=`${std}\u0001${sourceSeq}`;
@@ -436,6 +861,19 @@ export async function syncPlanningChains(c:PoolClient){
        scheduledHistoryExactByJob.set(job,scheduledSet);
      }
    }
+
+   if(std&&sourceCode){
+     const key=`${std}\u0001${sourceCode}`;
+     const plannedSet=plannedHistorySourceByJob.get(job)||new Set<string>();
+     plannedSet.add(key);
+     plannedHistorySourceByJob.set(job,plannedSet);
+
+     if(Boolean(r.is_scheduled)){
+       const scheduledSet=scheduledHistorySourceByJob.get(job)||new Set<string>();
+       scheduledSet.add(key);
+       scheduledHistorySourceByJob.set(job,scheduledSet);
+     }
+   }
  }
 
  let jobs=0;
@@ -443,45 +881,26 @@ export async function syncPlanningChains(c:PoolClient){
  let eligible=0;
  let locked=0;
  let preservedPlanned=0;
- let nextAnchored=0;
- let fallbackAnchored=0;
- let sequenceCheck=0;
- let injectedMappedNextOperation=0;
- let routingDetailJobs=0;
- let allOperationFallbackJobs=0;
+ let allOperationFallbackAnchored=0;
+ let bridgePairAnchored=0;
+ let directNextMainAnchored=0;
+ let noChain=0;
+ let allOperationJobs=0;
 
- // ST_SCOPE_ONLY is never an active Planning row, including old PLANNED rows.
- // Actual Batch/Schedule history remains preserved in planning_batch_job and
- // planning_schedule and can still be viewed as historical production data.
+ // v288: rebuild the LIVE chain from canonical Job AllOperation every time.
+ // Historical Batch/Schedule records are NOT deleted; they are reconciled back
+ // onto the canonical rows below. Keeping stale PLANNED rows active was one of
+ // the causes of duplicate Main occurrences after a rebuild.
  await c.query(`
    update planning_job_operation p
    set is_active=false,updated_at=now()
    where p.is_active=true
      and exists(
        select 1
-       from md_st_operation_scope scope
-       where scope.is_active=true
-         and scope.operation_type='ST_SCOPE_ONLY'
-         and upper(trim(scope.operation_code))=upper(trim(p.source_operation_code))
+       from open_job_current j
+       where j.job_num=p.job_num
+         and j.is_open=true
      )
- `);
-
- // Rebuild only future/unplanned chain rows. Planned rows for actual Planning
- // Operations are preserved as history/state.
- await c.query(`
-   update planning_job_operation
-   set is_active=false,updated_at=now()
-   where status<>'PLANNED' and is_active=true
- `);
-
- // PIONBL is intentionally skipped from Planning.
- // Deactivate old chain rows too; Batch history remains intact because
- // planning_batch_job still references the historical operation row.
- await c.query(`
-   update planning_job_operation
-   set is_active=false,updated_at=now()
-   where standard_operation='PIONBL'
-     and is_active=true
  `);
 
  const rows:any[][]=[];
@@ -489,159 +908,112 @@ export async function syncPlanningChains(c:PoolClient){
  for(const job of jobsQ.rows){
    jobs++;
 
-   // v247: Routing Detail theo Part + Revision là nguồn CHÍNH (đầy đủ, chính xác —
-   // chứa cả công đoạn trước vị trí hiện tại và công đoạn trung gian).
-   // AllOperation (Excel) chỉ fallback khi Part chưa có routing detail.
-   const partKey=`${clean(job.part_num).toUpperCase()}\u0001${clean(job.revision_num).toUpperCase()}`;
-   let raw=routingByPartRev.get(partKey) ?? splitAllOperation(job.all_operation);
-   if(routingByPartRev.has(partKey))routingDetailJobs++;else allOperationFallbackJobs++;
-
-   // v165/v228 - NextOperation from All Open Job is authoritative.
-   //
-   // A newly configured / intermediate Operation Code (example MSKG-PC ->
-   // CPBILP) can already be the Job's current NextOperation while the imported
-   // AllOperation string does not contain that code. Previously currentAnchor()
-   // then fell back to LastOperation and standardize() never saw MSKG-PC, so
-   // no planning_job_operation row was created => CHAIN_MISSING.
-   //
-   // If the current NextOperation is absent from AllOperation, inject it at
-   // the current route position ONLY for Planning Chain construction. We do
-   // not modify open_job_current / source import.
-   //
-   // v228: inject even when the code has NO mapping yet. NextOperation is the
-   // authoritative shop-floor position; an unmapped / intermediate operation
-   // (vd MSKG-PC — che chắn trước khi làm) is skipped by standardize() and the
-   // first MAIN operation after it (vd CPBILP) becomes the planning candidate.
-   // Result: Job đang ở công đoạn trung gian vẫn hiện trên Planning Board,
-   // neo vào cột CÔNG ĐOẠN CHÍNH KẾ TIẾP để lập kế hoạch.
+   // v288: source_seq MUST come from this Job's own AllOperation, before any
+   // mapping/scope filtering. Never inject/reorder operations for chain identity.
+   // Physical position uses only LastLaborOp + NextOperation as All Open Job
+   // position inputs. Resolver order: Segment -> AllOperation fallback (including
+   // first Main Planning when neither pair code exists) -> direct NextOperation
+   // Main rescue -> NO CHAIN.
+   const raw=splitAllOperation(job.all_operation);
+   allOperationJobs++;
    const nextCode=clean(job.next_operation);
-   const nextKey=nextCode.toUpperCase();
-   const rawUpper=raw.map(x=>x.toUpperCase());
 
-   if(
-     nextCode &&
-     !rawUpper.includes(nextKey)
-   ){
-     injectedMappedNextOperation++;
-     const lastKey=clean(job.last_operation).toUpperCase();
-     let insertAt=0;
-
-     if(lastKey){
-       for(let k=rawUpper.length-1;k>=0;k--){
-         if(rawUpper[k]===lastKey){
-           insertAt=k+1;
-           break;
-         }
-       }
-     }
-
-     raw=[
-       ...raw.slice(0,insertAt),
-       nextCode,
-       ...raw.slice(insertAt)
-     ];
-   }
-
-   const anchor=currentAnchor(
-     raw,
-     clean(job.last_operation),
-     nextCode
-   );
-
-   // IMPORTANT:
-   // Standardize the FULL effective route first so PRIMER/TOPCOAT occurrence
-   // remains correct even when Planning starts in the middle of the routing.
+   // IMPORTANT: canonical source occurrence always comes from this Job's own
+   // AllOperation. Intermediate raw operations are intentionally absent there.
    const full=standardize(raw,mappingBySource,planningScope);
-
-   if(anchor.mode==="NEXT_OPERATION")nextAnchored++;
-   else if(anchor.mode==="LAST_OPERATION_FALLBACK")fallbackAnchored++;
-   else sequenceCheck++;
-
-   // MAIN-OPERATION CANDIDATE RULE:
-   // NextOperation may be MASKING / UNMASKING / another intermediate step.
-   // `full` contains only Planning Scope operations, therefore the first row
-   // at/after the raw NextOperation position is the nearest MAIN operation
-   // forward in the routing.
-   //
-   // Example:
-   // CPBILP -> MASKING -> UNMASKING -> BSAUNSLD -> PRIMER
-   // NextOperation=MASKING   => BSAUNSLD is the first Planning Candidate
-   // NextOperation=UNMASKING => BSAUNSLD is the first Planning Candidate
-   // NextOperation=BSAUNSLD  => BSAUNSLD itself is the first Candidate
-   //
-   // SEQUENCE_CHECK still produces no Candidate when current position cannot
-   // be resolved from AllOperation.
-   const chain=planningChainFromAnchor(full,anchor);
 
    const jobNum=clean(job.job_num);
    const existing=existingByJob.get(jobNum)||new Map();
    const plannedHistoryExact=plannedHistoryExactByJob.get(jobNum)||new Set<string>();
    const scheduledHistoryExact=scheduledHistoryExactByJob.get(jobNum)||new Set<string>();
-   const activeKeys:string[]=[];
+   const plannedHistoryInstance=plannedHistoryInstanceByJob.get(jobNum)||new Set<string>();
+   const scheduledHistoryInstance=scheduledHistoryInstanceByJob.get(jobNum)||new Set<string>();
+   const plannedHistorySource=plannedHistorySourceByJob.get(jobNum)||new Set<string>();
+   const scheduledHistorySource=scheduledHistorySourceByJob.get(jobNum)||new Set<string>();
+   const sourceMainCount=new Map<string,number>();
+   for(const routeOp of full){
+     const key=`${routeOp.standardOperation.toUpperCase()}\u0001${routeOp.sourceCode.toUpperCase()}`;
+     sourceMainCount.set(key,(sourceMainCount.get(key)||0)+1);
+   }
 
-   // PLAN-AHEAD STATUS RULE:
-   // 1. Existing non-cancelled Batch membership => PLANNED.
-   // 2. The actual-ready first Main at/after All Open Job anchor => ELIGIBLE.
-   // 3. A later Main becomes ELIGIBLE ONLY when its immediate previous Main
-   //    has an actual non-cancelled planning_schedule.
-   // 4. Batch creation alone does NOT unlock the next Main.
-   // 5. Otherwise the later Main remains LOCKED.
+   const routeOpHistory=(routeOp:RawPlanningOp)=>{
+     const instanceHistoryKey=routeOp.instanceKey.toUpperCase();
+     const exactHistoryKey=`${routeOp.standardOperation.toUpperCase()}\u0001${routeOp.sourceSeq}`;
+     const sourceHistoryKey=`${routeOp.standardOperation.toUpperCase()}\u0001${routeOp.sourceCode.toUpperCase()}`;
+     const uniqueSourceMain=(sourceMainCount.get(sourceHistoryKey)||0)===1;
+     return {
+       planned:
+         plannedHistoryInstance.has(instanceHistoryKey) ||
+         plannedHistoryExact.has(exactHistoryKey) ||
+         (uniqueSourceMain&&plannedHistorySource.has(sourceHistoryKey)),
+       scheduled:
+         scheduledHistoryInstance.has(instanceHistoryKey) ||
+         scheduledHistoryExact.has(exactHistoryKey) ||
+         (uniqueSourceMain&&scheduledHistorySource.has(sourceHistoryKey))
+     };
+   };
+
+   const anchor=currentAnchor(
+     raw,
+     full,
+     clean(job.last_operation),
+     nextCode,
+     intermediateRules
+   );
+
+   if(anchor.mode==="BRIDGE_PAIR")bridgePairAnchored++;
+   else if(anchor.mode==="ALLOPERATION_FALLBACK")allOperationFallbackAnchored++;
+   else if(anchor.mode==="DIRECT_NEXT_MAIN")directNextMainAnchored++;
+   else noChain++;
+
+   const chain=planningChainFromAnchor(full,anchor);
+
+   // v312 PLAN-AHEAD STATUS RULE:
+   // Physical position has already been resolved from LastLaborOp + NextOperation.
+   // Therefore every active Main in `chain` is either the Current Main or a
+   // future Next Main and is READY by default. This intentionally allows the
+   // planner to create Batches ahead of the current production position.
    //
-   // Shared rule for manual now and Auto Planning/Schedule later.
-   let previousPlanningIsScheduled=false;
+   // Status precedence for Current + future Main(s):
+   // 1. Existing non-cancelled Batch membership => PLANNED.
+   // 2. Otherwise => ELIGIBLE (shown as READY).
+   //
+   // Main(s) before Current are not part of this active suffix. Route Matrix
+   // displays their actual Batch/Schedule history when present; if there is no
+   // history, progress position itself marks them DONE. No Schedule handoff is
+   // required to make later Main(s) READY.
 
    for(let i=0;i<chain.length;i++){
      const op=chain[i];
-     activeKeys.push(op.instanceKey);
-
      const old=existing.get(op.instanceKey);
 
-     // Exact current-operation Batch membership only.
-     const historyKey=`${op.standardOperation}\u0001${op.sourceSeq}`;
-     const historicalPlanned=plannedHistoryExact.has(historyKey);
-     const historicalScheduled=scheduledHistoryExact.has(historyKey);
+     const history=routeOpHistory(op);
+     const historicalPlanned=history.planned;
 
      let status:string;
 
      if(historicalPlanned){
        status="PLANNED";
-       // Only a real Schedule unlocks the immediate next Main.
-       previousPlanningIsScheduled=historicalScheduled;
        preservedPlanned++;
-     }else if(i===0){
-       // First Planning operation at/after actual All Open Job anchor.
-       status="ELIGIBLE";
-       previousPlanningIsScheduled=false;
-       eligible++;
-     }else if(previousPlanningIsScheduled){
-       status="ELIGIBLE";
-       previousPlanningIsScheduled=false;
-       eligible++;
      }else{
-       status="LOCKED";
-       previousPlanningIsScheduled=false;
-       locked++;
+       status="ELIGIBLE";
+       eligible++;
      }
 
      let recipeKey:string|null=null;
 
-     // v266: nguồn recipe duy nhất = CẤU HÌNH (Rule đã gộp vào mapping).
-     // Công đoạn sơn → theo Part + Revision; còn lại → Operation Code → Recipe
-     // (điều kiện Job → priority → is_default → updated_at cũ).
-     if(
-       ["PRIMER","PRIMER2","PRIMER3","TOPCOAT1","TOPCOAT2","ANTI-ABRASION","VARNISH"]
-       .includes(op.standardOperation)
-     ){
+     // v280: Mapping Main Operation · Operation Code là nguồn ưu tiên cho MỌI
+     // công đoạn. Recipe theo Part+Revision chỉ là fallback cho sơn khi mã công
+     // đoạn chưa có mapping phù hợp điều kiện Job.
+     const mkey=`${clean(job.part_num).toUpperCase()}\u0001${clean(job.revision_num).toUpperCase()}`;
+     const md=masterByPartRev.get(mkey);
+     const data=md?{...(job.source_data||{}),...md}:(job.source_data||null);
+     const list=chemicalLists.get(op.sourceCode.toUpperCase())||[];
+     recipeKey=pickBestRecipeForJob(list,data);
+     if(!recipeKey && ["PRIMER","PRIMER2","PRIMER3","TOPCOAT1","TOPCOAT2","ANTI-ABRASION","VARNISH"].includes(op.standardOperation)){
        recipeKey=paintRecipes.get(
          `${clean(job.part_num)}\u0001${clean(job.revision_num)}\u0001${op.standardOperation}`
        )||null;
-     }else{
-       // v269: khớp điều kiện trên dữ liệu gộp (All Open Job + Master Data).
-       const mkey=`${clean(job.part_num).toUpperCase()}\u0001${clean(job.revision_num).toUpperCase()}`;
-       const md=masterByPartRev.get(mkey);
-       const data=md?{...(job.source_data||{}),...md}:(job.source_data||null);
-       const list=chemicalLists.get(op.sourceCode.toUpperCase())||[];
-       recipeKey=pickBestRecipeForJob(list,data);
      }
 
      // Preserve the previously selected Recipe only when this exact operation
@@ -656,7 +1028,7 @@ export async function syncPlanningChains(c:PoolClient){
      const previousFull=fullIndex>0?full[fullIndex-1]:null;
 
      rows.push([
-       job.job_num,op.instanceKey,op.sourceSeq,i+1,
+       job.job_num,op.instanceKey,op.sourceSeq,op.planningSeq,
        op.sourceCode,op.standardOperation,op.stGroup,
        previousFull?.standardOperation||null,
        previousFull?.sourceCode||null,
@@ -719,8 +1091,10 @@ export async function syncPlanningChains(c:PoolClient){
 
  return {
    jobs,operations,eligible,locked,preservedPlanned,
-   nextAnchored,fallbackAnchored,sequenceCheck,
-   injectedMappedNextOperation,
-   routingDetailJobs,allOperationFallbackJobs
+   bridgePairAnchored,allOperationFallbackAnchored,directNextMainAnchored,noChain,
+   // Backward-compatible aliases for older clients/log parsers.
+   rawPairAnchored:allOperationFallbackAnchored,
+   sequenceCheck:noChain,
+   allOperationJobs,bridgeDiscovery
  };
 }

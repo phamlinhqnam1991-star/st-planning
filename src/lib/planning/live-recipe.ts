@@ -2,10 +2,10 @@
 // v262: Recipe theo CẤU HÌNH HIỆN TẠI (live) — hiển thị trên Planning Board
 // mà KHÔNG cần bấm Rebuild Chain. Cùng thứ tự ưu tiên với
 // sync-planning-chains (nguồn khi Rebuild):
-//   1) Batch Key / Recipe Rule (đã khớp, không mập mờ)
-//   2) Công đoạn sơn → Recipe theo Part + Revision (md_part_process_recipe)
-//   3) Công đoạn khác → Operation Code → Recipe (md_main_operation_recipe),
-//      tự chọn theo priority → is_default → updated_at (pickBestRecipe).
+//   1) Main Operation · Operation Code → Recipe (md_main_operation_recipe)
+//      cho MỌI công đoạn, tự chọn theo điều kiện → priority → is_default → updated_at.
+//   2) Part + Revision → Recipe (md_part_process_recipe) chỉ là fallback,
+//      chủ yếu dùng cho công đoạn sơn khi Operation Code chưa có mapping phù hợp.
 // =====================================================================
 import {matchCondition,parseSelectionRule,toRecipeCandidates,type RecipeCandidateItem} from "@/lib/batch-key-recipe";
 
@@ -26,13 +26,25 @@ export type LiveRecipeContext={
 };
 
 export async function loadLiveRecipeContext(c:any):Promise<LiveRecipeContext>{
-  const [m,p,partQ,finishQ,reqQ]=await Promise.all([
+  // v322: md_process_requirement (2.1M rows, ~10s/cold) REMOVED from the recipe
+  // context — verified 2026-08-31 that NO selection_rule in md_main_operation_recipe
+  // references MD:REQ:* (rules only use AddInfo_*, Part_Masterlist.*, MD:PRIMER1…).
+  // sync-planning-chains still loads requirements through its own query path.
+  const [m,p,partQ,finishQ,recipeKeyQ]=await Promise.all([
     c.query(`
       select operation_code,recipe_key,priority,is_default,updated_at,selection_rule,
              batch_key_template,batch_no_prefix
       from md_main_operation_recipe
       where is_active=true
+        and exists(
+          select 1
+          from md_process_recipe r
+          where r.recipe_key=md_main_operation_recipe.recipe_key
+            and r.is_active=true
+        )
     `),
+    // v322: plain select without the correlated EXISTS (was ~9s over 75k rows);
+    // rows whose recipe is not active are filtered in JS via activeRecipeKeys.
     c.query(`
       select part_num,revision_num,standard_operation,recipe_key
       from md_part_process_recipe
@@ -51,15 +63,18 @@ export async function loadLiveRecipeContext(c:any):Promise<LiveRecipeContext>{
       where is_active=true
     `),
     c.query(`
-      select part_num,revision_num,requirement_code,requirement_value
-      from md_process_requirement
+      select recipe_key
+      from md_process_recipe
       where is_active=true
     `)
   ]);
 
+  const activeRecipeKeys=new Set<string>();
+  for(const r of recipeKeyQ.rows)activeRecipeKeys.add(String(r.recipe_key));
   const mainOpRecipeMap=groupMainOpRecipes(m.rows);
   const paintRecipeMap=new Map<string,string>();
   for(const r of p.rows){
+    if(!activeRecipeKeys.has(String(r.recipe_key)))continue;
     paintRecipeMap.set(
       `${up(r.part_num)}\u0001${up(r.revision_num)}\u0001${up(r.standard_operation)}`,
       String(r.recipe_key)
@@ -100,10 +115,6 @@ export async function loadLiveRecipeContext(c:any):Promise<LiveRecipeContext>{
     put(k,"MD:TOPCOAT_NAME",r.topcoat_name);
     put(k,"MD:ANTIABRASION_NAME",r.antiabrasion_name);
     put(k,"MD:VARINISH_NAME",r.varinish_name);
-  }
-  for(const r of reqQ.rows){
-    const k=`${up(r.part_num)}\u0001${up(r.revision_num)}`;
-    put(k,`MD:REQ:${String(r.requirement_code||"").trim().toUpperCase()}`,r.requirement_value);
   }
 
   return {mainOpRecipeMap,paintRecipeMap,masterByPartRev};
@@ -164,25 +175,27 @@ export function bestRecipeMatch(
     ruleSuggestion?:{matched:boolean;ambiguous:boolean;recipeKey:string|null}|null;
   }
 ):{recipeKey:string|null;batchKeyTemplate:string|null;batchNoPrefix:string|null}{
-  const sug=args.ruleSuggestion;
-  if(sug&&sug.matched&&!sug.ambiguous&&sug.recipeKey)
-    return {recipeKey:sug.recipeKey,batchKeyTemplate:null,batchNoPrefix:null};
-
-  const stdOp=up(args.standardOperation);
-  if(PAINT_STANDARD_OPS.has(stdOp))
-    return {
-      recipeKey:ctx.paintRecipeMap.get(`${up(args.partNum)}\u0001${up(args.revisionNum)}\u0001${stdOp}`)||null,
-      batchKeyTemplate:null,
-      batchNoPrefix:null
-    };
-
-  // v269: khớp điều kiện trên dữ liệu gộp (All Open Job + Master Data theo Part/Rev).
+  // v280: Main Operation · Operation Code là nguồn ƯU TIÊN cho MỌI công đoạn,
+  // kể cả sơn. Part + Revision chỉ được dùng khi Operation Code chưa có mapping
+  // phù hợp điều kiện Job. Nhờ đó cấu hình ở trang "Công thức & Rule" luôn là
+  // nguồn điều khiển chính và không bị Master Data tự ghi đè.
   const data=mergeJobData(ctx,args);
   const list=ctx.mainOpRecipeMap.get(up(args.sourceOperationCode));
   const best=pickBestRecipeForJobItem(list,data);
-  return best
-    ? {recipeKey:best.recipe_key,batchKeyTemplate:best.batch_key_template||null,batchNoPrefix:best.batch_no_prefix||null}
-    : {recipeKey:null,batchKeyTemplate:null,batchNoPrefix:null};
+  if(best){
+    return {
+      recipeKey:best.recipe_key,
+      batchKeyTemplate:best.batch_key_template||null,
+      batchNoPrefix:best.batch_no_prefix||null
+    };
+  }
+
+  const stdOp=up(args.standardOperation);
+  if(PAINT_STANDARD_OPS.has(stdOp)){
+    const fallback=ctx.paintRecipeMap.get(`${up(args.partNum)}\u0001${up(args.revisionNum)}\u0001${stdOp}`)||null;
+    return {recipeKey:fallback,batchKeyTemplate:null,batchNoPrefix:null};
+  }
+  return {recipeKey:null,batchKeyTemplate:null,batchNoPrefix:null};
 }
 
 // Chọn item mapping "đang thắng" (điều kiện khớp → ưu tiên), trả về item đầy đủ.

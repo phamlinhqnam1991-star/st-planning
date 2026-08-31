@@ -7,7 +7,10 @@ import {getPool} from "@/lib/db";
 // điều độ sau khi Save/Edit/Delete/Move mà KHÔNG tải lại trang (giữ các
 // dòng đang nhập dở của planner).
 // =====================================================================
+import {requireApiUser} from "@/lib/api-auth";
 export async function GET(req:Request){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const url=new URL(req.url);
  const date=String(url.searchParams.get("date")||"");
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))

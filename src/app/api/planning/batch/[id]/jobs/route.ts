@@ -6,6 +6,7 @@ import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 import {loadLiveRecipeContext,effectiveRecipeKey} from "@/lib/planning/live-recipe";
 import {recipeAllowedForJob} from "@/lib/planning/batch-utils";
 
+import {requireApiUser} from "@/lib/api-auth";
 async function plannerForOperationDb(c:any,operation:unknown):Promise<"1"|"2"|null>{
  const op=String(operation??"").trim();
  if(!op)return null;
@@ -204,6 +205,8 @@ export async function POST(
  req:NextRequest,
  {params}:{params:Promise<{id:string}>}
 ){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const {id}=await params;
  const batchId=Number(id);
  const b=await req.json();
@@ -235,7 +238,8 @@ export async function POST(
 
    const q=await c.query(`
      select
-       p.id,p.job_num,p.source_operation_code,p.standard_operation,p.recipe_key,p.status,p.planning_seq,
+       p.id,p.job_num,p.source_operation_code,p.standard_operation,p.recipe_key,p.status,
+       p.source_seq,p.planning_seq,p.operation_instance_key,
        j.part_num,j.revision_num,
        j.source_data,
        mf.primer1 part_master_primer1,
@@ -360,12 +364,15 @@ export async function POST(
      await c.query(`
        insert into planning_batch_job(
          batch_id,planning_job_operation_id,job_num,
-         source_operation_code,standard_operation,qty,surface_dm2
+         source_operation_code,standard_operation,
+         source_seq_snapshot,planning_seq_snapshot,operation_instance_key_snapshot,
+         qty,surface_dm2
        )
-       values($1,$2,$3,$4,$5,$6,$7)
+       values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        on conflict(planning_job_operation_id) do nothing
      `,[
        batchId,r.id,r.job_num,r.source_operation_code,r.standard_operation,
+       r.source_seq,r.planning_seq,r.operation_instance_key,
        r.plan_qty,r.plan_surface
      ]);
 
@@ -402,6 +409,9 @@ export async function POST(
      throw new Error(`Thêm Job làm thay đổi thời gian Chemical Line: ${e instanceof Error?e.message:String(e)}`);
    });
 
+   // v312: No Schedule handoff is needed. Current + future Main(s) are
+   // already plan-ahead READY; this exact operation remains PLANNED.
+
    for(const r of q.rows){
      await createCrossPlannerEvent(c,{
        sourceBatchId:batchId,
@@ -437,6 +447,8 @@ export async function DELETE(
  req:NextRequest,
  {params}:{params:Promise<{id:string}>}
 ){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const {id}=await params;
  const batchId=Number(id);
  const b=await req.json();

@@ -1,6 +1,7 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 
+import {requireApiUser} from "@/lib/api-auth";
 /**
  * Default View của Planning Board — lưu trên MÁY CHỦ để dùng chung mọi môi trường
  * (localhost, Vercel, mọi trình duyệt).
@@ -8,6 +9,8 @@ import {getPool} from "@/lib/db";
  * POST { action:"save", view_key, payload } | { action:"delete", view_key }
  */
 export async function GET() {
+ const denied=await requireApiUser();
+ if(denied)return denied;
   const c = await getPool().connect();
   try {
     const q = await c.query(`select view_key,payload from planning_board_view`);
@@ -22,6 +25,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+ const denied=await requireApiUser();
+ if(denied)return denied;
   const b = await req.json().catch(() => ({}));
   const action = String(b.action || "");
   const viewKey = String(b.view_key || "").trim();

@@ -1,5 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 
 const clean=(v:unknown)=>String(v??"").trim();
 
@@ -59,6 +61,8 @@ export async function POST(req:NextRequest){
   try{
    if(b.action==="rebuild"){
     await c.query(`select public.rebuild_open_job_column_values()`);
+    invalidatePlanningStaticData();
+    invalidateConfigHealth();
     return NextResponse.json({ok:true,rebuild:true});
    }
 
@@ -78,6 +82,8 @@ export async function POST(req:NextRequest){
        is_active=true,
        updated_at=now()
    `,[sourceColumn,sourceValue,displayName]);
+   invalidatePlanningStaticData();
+   invalidateConfigHealth();
 
    return NextResponse.json({ok:true});
   }finally{c.release()}
@@ -102,6 +108,8 @@ export async function PATCH(req:NextRequest){
          updated_at=now()
      where id=$1
    `,[id,b.display_name==null?null:clean(b.display_name),b.is_active==null?null:Boolean(b.is_active)]);
+   invalidatePlanningStaticData();
+   invalidateConfigHealth();
    return NextResponse.json({ok:true});
   }finally{c.release()}
  }catch(e){
@@ -123,6 +131,8 @@ export async function DELETE(req:NextRequest){
      set is_active=false,updated_at=now()
      where id=$1
    `,[id]);
+   invalidatePlanningStaticData();
+   invalidateConfigHealth();
    return NextResponse.json({ok:true});
   }finally{c.release()}
  }catch(e){

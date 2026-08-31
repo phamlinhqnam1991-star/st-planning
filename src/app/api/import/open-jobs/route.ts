@@ -3,6 +3,8 @@ import {createAdminClient} from "@/lib/supabase/admin";
 import {getPool} from "@/lib/db";
 import {importOpenJobsXlsx} from "@/lib/import/open-job-import";
 import {syncPlanningChains} from "@/lib/planning/sync-planning-chains";
+import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -72,6 +74,8 @@ export async function POST(req:Request){
      ]);
 
      await client.query("commit");
+     invalidatePlanningStaticData();
+     invalidateConfigHealth();
 
      return NextResponse.json({...result,planning});
    }catch(e){

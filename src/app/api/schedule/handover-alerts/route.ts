@@ -1,7 +1,10 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 
+import {requireApiUser} from "@/lib/api-auth";
 export async function GET(req:Request){
+ const denied=await requireApiUser();
+ if(denied)return denied;
  const url=new URL(req.url);
  const planner=url.searchParams.get("planner")==="2"?"2":"1";
 

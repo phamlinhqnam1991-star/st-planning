@@ -2,6 +2,8 @@
 
 import {safeJson} from "@/lib/fetch-json";
 import {useMemo,useState} from "react";
+import {useRouter} from "next/navigation";
+import {refreshConfigPage} from "@/lib/config/config-client";
 import {parseSelectionRule} from "@/lib/batch-key-recipe";
 
 type Operation={operation_code:string;operation_name:string|null};
@@ -106,6 +108,7 @@ export function MainOperationRecipeMappingManager({
  timeRules:{recipe_key:string;calc_type:string;priority:number;fixed_hours:number|null;standard_hours:number|null}[];
  unmapped:{operation_code:string;operation_name:string|null}[];
 }){
+ const router=useRouter();
  // v270: tóm tắt thời gian Process theo Recipe (ưu tiên FIXED_HOURS, kế QTY_SURFACE).
  const timeByRecipe=useMemo(()=>{
    const map=new Map<string,string>();
@@ -214,7 +217,7 @@ export function MainOperationRecipeMappingManager({
      });
      const d=await safeJson(r);
      if(!r.ok)throw new Error(d.error||"Save failed");
-     location.reload();
+     refreshConfigPage(router);
    }catch(e){
      alert(e instanceof Error?e.message:String(e));
    }finally{
@@ -236,7 +239,7 @@ export function MainOperationRecipeMappingManager({
      });
      const d=await safeJson(r);
      if(!r.ok)throw new Error(d.error||"Remove failed");
-     location.reload();
+     refreshConfigPage(router);
    }catch(e){
      alert(e instanceof Error?e.message:String(e));
    }finally{
@@ -278,7 +281,7 @@ export function MainOperationRecipeMappingManager({
      </div>
 
      <div className="chemical-multi-map-note">
-      Hệ thống TỰ CHỌN recipe khi chọn Job vào lô theo thứ tự: <b>Ưu tiên (số nhỏ trước) → Mặc định → cập nhật trước</b>. Cột <b>✓ Tự chọn</b> bên dưới cho biết recipe nào đang thắng cho từng Operation Code.
+      Hệ thống TỰ CHỌN Recipe khi chọn Job vào lô theo thứ tự: <b>điều kiện khớp Job → Priority (số nhỏ trước) → Mặc định → cập nhật trước</b>. Không có điều kiện là fallback cho mọi Job. Cột <b>✓ Tự chọn</b> thể hiện thứ tự mặc định của Operation Code; Recipe thực tế vẫn phụ thuộc điều kiện của từng Job.
      </div>
 
      <div className="chemical-multi-map-form">

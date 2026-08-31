@@ -1,9 +1,11 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {invalidateConfigHealth} from "@/lib/config/config-health";
 
 const clean=(v:unknown)=>String(v??"").trim();
 
-export async function GET(){
+export async function GET(req:Request){
+ const fresh=new URL(req.url).searchParams.has("fresh");
  let c:any=null;
 
  try{
@@ -29,7 +31,7 @@ export async function GET(){
   return NextResponse.json({
    ok:true,
    areas:q.rows
-  });
+  },{headers:{"Cache-Control":fresh?"no-store":"public, max-age=30, s-maxage=30, stale-while-revalidate=120"}});
  }catch(e){
   return NextResponse.json(
    {
@@ -106,6 +108,7 @@ export async function PUT(req:Request){
    clean(b.updated_by)||"Planner"
   ]);
 
+  invalidateConfigHealth();
   return NextResponse.json({
    ok:true,
    assignment:q.rows[0]
