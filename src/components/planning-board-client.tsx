@@ -1,6 +1,6 @@
 "use client";
 
-import {Fragment,useEffect,useLayoutEffect,useMemo,useRef,useState} from "react";
+import {Fragment,useEffect,useLayoutEffect,useMemo,useRef,useState,type MouseEvent as ReactMouseEvent} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 import {safeJson} from "@/lib/fetch-json";
 
@@ -379,6 +379,8 @@ type CandidateViewPreset={
   primer3:string;
   // v338: lọc theo trạng thái từng cột Main Planning (Route Matrix).
   routeMain?:Record<string,string>;
+  // v339: Excel-style column filter — key cột → các giá trị đang chọn.
+  colFilters?:Record<string,string[]>;
  };
  sortRules:SortRule[];
  density?:"normal"|"compact"|"ultra";
@@ -474,6 +476,10 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
  const [statusFilter,setStatusFilter]=useState("");
  // v338: lọc theo trạng thái từng cột Main Planning — map normalized op → giá trị lọc.
  const [filterRouteMain,setFilterRouteMain]=useState<Record<string,string>>({});
+ // v339: Excel-style column filter — key cột → các giá trị đang chọn; menu đang mở.
+ const [colFilters,setColFilters]=useState<Record<string,string[]>>({});
+ const [colFilterMenu,setColFilterMenu]=useState<{key:string;rect:{left:number;top:number;width:number}}|null>(null);
+ const [colFilterSearch,setColFilterSearch]=useState("");
  const [sortRules,setSortRules]=useState<SortRule[]>(
   initialView&&Array.isArray(initialView.sortRules)&&initialView.sortRules.length
    ?(initialView.sortRules as SortRule[])
@@ -863,6 +869,7 @@ useEffect(()=>{
    setFilterPrimer2(preset.filters?.primer2||"");
    setFilterPrimer3(preset.filters?.primer3||"");
    setFilterRouteMain(preset.filters?.routeMain||{});
+   setColFilters(preset.filters?.colFilters||{});
 
    const validSortFields=new Set(candidateSortFields.map(x=>x.key));
    const rules=(preset.sortRules||[])
@@ -951,7 +958,8 @@ useEffect(()=>{
       primer1:filterPrimer1,
       primer2:filterPrimer2,
       primer3:filterPrimer3,
-      routeMain:filterRouteMain
+      routeMain:filterRouteMain,
+      colFilters
      },
      sortRules:[...sortRules],
      density:candidateDensity,
@@ -1038,7 +1046,7 @@ useEffect(()=>{
      columns:next,
      columnLayout:[...nextLayout],
      stView:[...effectiveStView],
-     filters:existing?.filters ?? {nextMain:filterNextMain,nextOperation:filterNextOperation,primer1:filterPrimer1,primer2:filterPrimer2,primer3:filterPrimer3,routeMain:filterRouteMain},
+     filters:existing?.filters ?? {nextMain:filterNextMain,nextOperation:filterNextOperation,primer1:filterPrimer1,primer2:filterPrimer2,primer3:filterPrimer3,routeMain:filterRouteMain,colFilters},
      sortRules:existing?.sortRules ?? [...sortRules],
      density:existing?.density ?? candidateDensity,
      routeFocus:existing?.routeFocus ?? routeFocus
@@ -1499,6 +1507,127 @@ const currentPriorityMonth=useMemo(()=>{
    return true;
   };
 
+ // v339: giá trị hiển thị của 1 dòng theo cột (để lọc Excel-style).
+ // Trả về MẢNG — cột route có thể có nhiều occurrence.
+ const colFilterValues=(x:Candidate,key:string):string[]=>{
+   const one=(v:unknown)=>[String(v??"").trim()];
+   switch(key){
+    case "job": return one(x.job_num);
+    case "standard_operation": return one(x.standard_operation);
+    case "part_rev": return [`${x.part_num||""} / ${x.revision_num||""}`.replace(/\s*\/\s*$/,"")];
+    case "qty": return one(x.plan_qty==null?"":String(x.plan_qty));
+    case "surface": return one(x.plan_surface==null?"":String(x.plan_surface));
+    case "source_op": return one(x.source_operation_code);
+    case "previous_op": return one(x.previous_standard_operation||"START");
+    case "next_op": return one(x.next_standard_operation||"END");
+    case "recipe": return one(x.recipe_no||x.recipe_key||"");
+    case "primer1": return one(x.part_master_primer1||"—");
+    case "primer2": return one(x.part_master_primer2||"—");
+    case "primer3": return one(x.part_master_primer3||"—");
+    case "priority": return one(x.priority_type||"—");
+    case "status": return one(x.planning_status);
+    case "batch_no": return one(x.batch_no||"—");
+    case "previous_status": return one(x.previous_planning_status||"—");
+    case "previous_batch_no": return one(x.previous_batch_no||"—");
+    case "actual_progress": return one(`${x.last_operation||"START"} → ${x.next_operation||"END"}`);
+    case "__current_main": {
+     const mv=currentMainView(x);
+     return one(mv.item?`${mv.operation} / ${mv.status}`:`${mv.operation} / ${mv.status}`);
+    }
+    default:
+     if(key.startsWith("route-main:")){
+      const op=normalized(key.slice("route-main:".length));
+      const items=(x.route_status||[]).filter(r=>normalized(r.standard_operation)===op);
+      if(!items.length)return ["—"];
+      return [...new Set(items.map(r=>String(r.route_status||"").trim()).filter(Boolean))];
+     }
+     if(key.startsWith("source:")){
+      const sk=key.slice("source:".length);
+      const v=displaySourceValue((x.source_data||{})[sk]);
+      return one(v);
+     }
+     return [];
+   }
+  };
+
+ const colFilterPass=(x:Candidate)=>{
+   const entries=Object.entries(colFilters);
+   if(!entries.length)return true;
+   for(const [key,sel] of entries){
+    if(!sel.length)continue;
+    const vals=colFilterValues(x,key).filter(Boolean);
+    if(!vals.some(v=>sel.includes(v)))return false;
+   }
+   return true;
+  };
+
+ const openColFilter=(key:string,e:ReactMouseEvent)=>{
+   e.preventDefault();
+   e.stopPropagation();
+   const th=(e.currentTarget as HTMLElement).closest("th");
+   const rect=th?.getBoundingClientRect();
+   if(!rect)return;
+   setColFilterSearch("");
+   setColFilterMenu({key,rect:{left:rect.left,top:rect.bottom,width:rect.width}});
+  };
+
+ const toggleColFilterValue=(key:string,v:string)=>{
+   setColFilters(prev=>{
+    const sel=prev[key]||[];
+    const next=sel.includes(v)?sel.filter(x=>x!==v):[...sel,v];
+    const copy={...prev};
+    if(next.length)copy[key]=next;else delete copy[key];
+    return copy;
+   });
+  };
+
+ const setAllColFilter=(key:string,vals:string[])=>{
+   setColFilters(prev=>{
+    const copy={...prev};
+    if(vals.length)copy[key]=vals;else delete copy[key];
+    return copy;
+   });
+  };
+
+ // v339: danh sách giá trị distinct của cột đang mở menu (kèm search).
+ const colFilterOptions=useMemo(()=>{
+   if(!colFilterMenu)return [];
+   const key=colFilterMenu.key;
+   const set=new Set<string>();
+   for(const x of candidates){
+    for(const v of colFilterValues(x,key)){
+     const s=String(v??"").trim();
+     if(s)set.add(s);
+    }
+   }
+   const q=colFilterSearch.trim().toUpperCase();
+   return [...set]
+    .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:"base"}))
+    .filter(v=>!q||v.toUpperCase().includes(q));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[colFilterMenu,colFilterSearch,candidates]);
+
+ const colFilterMenuLabel=useMemo(()=>{
+   if(!colFilterMenu)return "";
+   const key=colFilterMenu.key;
+   if(key==="__current_main")return "Current Main";
+   return allColumns.find(c=>c.key===key)?.label||key;
+ },[colFilterMenu,allColumns]);
+
+ useEffect(()=>{
+   if(!colFilterMenu)return;
+   const close=()=>setColFilterMenu(null);
+   const onKey=(e:KeyboardEvent)=>{if(e.key==="Escape")close();};
+   window.addEventListener("click",close);
+   window.addEventListener("keydown",onKey);
+   window.addEventListener("scroll",close,true);
+   return ()=>{
+    window.removeEventListener("click",close);
+    window.removeEventListener("keydown",onKey);
+    window.removeEventListener("scroll",close,true);
+   };
+ },[colFilterMenu]);
+
  const displayCandidates=useMemo(()=>{
    const filtered=candidates.filter(x=>
      (!filterNextMain || normalized(x.next_standard_operation||"END")===normalized(filterNextMain)) &&
@@ -1508,6 +1637,7 @@ const currentPriorityMonth=useMemo(()=>{
      (!filterPrimer3 || normalized(x.part_master_primer3)===normalized(filterPrimer3)) &&
      routeOpMatch(x) &&
      routeStatusFilterPass(x) &&
+     colFilterPass(x) &&
      (statusFilter===""
        || (statusFilter==="NO_CHAIN"&&x.has_planning_chain===false)
        || (statusFilter==="ELIGIBLE"&&x.planning_status==="ELIGIBLE")
@@ -1552,7 +1682,7 @@ const currentPriorityMonth=useMemo(()=>{
    });
  },[
    candidates,filterNextMain,filterNextOperation,
-   filterPrimer1,filterPrimer2,filterPrimer3,sortRules,stOperations,effectiveStView,statusFilter,filterRouteMain
+   filterPrimer1,filterPrimer2,filterPrimer3,sortRules,stOperations,effectiveStView,statusFilter,filterRouteMain,colFilters
  ]);
 
  const candidateIdentityKey=useMemo(
@@ -1560,8 +1690,8 @@ const currentPriorityMonth=useMemo(()=>{
   [candidates]
  );
  const displayRuleKey=useMemo(()=>JSON.stringify({
-  filterNextMain,filterNextOperation,filterPrimer1,filterPrimer2,filterPrimer3,statusFilter,filterRouteMain,sortRules
- }),[filterNextMain,filterNextOperation,filterPrimer1,filterPrimer2,filterPrimer3,statusFilter,filterRouteMain,sortRules]);
+  filterNextMain,filterNextOperation,filterPrimer1,filterPrimer2,filterPrimer3,statusFilter,filterRouteMain,colFilters,sortRules
+ }),[filterNextMain,filterNextOperation,filterPrimer1,filterPrimer2,filterPrimer3,statusFilter,filterRouteMain,colFilters,sortRules]);
  useEffect(()=>{
   setCandidateDomLimit(CANDIDATE_INITIAL_DOM_ROWS);
  },[candidateIdentityKey,displayRuleKey]);
@@ -1952,6 +2082,7 @@ const currentPriorityMonth=useMemo(()=>{
    setFilterPrimer2("");
    setFilterPrimer3("");
    setFilterRouteMain({});
+   setColFilters({});
    saveSortRules([
     {field:"next_main",direction:"asc"},
     {field:"next_operation",direction:"asc"},
@@ -2165,7 +2296,12 @@ const currentPriorityMonth=useMemo(()=>{
       :col.group==="route"
        ?"route-status-header"
        :"";
-   return <th key={key} className={cls||undefined}>{col.label}</th>;
+   const active=Boolean((colFilters[key]||[]).length);
+   return <th key={key} className={cls||undefined}>
+    <span className="candidate-th-label">{col.label}</span>
+    <button type="button" className={`col-filter-btn ${active?"is-active":""}`}
+     onClick={e=>openColFilter(key,e)} title="Lọc cột (Excel style)">▼</button>
+   </th>;
  };
 
  const routeStatusClass=(status:unknown)=>{
@@ -3162,7 +3298,7 @@ const currentPriorityMonth=useMemo(()=>{
           columns:[...configurableActiveColumns],
           columnLayout:[...effectiveColumnLayout],
           stView:[...effectiveStView],
-          filters:existing?.filters ?? {nextMain:filterNextMain,nextOperation:filterNextOperation,primer1:filterPrimer1,primer2:filterPrimer2,primer3:filterPrimer3,routeMain:filterRouteMain},
+          filters:existing?.filters ?? {nextMain:filterNextMain,nextOperation:filterNextOperation,primer1:filterPrimer1,primer2:filterPrimer2,primer3:filterPrimer3,routeMain:filterRouteMain,colFilters},
           sortRules:existing?.sortRules ?? [...sortRules],
           density:existing?.density ?? candidateDensity,
           routeFocus:existing?.routeFocus ?? routeFocus
@@ -3239,11 +3375,11 @@ const currentPriorityMonth=useMemo(()=>{
           key==="priority"
            ? <Fragment key={`candidate-header-${key}`}>
               {renderCandidateHeader(key)}
-              <th key="__current_main" className="candidate-current-main-head">Current Main</th>
+              <th key="__current_main" className="candidate-current-main-head"><span className="candidate-th-label">Current Main</span><button type="button" className={`col-filter-btn ${(colFilters["__current_main"]||[]).length?"is-active":""}`} onClick={e=>openColFilter("__current_main",e)} title="Lọc cột (Excel style)">▼</button></th>
              </Fragment>
            : renderCandidateHeader(key)
         )}
-        {!activeColumns.includes("priority")&&<th className="candidate-current-main-head">Current Main</th>}
+        {!activeColumns.includes("priority")&&<th className="candidate-current-main-head"><span className="candidate-th-label">Current Main</span><button type="button" className={`col-filter-btn ${(colFilters["__current_main"]||[]).length?"is-active":""}`} onClick={e=>openColFilter("__current_main",e)} title="Lọc cột (Excel style)">▼</button></th>}
        </tr>
       </thead>
       <tbody>
@@ -3493,5 +3629,36 @@ const currentPriorityMonth=useMemo(()=>{
 
     </div>
    </aside>
+
+   {/* v339: Excel-style column filter popup (fixed overlay, không bị cắt bởi scroll container) */}
+   {colFilterMenu&&(()=>{
+    const sel=colFilters[colFilterMenu.key]||[];
+    const left=Math.max(8,Math.min(colFilterMenu.rect.left,window.innerWidth-260));
+    const top=Math.min(colFilterMenu.rect.top+4,window.innerHeight-360);
+    return <div className="col-filter-popup" style={{left,top,width:Math.max(230,Math.min(colFilterMenu.rect.width,260))}}
+      onClick={e=>e.stopPropagation()}>
+     <div className="col-filter-popup-head">
+      <b>{colFilterMenuLabel}</b>
+      <button type="button" className="col-filter-popup-close" onClick={()=>setColFilterMenu(null)}>×</button>
+     </div>
+     <div className="col-filter-popup-actions">
+      <button type="button" className="btn small" onClick={()=>setAllColFilter(colFilterMenu.key,colFilterOptions)}>Chọn hết</button>
+      <button type="button" className="btn small" onClick={()=>setAllColFilter(colFilterMenu.key,[])}>Bỏ hết</button>
+      <span className="muted">{sel.length}/{colFilterOptions.length}</span>
+     </div>
+     <input className="input col-filter-search" placeholder="Tìm giá trị..." value={colFilterSearch}
+      onChange={e=>setColFilterSearch(e.target.value)} autoFocus/>
+     <div className="col-filter-list">
+      {colFilterOptions.map(v=>{
+       const checked=sel.includes(v);
+       return <label key={v} className={`col-filter-item ${checked?"is-checked":""}`}>
+        <input type="checkbox" checked={checked} onChange={()=>toggleColFilterValue(colFilterMenu.key,v)}/>
+        <span>{v}</span>
+       </label>;
+      })}
+      {!colFilterOptions.length&&<div className="muted col-filter-empty">Không có giá trị khớp</div>}
+     </div>
+    </div>;
+   })()}
  </div>
 }

@@ -6613,3 +6613,32 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .candidate-route-filter-grid label select{font-size:10px;padding:4px 6px}
 .candidate-route-filter-grid::-webkit-scrollbar{width:8px}
 .candidate-route-filter-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px}
+
+/* v339: Excel-style column filter (mũi tên ▼ trên header cột) */
+.planning-candidate-table th{position:relative}
+.candidate-th-label{white-space:nowrap}
+.col-filter-btn{
+ position:absolute;top:3px;right:2px;
+ border:0;background:transparent;color:#98a2b3;font-size:9px;
+ padding:2px 3px;cursor:pointer;border-radius:4px;line-height:1;
+}
+.col-filter-btn:hover{background:#e2e8f0;color:#1d4ed8}
+.col-filter-btn.is-active{background:#175cd3;color:#fff;font-weight:800}
+.col-filter-popup{
+ position:fixed;z-index:5000;background:#fff;border:1px solid #cbd5e1;border-radius:10px;
+ box-shadow:0 12px 32px rgba(16,24,40,.18);padding:10px;display:grid;gap:8px;
+}
+.col-filter-popup-head{display:flex;align-items:center;justify-content:space-between;font-size:12px}
+.col-filter-popup-head b{color:#0b4f94}
+.col-filter-popup-close{border:0;background:#eef2f7;border-radius:6px;width:22px;height:22px;cursor:pointer;font-size:13px;color:#475467}
+.col-filter-popup-actions{display:flex;align-items:center;gap:6px}
+.col-filter-popup-actions .muted{font-size:11px;margin-left:auto}
+.col-filter-search{font-size:11px;padding:6px 8px}
+.col-filter-list{max-height:260px;overflow-y:auto;display:grid;gap:2px}
+.col-filter-item{
+ display:flex;align-items:center;gap:6px;font-size:11px;padding:3px 5px;border-radius:6px;cursor:pointer;
+}
+.col-filter-item:hover{background:#f2f7ff}
+.col-filter-item.is-checked{background:#eaf2ff}
+.col-filter-item input{accent-color:#175cd3}
+.col-filter-empty{padding:8px;font-size:11px;text-align:center}

@@ -1,3 +1,15 @@
+# v339 — Lọc cột kiểu Excel (mũi tên ▼ trên header MỌI cột)
+
+- Nền code: v338.
+- Mỗi header cột (Job, Part/Rev, Qty, Surface, LastLaborOp, NextOperation, Priority, Current Main, AllOperation, mọi cột All Open Source, mọi cột Main Planning/Route Matrix) có nút **▼**:
+  - Bấm ▼ → popup kiểu Excel: ô tìm kiếm, **Chọn hết / Bỏ hết**, bộ đếm `n/tổng`, danh sách **giá trị distinct** dạng checkbox (lọc live khi tick).
+  - Nút ▼ chuyển **xanh** khi cột đang có filter.
+  - Kết hợp nhiều cột cùng lúc (AND); bấm ▼ lần nữa để chỉnh, ESC/click ngoài để đóng.
+- Cột route (Main Planning): giá trị = trạng thái từng occurrence (READY/PLANNED/DONE/…, `—` nếu không có occurrence).
+- Filter lưu cùng Default View (`filters.colFilters`), tương thích ngược preset cũ.
+- Popup dùng fixed overlay nên không bị cắt bởi scroll container; vị trí bám theo header cột.
+- Không có migration mới.
+
 # v338 — Lọc theo trạng thái từng cột Main Planning (Route Matrix)
 
 - Nền code: v337.
