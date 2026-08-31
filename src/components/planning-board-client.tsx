@@ -466,6 +466,8 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
  const [filterPrimer1,setFilterPrimer1]=useState(initialView?.filters?.primer1||"");
  const [filterPrimer2,setFilterPrimer2]=useState(initialView?.filters?.primer2||"");
  const [filterPrimer3,setFilterPrimer3]=useState(initialView?.filters?.primer3||"");
+ // v334: chip lọc nhanh theo trạng thái — "" = tất cả, hoặc ELIGIBLE / PLANNED / WAIT / NO CHAIN.
+ const [statusFilter,setStatusFilter]=useState("");
  const [sortRules,setSortRules]=useState<SortRule[]>(
   initialView&&Array.isArray(initialView.sortRules)&&initialView.sortRules.length
    ?(initialView.sortRules as SortRule[])
@@ -1482,7 +1484,12 @@ const currentPriorityMonth=useMemo(()=>{
      (!filterPrimer1 || normalized(x.part_master_primer1)===normalized(filterPrimer1)) &&
      (!filterPrimer2 || normalized(x.part_master_primer2)===normalized(filterPrimer2)) &&
      (!filterPrimer3 || normalized(x.part_master_primer3)===normalized(filterPrimer3)) &&
-     routeOpMatch(x)
+     routeOpMatch(x) &&
+     (statusFilter===""
+       || (statusFilter==="NO_CHAIN"&&x.has_planning_chain===false)
+       || (statusFilter==="ELIGIBLE"&&x.planning_status==="ELIGIBLE")
+       || (statusFilter==="PLANNED"&&x.planning_status==="PLANNED")
+       || (statusFilter==="WAIT"&&x.planning_status==="LOCKED"&&x.has_planning_chain!==false))
    );
 
    return [...filtered].sort((a,b)=>{
@@ -1522,7 +1529,7 @@ const currentPriorityMonth=useMemo(()=>{
    });
  },[
    candidates,filterNextMain,filterNextOperation,
-   filterPrimer1,filterPrimer2,filterPrimer3,sortRules,stOperations,effectiveStView
+   filterPrimer1,filterPrimer2,filterPrimer3,sortRules,stOperations,effectiveStView,statusFilter
  ]);
 
  const candidateIdentityKey=useMemo(
@@ -2675,11 +2682,36 @@ const currentPriorityMonth=useMemo(()=>{
     <div className="erp-panel-head candidate-sticky-toolbar">
      <b>Candidate Jobs</b>
      <div className="row">
-      <span>
-       {eligibleCandidates.length} ELIGIBLE · {plannedCandidates.length} PLANNED · {waitingCandidates.length} WAIT
-       {noChainCandidates.length>0?` · ${noChainCandidates.length} NO CHAIN`:""}
-       {` · Tất cả ${pagination.totalCandidates} job (không phân trang)`}
-      </span>
+      <button type="button" className={`btn small status-chip ${statusFilter==="ELIGIBLE"?"status-chip-active":""}`}
+       onClick={()=>setStatusFilter(statusFilter==="ELIGIBLE"?"":"ELIGIBLE")}
+       title="Lọc: chỉ hiện Candidate READY (chưa vào Batch)">
+       {eligibleCandidates.length} ELIGIBLE
+      </button>
+      <span>·</span>
+      <button type="button" className={`btn small status-chip ${statusFilter==="PLANNED"?"status-chip-active":""}`}
+       onClick={()=>setStatusFilter(statusFilter==="PLANNED"?"":"PLANNED")}
+       title="Lọc: chỉ hiện Candidate đã vào Batch">
+       {plannedCandidates.length} PLANNED
+      </button>
+      <span>·</span>
+      <button type="button" className={`btn small status-chip ${statusFilter==="WAIT"?"status-chip-active":""}`}
+       onClick={()=>setStatusFilter(statusFilter==="WAIT"?"":"WAIT")}
+       title="Lọc: chỉ hiện Candidate đang chờ (LOCKED, có chain)">
+       {waitingCandidates.length} WAIT
+      </button>
+      {noChainCandidates.length>0&&<>
+       <span>·</span>
+       <button type="button" className={`btn small status-chip ${statusFilter==="NO_CHAIN"?"status-chip-active":""}`}
+        onClick={()=>setStatusFilter(statusFilter==="NO_CHAIN"?"":"NO_CHAIN")}
+        title="Lọc: chỉ hiện Job KHÔNG có Planning Chain (NO CHAIN)">
+        {noChainCandidates.length} NO CHAIN
+       </button>
+      </>}
+      <span>·</span>
+      <button type="button" className="btn small" onClick={()=>setStatusFilter("")}
+       title="Bỏ lọc trạng thái — hiện tất cả">
+       Tất cả {pagination.totalCandidates} job (không phân trang)
+      </button>
       <button className="btn small" type="button" onClick={()=>setDisplayRulesOpen(x=>!x)}>
        Sort / Filter
       </button>

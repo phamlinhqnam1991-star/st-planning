@@ -6593,3 +6593,7 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
  white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;
 }
 .planning-debugline{font-size:11px;color:#667085;margin-top:6px}
+
+/* v334: chip lọc trạng thái Candidate (ELIGIBLE / PLANNED / WAIT / NO CHAIN) */
+.status-chip{background:#eef2f7}
+.status-chip-active{background:var(--brand,#175cd3)!important;color:#fff!important}

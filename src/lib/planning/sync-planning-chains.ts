@@ -44,7 +44,7 @@ function splitAllOperation(v:unknown){
 
 type PlanningAnchor={
  startIndex:number;
- mode:"BRIDGE_PAIR"|"ALLOPERATION_FALLBACK"|"DIRECT_NEXT_MAIN"|"NO_CHAIN";
+ mode:"BRIDGE_PAIR"|"ALLOPERATION_FALLBACK"|"ALLOPERATION_AMBIGUOUS"|"DIRECT_NEXT_MAIN"|"NO_CHAIN";
  reason:string;
  targetInstanceKey?:string|null;
  requiredPreviousInstanceKey?:string|null;
@@ -313,7 +313,23 @@ function allOperationFallbackAnchor(
    byTarget.set(candidate.target.instanceKey,candidate);
   }
  }
- if(byTarget.size!==1)return null;
+ if(byTarget.size!==1){
+  // v335: AMBIGUOUS fallback — cặp LastLaborOp + NextOperation khớp trong
+  // AllOperation nhưng dẫn tới NHIỀU occurrence Main khác nhau. Thay vì
+  // NO CHAIN, mở plan-ahead READY cho mọi Main từ occurrence sớm nhất trong
+  // tập candidate trở đi; Main nào đã có Batch thì vẫn PLANNED theo lịch sử.
+  // Các trường hợp NO CHAIN khác (NextOperation trống, route không có Main,
+  // Bridge mơ hồ) giữ nguyên NO CHAIN.
+  const targets=[...byTarget.values()].map(x=>x.target);
+  const minSourceSeq=Math.min(...targets.map(t=>t.sourceSeq));
+  return {
+   startIndex:minSourceSeq-1,
+   mode:"ALLOPERATION_AMBIGUOUS",
+   targetInstanceKey:null,
+   requiredPreviousInstanceKey:null,
+   reason:`Pair ${lastOperation} -> ${nextOperation} is ambiguous: ${byTarget.size} distinct Main occurrences (${targets.map(t=>`${t.standardOperation} (${t.sourceCode}) #${t.sourceSeq}`).join(", ")}); opened all Main(s) from the earliest occurrence as READY (plan-ahead v335)`
+  };
+ }
 
  const best=[...byTarget.values()][0];
  const nextIsCurrentMain=
@@ -962,7 +978,7 @@ export async function syncPlanningChains(c:PoolClient){
    );
 
    if(anchor.mode==="BRIDGE_PAIR")bridgePairAnchored++;
-   else if(anchor.mode==="ALLOPERATION_FALLBACK")allOperationFallbackAnchored++;
+   else if(anchor.mode==="ALLOPERATION_FALLBACK"||anchor.mode==="ALLOPERATION_AMBIGUOUS")allOperationFallbackAnchored++;
    else if(anchor.mode==="DIRECT_NEXT_MAIN")directNextMainAnchored++;
    else noChain++;
 

@@ -1,3 +1,19 @@
+# v335 — Fallback Ambiguous: mở READY các Main bị mơ hồ occurrence
+
+- Nền code: v334.
+- Resolver `allOperationFallbackAnchor`: khi cặp `LastLaborOp + NextOperation` khớp trong AllOperation nhưng dẫn tới **nhiều occurrence Main khác nhau** (`byTarget.size>1`) — thay vì NO CHAIN, trả anchor `ALLOPERATION_AMBIGUOUS`:
+  - Chain mở từ **occurrence Main sớm nhất** trong tập candidate, gồm luôn các Main phía sau (plan-ahead v312).
+  - Mọi Main chưa có Batch → `ELIGIBLE` (UI READY, chọn được); Main đã có Batch → `PLANNED` theo lịch sử.
+- **Giữ NO CHAIN** cho các trường hợp còn lại: NextOperation trống, route không có Main Planning nào (`full` rỗng), Bridge khớp nhưng segment mơ hồ, direct rescue không định vị được.
+- Không có migration mới. Sau deploy vào Planning Board bấm **Rebuild Chain** một lần.
+
+# v334 — Chip lọc trạng thái Candidate (ELIGIBLE / PLANNED / WAIT / NO CHAIN)
+
+- Nền code: v333.
+- Toolbar Candidate Jobs: các con số `ELIGIBLE · PLANNED · WAIT · NO CHAIN` giờ là **nút lọc bấm được** — bấm 1 lần lọc bảng theo đúng trạng thái đó, bấm lại (hoặc bấm "Tất cả N job") để bỏ lọc.
+- `NO CHAIN` = Job mở nhưng resolver chain (MANUAL → AUTO → AllOperation fallback) không định vị được Main hợp lệ; job vẫn hiện trên board với Current Main "NO CHAIN", không chọn được.
+- Không có migration mới.
+
 # v333 — Trang đăng nhập + nút Đăng xuất (fix 401 trên Vercel)
 
 - Nền code: v332.
