@@ -6597,3 +6597,11 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 /* v334: chip lọc trạng thái Candidate (ELIGIBLE / PLANNED / WAIT / NO CHAIN) */
 .status-chip{background:#eef2f7}
 .status-chip-active{background:var(--brand,#175cd3)!important;color:#fff!important}
+
+/* v336: fix specificity — khi cột Priority nằm trong vùng Freeze Pane, màu đậm
+   của cell priority bị override tint dòng ([data-fc] tr.priority-*>td:nth-child)
+   nuốt mất. :not() nâng specificity lên (0,6,2) > (0,5,2) để strong thắng lại. */
+.planning-candidate-table.candidate-freeze-on tbody tr.priority-cat3 td.candidate-priority-cell:not(.x){background:#ffd9d6!important}
+.planning-candidate-table.candidate-freeze-on tbody tr.priority-cat5 td.candidate-priority-cell:not(.x){background:#ffedbd!important}
+.planning-candidate-table.candidate-freeze-on tbody tr.priority-sales td.candidate-priority-cell:not(.x){background:#d7ebff!important}
+.planning-candidate-table.candidate-freeze-on tbody tr.priority-current-month td.candidate-priority-cell:not(.x){background:#dff0d8!important}

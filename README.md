@@ -1,3 +1,10 @@
+# v336 — Fix highlight cột Priority khi Freeze Pane bật
+
+- Nền code: v335.
+- Bug: khi cột Priority nằm trong vùng Freeze Pane (`candidate-freeze-on`), màu đậm của cell priority (vd `#ffd9d6` cho CAT3) bị override tint dòng khi freeze nuốt mất (specificity `(0,5,2)` > `(0,5,1)`) → cell chỉ còn màu nhạt, mất nổi bật.
+- Fix: thêm override strong với `:not(.x)` để nâng specificity lên `(0,5,3)`, thắng lại tint dòng khi freeze. Đã verify bằng computed style trên mock dựng từ CSS thật.
+- Không có migration mới.
+
 # v335 — Fallback Ambiguous: mở READY các Main bị mơ hồ occurrence
 
 - Nền code: v334.
