@@ -168,7 +168,7 @@ export default async function Page(){
      <h2>Logic & Hướng dẫn vận hành</h2>
      <p>Source of truth · Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau — cập nhật theo code v350/v351.</p>
     </div>
-    <div className="guide-version"><b>v351</b><span>{new Date().toLocaleDateString("vi-VN")}</span></div>
+    <div className="guide-version"><b>v354</b><span>{new Date().toLocaleDateString("vi-VN")}</span></div>
    </div>
 
    <div className="guide-jump">
@@ -177,6 +177,7 @@ export default async function Page(){
     <a href="#master">Master Data</a>
     <a href="#config">Cấu hình</a>
     <a href="#tracker">Part Tracker</a>
+    <a href="#jobtracker">Job Tracker</a>
     <a href="#openjobs">All Open Jobs</a>
     <a href="#planning">Planning Board</a>
     <a href="#schedule">Board Điều Độ</a>
@@ -413,6 +414,23 @@ export default async function Page(){
     <div className="lg-key lg-key-2">
      <Rule title="Nếu Part Tracker sai Finish/Requirement">Sửa dữ liệu nguồn/Import Master; không sửa Recipe mapping để “che” lỗi Master nếu Master thực tế sai.</Rule>
      <Rule title="Nếu ST Routing/Standard Operation sai">Kiểm tra ST Scope → Source→Main Mapping → Bridge/Planning Chain. Sau thay đổi lớn, rebuild derived chain.</Rule>
+    </div>
+   </Section>
+
+   <Section id="jobtracker" title="5B · Tab Job Tracker — tra toàn bộ vòng đời một Job"
+    sub="Read-only diagnostic realtime: All Open Job → Routing → Planning → Recipe Rule → Batch → Schedule → Handover">
+    <StepList items={[
+     <>Nhập chính xác <b>Job Number</b>; cũng có thể tìm gần đúng theo Job / Part / Description rồi bấm Open.</>,
+     <>Xem <b>Job Summary</b> để biết Last Operation, Next Operation, Main đang READY/SCHEDULED, Batch gần nhất, Resource và khoảng thời gian điều độ.</>,
+     <>Xem <b>Planning Route / Job Lifecycle</b>: từng Source Operation → Main Planning → READY/WAIT/DONE/UNSCHEDULED/SCHEDULED, Recipe đang resolve và <b>Rule #mapping_id</b> đã match.</>,
+     <>Xem <b>Batch & Schedule Detail</b>: Batch No, Recipe, condition compatibility, Process Time, Resource/Lane/Planner và timeline Loading → Process → NDT → Unloading nếu là Chemical Line.</>,
+     <>Mở <b>All Open Job – Current Snapshot</b> để xem toàn bộ source_data thật của Job; đây là dữ liệu dùng bởi Recipe condition và Process Time condition.</>,
+     <>Đối chiếu <b>Part / Revision Master</b>: Process Requirement, Routing Detail và ST Routing Master để biết chain được hình thành từ đâu.</>,
+     <>Cuối trang xem <b>Open Job History</b> và <b>Planning Handover / Change Impact</b> để lần lại các thay đổi snapshot hoặc tác động Add/Remove Job giữa các Planner.</>
+    ]}/>
+    <div className="lg-key lg-key-2">
+     <Rule title="Job Tracker không thay đổi dữ liệu">Tab này chỉ đọc/đối chiếu. Muốn sửa Recipe/Mapping/Time/Area phải quay về Cấu hình; muốn sửa Batch vào Planning Board; muốn sửa giờ/resource vào Board Điều Độ.</Rule>
+     <Rule title="Nguồn trạng thái phải thống nhất">Route status dùng cùng logic Route Matrix của Planning Board; Recipe dùng live Recipe resolver; Schedule đọc trực tiếp planning_schedule. Vì vậy Job Tracker là màn chẩn đoán cross-module, không tạo một engine riêng.</Rule>
     </div>
    </Section>
 

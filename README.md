@@ -351,3 +351,9 @@ Planning Chain/Candidate định vị vị trí Job chỉ bằng cặp `LastLabo
 - `Next Op Sort` được quản lý ở cấp RAW Operation Code (`md_operation.planning_sort_order`) và dùng để sort `NextOperation` trên Planning Board.
 - Cho phép đặt thứ tự cho cả Planning Operation, ST_SCOPE_ONLY và Bridge Intermediate.
 - Độc lập hoàn toàn với Main Planning Order / READY-WAIT / Planning Chain; đổi Next Op Sort không rebuild chain.
+
+## v354 - Job Tracker
+- Thêm tab Job Tracker (`/job-tracker`).
+- Tra cứu theo Job Number/Part/Description.
+- Gom Routing, Planning status, Recipe Rule, Batch, Process Time, Schedule, Resource, Chemical phases, All Open Job source data, Master routing, history và handover vào một màn hình read-only.
+- Không cần migration SQL mới.
