@@ -88,10 +88,12 @@ export async function POST(req:NextRequest){
    await assertOpenJobSelection(c,noSource,selectedNo,"Recipe No");
    await assertOpenJobSelection(c,nameSource,name||null,"Recipe Name");
 
-   // v340: 1 Recipe No có thể có NHIỀU Recipe Name.
-   // - Cùng No + cùng Name → edit/reactivate đúng recipe đó (hành vi cũ khi trùng tên).
+   // v355: Catalog hỗ trợ cả chọn từ All Open Job và nhập tay.
+   // source_column = NULL nghĩa là giá trị được planner nhập trực tiếp.
+   // 1 Recipe No có thể có NHIỀU Recipe Name:
+   // - Cùng No + cùng Name → edit/reactivate đúng recipe đó.
    // - Cùng No nhưng khác Name → tạo VARIANT riêng: recipe_key = family|group|no|NAME.
-   // - Chưa có recipe nào cho No → tạo mới key canonical family|group|no (giữ cũ).
+   // - Chưa có recipe nào cho No → tạo mới key canonical family|group|no.
    const nameNorm=normalizeCode(name||"");
 
    const sameIdentity=await c.query(`
@@ -100,7 +102,7 @@ export async function POST(req:NextRequest){
      where process_family=$1
        and recipe_group=$2
        and upper(trim(coalesce(recipe_no,'')))=upper(trim($3))
-       and ($4='' or upper(trim(coalesce(recipe_name,'')))=$4)
+       and upper(trim(coalesce(recipe_name,'')))=$4
      order by is_active desc,case when source_system='MANUAL' then 0 else 1 end,updated_at desc
      limit 1
      for update

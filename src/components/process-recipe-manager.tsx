@@ -32,6 +32,7 @@ type RecipeForm={
  batch_key:string;
  note:string;
 };
+type EntryMode="OPEN_JOB"|"MANUAL";
 
 const emptyForm=():RecipeForm=>({
  process_family:"PAINT",
@@ -58,6 +59,9 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,operations,sour
  const [filter,setFilter]=useState("PAINT");
  const [edit,setEdit]=useState<Recipe|null>(null);
  const [form,setForm]=useState<RecipeForm>(emptyForm);
+ const [groupMode,setGroupMode]=useState<EntryMode>("OPEN_JOB");
+ const [noMode,setNoMode]=useState<EntryMode>("OPEN_JOB");
+ const [nameMode,setNameMode]=useState<EntryMode>("OPEN_JOB");
  const [suggestedNameValues,setSuggestedNameValues]=useState<ColumnValue[]|null>(null);
  const [nameSuggestionBusy,setNameSuggestionBusy]=useState(false);
  const [nameSuggestionError,setNameSuggestionError]=useState("");
@@ -105,11 +109,17 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,operations,sour
  function clear(){
   setEdit(null);
   setForm(emptyForm());
+  setGroupMode("OPEN_JOB");
+  setNoMode("OPEN_JOB");
+  setNameMode("OPEN_JOB");
   setSuggestedNameValues(null);
   setNameSuggestionError("");
  }
  function startEdit(r:Recipe){
   setEdit(r);
+  setGroupMode(r.recipe_group_source_column?"OPEN_JOB":"MANUAL");
+  setNoMode(r.recipe_no_source_column?"OPEN_JOB":"MANUAL");
+  setNameMode(r.recipe_name_source_column?"OPEN_JOB":"MANUAL");
   setSuggestedNameValues(null);
   setNameSuggestionError("");
   setForm({
@@ -130,16 +140,18 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,operations,sour
    alert("Process Family, Recipe Group và Recipe No là bắt buộc.");
    return;
   }
-  if(!edit&&(!form.recipe_group_source_column.trim()||!form.recipe_no_source_column.trim())){
-   alert("Recipe Group và Recipe No phải chọn cột nguồn từ All Open Job.");
-   return;
-  }
-  if(form.recipe_name_source_column.trim()&&!form.recipe_name.trim()){
+  if(nameMode==="OPEN_JOB"&&form.recipe_name_source_column.trim()&&!form.recipe_name.trim()){
    alert("Đã chọn cột nguồn Recipe Name nhưng chưa chọn giá trị.");
    return;
   }
   setBusy(true);try{
-   const body=edit?{...form,recipe_key:edit.recipe_key}:form;
+   const normalizedForm={
+    ...form,
+    recipe_group_source_column:groupMode==="OPEN_JOB"?form.recipe_group_source_column:"",
+    recipe_no_source_column:noMode==="OPEN_JOB"?form.recipe_no_source_column:"",
+    recipe_name_source_column:nameMode==="OPEN_JOB"?form.recipe_name_source_column:""
+   };
+   const body=edit?{...normalizedForm,recipe_key:edit.recipe_key}:normalizedForm;
    const r=await fetch("/api/process-recipe",{method:edit?"PATCH":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
    const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Save failed");clear();refreshConfigPage(router)
   }catch(e){alert(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
@@ -156,10 +168,10 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,operations,sour
  // Values chỉ cho biết danh sách unique độc lập; API này đọc open_job_current
  // để giữ đúng quan hệ 2 giá trị nằm trên cùng một Job.
  useEffect(()=>{
-  const noColumn=form.recipe_no_source_column.trim();
+  const noColumn=noMode==="OPEN_JOB"?form.recipe_no_source_column.trim():"";
   const noValue=form.recipe_no.trim();
-  const nameColumn=form.recipe_name_source_column.trim();
-  if(!noColumn||!noValue||!nameColumn){
+  const nameColumn=nameMode==="OPEN_JOB"?form.recipe_name_source_column.trim():"";
+  if(nameMode!=="OPEN_JOB"||!nameColumn||!noValue||noMode!=="OPEN_JOB"||!noColumn){
    setSuggestedNameValues(null);
    setNameSuggestionBusy(false);
    setNameSuggestionError("");
@@ -203,7 +215,7 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,operations,sour
    })
    .finally(()=>{if(!controller.signal.aborted)setNameSuggestionBusy(false)});
   return ()=>controller.abort();
- },[form.recipe_no_source_column,form.recipe_no,form.recipe_name_source_column]);
+ },[form.recipe_no_source_column,form.recipe_no,form.recipe_name_source_column,noMode,nameMode]);
 
  const noValues=valueOptions(form.recipe_no_source_column,form.recipe_no);
  const baseNameValues=valueOptions(form.recipe_name_source_column,form.recipe_name);
@@ -225,18 +237,28 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,operations,sour
     <label>Process Family<input className="input" value={form.process_family} disabled={!!edit} onChange={e=>setForm({...form,process_family:e.target.value.toUpperCase()})}/></label>
 
     <label>Recipe Group
-     <select className="input" value={form.recipe_group_source_column} disabled={!!edit} onChange={e=>{
-      const column=e.target.value;
-      setForm({...form,recipe_group_source_column:column,recipe_group:column});
-     }}>
-      <option value="">Chọn cột All Open Job...</option>
-      {sourceOptions(form.recipe_group_source_column).map(c=><option key={c} value={c}>{c}</option>)}
-     </select>
-     <span className="recipe-source-help">Lấy tên cột từ Open Job Column Values.</span>
+     <div className="row recipe-entry-mode">
+      <button type="button" className={`btn small ${groupMode==="OPEN_JOB"?"primary":""}`} disabled={!!edit} onClick={()=>{setGroupMode("OPEN_JOB");setForm({...form,recipe_group:"",recipe_group_source_column:""});}}>Chọn từ Open Job</button>
+      <button type="button" className={`btn small ${groupMode==="MANUAL"?"primary":""}`} disabled={!!edit} onClick={()=>{setGroupMode("MANUAL");setForm({...form,recipe_group:"",recipe_group_source_column:""});}}>Nhập tay</button>
+     </div>
+     {groupMode==="OPEN_JOB"?<>
+      <select className="input" value={form.recipe_group_source_column} disabled={!!edit} onChange={e=>{
+       const column=e.target.value;
+       setForm({...form,recipe_group_source_column:column,recipe_group:column});
+      }}>
+       <option value="">Chọn cột All Open Job...</option>
+       {sourceOptions(form.recipe_group_source_column).map(c=><option key={c} value={c}>{c}</option>)}
+      </select>
+      <span className="recipe-source-help">Lấy tên cột từ Open Job Column Values.</span>
+     </>:<input className="input" value={form.recipe_group} disabled={!!edit} placeholder="Nhập Recipe Group..." onChange={e=>setForm({...form,recipe_group:e.target.value})}/>}
     </label>
 
     <label className="recipe-pair-field">Recipe No
-     <div className="recipe-source-pair">
+     <div className="row recipe-entry-mode">
+      <button type="button" className={`btn small ${noMode==="OPEN_JOB"?"primary":""}`} disabled={!!edit} onClick={()=>{setNoMode("OPEN_JOB");setForm({...form,recipe_no_source_column:"",recipe_no:"",recipe_name:""});}}>Chọn từ Open Job</button>
+      <button type="button" className={`btn small ${noMode==="MANUAL"?"primary":""}`} disabled={!!edit} onClick={()=>{setNoMode("MANUAL");setSuggestedNameValues(null);setForm({...form,recipe_no_source_column:"",recipe_no:"",recipe_name:""});}}>Nhập tay</button>
+     </div>
+     {noMode==="OPEN_JOB"?<div className="recipe-source-pair">
       <select className="input" value={form.recipe_no_source_column} disabled={!!edit} onChange={e=>setForm({...form,recipe_no_source_column:e.target.value,recipe_no:"",recipe_name:""})}>
        <option value="">1. Chọn cột...</option>
        {sourceOptions(form.recipe_no_source_column).map(c=><option key={c} value={c}>{c}</option>)}
@@ -245,27 +267,33 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,operations,sour
        <option value="">2. Chọn giá trị unique...</option>
        {noValues.map(x=><option key={x.value} value={x.value}>{optionLabel(x)}</option>)}
       </select>
-     </div>
+     </div>:<input className="input" value={form.recipe_no} disabled={!!edit} title={edit?"Recipe No là một phần của khóa Recipe và không được đổi để bảo toàn mapping, Batch và lịch sử.":undefined} placeholder="Nhập Recipe No, ví dụ 005 hoặc SPX-005..." onChange={e=>setForm({...form,recipe_no:e.target.value,recipe_name:""})}/>}
     </label>
 
     <label className="recipe-pair-field">Recipe Name
-     <div className="recipe-source-pair">
-      <select className="input" value={form.recipe_name_source_column} onChange={e=>setForm({...form,recipe_name_source_column:e.target.value,recipe_name:""})}>
-       <option value="">1. Chọn cột...</option>
-       {sourceOptions(form.recipe_name_source_column).map(c=><option key={c} value={c}>{c}</option>)}
-      </select>
-      <select className="input" value={form.recipe_name} disabled={!form.recipe_name_source_column||nameSuggestionBusy} onChange={e=>setForm({...form,recipe_name:e.target.value})}>
-       <option value="">{nameSuggestionBusy?"Đang đề xuất theo Recipe No...":suggestedNameValues!=null?"2. Chọn Recipe Name phù hợp...":"2. Chọn giá trị unique..."}</option>
-       {nameValues.map(x=><option key={x.value} value={x.value}>{optionLabel(x)}</option>)}
-      </select>
+     <div className="row recipe-entry-mode">
+      <button type="button" className={`btn small ${nameMode==="OPEN_JOB"?"primary":""}`} onClick={()=>{setNameMode("OPEN_JOB");setForm({...form,recipe_name_source_column:"",recipe_name:""});}}>Chọn từ Open Job</button>
+      <button type="button" className={`btn small ${nameMode==="MANUAL"?"primary":""}`} onClick={()=>{setNameMode("MANUAL");setSuggestedNameValues(null);setNameSuggestionError("");setForm({...form,recipe_name_source_column:"",recipe_name:""});}}>Nhập tay</button>
      </div>
-     {form.recipe_no&&form.recipe_name_source_column&&<span className="recipe-source-help">{nameSuggestionBusy?"Đang tìm Recipe Name nằm cùng Job với Recipe No đã chọn...":nameSuggestionError?nameSuggestionError:suggestedNameValues!=null?`${suggestedNameValues.length} Recipe Name phù hợp theo All Open Job.${suggestedNameValues.length===1?" Đã tự chọn.":""}`:""}</span>}
+     {nameMode==="OPEN_JOB"?<>
+      <div className="recipe-source-pair">
+       <select className="input" value={form.recipe_name_source_column} onChange={e=>setForm({...form,recipe_name_source_column:e.target.value,recipe_name:""})}>
+        <option value="">1. Chọn cột...</option>
+        {sourceOptions(form.recipe_name_source_column).map(c=><option key={c} value={c}>{c}</option>)}
+       </select>
+       <select className="input" value={form.recipe_name} disabled={!form.recipe_name_source_column||nameSuggestionBusy} onChange={e=>setForm({...form,recipe_name:e.target.value})}>
+        <option value="">{nameSuggestionBusy?"Đang đề xuất theo Recipe No...":suggestedNameValues!=null?"2. Chọn Recipe Name phù hợp...":"2. Chọn giá trị unique..."}</option>
+        {nameValues.map(x=><option key={x.value} value={x.value}>{optionLabel(x)}</option>)}
+       </select>
+      </div>
+      {form.recipe_no&&form.recipe_name_source_column&&<span className="recipe-source-help">{noMode!=="OPEN_JOB"?"Recipe No đang nhập tay nên Recipe Name sẽ lấy danh sách unique của cột đã chọn.":nameSuggestionBusy?"Đang tìm Recipe Name nằm cùng Job với Recipe No đã chọn...":nameSuggestionError?nameSuggestionError:suggestedNameValues!=null?`${suggestedNameValues.length} Recipe Name phù hợp theo All Open Job.${suggestedNameValues.length===1?" Đã tự chọn.":""}`:""}</span>}
+     </>:<input className="input" value={form.recipe_name} placeholder="Nhập Recipe Name..." onChange={e=>setForm({...form,recipe_name:e.target.value})}/>}
     </label>
 
     <label>Batch Key<input className="input" value={form.batch_key} placeholder="Để trống = Family | Group | Tên Recipe" onChange={e=>setForm({...form,batch_key:e.target.value})}/></label>
     <label>Note<input className="input" value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/></label>
    </div>
-   {!edit&&<div className="notice recipe-multi-name-hint"><b>1 Recipe No có thể có nhiều Recipe Name:</b> nếu Recipe No đã tồn tại nhưng bạn chọn <b>Recipe Name khác</b>, hệ thống sẽ tạo thêm một Recipe mới (recipe_key riêng) thay vì ghi đè tên cũ. Cùng Recipe No + cùng Recipe Name thì vẫn cập nhật recipe đã có.</div>}
+   {!edit&&<div className="notice recipe-multi-name-hint"><b>Có 2 cách khai báo:</b> chọn từ All Open Job để giữ liên kết cột nguồn, hoặc <b>Nhập tay</b> khi Recipe chưa có trong dữ liệu Open Job. 1 Recipe No vẫn có thể có nhiều Recipe Name; cùng No + Name sẽ cập nhật/reactivate đúng Recipe đã có.</div>}
    {edit&&<div className="notice"><b>Khóa Recipe được giữ nguyên:</b> Process Family, Recipe Group và Recipe No không thể đổi sau khi tạo vì đã liên kết mapping, batch và lịch sử. Recipe Name vẫn có thể chọn lại từ một cột All Open Job khác.</div>}
    <div className="recipe-actions"><button className="btn primary" disabled={busy} onClick={save}>{edit?"Lưu thay đổi":"Thêm Recipe"}</button>{edit&&<button className="btn" onClick={clear}>Hủy</button>}</div>
   </div>

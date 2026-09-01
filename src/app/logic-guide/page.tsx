@@ -361,7 +361,7 @@ export default async function Page(){
       <Rule title="Batch Compatibility" tone="important">Các condition trong <code>selection_rule</code> của Recipe mapping là nguồn checkbox “Điều kiện Recipe dùng để gom lô”. Planner có thể bỏ tích một số condition để mở rộng Job cùng Recipe; lựa chọn được lưu trên Batch.</Rule>
      </div>
      <StepList items={[
-      <>Tạo/kiểm tra Recipe trong Danh mục Recipe.</>,
+      <>Tạo/kiểm tra Recipe trong Danh mục Recipe. Có thể <b>chọn từ All Open Job</b> hoặc chuyển từng field Recipe Group / Recipe No / Recipe Name sang <b>Nhập tay</b>; field nhập tay không lưu source column.</>,
       <>Gán Recipe cho đúng <b>Operation Code</b> runtime.</>,
       <>Nếu cần, thêm condition “Áp dụng cho Job” (equals/contains/not empty/is empty/starts/ends theo UI).</>,
       <>Đặt Priority/Default, Batch Key template và Prefix nếu dùng.</>,

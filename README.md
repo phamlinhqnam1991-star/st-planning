@@ -1,3 +1,9 @@
+## v355 — Process Recipe hỗ trợ nhập tay
+- `+ Thêm Process Recipe` có 2 chế độ cho Recipe Group / Recipe No / Recipe Name: **Chọn từ Open Job** hoặc **Nhập tay**.
+- Có thể trộn cách nhập giữa các field; field nhập tay lưu `source_column = NULL`, field chọn từ Open Job vẫn validate Column Values.
+- Recipe No nhập tay dạng số vẫn padding 3 số (`5` → `005`).
+- Không cần migration SQL mới.
+
 ## v352 — Multiple Recipe Rules + Batch Compatibility theo Rule ID
 - Cùng Operation Code + Recipe được phép có nhiều Recipe Rule condition độc lập.
 - `md_main_operation_recipe.mapping_id` là ID của Rule; Planning Board lưu `planning_batch.recipe_mapping_id` để Batch Compatibility dùng đúng condition của Rule đã match.
