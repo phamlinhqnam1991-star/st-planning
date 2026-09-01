@@ -31,6 +31,8 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
  let data:any[]|null=null;
  let error:any=null;
  let count:number|null=0;
+ let operationGroups:any[]=[];
+ let operationActiveCount=0;
 
  // Operation Master is configuration data used heavily by Planning/Scheduling.
  // Read it directly from PostgreSQL so this page does not depend on Supabase REST API keys.
@@ -41,7 +43,7 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
    db=await getPool().connect();
 
    const values:any[]=[];
-   let where=`where is_active=true`;
+   let where=`where 1=1`;
 
    if(q){
     values.push(`%${q}%`);
@@ -53,6 +55,18 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
     `select count(*)::int count from ${c.table} ${where}`,
     values
    );
+
+   const activeCountQ=await db.query(`select count(*)::int count from md_operation_master where is_active=true`);
+   operationActiveCount=Number(activeCountQ.rows[0]?.count||0);
+
+   const groupQ=await db.query(`
+    select st_group,group_name
+    from md_st_group
+    where is_active=true
+    order by sort_order,st_group
+   `);
+   operationGroups=groupQ.rows;
+
 
    values.push(size);
    const limitParam=`$${values.length}`;
@@ -123,14 +137,14 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
     <section className="erp-content">
      <ConfigPageHeader
       title={c.title}
-      subtitle={`${(count||0).toLocaleString()} công đoạn chính đang hoạt động`}
-      purpose="Danh mục công đoạn chính (Main Operation): đổi tên, đặt thứ tự công đoạn và tiền tố số lô (3 ký tự, vd CHM)."
-      impact="Đổi tên công đoạn sẽ cập nhật mọi liên kết Planning/Recipe/Batch liên quan. Tiền tố số lô quyết định đầu số của các lô mới tạo."
+      subtitle={`${operationActiveCount.toLocaleString()} công đoạn chính đang hoạt động · Thêm / Đổi tên / Ngưng / Xóa an toàn`}
+      purpose="Danh mục công đoạn chính (Main Operation): thêm công đoạn mới, đổi tên, đặt thứ tự, tiền tố số lô và quản lý trạng thái sử dụng."
+      impact="Ngưng sử dụng giữ nguyên lịch sử. Xóa vĩnh viễn chỉ được phép khi công đoạn đã ngưng và không còn Mapping/Recipe/Planning/Batch tham chiếu."
       prev={{label:"Source → Main Mapping",href:"/master/operationmapping"}}
       next={{label:"ST Group Master",href:"/st-groups"}}
      />
      <form className="row erp-form-panel"><input className="input" name="q" defaultValue={q} placeholder="Tìm kiếm..."/><button className="btn primary">Tìm</button></form>
-     <OperationMasterManager rows={rows as any}/>
+     <OperationMasterManager rows={rows as any} stGroups={operationGroups as any}/>
      <div className="row pager"><Link className="btn" href={`?q=${encodeURIComponent(q)}&p=${Math.max(1,page-1)}`}>← Trước</Link><span className="muted">Trang {page} / {pages}</span><Link className="btn" href={`?q=${encodeURIComponent(q)}&p=${Math.min(pages,page+1)}`}>Sau →</Link></div>
     </section>
    </div>

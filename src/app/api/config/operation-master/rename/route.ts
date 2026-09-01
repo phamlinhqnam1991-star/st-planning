@@ -47,16 +47,16 @@ export async function POST(req:Request){
   // Insert the new master key first so future FK constraints remain safe.
   await c.query(`
    insert into md_operation_master(
-    standard_operation,st_group,time_calc_type,priority,
+    standard_operation,st_group,time_calc_type,priority,planning_sort_order,batch_prefix,
     qty_min,qty_max,surface_min_dm2,surface_max_dm2,
     fixed_hours,standard_hours,note,is_active,created_at,updated_at
    )
    values(
-    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
-    coalesce($13,now()),now()
+    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
+    coalesce($15,now()),now()
    )
   `,[
-   newName,row.st_group,row.time_calc_type,row.priority,
+   newName,row.st_group,row.time_calc_type,row.priority,row.planning_sort_order,row.batch_prefix,
    row.qty_min,row.qty_max,row.surface_min_dm2,row.surface_max_dm2,
    row.fixed_hours,row.standard_hours,row.note,row.is_active,row.created_at
   ]);
@@ -114,6 +114,47 @@ export async function POST(req:Request){
    update planning_batch_job
    set standard_operation=$2
    where standard_operation=$1
+  `,[oldName,newName]);
+
+  await c.query(`
+   update md_schedule_area_operation
+   set standard_operation=$2,updated_at=now()
+   where standard_operation=$1
+  `,[oldName,newName]);
+
+  await c.query(`
+   update md_auto_planning_rule
+   set standard_operation=$2,updated_at=now()
+   where standard_operation=$1
+  `,[oldName,newName]);
+
+  await c.query(`
+   update md_batch_key_recipe_rule
+   set standard_operation=$2,updated_at=now()
+   where standard_operation=$1
+  `,[oldName,newName]);
+
+  await c.query(`
+   update md_st_operation_scope
+   set previous_main_operation=case when previous_main_operation=$1 then $2 else previous_main_operation end,
+       next_main_operation=case when next_main_operation=$1 then $2 else next_main_operation end,
+       updated_at=now()
+   where previous_main_operation=$1 or next_main_operation=$1
+  `,[oldName,newName]);
+
+  await c.query(`
+   update md_intermediate_bridge_segment
+   set previous_main_operation=case when previous_main_operation=$1 then $2 else previous_main_operation end,
+       next_main_operation=case when next_main_operation=$1 then $2 else next_main_operation end,
+       updated_at=now()
+   where previous_main_operation=$1 or next_main_operation=$1
+  `,[oldName,newName]);
+
+  await c.query(`
+   update planning_handover_change_event
+   set source_standard_operation=case when source_standard_operation=$1 then $2 else source_standard_operation end,
+       next_standard_operation=case when next_standard_operation=$1 then $2 else next_standard_operation end
+   where source_standard_operation=$1 or next_standard_operation=$1
   `,[oldName,newName]);
 
   // Remove only the old master key after all active references were moved.
