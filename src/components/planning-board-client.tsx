@@ -274,6 +274,13 @@ const isHiddenPlanningBoardSourceColumn=(name:string)=>{
  return key==="MAIN PLANNING ORDER" || key==="PLANNING ORDER" || key==="PLANNING SORT ORDER";
 };
 
+// v347: All Open Job may also expose a raw NextOperation source column. Keep
+// that column visible if the planner wants it, but do not offer a SECOND text
+// sort for it. The special `next_operation` sort below is the only canonical
+// sort and uses md_operation.planning_sort_order (Next Op Sort).
+const isRawNextOperationSourceColumn=(name:string)=>
+ String(name||"").trim().toUpperCase().replace(/[^A-Z0-9]+/g,"")==="NEXTOPERATION";
+
 const PLANNING_COLUMNS:CandidateColumn[]=[
  {key:"job",label:"Job",group:"planning"},
  {key:"standard_operation",label:"Standard Operation",group:"planning"},
@@ -691,6 +698,7 @@ useEffect(()=>{
    // Every selectable/displayable Candidate column, including all raw
    // All Open Job source_data columns, is also available in Sort Priority.
    allColumns.forEach(col=>{
+     if(col.group==="allopen" && isRawNextOperationSourceColumn(col.label))return;
      add(`column:${col.key}`,col.label);
    });
 
@@ -1698,38 +1706,48 @@ const currentPriorityMonth=useMemo(()=>{
    );
 
    return [...filtered].sort((a,b)=>{
-     // v163 - Candidate production order comes ONLY from Operation Code Order
-     // of the RAW NextOperation. Main Operation is membership/scope only.
-     const ao=Number(a.next_operation_planning_sort_order);
-     const bo=Number(b.next_operation_planning_sort_order);
-     const aOrder=Number.isFinite(ao)?ao:999999;
-     const bOrder=Number.isFinite(bo)?bo:999999;
-     if(aOrder!==bOrder)return aOrder-bOrder;
-
-     const nextOpCmp=normalized(a.next_operation).localeCompare(
-      normalized(b.next_operation),
-      undefined,
-      {numeric:true,sensitivity:"base"}
-     );
-     if(nextOpCmp!==0)return nextOpCmp;
-
-     const priorityCmp=priorityRank(b.priority_type)-priorityRank(a.priority_type);
-     if(priorityCmp!==0)return priorityCmp;
-
+     // v347: Sort Priority is the ONLY presentation order. No hidden/hard
+     // NextOperation or Priority level is allowed before the planner's rules.
      for(const rule of sortRules){
-       if(rule.field==="next_operation" || rule.field==="priority")continue;
-       const av=getSortValue(a,rule.field);
-       const bv=getSortValue(b,rule.field);
        let cmp=0;
-       if(typeof av==="number" && typeof bv==="number")cmp=av-bv;
-       else cmp=String(av).localeCompare(String(bv),undefined,{numeric:true,sensitivity:"base"});
+
+       if(rule.field==="next_operation"){
+         // RAW NextOperation -> md_operation.planning_sort_order (Next Op Sort).
+         // Unconfigured Operation Codes are ALWAYS pushed to the end; among
+         // configured codes ASC/DESC follows the planner's selected direction.
+         const aSortRaw=a.next_operation_planning_sort_order;
+         const bSortRaw=b.next_operation_planning_sort_order;
+         const aoRaw=Number(aSortRaw);
+         const boRaw=Number(bSortRaw);
+         const aMissing=aSortRaw===null||aSortRaw===undefined||!Number.isFinite(aoRaw);
+         const bMissing=bSortRaw===null||bSortRaw===undefined||!Number.isFinite(boRaw);
+         if(aMissing!==bMissing)return aMissing?1:-1;
+
+         cmp=aMissing&&bMissing
+          ?normalized(a.next_operation).localeCompare(
+            normalized(b.next_operation),undefined,{numeric:true,sensitivity:"base"}
+           )
+          :aoRaw-boRaw;
+         if(cmp===0){
+           cmp=normalized(a.next_operation).localeCompare(
+            normalized(b.next_operation),undefined,{numeric:true,sensitivity:"base"}
+           );
+         }
+       }else if(rule.field==="priority"){
+         cmp=priorityRank(a.priority_type)-priorityRank(b.priority_type);
+       }else{
+         const av=getSortValue(a,rule.field);
+         const bv=getSortValue(b,rule.field);
+         if(typeof av==="number" && typeof bv==="number")cmp=av-bv;
+         else cmp=String(av).localeCompare(String(bv),undefined,{numeric:true,sensitivity:"base"});
+       }
+
        if(cmp!==0)return rule.direction==="desc"?-cmp:cmp;
      }
 
+     // Stable deterministic fallback only; it is not a user-visible sort level.
      return normalized(a.job_num).localeCompare(
-      normalized(b.job_num),
-      undefined,
-      {numeric:true}
+      normalized(b.job_num),undefined,{numeric:true,sensitivity:"base"}
      );
    });
  },[

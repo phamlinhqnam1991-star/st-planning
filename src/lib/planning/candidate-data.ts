@@ -438,20 +438,21 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
        limit 1
      ) mf on true
 
-     -- v168: md_operation can contain more than one active row for the same
-     -- Operation Code. Pick exactly one deterministic row so this lookup
-     -- cannot multiply Candidate rows. Operation Code Order remains the
-     -- sorting source; Main Operation mapping logic is unchanged.
+     -- v347: Next Op Sort belongs to the RAW All Open Job.NextOperation code.
+     -- Do NOT require md_st_operation_scope here: Bridge Intermediate operations
+     -- (INSPLM, SCRB-CM, UNMSK-CM, INSPCM, ...) may be valid sort codes without
+     -- their own active ST Scope row. md_operation.planning_sort_order is the
+     -- single source of truth for Planning Board Next Operation sorting.
+     -- LATERAL + LIMIT 1 also protects Candidate cardinality if historical
+     -- duplicate md_operation rows exist for the same normalized code.
      left join lateral (
        select mo.planning_sort_order
        from public.md_operation mo
-       join public.md_st_operation_scope scope
-         on upper(trim(scope.operation_code))=upper(trim(mo.operation_code))
-        and scope.is_active=true
        where mo.is_active=true
          and upper(trim(mo.operation_code))=upper(trim(j.next_operation))
        order by
          mo.planning_sort_order asc nulls last,
+         mo.updated_at desc nulls last,
          mo.operation_code asc
        limit 1
      ) nextopmaster on true
@@ -562,19 +563,11 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
      ) selected_r on true
      where ${conditions.join(" and ")}
      order by
-       -- v289: pagination order MUST be independent from Planning status.
-       -- Creating a Batch changes ELIGIBLE -> PLANNED; if status is a leading
-       -- sort key, the Job is pushed to the last page and appears to vanish.
-       -- Use the same stable production keys used by the client board so a
-       -- Batch creation does not move a Job to another page.
-       coalesce(nextopmaster.planning_sort_order,999999) asc,
-       upper(trim(coalesce(j.next_operation,''))) asc,
-       case
-         when upper(coalesce(j.priority_type,'')) like '%HIGH%'
-           or upper(coalesce(j.priority_type,'')) like '%URGENT%'
-         then 0
-         else 1
-       end asc,
+       -- v347: SQL order is ONLY a stable pagination/transport order.
+       -- Planning Board presentation sort is owned entirely by sortRules on
+       -- the client. In particular, do not hard-code Next Operation or Priority
+       -- here because that would make progressive pages appear pre-sorted by a
+       -- rule the planner did not choose.
        j.job_num asc,
        p.source_seq asc nulls last,
        p.id asc nulls last
