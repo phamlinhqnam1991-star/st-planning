@@ -379,11 +379,15 @@ type BatchCompatibilityLock={
  error:string;
  profile:{
   source:"JOB"|"BATCH";
+  batchId?:number|null;
+  anchorId?:number|null;
   standardOperation:string;
   recipeKey:string;
   recipeNo:string|null;
   recipeName:string|null;
   conditions:BatchCompatibilityCondition[];
+  selectedConditions:BatchCompatibilityCondition[];
+  selectedConditionColumns:string[];
   conditionText:string;
  }|null;
  compatibleIds:number[];
@@ -392,6 +396,8 @@ type BatchCompatibilityLock={
  compatible:number;
  locked:number;
 };
+
+type CompatibilityConditionChoice={identity:string;columns:string[]};
 
 type CandidateViewPreset={
  columns:string[];
@@ -481,6 +487,7 @@ export function PlanningBoardClient({
  // v336: first READY Job (or Existing Batch) establishes Recipe + Process
  // condition compatibility. Only incompatible READY cells of that Main are dimmed/disabled; other Main columns stay untouched.
  const [compatibilityLock,setCompatibilityLock]=useState<BatchCompatibilityLock|null>(null);
+ const [compatibilityConditionChoice,setCompatibilityConditionChoice]=useState<CompatibilityConditionChoice|null>(null);
  const compatibilitySeq=useRef(0);
  const compatibilityAnchorId=useRef<number|null>(null);
  usePopupMessage(message);
@@ -491,6 +498,7 @@ export function PlanningBoardClient({
   setSelected([]);
   setTargetBatchId("");
   setCompatibilityLock(null);
+  setCompatibilityConditionChoice(null);
   compatibilityAnchorId.current=null;
  },[paginationKey]);
  const [columnPickerOpen,setColumnPickerOpen]=useState(false);
@@ -2144,7 +2152,9 @@ const currentPriorityMonth=useMemo(()=>{
   [compatibilityCandidates,compatibilityOperation]
  );
 
- const requestCompatibilityLock=useCallback(async(args:{key:string;anchorId:number;batchId:number})=>{
+ const requestCompatibilityLock=useCallback(async(args:{
+  key:string;anchorId:number;batchId:number;identity:string;selectedConditionColumns?:string[]
+ })=>{
   const seq=++compatibilitySeq.current;
   setCompatibilityLock(prev=>({
    key:args.key,loading:true,error:"",profile:prev?.profile||null,
@@ -2159,7 +2169,8 @@ const currentPriorityMonth=useMemo(()=>{
     body:JSON.stringify({
      anchorId:args.anchorId||null,
      batchId:args.batchId||null,
-     candidates:compatibilityCandidates
+     candidates:compatibilityCandidates,
+     selectedConditionColumns:args.selectedConditionColumns
     })
    });
    const d=await safeJson(r);
@@ -2167,28 +2178,34 @@ const currentPriorityMonth=useMemo(()=>{
    if(seq!==compatibilitySeq.current)return;
    const compatibleIds=Array.isArray(d.compatibleIds)?d.compatibleIds.map(Number).filter(Number.isFinite):[];
    const next:BatchCompatibilityLock={
-    key:args.key,loading:false,error:"",profile:d.profile||null,
+    key:args.key,loading:false,error:String(d.invalidSelection||""),profile:d.profile||null,
     compatibleIds,reasons:(d.reasons&&typeof d.reasons==="object")?d.reasons:{},
     total:Number(d.total)||compatibilityCandidates.length,
     compatible:Number(d.compatible)||compatibleIds.length,
     locked:Number(d.locked)||Math.max(0,compatibilityCandidates.length-compatibleIds.length)
    };
    setCompatibilityLock(next);
-   if(args.batchId>0){
-    const allowed=new Set(compatibleIds);
-    setSelected(prev=>prev.filter(id=>allowed.has(Number(id))));
+   if(d.profile&&Array.isArray(d.profile.selectedConditionColumns)){
+    const cols=d.profile.selectedConditionColumns.map((x:unknown)=>String(x||"").trim()).filter(Boolean);
+    setCompatibilityConditionChoice(prev=>{
+     const same=prev?.identity===args.identity &&
+      prev.columns.length===cols.length && prev.columns.every((x,i)=>x===cols[i]);
+     return same?prev:{identity:args.identity,columns:cols};
+    });
    }
+   const allowed=new Set(compatibleIds);
+   setSelected(prev=>prev.filter(id=>allowed.has(Number(id))));
   }catch(e){
    if(seq!==compatibilitySeq.current)return;
    const error=e instanceof Error?e.message:String(e);
    // Fail closed: khi chưa xác định được Recipe/condition, không cho thêm Job
    // khác vào lô. Job chuẩn vẫn giữ selected để planner thấy nguyên nhân.
-   setCompatibilityLock({
-    key:args.key,loading:false,error,profile:null,
+   setCompatibilityLock(prev=>({
+    key:args.key,loading:false,error,profile:prev?.profile||null,
     compatibleIds:args.anchorId>0?[args.anchorId]:[],reasons:{},
     total:compatibilityCandidates.length,
     compatible:args.anchorId>0?1:0,locked:Math.max(0,compatibilityCandidates.length-(args.anchorId>0?1:0))
-   });
+   }));
   }
  },[compatibilityCandidates]);
 
@@ -2196,24 +2213,49 @@ const currentPriorityMonth=useMemo(()=>{
   const batchId=Number(targetBatchId||0);
   let anchorId=0;
   let baseKey="";
+  let identity="";
   if(batchId>0){
    anchorId=Number(selected[0]||0);
    compatibilityAnchorId.current=null;
-   baseKey=`B:${batchId}${anchorId?`|A:${anchorId}`:""}`;
+   identity=`B:${batchId}`;
+   baseKey=`${identity}${anchorId?`|A:${anchorId}`:""}`;
   }else if(selected.length){
    if(!compatibilityAnchorId.current)compatibilityAnchorId.current=Number(selected[0]);
    anchorId=Number(compatibilityAnchorId.current||0);
-   baseKey=`J:${anchorId}`;
+   identity=`J:${anchorId}`;
+   baseKey=identity;
   }else{
    compatibilityAnchorId.current=null;
    compatibilitySeq.current+=1;
    setCompatibilityLock(null);
+   setCompatibilityConditionChoice(null);
    return;
   }
-  const key=`${baseKey}|S:${compatibilityScopeKey}`;
+  const selectedConditionColumns=compatibilityConditionChoice?.identity===identity
+   ?compatibilityConditionChoice.columns
+   :undefined;
+  const choiceKey=selectedConditionColumns===undefined
+   ?"DEFAULT"
+   :selectedConditionColumns.map(normalized).sort().join(",");
+  const key=`${baseKey}|C:${choiceKey}|S:${compatibilityScopeKey}`;
   if(compatibilityLock?.key===key)return;
-  void requestCompatibilityLock({key,anchorId,batchId});
- },[targetBatchId,selected,compatibilityScopeKey,compatibilityLock?.key,requestCompatibilityLock]);
+  void requestCompatibilityLock({key,anchorId,batchId,identity,selectedConditionColumns});
+ },[targetBatchId,selected,compatibilityScopeKey,compatibilityLock?.key,compatibilityConditionChoice,requestCompatibilityLock]);
+
+ const toggleCompatibilityCondition=useCallback((column:string,checked:boolean)=>{
+  if(!compatibilityLock?.profile)return;
+  const identity=compatibilityLock.profile.source==="BATCH"
+   ?`B:${Number(targetBatchId||0)}`
+   :`J:${Number(compatibilityAnchorId.current||compatibilityLock.profile.anchorId||0)}`;
+  const current=compatibilityConditionChoice?.identity===identity
+   ?compatibilityConditionChoice.columns
+   :(compatibilityLock.profile.selectedConditionColumns||[]);
+  const key=normalized(column);
+  const next=checked
+   ?[...current.filter(x=>normalized(x)!==key),column]
+   :current.filter(x=>normalized(x)!==key);
+  setCompatibilityConditionChoice({identity,columns:next});
+ },[compatibilityLock,compatibilityConditionChoice,targetBatchId]);
 
  const compatibilityAllowedSet=useMemo(
   ()=>new Set((compatibilityLock?.compatibleIds||[]).map(Number)),
@@ -2442,7 +2484,10 @@ const currentPriorityMonth=useMemo(()=>{
          // filter Recipe and use the exact target Operation suggestion instead.
          recipe_key:(standardOperation&&normalized(standardOperation)===normalized(effectiveOperation)?recipeKey:"")
            ||suggestionSummary?.unanimousRecipe||null,
-         target_batch_id:targetBatchId?Number(targetBatchId):null
+         target_batch_id:targetBatchId?Number(targetBatchId):null,
+         compatibility_condition_columns:compatibilityLock?.profile
+          ?compatibilityLock.profile.selectedConditionColumns
+          :undefined
        })
      });
 
@@ -3719,15 +3764,37 @@ const currentPriorityMonth=useMemo(()=>{
         <b>🔒 Batch Compatibility</b>
         <span>{compatibilityLock.loading?"Đang kiểm tra…":`${compatibilityLock.compatible} cho phép · ${compatibilityLock.locked} khóa`}</span>
        </div>
-       {compatibilityLock.error?
-        <small>{compatibilityLock.error}</small>:
-        compatibilityLock.profile&&<>
-         <div><span>Main Operation</span><b>{compatibilityLock.profile.standardOperation||"—"}</b></div>
-         <div><span>Recipe</span><b>{compatibilityLock.profile.recipeNo||compatibilityLock.profile.recipeKey||"Không dùng Recipe"}{compatibilityLock.profile.recipeName?` · ${compatibilityLock.profile.recipeName}`:""}</b></div>
-         <div><span>Điều kiện</span><b>{compatibilityLock.profile.conditionText||"Không có điều kiện Open Job"}</b></div>
-         <small>{compatibilityLock.profile.source==="BATCH"?"Khóa theo Target Batch hiện tại":"Khóa theo Job READY đầu tiên đã chọn"}</small>
-         <small>Batch Selection Mode: các Main Operation khác đang được làm mờ và khóa tạm thời.</small>
-        </>}
+       {compatibilityLock.profile&&<>
+        <div><span>Main Operation</span><b>{compatibilityLock.profile.standardOperation||"—"}</b></div>
+        <div><span>Recipe</span><b>{compatibilityLock.profile.recipeNo||compatibilityLock.profile.recipeKey||"Không dùng Recipe"}{compatibilityLock.profile.recipeName?` · ${compatibilityLock.profile.recipeName}`:""}</b></div>
+        {compatibilityLock.profile.conditions.length>0?
+         <div className="planning-compatibility-condition-picker">
+          <span>Điều kiện dùng để gom lô</span>
+          <div>
+           {compatibilityLock.profile.conditions.map(cond=>{
+            const checked=(compatibilityLock.profile?.selectedConditionColumns||[])
+             .some(x=>normalized(x)===normalized(cond.source_column));
+            return <label key={`${cond.source_column}|${cond.source_value}`} className={checked?"is-checked":""}>
+             <input
+              type="checkbox"
+              checked={checked}
+              disabled={compatibilityLock.loading}
+              onChange={e=>toggleCompatibilityCondition(cond.source_column,e.target.checked)}
+             />
+             <b>{cond.source_column}</b>
+             <span>= {cond.source_value||"—"}</span>
+            </label>;
+           })}
+          </div>
+          <small>{compatibilityLock.profile.selectedConditionColumns.length
+           ?`Đang khóa theo: ${compatibilityLock.profile.conditionText}`
+           :"Không chọn condition: chỉ khóa theo cùng Recipe."}</small>
+         </div>:
+         <div><span>Điều kiện</span><b>Không có điều kiện Open Job</b></div>}
+        <small>{compatibilityLock.profile.source==="BATCH"?"Điều kiện được lưu theo Target Batch hiện tại":"Mặc định tích tất cả; bỏ tích condition để mở thêm Job cùng Recipe"}</small>
+        <small>Batch Selection Mode: các Main Operation khác đang được làm mờ và khóa tạm thời.</small>
+       </>}
+       {compatibilityLock.error&&<small className="planning-compatibility-error">{compatibilityLock.error}</small>}
       </div>}
 
      {suggestionSummary&&selectedRows.length>0&&

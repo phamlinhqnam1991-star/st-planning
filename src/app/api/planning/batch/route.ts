@@ -5,7 +5,8 @@ import {bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
 import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 import {resolveProcessMinutes,recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
-import {assertSameRecipeConditionGroup} from "@/lib/planning/batch-compatibility";
+import {assertSameRecipeConditionGroup,normalizeCompatibilityColumns} from "@/lib/planning/batch-compatibility";
+import type {ProcessTimeRuleCondition} from "@/lib/planning/batch-utils";
 
 import {requireApiUser} from "@/lib/api-auth";
 const clean=(v:unknown)=>String(v??"").trim();
@@ -143,12 +144,16 @@ export async function POST(req:NextRequest){
    : [];
  const createEmpty=body.create_empty===true;
  const targetBatchId=Number(body.target_batch_id||0);
+ const requestedCompatibilityConditionColumns:string[]|undefined=Array.isArray(body.compatibility_condition_columns)
+   ? normalizeCompatibilityColumns(body.compatibility_condition_columns)
+   : undefined;
 
  if(!ids.length && !createEmpty)
    return NextResponse.json({error:"Chọn ít nhất 1 Candidate Job."},{status:400});
 
  const standardOperation=clean(body.standard_operation);
  let recipeKey=clean(body.recipe_key)||null;
+ let compatibilityConditionsToPersist:ProcessTimeRuleCondition[]|null=null;
  const planningDate=clean(body.planning_date);
  const plannedStart=clean(body.planned_start);
  const priority=Math.max(1,Number(body.priority)||100);
@@ -408,14 +413,15 @@ export async function POST(req:NextRequest){
      }
 
      const anchorRow=q.rows.find((r:any)=>Number(r.id)===Number(ids[0]))||q.rows[0];
-     await assertSameRecipeConditionGroup(c,{
+     compatibilityConditionsToPersist=await assertSameRecipeConditionGroup(c,{
       recipeKey,
       jobs:q.rows.map((r:any)=>({
        job_num:String(r.job_num||""),
        condition_data:(r.condition_data||{}) as Record<string,unknown>
       })),
       anchorJobNum:String(anchorRow?.job_num||""),
-      targetBatchId:targetBatch?Number(targetBatch.id):null
+      targetBatchId:targetBatch?Number(targetBatch.id):null,
+      requestedConditionColumns:requestedCompatibilityConditionColumns
      });
    }
 
@@ -525,6 +531,14 @@ export async function POST(req:NextRequest){
        `,[targetBatch.id]);
 
        validateSamePaint([...existingPaintQ.rows,...q.rows],standardOperation);
+     }
+
+     if(recipeKey&&compatibilityConditionsToPersist!==null){
+       await c.query(`
+        update planning_batch
+        set compatibility_conditions=$2::jsonb,updated_at=now()
+        where id=$1
+       `,[targetBatch.id,JSON.stringify(compatibilityConditionsToPersist)]);
      }
 
      await insertBatchJobs(c,targetBatch.id,q.rows);
@@ -706,17 +720,18 @@ export async function POST(req:NextRequest){
      insert into planning_batch(
        batch_no,planning_date,area_id,standard_operation,recipe_key,batch_key,
        total_jobs,total_qty,total_surface_dm2,process_minutes,
-       planned_start,planned_end,priority,status,note,plan_source
+       planned_start,planned_end,priority,status,note,plan_source,compatibility_conditions
      )
      values(
        $1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,
-       $11::timestamptz,$12::timestamptz,$13,'PLANNED',$14,'PLANNING_BOARD'
+       $11::timestamptz,$12::timestamptz,$13,'PLANNED',$14,'PLANNING_BOARD',$15::jsonb
      )
      returning id,batch_no,planning_date
    `,[
      batchNo,effectivePlanningDate,areaId,standardOperation,recipeKey,suggestedBatchKey,
      q.rows.length,totalQty,totalSurface,processMinutes,
-     startTimestamp,endTimestamp,priority,note
+     startTimestamp,endTimestamp,priority,note,
+     JSON.stringify(compatibilityConditionsToPersist||[])
    ]);
 
    const batchId=batchQ.rows[0].id;

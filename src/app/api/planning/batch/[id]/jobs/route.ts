@@ -5,6 +5,7 @@ import {refreshBatchTotals,recomputeJobPlanningStatus} from "@/lib/planning/batc
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 import {loadLiveRecipeContext,effectiveRecipeKey} from "@/lib/planning/live-recipe";
 import {recipeAllowedForJob} from "@/lib/planning/batch-utils";
+import {assertSameRecipeConditionGroup} from "@/lib/planning/batch-compatibility";
 
 import {requireApiUser} from "@/lib/api-auth";
 async function plannerForOperationDb(c:any,operation:unknown):Promise<"1"|"2"|null>{
@@ -242,6 +243,7 @@ export async function POST(
        p.source_seq,p.planning_seq,p.operation_instance_key,
        j.part_num,j.revision_num,
        j.source_data,
+       coalesce(j.source_data,'{}'::jsonb) || (to_jsonb(j)-'source_data') condition_data,
        mf.primer1 part_master_primer1,
        mf.primer2 part_master_primer2,
        mf.primer3 part_master_primer3,
@@ -358,6 +360,25 @@ export async function POST(
            `Recipe Batch không hợp lệ cho Job ${r.job_num} (theo cấu hình hiện tại).`
          );
      }
+   }
+
+   const incomingRecipeKeys=[...new Set(q.rows.map((r:any)=>clean(r.recipe_key)).filter(Boolean))];
+   const compatibilityRecipeKey=clean(batch.recipe_key)||(incomingRecipeKeys.length===1?incomingRecipeKeys[0]:"");
+   if(compatibilityRecipeKey){
+     const selectedCompatibilityConditions=await assertSameRecipeConditionGroup(c,{
+       recipeKey:compatibilityRecipeKey,
+       jobs:q.rows.map((r:any)=>({
+         job_num:String(r.job_num||""),
+         condition_data:(r.condition_data||{}) as Record<string,unknown>
+       })),
+       anchorJobNum:String(q.rows[0]?.job_num||""),
+       targetBatchId:batchId
+     });
+     await c.query(`
+       update planning_batch
+       set compatibility_conditions=$2::jsonb,updated_at=now()
+       where id=$1
+     `,[batchId,JSON.stringify(selectedCompatibilityConditions)]);
    }
 
    for(const r of q.rows){
