@@ -22,9 +22,19 @@ export function OpenJobImporter(){
      const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
      const storagePath=`open-jobs/${new Date().toISOString().replace(/[:.]/g,"-")}_${safe}`;
 
+     const prepResponse=await fetch("/api/import/upload-url",{
+       method:"POST",
+       headers:{"content-type":"application/json"},
+       body:JSON.stringify({path:storagePath,fileName:file.name})
+     });
+     const prep=await safeJson(prepResponse);
+     if(!prepResponse.ok)throw new Error(prep.error||"Không chuẩn bị được Storage upload.");
+
      const {error}=await s.storage
-       .from("master-imports")
-       .upload(storagePath,file,{upsert:false});
+       .from(String(prep.bucket))
+       .uploadToSignedUrl(String(prep.path),String(prep.token),file,{
+         contentType:file.type||"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+       });
 
      if(error)throw error;
 

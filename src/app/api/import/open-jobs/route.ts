@@ -1,5 +1,6 @@
 import {NextResponse} from "next/server";
 import {createAdminClient} from "@/lib/supabase/admin";
+import {ensureImportStorageBucket,IMPORT_STORAGE_BUCKET} from "@/lib/storage/import-storage";
 import {getPool} from "@/lib/db";
 import {importOpenJobsXlsx} from "@/lib/import/open-job-import";
 import {syncPlanningChains} from "@/lib/planning/sync-planning-chains";
@@ -33,8 +34,9 @@ export async function POST(req:Request){
    }finally{c.release()}
 
    const admin=createAdminClient();
+   await ensureImportStorageBucket(admin);
    const {data:blob,error:downloadError}=await admin.storage
-     .from("master-imports")
+     .from(IMPORT_STORAGE_BUCKET)
      .download(storagePath);
 
    if(downloadError||!blob)
