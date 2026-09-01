@@ -21,8 +21,11 @@ const normalizeRecipeNo=(v:unknown)=>{
  return /^\d+$/.test(x)?x.padStart(3,"0"):x;
 };
 
-const catalogLookupKey=(family:string,group:string,no:string)=>
- `${family}|${group}|${no.toUpperCase()}`;
+const catalogNoLookupKey=(family:string,group:string,no:string)=>
+ `${family}|${group}|NO|${no.toUpperCase()}`;
+
+const catalogNameLookupKey=(family:string,group:string,name:string)=>
+ `${family}|${group}|NAME|${name.trim().replace(/\s+/g," ").toUpperCase()}`;
 
 const newRecipeKey=(family:string,group:string,no:string)=>
  `${family}|${group}|${no.toUpperCase()}`;
@@ -35,7 +38,7 @@ type PaintRecipeSource={
  recipeGroup:string;
  standardOperation:string;
  sourceSlot:string;
- recipeNo:string;
+ sourceValue:string;
 };
 
 type RecipeCatalogItem={
@@ -48,34 +51,31 @@ type RecipeCatalogItem={
 };
 
 function paintRecipeSourcesFromRow(o:Obj):PaintRecipeSource[]{
- // IMPORTANT:
- // Master List is used ONLY to get Recipe No.
- // Recipe Name is resolved from md_process_recipe.
- const primerNo=normalizeRecipeNo(o["Primer 1"]);
- const topcoatNo=normalizeRecipeNo(o["Top Coat"]);
- const antiNo=normalizeRecipeNo(o["Anti Abrasion Paint"]);
- const varnishNo=normalizeRecipeNo(o["Clear Coat"]);
-
+ // v367: Paint fallback phải bám ĐÚNG occurrence của Material Finish.
+ // PRIMER2/PRIMER3 tuyệt đối không được kế thừa PRIMER1; TOPCOAT2 cũng vậy.
+ // Giá trị ở các cột PRIMER1/2/3, TOPCOAT1/2 hiện là tên/cụm nhận diện Recipe,
+ // vì vậy catalog sẽ resolve theo Recipe Name trước, rồi mới thử Recipe No.
  const src=[
-  ["PRIMER","PRIMER","Primer 1",primerNo],
-  ["PRIMER","PRIMER2","Primer 1",primerNo],
-  ["PRIMER","PRIMER3","Primer 1",primerNo],
-  ["TOPCOAT","TOPCOAT1","Top Coat",topcoatNo],
-  ["TOPCOAT","TOPCOAT2","Top Coat",topcoatNo],
-  ["ANTI_ABRASION","ANTI-ABRASION","Anti Abrasion Paint",antiNo],
-  ["VARNISH","VARNISH","Clear Coat",varnishNo],
+  ["PRIMER","PRIMER","PRIMER1",recipeClean(o["PRIMER1"])],
+  ["PRIMER","PRIMER2","PRIMER2",recipeClean(o["PRIMER2"])],
+  ["PRIMER","PRIMER3","PRIMER3",recipeClean(o["PRIMER3"])],
+  ["TOPCOAT","TOPCOAT1","TOPCOAT1",recipeClean(o["TOPCOAT1"])],
+  ["TOPCOAT","TOPCOAT2","TOPCOAT2",recipeClean(o["TOPCOAT2"])],
+  ["ANTI_ABRASION","ANTI-ABRASION","ANTIABRATION",recipeClean(o["ANTIABRATION"])],
+  ["VARNISH","VARNISH","VarinishName",recipeClean(o["VarinishName"])],
  ] as const;
 
  return src
-  .filter(([, , , no])=>Boolean(no))
-  .map(([group,std,slot,no])=>({
+  .filter(([, , , value])=>Boolean(value))
+  .map(([group,std,slot,value])=>({
     processFamily:"PAINT",
     recipeGroup:group,
     standardOperation:std,
     sourceSlot:slot,
-    recipeNo:no
+    sourceValue:value
   }));
 }
+
 
 
 async function upsertRows(c:PoolClient,table:string,cols:string[],rows:unknown[][],keys:string[]){
@@ -111,27 +111,34 @@ export async function importMasterXlsx(filePath:string,c:PoolClient,batchId:stri
  const existing=new Map<string,string>(); const old=await c.query("select part_num,revision_num,source_hash from public.md_source_snapshot"); for(const r of old.rows)existing.set(`${r.part_num}\u0001${r.revision_num}`,r.source_hash);
 
  // Process Recipe Master is the single source of truth for Recipe Name.
- const recipeCatalog=new Map<string,RecipeCatalogItem>();
+ const recipeCatalogByNo=new Map<string,RecipeCatalogItem>();
+ const recipeCatalogByName=new Map<string,RecipeCatalogItem>();
  const recipeMaster=await c.query(`
    select recipe_key,process_family,recipe_group,recipe_no,recipe_name,batch_key
    from public.md_process_recipe
-   where is_active=true and recipe_no is not null
+   where is_active=true
    order by
      case when source_system='MANUAL' then 0 else 1 end,
      updated_at desc
  `);
  for(const r of recipeMaster.rows){
    const no=normalizeRecipeNo(r.recipe_no);
-   const k=catalogLookupKey(r.process_family,r.recipe_group,no);
-   if(!recipeCatalog.has(k)){
-     recipeCatalog.set(k,{
-       recipeKey:r.recipe_key,
-       processFamily:r.process_family,
-       recipeGroup:r.recipe_group,
-       recipeNo:no,
-       recipeName:clean(r.recipe_name),
-       batchKey:clean(r.batch_key)||batchKey(r.process_family,r.recipe_group,clean(r.recipe_name))
-     });
+   const name=recipeClean(r.recipe_name);
+   const item:RecipeCatalogItem={
+     recipeKey:r.recipe_key,
+     processFamily:r.process_family,
+     recipeGroup:r.recipe_group,
+     recipeNo:no,
+     recipeName:name,
+     batchKey:clean(r.batch_key)||batchKey(r.process_family,r.recipe_group,name)
+   };
+   if(no){
+     const k=catalogNoLookupKey(r.process_family,r.recipe_group,no);
+     if(!recipeCatalogByNo.has(k))recipeCatalogByNo.set(k,item);
+   }
+   if(name){
+     const k=catalogNameLookupKey(r.process_family,r.recipe_group,name);
+     if(!recipeCatalogByName.has(k))recipeCatalogByName.set(k,item);
    }
  }
  const workbook=new ExcelJS.stream.xlsx.WorkbookReader(filePath,{worksheets:"emit",sharedStrings:"cache",styles:"ignore",hyperlinks:"ignore"});
@@ -154,37 +161,43 @@ export async function importMasterXlsx(filePath:string,c:PoolClient,batchId:stri
   await c.query("update md_routing_detailed set is_active=false,last_import_batch_id=$3,updated_at=now() where part_num=$1 and revision_num=$2",[part,rev,batchId]); await c.query("update md_process_requirement set is_active=false,last_import_batch_id=$3,updated_at=now() where part_num=$1 and revision_num=$2",[part,rev,batchId]); await c.query("update md_part_process_recipe set is_active=false,last_import_batch_id=$3,updated_at=now() where part_num=$1 and revision_num=$2",[part,rev,batchId]);
   partRows.push([part,clean(o.PartDescription)||null,clean(o.Program)||null,clean(o.PartCluster)||null,num(o["Surface (dm2)"]),true,new Date(),batchId]);revRows.push([part,rev,true,new Date(),batchId]);finishRows.push([part,rev,...MATERIAL_FINISH_HEADERS.map(h=>clean(o[h])||null),true,new Date(),batchId]);
   for(const pr of paintRecipeSourcesFromRow(o)){
-   const lookup=catalogLookupKey(pr.processFamily,pr.recipeGroup,pr.recipeNo);
-   let master=recipeCatalog.get(lookup);
+   const sourceNo=normalizeRecipeNo(pr.sourceValue);
+   const byName=recipeCatalogByName.get(
+     catalogNameLookupKey(pr.processFamily,pr.recipeGroup,pr.sourceValue)
+   );
+   const byNo=sourceNo?recipeCatalogByNo.get(
+     catalogNoLookupKey(pr.processFamily,pr.recipeGroup,sourceNo)
+   ):undefined;
+   let master=byName||byNo;
 
-   // A new Recipe No may appear in a future Master List.
-   // Create it in Process Recipe Master WITHOUT taking Recipe Name from Master List.
-   // User can maintain Recipe Name in Process Recipe Master afterwards.
-   if(!master){
-     const key=newRecipeKey(pr.processFamily,pr.recipeGroup,pr.recipeNo);
+   // Chỉ auto-discover khi Master thật sự cung cấp Recipe No dạng số.
+   // Với giá trị dạng tên (ví dụ "10P4-2NF Fluid Resistant Epoxy Primer"),
+   // nếu Process Recipe Master chưa có thì bỏ fallback thay vì tạo một Recipe No sai.
+   if(!master && /^\d+$/.test(recipeClean(pr.sourceValue))){
+     const key=newRecipeKey(pr.processFamily,pr.recipeGroup,sourceNo);
      master={
        recipeKey:key,
        processFamily:pr.processFamily,
        recipeGroup:pr.recipeGroup,
-       recipeNo:pr.recipeNo,
+       recipeNo:sourceNo,
        recipeName:"",
        batchKey:batchKey(pr.processFamily,pr.recipeGroup,"")
      };
-     recipeCatalog.set(lookup,master);
+     recipeCatalogByNo.set(catalogNoLookupKey(pr.processFamily,pr.recipeGroup,sourceNo),master);
      recipeRows.push([
        master.recipeKey,master.processFamily,master.recipeGroup,master.recipeNo,null,
        master.batchKey,"AUTO_DISCOVERED",true,new Date()
      ]);
    }
+   if(!master)continue;
 
    opRecipeRows.push([
      pr.standardOperation,master.recipeKey,pr.sourceSlot,false,true,new Date()
    ]);
 
-   // source_recipe_name intentionally stays NULL.
-   // Recipe Name must always be read by joining md_process_recipe.
+   // source_recipe_name giữ NULL: Recipe Name chuẩn luôn đọc từ md_process_recipe.
    partRecipeRows.push([
-     part,rev,pr.standardOperation,master.recipeKey,pr.sourceSlot,pr.recipeNo,null,
+     part,rev,pr.standardOperation,master.recipeKey,pr.sourceSlot,master.recipeNo||null,null,
      true,new Date(),batchId
    ]);
   }

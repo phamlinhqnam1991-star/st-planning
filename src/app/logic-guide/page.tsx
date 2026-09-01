@@ -524,6 +524,7 @@ export default async function Page(){
     <div className="lg-subtitle">7.4 · Recipe sơn phải đúng occurrence PRIMER/TOPCOAT</div>
     <Rule title="Occurrence-aware Recipe Rule" tone="important">
      Một raw Operation Code như <code>SIPT</code> có thể phục vụ PRIMER1, PRIMER2 hoặc PRIMER3. Khi resolve <b>PRIMER1</b>, rule có condition paint-specific trỏ tới <code>PRIMER2</code>/<code>PRIMER3</code> bị loại trước bước Priority; PRIMER2 chỉ xét condition PRIMER2; PRIMER3 chỉ xét PRIMER3; TOPCOAT1/TOPCOAT2 tương tự. Condition chung như Program, Category, Group vẫn dùng cho mọi occurrence. Nhờ vậy Job có đồng thời PRIMER1=10P4 và PRIMER2=LR-200 không thể làm PRIMER1 chọn nhầm rule LR-200 của PRIMER2.
+     Nếu Operation Code không có Recipe Rule phù hợp và phải fallback theo Part/Revision, fallback cũng bám đúng occurrence: <code>PRIMER→md_material_finish.primer1</code>, <code>PRIMER2→primer2</code>, <code>PRIMER3→primer3</code>, <code>TOPCOAT1→topcoat1</code>, <code>TOPCOAT2→topcoat2</code>. Không còn dùng PRIMER1 chung cho PRIMER2/PRIMER3.
     </Rule>
 
     <div className="lg-subtitle">7.5 · Chọn READY đầu tiên → Batch Selection Mode</div>
