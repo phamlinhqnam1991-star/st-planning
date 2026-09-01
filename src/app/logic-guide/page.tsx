@@ -166,9 +166,9 @@ export default async function Page(){
    <div className="erp-page-head guide-head">
     <div>
      <h2>Logic & Hướng dẫn vận hành</h2>
-     <p>Source of truth · Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau — cập nhật theo code v350/v351.</p>
+     <p>Source of truth · Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau — cập nhật theo code v358.</p>
     </div>
-    <div className="guide-version"><b>v354</b><span>{new Date().toLocaleDateString("vi-VN")}</span></div>
+    <div className="guide-version"><b>v358</b><span>{new Date().toLocaleDateString("vi-VN")}</span></div>
    </div>
 
    <div className="guide-jump">
@@ -180,6 +180,7 @@ export default async function Page(){
     <a href="#jobtracker">Job Tracker</a>
     <a href="#openjobs">All Open Jobs</a>
     <a href="#planning">Planning Board</a>
+    <a href="#masking">Masking / Unmasking</a>
     <a href="#schedule">Board Điều Độ</a>
     <a href="#import">Import Master</a>
     <a href="#impact">Impact Matrix</a>
@@ -194,8 +195,9 @@ export default async function Page(){
      {t:"B · Cấu hình",d:"Operation → Recipe → Time → Area",c:"teal"},
      {t:"C · Import All Open Job",d:"Snapshot NEW/CHANGED/CLOSED",c:"blue"},
      {t:"D · Planning Board",d:"READY → chọn Job → Batch",c:"blue"},
-     {t:"E · Board Điều Độ",d:"Unscheduled Batch → Resource/Time",c:"green"},
-     {t:"F · Handoff",d:"Batch mở Main kế tiếp",c:"orange"},
+     {t:"E · Masking / Unmasking",d:"Main Batch → support operation → Start",c:"teal"},
+     {t:"F · Board Điều Độ",d:"Unscheduled Batch → Resource/Time",c:"green"},
+     {t:"G · Handoff",d:"Batch mở Main kế tiếp",c:"orange"},
     ]}/>
     <div className="lg-key lg-key-2">
      <Rule title="Nguyên tắc 1 · Master ≠ Config" tone="important">
@@ -554,7 +556,28 @@ export default async function Page(){
     <p>Không cần rebuild chỉ vì tạo Batch hoặc đổi Next Op Sort. Nên rebuild sau thay đổi cấu trúc như ST Scope/Main Mapping/Bridge/Planning chain rule hoặc khi dữ liệu chain cũ được tạo trước logic mới. Rebuild là thao tác nặng và có thể tải lại Candidates.</p>
    </Section>
 
-   <Section id="schedule" title="8 · Tab Board Điều Độ — xếp Batch vào resource và thời gian"
+   <Section id="masking" title="8 · Tab Masking / Unmasking — kế hoạch support theo từng Main Planning"
+    sub="Derived planning: Main Planning Order → Main Operation → Masking / Unmasking → Job + Batch + Start Time">
+    <StepList items={[
+     <>Tab hiển thị <b>tất cả Main Planning Operation</b> theo đúng <code>md_operation_master.planning_sort_order</code>. Riêng Main <code>PRIMER</code> được hiển thị nhãn <b>PRIMER1</b>; PRIMER2/PRIMER3/TOPCOAT1/TOPCOAT2 giữ tách riêng.</>,
+     <>Một Job chỉ xuất hiện khi occurrence Main đó đã nằm trong <b>Planning Batch</b>. Batch chưa schedule vẫn hiện với Batch No. và trạng thái <b>UNSCHEDULED</b>.</>,
+     <>Để tìm support operation, engine đọc <b>Routing Detail.operation_detail_code</b> của đúng Part + Revision, chỉ xét đoạn vật lý <b>sau Previous Main và trước Current Main</b>.</>,
+     <><code>operation_detail_code</code> chứa <b>MSKG / MASK</b> được phân loại Masking; chứa <b>UNMSK / UNMASK</b> được phân loại Unmasking. Unmasking được xét trước để không bị nhận nhầm thành Masking.</>,
+     <>Nếu có nhiều Masking/Unmasking trong cùng đoạn route, Job vẫn chỉ có một dòng cho mỗi loại; cột support operation liệt kê tất cả detail code theo thứ tự route.</>,
+     <>Batch No. lấy từ Batch của <b>chính Main Planning phía sau</b>. <b>Start Time = planning_schedule.planned_start</b> của Batch đó; khi planner đổi giờ điều độ Main, tab này đọc lại và tự phản ánh giờ mới.</>,
+     <>Tab này <b>không tạo Planning Chain/READY/WAIT mới</b>, không tạo Batch Masking riêng và không thay đổi Recipe/Process Time. Đây là view kế hoạch support suy ra từ Routing + Batch + Schedule hiện có.</>
+    ]}/>
+    <div className="table-wrap"><table className="erp-table"><thead><tr><th>Cột</th><th>Nguồn</th><th>Ý nghĩa</th></tr></thead><tbody>
+     <tr><td>Job / Part / Rev / Description / Qty / Surface</td><td><code>open_job_current</code></td><td>Thông tin Job hiện tại giống Planning Board.</td></tr>
+     <tr><td>LastLaborOp / NextOperation / Priority</td><td><code>open_job_current</code></td><td>Vị trí sản xuất và ưu tiên hiện tại.</td></tr>
+     <tr><td>Masking / Unmasking Operation</td><td><code>md_routing_detailed.operation_detail_code</code></td><td>Support operation nằm trước Main đang xét.</td></tr>
+     <tr><td>Batch No.</td><td><code>planning_batch</code></td><td>Batch của Main Planning mà support operation phục vụ.</td></tr>
+     <tr><td>Start / End / Resource</td><td><code>planning_schedule</code></td><td>Thời gian điều độ của Main; support Start kế thừa đúng Start này.</td></tr>
+    </tbody></table></div>
+    <Rule title="Ví dụ" tone="important"><code>BSAUNSLD → INSAND-B → MSKG-TC → PPRSLVT</code>. Nếu Batch PPRSLVT của Job được điều độ 10:30 thì Job xuất hiện tại <b>PPRSLVT → Masking</b>, Support Operation = <b>MSKG-TC</b>, Start Time = <b>10:30</b>.</Rule>
+   </Section>
+
+   <Section id="schedule" title="9 · Tab Board Điều Độ — xếp Batch vào resource và thời gian"
     sub="Scheduling nhận Batch từ Planning; không quyết định Recipe membership và không phải điều kiện để mở Main kế tiếp">
     <div className="lg-subtitle">8.1 · Trình tự sử dụng</div>
     <StepList items={[
@@ -598,7 +621,7 @@ export default async function Page(){
     </Rule>
    </Section>
 
-   <Section id="import" title="9 · Tab Import Master — đồng bộ dữ liệu kỹ thuật"
+   <Section id="import" title="10 · Tab Import Master — đồng bộ dữ liệu kỹ thuật"
     sub="Khác Import All Open Job: tab này cập nhật Master Part/Routing/Finish/Requirement và derived ST routing">
     <div className="lg-key lg-key-2">
      <Rule title="Lần đầu">Full Import.</Rule>
@@ -617,7 +640,7 @@ export default async function Page(){
     </Rule>
    </Section>
 
-   <Section id="impact" title="10 · Impact Matrix — sửa ở đâu thì phía sau thay đổi gì?"
+   <Section id="impact" title="11 · Impact Matrix — sửa ở đâu thì phía sau thay đổi gì?"
     sub="Bảng này dùng trước khi chỉnh cấu hình production để biết phạm vi ảnh hưởng">
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Thay đổi</th><th>Ảnh hưởng trực tiếp</th><th>Ảnh hưởng phía sau</th><th>Cần làm sau đó</th></tr></thead>
@@ -639,7 +662,7 @@ export default async function Page(){
     </table></div>
    </Section>
 
-   <Section id="live" title="11 · Mapping đang chạy — đọc trực tiếp database"
+   <Section id="live" title="12 · Mapping đang chạy — đọc trực tiếp database"
     sub="Dùng để đối chiếu tài liệu với cấu hình production hiện tại; bảng này không phải dữ liệu mẫu">
 
     <div className="lg-subtitle">11.1 · Main Operation — Planning Order nội bộ + Batch Prefix</div>
@@ -723,7 +746,7 @@ export default async function Page(){
     </table></div>
    </Section>
 
-   <Section id="faq" title="12 · FAQ / Chẩn đoán nhanh">
+   <Section id="faq" title="13 · FAQ / Chẩn đoán nhanh">
     <Faq q="Vì sao Next Operation sort không đúng ABC?" a={<>Đó là chủ ý. Khi Sort Priority dùng <b>NextOperation</b>, Board lookup <b>Next Op Sort</b> từ <code>md_operation.planning_sort_order</code>, không sort chữ. Kiểm tra Cấu hình → ST Scope · Next Operation Sort.</>}/>
     <Faq q="Vì sao một Job READY nhưng click xong các READY khác bị mờ?" a={<>Bạn đang ở <b>Batch Selection Mode</b>. Main khác bị dim; cùng Main nhưng khác Recipe hoặc không thỏa các condition đang tích cũng bị dim/disable. Clear Selection để thoát mode.</>}/>
     <Faq q="Vì sao không thấy checkbox condition trong Batch Compatibility?" a={<>Checkbox lấy từ <b>Operation Code → Recipe → Điều kiện áp dụng cho Job</b> của đúng Recipe mapping. Process Time condition không tạo checkbox. Nếu mapping Recipe không có condition, panel sẽ báo chỉ khóa theo Recipe.</>}/>
