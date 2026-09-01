@@ -573,6 +573,9 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
  const [recipeCompare,setRecipeCompare]=useState<any|null>(null);
  const [recipeCompareLoading,setRecipeCompareLoading]=useState(false);
  const [recipeCompareOpen,setRecipeCompareOpen]=useState(false);
+ // v363: Job Planning Debug — read-only explanation of why a Job is/is not READY.
+ const [jobDebug,setJobDebug]=useState<any|null>(null);
+ const [jobDebugLoading,setJobDebugLoading]=useState(false);
 useEffect(()=>{
   if(!fullView)return;
   const old=document.body.style.overflow;
@@ -1986,6 +1989,25 @@ const currentPriorityMonth=useMemo(()=>{
    }
  };
 
+ const runJobPlanningDebug=async(row:Candidate)=>{
+  setJobDebugLoading(true);
+  setJobDebug({job:{job_num:row.job_num},loading:true});
+  try{
+   const r=await fetch("/api/planning/job-debug",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({job_num:row.job_num,candidate_id:Number(row.id)>0?Number(row.id):null})
+   });
+   const data=await safeJson(r);
+   if(!r.ok)throw new Error(data?.error||"Không debug được Job.");
+   setJobDebug(data);
+  }catch(e){
+   setJobDebug({job:{job_num:row.job_num},error:e instanceof Error?e.message:String(e)});
+  }finally{
+   setJobDebugLoading(false);
+  }
+ };
+
  const runRecipeCompare=async()=>{
    setRecipeCompareLoading(true);
    try{
@@ -3020,7 +3042,7 @@ const currentPriorityMonth=useMemo(()=>{
      case "standard_operation":
       return <td key={key}><b>{x.standard_operation||"—"}</b><small className="planning-sub">{x.area_name||"—"}</small></td>;
      case "job":
-       return <td key={key}><b>{x.job_num}</b></td>;
+       return <td key={key} className="candidate-job-debug-cell"><b>{x.job_num}</b><button type="button" className="candidate-job-debug-btn" title="Debug READY / WAIT / NO CHAIN" onClick={e=>{e.stopPropagation();void runJobPlanningDebug(x);}}>🔎</button></td>;
 
      case "part_rev":
        return <td key={key}>
@@ -4005,6 +4027,74 @@ const currentPriorityMonth=useMemo(()=>{
 
     </div>
    </aside>
+
+   {/* v363: Job Planning Debug — explains the exact live engine for one Job. */}
+   {jobDebug&&<div className="planning-job-debug-backdrop" onMouseDown={()=>setJobDebug(null)}>
+    <div className="planning-job-debug-modal" onMouseDown={e=>e.stopPropagation()}>
+     <div className="planning-job-debug-head">
+      <div><b>🔎 Job Planning Debug</b><small>Đọc cùng engine Rebuild Chain — không thay đổi dữ liệu</small></div>
+      <button type="button" className="btn small" onClick={()=>setJobDebug(null)}>×</button>
+     </div>
+     {jobDebugLoading||jobDebug.loading?<div className="notice">Đang phân tích Job…</div>:jobDebug.error?<div className="notice">Lỗi: {jobDebug.error}</div>:<>
+      <div className={`planning-job-debug-result ${jobDebug.result?.selectable?"is-ok":"is-blocked"}`}>
+       <div><span>Job</span><b>{jobDebug.job?.job_num}</b></div>
+       <div><span>Part / Rev</span><b>{jobDebug.job?.part_num||"—"} / {jobDebug.job?.revision_num||"—"}</b></div>
+       <div><span>Last → Next</span><b>{jobDebug.job?.last_operation||"START"} → {jobDebug.job?.next_operation||"END"}</b></div>
+       <div><span>Checkbox</span><b>{jobDebug.result?.selectable?"MỞ / CÓ ELIGIBLE":"KHÓA"}</b></div>
+       <div className="planning-job-debug-result-reason"><span>Lý do</span><b>{jobDebug.result?.checkboxReason||"—"}</b></div>
+      </div>
+
+      {(jobDebug.result?.warnings||[]).length>0&&<div className="planning-job-debug-warnings">
+       {(jobDebug.result.warnings||[]).map((w:string,i:number)=><div key={i}>⚠ {w}</div>)}
+      </div>}
+
+      <div className="planning-job-debug-grid">
+       <section>
+        <h4>1. Current Main Resolver</h4>
+        <dl>
+         <dt>Anchor mode</dt><dd><b>{jobDebug.anchor?.mode||"—"}</b></dd>
+         <dt>Anchor reason</dt><dd>{jobDebug.anchor?.reason||"—"}</dd>
+         <dt>Main theo engine</dt><dd><b>{jobDebug.result?.theoreticalCurrentMain||"—"}</b> <span className="mono">{jobDebug.result?.theoreticalCurrentInstance||""}</span></dd>
+         <dt>Main active trong DB</dt><dd><b>{jobDebug.result?.activeDbCurrentMain||"—"}</b> <span className="mono">{jobDebug.result?.activeDbCurrentInstance||""}</span></dd>
+        </dl>
+       </section>
+       <section>
+        <h4>2. NextOperation = {jobDebug.nextOperation?.code||"—"}</h4>
+        <dl>
+         <dt>Vị trí trong AllOperation</dt><dd>{(jobDebug.nextOperation?.raw_positions||[]).join(", ")||"Không có"}</dd>
+         <dt>Mapping được chọn</dt><dd>{jobDebug.nextOperation?.chosen_mapping?<><b>{jobDebug.nextOperation.chosen_mapping.st_group}</b> → {jobDebug.nextOperation.chosen_mapping.standard_operation_rule} · {jobDebug.nextOperation.chosen_mapping.mapping_rule}</>:"Không có active Planning mapping"}</dd>
+         <dt>Occurrence sau standardize</dt><dd>{(jobDebug.nextOperation?.standardized_occurrences||[]).map((x:any)=>`${x.sourceCode}@${x.sourceSeq} → ${x.standardOperation} (${x.instanceKey})`).join("; ")||"Không có"}</dd>
+        </dl>
+       </section>
+      </div>
+
+      <section className="planning-job-debug-section">
+       <h4>3. Main route theo engine</h4>
+       <div className="table-wrap"><table className="erp-table"><thead><tr><th>Source Seq</th><th>Source Op</th><th>ST Group</th><th>Main</th><th>Instance</th><th>Trong chain hiện tại?</th></tr></thead><tbody>
+        {(jobDebug.standardizedRoute||[]).map((x:any,i:number)=>{const active=(jobDebug.theoreticalChain||[]).some((c:any)=>c.instanceKey===x.instanceKey);return <tr key={`${x.instanceKey}-${i}`} className={active?"":"row-muted"}><td className="mono">{x.sourceSeq}</td><td><b>{x.sourceCode}</b></td><td>{x.stGroup}</td><td><b>{x.standardOperation}</b></td><td className="mono">{x.instanceKey}</td><td>{active?"✓":""}</td></tr>})}
+       </tbody></table></div>
+      </section>
+
+      <section className="planning-job-debug-section">
+       <h4>4. Planning Chain đang lưu trong DB</h4>
+       <div className="table-wrap"><table className="erp-table"><thead><tr><th>ID</th><th>Instance</th><th>Source</th><th>Main</th><th>Status</th><th>Batch</th><th>Schedule</th></tr></thead><tbody>
+        {(jobDebug.persistedChain||[]).map((x:any)=><tr key={x.id} className={!x.is_active?"row-muted":""}><td className="mono">{x.id}</td><td className="mono">{x.operation_instance_key}</td><td>{x.source_operation_code} <small>#{x.source_seq}</small></td><td><b>{x.standard_operation}</b></td><td><span className={`job-state ${String(x.status).toUpperCase()==="ELIGIBLE"?"state-eligible":String(x.status).toUpperCase()==="PLANNED"?"state-planned":"state-changed"}`}>{x.status}{x.is_active?"":" · inactive"}</span></td><td>{x.batch_no||"—"}</td><td>{x.schedule_id?`${x.resource_code||""} ${x.planned_start||""}`:"—"}</td></tr>)}
+        {!(jobDebug.persistedChain||[]).length&&<tr><td colSpan={7} className="muted">Không có planning_job_operation.</td></tr>}
+       </tbody></table></div>
+      </section>
+
+      <section className="planning-job-debug-section">
+       <h4>5. Route Matrix thực tế trên Board</h4>
+       <div className="table-wrap"><table className="erp-table"><thead><tr><th>Source Seq</th><th>Source</th><th>Main</th><th>Route Status</th><th>Planning ID</th><th>Batch</th></tr></thead><tbody>
+        {(jobDebug.routeStatus||[]).map((x:any,i:number)=><tr key={`${x.route_key||i}`}><td className="mono">{x.source_seq}</td><td>{x.source_operation}</td><td><b>{x.standard_operation||"—"}</b></td><td><b>{x.route_status}</b></td><td className="mono">{x.planning_job_operation_id||"—"}</td><td>{x.batch_no||"—"}</td></tr>)}
+        {!(jobDebug.routeStatus||[]).length&&<tr><td colSpan={6} className="muted">Không có Route Matrix cho Candidate ID này.</td></tr>}
+       </tbody></table></div>
+      </section>
+
+      <details className="planning-debug"><summary>Dữ liệu kỹ thuật đầy đủ</summary><pre>{JSON.stringify(jobDebug,null,2)}</pre></details>
+     </>}
+    </div>
+   </div>}
 
    {/* v339: Excel-style column filter popup (fixed overlay, không bị cắt bởi scroll container) */}
    {colFilterMenu&&(()=>{

@@ -1118,3 +1118,173 @@ export async function syncPlanningChains(c:PoolClient){
    allOperationJobs,bridgeDiscovery
  };
 }
+
+// v363: read-only diagnostic for one Job. This intentionally reuses the SAME
+// standardize() + currentAnchor() + planningChainFromAnchor() functions used by
+// syncPlanningChains(), so the debug panel explains the real engine instead of
+// maintaining a second interpretation of READY/NO CHAIN.
+export async function debugPlanningJob(c:PoolClient,jobNumInput:string){
+ const jobNum=clean(jobNumInput);
+ if(!jobNum)throw new Error("Thiếu Job Number.");
+
+ const [jobQ,mappingQ,scopeQ,persistedQ,nextScopeQ,nextMapQ]=await Promise.all([
+  c.query(`
+    select job_num,part_num,revision_num,last_operation,next_operation,all_operation,
+           priority_type,source_data,is_open,last_import_status
+    from open_job_current
+    where job_num=$1
+    limit 1
+  `,[jobNum]),
+  c.query(`
+    with ranked as (
+      select
+        m.id,m.source_operation_code,m.st_group,m.standard_operation_rule,
+        m.mapping_rule,m.sort_order,m.created_at,m.updated_at,
+        row_number() over(
+          partition by upper(trim(m.source_operation_code))
+          order by
+            case when m.mapping_rule='DIRECT' then 0
+                 when m.mapping_rule='SEQUENCE/FALLBACK' then 1 else 2 end,
+            coalesce(m.sort_order,2147483647),
+            m.updated_at desc nulls last,m.created_at desc nulls last,m.id desc
+        ) rn
+      from md_st_operation_mapping m
+      join md_st_operation_scope scope
+        on upper(trim(scope.operation_code))=upper(trim(m.source_operation_code))
+       and scope.is_active=true
+       and scope.operation_type='PLANNING_OPERATION'
+      where m.is_active=true
+    )
+    select id,source_operation_code,st_group,standard_operation_rule,
+           mapping_rule,sort_order,created_at,updated_at
+    from ranked where rn=1
+  `),
+  c.query(`
+    select standard_operation,sort_order
+    from md_planning_operation_scope
+    where is_active=true
+    order by sort_order,standard_operation
+  `),
+  c.query(`
+    select
+      p.id,p.operation_instance_key,p.source_seq,p.planning_seq,
+      p.source_operation_code,p.standard_operation,p.st_group,p.status,p.recipe_key,
+      p.previous_standard_operation_snapshot,p.previous_source_operation_code_snapshot,
+      p.previous_source_seq_snapshot,p.is_active,p.updated_at,
+      b.id batch_id,b.batch_no,b.status batch_status,
+      ps.id schedule_id,ps.status schedule_status,ps.resource_code,
+      ps.planned_start,ps.planned_end
+    from planning_job_operation p
+    left join lateral (
+      select b0.*
+      from planning_batch_job bj0
+      join planning_batch b0 on b0.id=bj0.batch_id and b0.status<>'CANCELLED'
+      where bj0.planning_job_operation_id=p.id
+      order by b0.created_at desc,bj0.id desc
+      limit 1
+    ) b on true
+    left join lateral (
+      select s0.*
+      from planning_schedule s0
+      where s0.batch_id=b.id and s0.status<>'CANCELLED'
+      order by s0.planned_start desc nulls last,s0.id desc
+      limit 1
+    ) ps on true
+    where p.job_num=$1
+    order by p.is_active desc,p.planning_seq,p.source_seq,p.id
+  `,[jobNum]),
+  c.query(`
+    select operation_code,operation_type,is_active
+    from md_st_operation_scope
+    where upper(trim(operation_code))=upper(trim((select next_operation from open_job_current where job_num=$1)))
+    order by is_active desc
+  `,[jobNum]).catch(()=>({rows:[]} as any)),
+  c.query(`
+    select m.id,m.source_operation_code,m.st_group,m.standard_operation_rule,
+           m.mapping_rule,m.sort_order,m.is_active,m.note
+    from md_st_operation_mapping m
+    where upper(trim(m.source_operation_code))=upper(trim((select next_operation from open_job_current where job_num=$1)))
+    order by m.is_active desc,coalesce(m.sort_order,2147483647),m.id
+  `,[jobNum])
+ ]);
+
+ const job=jobQ.rows[0];
+ if(!job)throw new Error(`Không tìm thấy Job ${jobNum} trong All Open Jobs.`);
+
+ const planningScope=new Set<string>(scopeQ.rows.map((r:any)=>clean(r.standard_operation)).filter(Boolean));
+ const mappingBySource=new Map<string,Mapping>();
+ for(const r of mappingQ.rows){
+  const k=clean(r.source_operation_code).toUpperCase();
+  if(k)mappingBySource.set(k,r as Mapping);
+ }
+ const intermediateRules=await loadIntermediateBridgeRules(c);
+ const raw=splitAllOperation(job.all_operation);
+ const full=standardize(raw,mappingBySource,planningScope);
+ const anchor=currentAnchor(raw,full,clean(job.last_operation),clean(job.next_operation),intermediateRules);
+ const chain=planningChainFromAnchor(full,anchor);
+
+ const nextNorm=normCode(job.next_operation);
+ const rawNextPositions=raw
+  .map((code,index)=>({code,index:index+1}))
+  .filter(x=>normCode(x.code)===nextNorm);
+ const standardizedNext=full.filter(x=>normCode(x.sourceCode)===nextNorm);
+ const activePersisted=persistedQ.rows.filter((r:any)=>r.is_active);
+ const eligibleRows=activePersisted.filter((r:any)=>clean(r.status).toUpperCase()==='ELIGIBLE');
+ const firstActive=activePersisted[0]||null;
+ const theoreticalCurrent=chain[0]||null;
+
+ let checkboxReason="";
+ let selectable=false;
+ if(!job.is_open){
+  checkboxReason="Job đã CLOSED trong All Open Jobs.";
+ }else if(anchor.mode==="NO_CHAIN"){
+  checkboxReason=anchor.reason;
+ }else if(!activePersisted.length){
+  checkboxReason="Engine resolve được route nhưng DB chưa có planning_job_operation active. Cần Rebuild Chain để đồng bộ.";
+ }else if(eligibleRows.length){
+  selectable=true;
+  checkboxReason=`Có ${eligibleRows.length} Planning Operation trạng thái ELIGIBLE: ${eligibleRows.map((r:any)=>r.standard_operation).join(', ')}.`;
+ }else{
+  checkboxReason=`Không có Planning Operation ELIGIBLE. Trạng thái active: ${activePersisted.map((r:any)=>`${r.standard_operation}=${r.status}`).join(' → ')||'—'}.`;
+ }
+
+ const warnings:string[]=[];
+ if(!rawNextPositions.length)warnings.push(`NextOperation ${job.next_operation||'—'} không xuất hiện trong AllOperation.`);
+ if(nextNorm && !mappingBySource.has(nextNorm))warnings.push(`NextOperation ${job.next_operation} không có active Planning mapping trong md_st_operation_mapping + ST Scope.`);
+ if(nextNorm && mappingBySource.has(nextNorm) && !standardizedNext.length)
+  warnings.push(`NextOperation ${job.next_operation} có mapping nhưng không sống sót sau standardize()/Planning Scope.`);
+ if(anchor.mode!=="NO_CHAIN" && theoreticalCurrent && firstActive && clean(theoreticalCurrent.instanceKey)!==clean(firstActive.operation_instance_key))
+  warnings.push(`Current Main theo engine (${theoreticalCurrent.instanceKey}) khác active row đầu DB (${firstActive.operation_instance_key}). Nên Rebuild Chain.`);
+
+ return {
+  job:{
+   job_num:job.job_num,part_num:job.part_num,revision_num:job.revision_num,
+   last_operation:job.last_operation,next_operation:job.next_operation,
+   all_operation:job.all_operation,priority_type:job.priority_type,
+   is_open:job.is_open,last_import_status:job.last_import_status
+  },
+  rawRoute:raw.map((code,index)=>({source_seq:index+1,source_operation:code,is_next_operation:normCode(code)===nextNorm})),
+  standardizedRoute:full,
+  anchor,
+  theoreticalChain:chain,
+  persistedChain:persistedQ.rows,
+  nextOperation:{
+   code:job.next_operation,
+   raw_positions:rawNextPositions.map(x=>x.index),
+   standardized_occurrences:standardizedNext,
+   scope_rows:nextScopeQ.rows,
+   mapping_rows:nextMapQ.rows,
+   chosen_mapping:mappingBySource.get(nextNorm)||null
+  },
+  result:{
+   selectable,
+   checkboxReason,
+   theoreticalCurrentMain:theoreticalCurrent?.standardOperation||null,
+   theoreticalCurrentInstance:theoreticalCurrent?.instanceKey||null,
+   activeDbCurrentMain:firstActive?.standard_operation||null,
+   activeDbCurrentInstance:firstActive?.operation_instance_key||null,
+   activeEligible:eligibleRows.map((r:any)=>({id:r.id,standard_operation:r.standard_operation,source_operation_code:r.source_operation_code,source_seq:r.source_seq,status:r.status})),
+   warnings
+  }
+ };
+}

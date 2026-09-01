@@ -6859,3 +6859,17 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .support-selected-date{font-weight:800;color:#14365f;min-width:96px;text-align:center}
 .support-operation-detail+ .support-operation-detail{margin-top:6px;padding-top:6px;border-top:1px dashed #d8e0e8}
 @media(max-width:900px){.support-date-bar{align-items:stretch;flex-direction:column}.support-date-nav{justify-content:space-between}.support-selected-date{flex:1}}
+
+/* v363 — Job Planning Debug (read-only). */
+.candidate-job-debug-cell{white-space:nowrap}
+.candidate-job-debug-btn{border:0;background:transparent;padding:0 0 0 5px;cursor:pointer;font-size:11px;opacity:.45;vertical-align:middle}
+.candidate-job-debug-cell:hover .candidate-job-debug-btn{opacity:1}
+.planning-job-debug-backdrop{position:fixed;inset:0;z-index:10020;background:rgba(15,23,42,.42);display:flex;align-items:flex-start;justify-content:center;padding:28px 18px;overflow:auto}
+.planning-job-debug-modal{width:min(1280px,96vw);max-height:calc(100vh - 56px);overflow:auto;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 24px 70px rgba(15,23,42,.25);padding:14px}
+.planning-job-debug-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;position:sticky;top:-14px;background:#fff;z-index:2;padding:10px 0;border-bottom:1px solid #e2e8f0;margin-bottom:10px}
+.planning-job-debug-head b{font-size:16px}.planning-job-debug-head small{display:block;color:#64748b;margin-top:2px}
+.planning-job-debug-result{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#dbe3ec;border:1px solid #dbe3ec;border-radius:7px;overflow:hidden;margin-bottom:10px}
+.planning-job-debug-result>div{background:#fff;padding:8px 10px}.planning-job-debug-result span{display:block;color:#64748b;font-size:10px;text-transform:uppercase}.planning-job-debug-result b{font-size:12px}.planning-job-debug-result.is-ok{border-color:#86efac}.planning-job-debug-result.is-blocked{border-color:#fca5a5}.planning-job-debug-result-reason{grid-column:1/-1}
+.planning-job-debug-warnings{display:grid;gap:5px;margin:8px 0;padding:8px 10px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;color:#92400e;font-size:12px}
+.planning-job-debug-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}.planning-job-debug-grid section,.planning-job-debug-section{border:1px solid #e2e8f0;border-radius:7px;padding:9px;background:#fcfdff}.planning-job-debug-grid h4,.planning-job-debug-section h4{margin:0 0 7px;font-size:12px}.planning-job-debug-grid dl{display:grid;grid-template-columns:145px 1fr;gap:5px 8px;margin:0;font-size:11px}.planning-job-debug-grid dt{color:#64748b}.planning-job-debug-grid dd{margin:0;overflow-wrap:anywhere}.planning-job-debug-section{margin-top:10px}.planning-job-debug-section .erp-table{font-size:10px}.planning-job-debug-section .row-muted{opacity:.48}
+@media(max-width:800px){.planning-job-debug-grid{grid-template-columns:1fr}.planning-job-debug-result{grid-template-columns:1fr 1fr}}
