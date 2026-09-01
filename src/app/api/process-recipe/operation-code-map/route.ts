@@ -3,6 +3,7 @@ import {getPool} from "@/lib/db";
 import {canonicalizeSelectionRule} from "@/lib/batch-key-recipe";
 import {requireApiUser} from "@/lib/api-auth";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {invalidateLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const upper=(v:unknown)=>clean(v).toUpperCase();
@@ -146,6 +147,7 @@ export async function POST(req:NextRequest){
    }
 
    await c.query("commit");
+   invalidateLiveRecipeContext();
    invalidateConfigHealth();
    return NextResponse.json({
     ok:true,
@@ -208,6 +210,7 @@ export async function DELETE(req:NextRequest){
    }
    if(!q.rowCount)return NextResponse.json({error:"Không tìm thấy Recipe Rule đang hoạt động."},{status:404});
   }finally{c.release()}
+  invalidateLiveRecipeContext();
   invalidateConfigHealth();
   return NextResponse.json({ok:true});
  }catch(e){

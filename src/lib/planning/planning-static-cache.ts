@@ -91,26 +91,51 @@ export function invalidatePlanningStaticData(){
 // recipe/master tables on every Candidate filter request.
 let liveContextCache:{expires:number;value:LiveRecipeContext}|null=null;
 let liveContextPromise:Promise<LiveRecipeContext>|null=null;
+let liveContextGeneration=0;
+
+/**
+ * Recipe mapping là dữ liệu cấu hình runtime. Sau khi planner thêm/sửa/xóa
+ * Operation Code -> Recipe Rule, Planning Board phải thấy kết quả NGAY ở request
+ * kế tiếp; không được chờ TTL 60 giây. Generation guard ngăn một promise cũ
+ * đang chạy ghi ngược dữ liệu stale vào cache sau khi invalidate.
+ */
+export function invalidateLiveRecipeContext(){
+ liveContextGeneration+=1;
+ liveContextCache=null;
+ liveContextPromise=null;
+}
+
 export async function getCachedLiveRecipeContext(existingClient?:any){
  const now=Date.now();
  if(liveContextCache&&liveContextCache.expires>now)return liveContextCache.value;
  if(liveContextPromise)return liveContextPromise;
- liveContextPromise=(async()=>{
+ const generation=liveContextGeneration;
+ const promise=(async()=>{
   const c=existingClient||await getPool().connect();
   const ownsClient=!existingClient;
   try{
    const value=await loadLiveRecipeContext(c);
-   liveContextCache={value,expires:Date.now()+60_000};
+   if(generation===liveContextGeneration){
+    liveContextCache={value,expires:Date.now()+60_000};
+   }
    return value;
   }finally{
    if(ownsClient)c.release();
-   liveContextPromise=null;
+   if(generation===liveContextGeneration)liveContextPromise=null;
   }
  })();
- return liveContextPromise;
+ liveContextPromise=promise;
+ return promise;
 }
 
 let recipeMetaCache:{expires:number;rows:any[]}|null=null;
+export function invalidateRecipeMetaCache(){
+ recipeMetaCache=null;
+}
+export function invalidateRecipeRuntimeCache(){
+ invalidateLiveRecipeContext();
+ invalidateRecipeMetaCache();
+}
 export async function getCachedRecipeMeta(existingClient?:any){
  const now=Date.now();
  if(recipeMetaCache&&recipeMetaCache.expires>now)return recipeMetaCache.rows;

@@ -2,6 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {requireApiUser} from "@/lib/api-auth";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {invalidateRecipeRuntimeCache} from "@/lib/planning/planning-static-cache";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const normalizeCode=(v:unknown)=>clean(v).toUpperCase();
@@ -121,6 +122,7 @@ export async function POST(req:NextRequest){
       where recipe_key=$1
     `,[recipeKey,name||null,groupSource,noSource,nameSource,batchKey||makeBatchKey(family,group,name),note]);
     await c.query("commit");
+    invalidateRecipeRuntimeCache();
     invalidateConfigHealth();
     return NextResponse.json({ok:true,recipe_key:recipeKey,updated:true,reactivated:!sameIdentity.rows[0].is_active});
    }
@@ -163,7 +165,8 @@ export async function POST(req:NextRequest){
       where recipe_key=$1
      `,[variantKey,name||null,groupSource,noSource,nameSource,batchKey||makeBatchKey(family,group,name),note]);
      await c.query("commit");
-     invalidateConfigHealth();
+     invalidateRecipeRuntimeCache();
+    invalidateConfigHealth();
      return NextResponse.json({ok:true,recipe_key:variantKey,updated:true,variant:true,reactivated:!variant.rows[0].is_active});
     }
 
@@ -175,6 +178,7 @@ export async function POST(req:NextRequest){
      ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,'MANUAL',$10,true)
     `,[variantKey,family,group,groupSource,no,noSource,name||null,nameSource,batchKey||makeBatchKey(family,group,name),note]);
     await c.query("commit");
+    invalidateRecipeRuntimeCache();
     invalidateConfigHealth();
     return NextResponse.json({ok:true,recipe_key:variantKey,created:true,variant:true});
    }
@@ -187,7 +191,8 @@ export async function POST(req:NextRequest){
      ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,'MANUAL',$10,true)
    `,[key,family,group,groupSource,no,noSource,name||null,nameSource,batchKey||makeBatchKey(family,group,name),note]);
    await c.query("commit");
-   invalidateConfigHealth();
+   invalidateRecipeRuntimeCache();
+    invalidateConfigHealth();
    return NextResponse.json({ok:true,recipe_key:key,created:true});
   }catch(error){
    await c.query("rollback");
@@ -264,7 +269,8 @@ export async function PATCH(req:NextRequest){
    await c.query("rollback");
    throw error;
   }finally{c.release()}
-  invalidateConfigHealth();
+  invalidateRecipeRuntimeCache();
+    invalidateConfigHealth();
   return NextResponse.json({ok:true});
  }catch(e){
   return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:400});
@@ -325,7 +331,8 @@ export async function DELETE(req:NextRequest){
    await c.query("rollback");
    throw error;
   }finally{c.release()}
-  invalidateConfigHealth();
+  invalidateRecipeRuntimeCache();
+    invalidateConfigHealth();
   return NextResponse.json({ok:true});
  }catch(e){
   return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:400});

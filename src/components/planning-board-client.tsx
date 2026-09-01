@@ -3895,17 +3895,25 @@ const currentPriorityMonth=useMemo(()=>{
            </div>
           )}
          </div>
+         {recipeDiag.matchedRecipe&&
+          <div className="recipe-diagnosis-matched">
+           <b>✓ Rule đã match:</b>
+           <span className="mono">{recipeDiag.matchedRecipe.recipe_mapping_id?`#${recipeDiag.matchedRecipe.recipe_mapping_id}`:"Fallback"}</span>
+           <span className="mono">{recipeDiag.matchedRecipe.recipe_no||recipeDiag.matchedRecipe.recipe_key}{recipeDiag.matchedRecipe.recipe_name?` · ${recipeDiag.matchedRecipe.recipe_name}`:""}</span>
+           {recipeDiag.matchedRecipe.selection_rule&&<small>{recipeDiag.matchedRecipe.selection_rule}</small>}
+          </div>}
          {recipeDiag.candidates&&recipeDiag.candidates.length>0&&
           <div className="recipe-diagnosis-candidates">
            <b>Các mapping hiện có cho “{firstUnmatchedTarget?.target.sourceOperation}”:</b>
            <div className="table-wrap">
             <table className="erp-table recipe-candidate-table">
              <thead>
-              <tr><th>Recipe</th><th>Ưu tiên</th><th>Mặc định</th><th>Điều kiện</th><th>Khớp Job?</th></tr>
+              <tr><th>Rule</th><th>Recipe</th><th>Ưu tiên</th><th>Mặc định</th><th>Điều kiện</th><th>Khớp Job?</th></tr>
              </thead>
              <tbody>
               {recipeDiag.candidates.map((x:any,i:number)=>
                <tr key={i} className={x.matches?"":"row-muted"}>
+                <td className="mono">{x.recipe_mapping_id?`#${x.recipe_mapping_id}`:"—"}</td>
                 <td><b>{x.recipe_no||"—"}</b><small>{x.recipe_name||""}</small></td>
                 <td className="num">{x.priority??"—"}</td>
                 <td>{x.is_default?"✓":""}</td>

@@ -27,8 +27,9 @@ export type RecipeDiagnosis={
  action:string;
  actionHref:string;
  steps:RecipeDiagnosisStep[];
- matchedRecipe?:{recipe_key:string;recipe_no:string|null;recipe_name:string|null}|null;
+ matchedRecipe?:{recipe_mapping_id:number|null;recipe_key:string;recipe_no:string|null;recipe_name:string|null;selection_rule:string|null}|null;
  candidates?:{
+  recipe_mapping_id:number|null;
   recipe_key:string;
   recipe_no:string|null;
   recipe_name:string|null;
@@ -111,9 +112,12 @@ export async function diagnoseJobRecipe(
    result:"ok",
    detail:paintFallback
     ?`Đã tìm thấy Recipe theo Part + Revision (fallback sơn).`
-    :`Đã tìm thấy Recipe theo mapping Operation Code.`
+    :`Đã match Recipe Rule #${match.recipeMappingId||"—"} theo mapping Operation Code.`
   });
   const metaQ=await c.query(`select recipe_no,recipe_name from md_process_recipe where recipe_key=$1 limit 1`,[match.recipeKey]);
+  const matchedRule=match.recipeMappingId
+   ?list.find(x=>Number(x.mapping_id||0)===Number(match.recipeMappingId))||null
+   :null;
   return {
    kind:paintFallback?"FOUND_PART_FALLBACK":"FOUND_OPERATION_MAPPING",
    jobSummary,
@@ -121,7 +125,13 @@ export async function diagnoseJobRecipe(
    action:"Không cần chỉnh sửa. Nếu board vẫn báo thiếu, hãy tải lại trang.",
    actionHref,
    steps,
-   matchedRecipe:{recipe_key:match.recipeKey,recipe_no:metaQ.rows[0]?.recipe_no||null,recipe_name:metaQ.rows[0]?.recipe_name||null}
+   matchedRecipe:{
+    recipe_mapping_id:match.recipeMappingId,
+    recipe_key:match.recipeKey,
+    recipe_no:metaQ.rows[0]?.recipe_no||null,
+    recipe_name:metaQ.rows[0]?.recipe_name||null,
+    selection_rule:matchedRule?.selection_rule||null
+   }
   };
  }
 
@@ -130,12 +140,12 @@ export async function diagnoseJobRecipe(
   // Có mapping nhưng không mapping nào khớp điều kiện của Job.
   const evaluated=list.map(item=>{
    const conds=parseSelectionRule(item.selection_rule);
-   if(!conds.length)return{recipe_key:item.recipe_key,priority:item.priority,is_default:item.is_default,selection_rule:item.selection_rule,matches:true,mismatchedConditions:[] as string[]};
+   if(!conds.length)return{recipe_mapping_id:item.mapping_id??null,recipe_key:item.recipe_key,priority:item.priority,is_default:item.is_default,selection_rule:item.selection_rule,matches:true,mismatchedConditions:[] as string[]};
    const mismatched=conds.filter(c=>!matchCondition(c,data)).map(c=>{
     const actual=clean(data?.[c.source_column]);
     return `${describeCondition(c)} — job đang là "${actual||"(trống)"}"`;
    });
-   return{recipe_key:item.recipe_key,priority:item.priority,is_default:item.is_default,selection_rule:item.selection_rule,matches:mismatched.length===0,mismatchedConditions:mismatched};
+   return{recipe_mapping_id:item.mapping_id??null,recipe_key:item.recipe_key,priority:item.priority,is_default:item.is_default,selection_rule:item.selection_rule,matches:mismatched.length===0,mismatchedConditions:mismatched};
   });
   const anyMatched=evaluated.some(x=>x.matches);
   if(anyMatched){
@@ -218,12 +228,13 @@ export async function diagnoseJobRecipe(
 
 async function enrichCandidates(
  c:PoolClient,
- evaluated:{recipe_key:string;priority:number|null|undefined;is_default:boolean|null|undefined;selection_rule:string|null|undefined;matches:boolean;mismatchedConditions?:string[]}[]
+ evaluated:{recipe_mapping_id?:number|null;recipe_key:string;priority:number|null|undefined;is_default:boolean|null|undefined;selection_rule:string|null|undefined;matches:boolean;mismatchedConditions?:string[]}[]
 ){
  const keys=evaluated.map(x=>x.recipe_key);
  const q=await c.query(`select recipe_key,recipe_no,recipe_name from md_process_recipe where recipe_key=any($1::text[])`,[keys]);
  const meta=new Map(q.rows.map((r:any)=>[r.recipe_key,{recipe_no:r.recipe_no,recipe_name:r.recipe_name}]));
  return evaluated.map(x=>({
+  recipe_mapping_id:x.recipe_mapping_id??null,
   recipe_key:x.recipe_key,
   recipe_no:meta.get(x.recipe_key)?.recipe_no||null,
   recipe_name:meta.get(x.recipe_key)?.recipe_name||null,
