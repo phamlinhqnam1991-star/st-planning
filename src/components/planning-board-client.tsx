@@ -1,6 +1,6 @@
 "use client";
 
-import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,type MouseEvent as ReactMouseEvent} from "react";
+import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,type MouseEvent as ReactMouseEvent} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 import {safeJson} from "@/lib/fetch-json";
 
@@ -264,6 +264,14 @@ type CandidateColumn={
  key:string;
  label:string;
  group:"planning"|"route"|"allopen";
+};
+
+// v344: these internal planning-order fields are intentionally hidden from
+// Planning Board. They remain available in master/config because chain logic
+// still needs them, but planners do not use them as Candidate columns.
+const isHiddenPlanningBoardSourceColumn=(name:string)=>{
+ const key=String(name||"").trim().toUpperCase().replace(/[\s_-]+/g," ");
+ return key==="MAIN PLANNING ORDER" || key==="PLANNING ORDER" || key==="PLANNING SORT ORDER";
 };
 
 const PLANNING_COLUMNS:CandidateColumn[]=[
@@ -562,9 +570,10 @@ useEffect(()=>{
  // source_data row come first, then catalog-only columns are appended. This
  // avoids scanning source_data for every Candidate without changing saved views.
  const sourceColumns=useMemo(()=>{
-   const out=Object.keys(candidates[0]?.source_data||{});
+   const out=Object.keys(candidates[0]?.source_data||{}).filter(key=>!isHiddenPlanningBoardSourceColumn(key));
    const seen=new Set(out);
    for(const key of sourceColumnNames){
+    if(isHiddenPlanningBoardSourceColumn(key))continue;
     if(!seen.has(key)){seen.add(key);out.push(key);}
    }
    return out;
@@ -904,7 +913,12 @@ useEffect(()=>{
    setFilterPrimer2(preset.filters?.primer2||"");
    setFilterPrimer3(preset.filters?.primer3||"");
    setFilterRouteMain(preset.filters?.routeMain||{});
-   setColFilters(preset.filters?.colFilters||{});
+   const presetColFilters={...(preset.filters?.colFilters||{})};
+   delete presetColFilters["__current_main"];
+   for(const key of Object.keys(presetColFilters)){
+    if(key.startsWith("source:")&&isHiddenPlanningBoardSourceColumn(key.slice("source:".length)))delete presetColFilters[key];
+   }
+   setColFilters(presetColFilters);
 
    const validSortFields=new Set(candidateSortFields.map(x=>x.key));
    const rules=(preset.sortRules||[])
@@ -1565,10 +1579,6 @@ const currentPriorityMonth=useMemo(()=>{
     case "previous_status": return one(x.previous_planning_status||"—");
     case "previous_batch_no": return one(x.previous_batch_no||"—");
     case "actual_progress": return one(`${x.last_operation||"START"} → ${x.next_operation||"END"}`);
-    case "__current_main": {
-     const mv=currentMainView(x);
-     return one(mv.item?`${mv.operation} / ${mv.status}`:`${mv.operation} / ${mv.status}`);
-    }
     default:
      if(key.startsWith("route-main:")){
       const op=normalized(key.slice("route-main:".length));
@@ -1645,7 +1655,6 @@ const currentPriorityMonth=useMemo(()=>{
  const colFilterMenuLabel=useMemo(()=>{
    if(!colFilterMenu)return "";
    const key=colFilterMenu.key;
-   if(key==="__current_main")return "Current Main";
    return allColumns.find(c=>c.key===key)?.label||key;
  },[colFilterMenu,allColumns]);
 
@@ -2497,64 +2506,6 @@ const currentPriorityMonth=useMemo(()=>{
    }
  }
 
- const currentMainView=(x:Candidate)=>{
-   if(x.has_planning_chain===false){
-    return {
-     operation:"—",
-     status:"NO CHAIN",
-     item:null as RouteStatusItem|null
-    };
-   }
-
-   // v308: Current Main is the FIRST live Planning occurrence created from the
-   // exact All Open Job LastLaborOp + NextOperation pair. Do not replace it
-   // with another READY/PLANNED route target. Next Main(s) remain selectable in
-   // the dynamic route cells / Batch Builder.
-   const currentItem=(x.route_status||[]).find(
-    r=>Number(r.planning_job_operation_id)===Number(x.id)
-   )||null;
-   const status=currentItem?.route_status||(
-    x.planning_status==="PLANNED"
-     ? (x.batch_no?"PLANNED-UNSCHEDULED":"PLANNED")
-     : x.planning_status==="LOCKED"
-      ? "WAIT PREV"
-      : x.planning_status==="ELIGIBLE"
-       ? "READY"
-       : String(x.planning_status||"—")
-   );
-
-   return {
-    operation:x.standard_operation||"—",
-    status:String(status||"—"),
-    item:currentItem
-   };
- };
-
- const renderCurrentMainCell=(x:Candidate)=>{
-   const view=currentMainView(x);
-   const status=normalized(view.status);
-   const target=selectableTargetFor(x);
-   const compatLocked=Boolean(target&&compatibilityLockedForTarget(x));
-   const canSelect=Boolean(target)&&!compatLocked;
-   const display=
-    status==="PLANNED-UNSCHEDULED"?"PLANNED":
-    status==="WAITING"?"WAIT":
-    view.status;
-
-   return <td
-    key="__current_main"
-    className={`candidate-current-main ${routeStatusClass(status)} ${canSelect?"candidate-current-main-selectable":""} ${compatLocked?"batch-compatibility-cell-locked":""}`}
-    title={`${view.operation} · ${display}${canSelect?" · Click để chọn Job":""}${compatLocked&&target?` · ${compatibilityReasonForId(Number(target.id),target.standardOperation)||"Khác Recipe / điều kiện Batch"}`:""}`}
-    onClick={()=>{
-     if(!canSelect)return;
-     toggle(x.id);
-    }}
-   >
-    <b>{view.operation}</b>
-    <small className="planning-sub">{display}</small>
-   </td>;
- };
-
  const renderCandidateHeader=(key:string)=>{
    const col=allColumns.find(c=>c.key===key);
    if(!col)return null;
@@ -3090,7 +3041,7 @@ const currentPriorityMonth=useMemo(()=>{
 
  /* ===== v260 Freeze Pane ===== */
  // v268: khởi tạo MẶC ĐỊNH (không đọc localStorage lúc render) — đọc lại sau khi
- // mount để SSR khớp client (hết lỗi Hydration "Freeze Pane" vs "Current Main").
+ // mount để SSR khớp client khi khôi phục cấu hình Freeze Pane.
  const [freeze,setFreeze]=useState<FreezeCfg>({mode:"off"});
  const [freezePick,setFreezePick]=useState(false);
  const [freezeDraft,setFreezeDraft]=useState<FreezeCfg|null>(null);
@@ -3101,11 +3052,9 @@ const currentPriorityMonth=useMemo(()=>{
  const freezeColumnLabels=useMemo(()=>{
    const labels:string[]=["Chọn"];
    for(const key of activeColumns){
-    if(key==="priority"){labels.push("Priority","Current Main");continue;}
     const col=allColumns.find(c=>c.key===key);
     labels.push(col?col.label:key);
    }
-   if(!activeColumns.includes("priority"))labels.push("Current Main");
    return labels;
  },[activeColumns,allColumns]);
 
@@ -3685,15 +3634,7 @@ const currentPriorityMonth=useMemo(()=>{
           onChange={toggleAll}
          />
         </th>
-        {activeColumns.map(key=>
-          key==="priority"
-           ? <Fragment key={`candidate-header-${key}`}>
-              {renderCandidateHeader(key)}
-              <th key="__current_main" className="candidate-current-main-head"><span className="candidate-th-label">Current Main</span><button type="button" className={`col-filter-btn ${(colFilters["__current_main"]||[]).length?"is-active":""}`} onClick={e=>openColFilter("__current_main",e)} title="Lọc cột (Excel style)">▼</button></th>
-             </Fragment>
-           : renderCandidateHeader(key)
-        )}
-        {!activeColumns.includes("priority")&&<th className="candidate-current-main-head"><span className="candidate-th-label">Current Main</span><button type="button" className={`col-filter-btn ${(colFilters["__current_main"]||[]).length?"is-active":""}`} onClick={e=>openColFilter("__current_main",e)} title="Lọc cột (Excel style)">▼</button></th>}
+        {activeColumns.map(key=>renderCandidateHeader(key))}
        </tr>
       </thead>
       <tbody>
@@ -3728,23 +3669,15 @@ const currentPriorityMonth=useMemo(()=>{
            onChange={()=>toggle(x.id)}
           />
          </td>
-         {activeColumns.map(key=>
-           key==="priority"
-            ? <Fragment key={`candidate-cell-${key}`}>
-               {renderCandidateCell(x,key)}
-               {renderCurrentMainCell(x)}
-              </Fragment>
-            : renderCandidateCell(x,key)
-         )}
-         {!activeColumns.includes("priority")&&renderCurrentMainCell(x)}
+         {activeColumns.map(key=>renderCandidateCell(x,key))}
         </tr>
        )}
        {renderedCandidates.length<displayCandidates.length&&
-        <tr ref={candidateDomSentinelRef} className="candidate-dom-sentinel"><td colSpan={2+activeColumns.length}>
+        <tr ref={candidateDomSentinelRef} className="candidate-dom-sentinel"><td colSpan={1+activeColumns.length}>
          Đang hiển thị {renderedCandidates.length}/{displayCandidates.length} dòng — cuộn xuống để tải thêm.
         </td></tr>}
        {!displayCandidates.length&&
-        <tr><td colSpan={2+activeColumns.length} className="muted">
+        <tr><td colSpan={1+activeColumns.length} className="muted">
          Không có Candidate phù hợp với filter hiện tại.
         </td></tr>}
       </tbody>

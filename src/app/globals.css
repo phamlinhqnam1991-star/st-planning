@@ -5557,42 +5557,6 @@ button,a,input,select,textarea{touch-action:manipulation}
  background:#dff0d8!important;
 }
 
-/* v174 UX: permanent Current Main summary.
-   This column is independent from Main Operation matrix order/configuration. */
-.planning-candidate-table .candidate-current-main-head,
-.planning-candidate-table .candidate-current-main{
-  min-width:92px;
-  width:92px;
-  max-width:92px;
-  text-align:center;
-  border-left:2px solid #2563eb;
-  border-right:2px solid #2563eb;
-}
-.planning-candidate-table .candidate-current-main-head{
-  background:#eaf2ff;
-  font-weight:800;
-  white-space:nowrap;
-}
-.planning-candidate-table .candidate-current-main{
-  cursor:default;
-  vertical-align:middle;
-}
-.planning-candidate-table .candidate-current-main b,
-.planning-candidate-table .candidate-current-main small{
-  display:block;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-.planning-candidate-table .candidate-current-main-selectable{
-  cursor:pointer;
-}
-.planning-candidate-table .candidate-current-main-selectable:hover{
-  outline:2px solid currentColor;
-  outline-offset:-2px;
-}
-
-
 /* v184 - Separate Planning views + expanded Candidate workspace */
 .planning-view-tabs{
   display:flex;
