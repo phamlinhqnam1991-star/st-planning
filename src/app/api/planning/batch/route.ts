@@ -6,7 +6,7 @@ import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 import {resolveProcessMinutes,recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
 import {assertSameRecipeConditionGroup,normalizeCompatibilityColumns} from "@/lib/planning/batch-compatibility";
-import type {ProcessTimeRuleCondition} from "@/lib/planning/batch-utils";
+import type {BatchCompatibilityRuleCondition} from "@/lib/planning/batch-compatibility";
 
 import {requireApiUser} from "@/lib/api-auth";
 const clean=(v:unknown)=>String(v??"").trim();
@@ -153,7 +153,7 @@ export async function POST(req:NextRequest){
 
  const standardOperation=clean(body.standard_operation);
  let recipeKey=clean(body.recipe_key)||null;
- let compatibilityConditionsToPersist:ProcessTimeRuleCondition[]|null=null;
+ let compatibilityConditionsToPersist:BatchCompatibilityRuleCondition[]|null=null;
  const planningDate=clean(body.planning_date);
  const plannedStart=clean(body.planned_start);
  const priority=Math.max(1,Number(body.priority)||100);

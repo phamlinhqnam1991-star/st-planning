@@ -45,7 +45,11 @@ async function loadConditionDataByOperationIds(c:any,ids:number[],columns:string
  return result;
 }
 
-async function loadBatchMemberConditionData(c:any,batchId:number,columns:string[]){
+async function loadBatchMemberConditionData(
+ c:any,
+ batchId:number,
+ columns:string[]
+):Promise<Record<string,unknown>[]>{
  if(!columns.length){
   const q=await c.query(`select 1 from planning_batch_job where batch_id=$1 limit 1`,[batchId]);
   return q.rowCount?[{} as Record<string,unknown>]:[];
@@ -205,7 +209,7 @@ export async function POST(req:NextRequest){
   const selectedConditionColumns=selectedConditions.map(x=>x.source_column);
   let invalidSelection="";
   if(source==="BATCH"&&batchData.length&&selectedConditions.length){
-   const badIndex=batchData.findIndex(row=>
+   const badIndex=batchData.findIndex((row:Record<string,unknown>)=>
     selectedConditions.some(cond=>!compatibilityConditionMatches(cond,row))
    );
    if(badIndex>=0){
