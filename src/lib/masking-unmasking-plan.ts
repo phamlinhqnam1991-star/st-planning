@@ -24,6 +24,7 @@ export type SupportPlanRawRow={
   previous_source_seq_snapshot:number|null;
   main_source_seq:number;
   support_seq:number;
+  support_route_pos:number;
   support_operation_code:string|null;
   operation_detail_code:string|null;
   operation_detail_name:string|null;
@@ -104,8 +105,11 @@ const displayMain=(operation:string)=>clean(operation).toUpperCase()==="PRIMER"?
  * occurrence is planning_job_operation itself, so PRIMER/PRIMER2/PRIMER3 and
  * TOPCOAT1/TOPCOAT2 stay exactly aligned with Planning Board occurrence logic.
  *
- * A support step belongs to the CURRENT Main when its physical routing row is
- * strictly between previous_source_seq_snapshot and current source_seq.
+ * A support step belongs to the CURRENT Main when its normalized Routing Detail
+ * position is strictly between previous_source_seq_snapshot and current source_seq.
+ * planning_job_operation uses 1-based AllOperation positions while Routing Detail
+ * source_seq is commonly 10/20/30..., therefore raw source_seq values must never
+ * be compared directly.
  * Only actual routing operations whose raw operation code contains MSKG are
  * considered.  UNMSKG* is Unmasking; every other *MSKG* operation is Masking.
  * operation_detail_code is kept for the planner-facing detail/traceability.
@@ -120,14 +124,29 @@ export async function loadMaskingUnmaskingPlan(
 
   const [mainQ,supportQ]=await Promise.all([
     c.query(`
-      select standard_operation,
-             planning_sort_order planning_order
-      from public.md_operation_master
-      where is_active=true
-      order by planning_sort_order asc nulls last, upper(trim(standard_operation)) asc
+      select
+        s.standard_operation,
+        coalesce(om.planning_sort_order,s.sort_order) planning_order
+      from public.md_planning_operation_scope s
+      left join public.md_operation_master om
+        on upper(trim(om.standard_operation))=upper(trim(s.standard_operation))
+       and om.is_active=true
+      where s.is_active=true
+      order by coalesce(om.planning_sort_order,s.sort_order) asc nulls last,
+               upper(trim(s.standard_operation)) asc
     `),
     c.query(`
-      with batch_job as (
+      with route_detail as (
+        select
+          d.*,
+          dense_rank() over(
+            partition by upper(trim(d.part_num)),upper(trim(d.revision_num))
+            order by d.source_seq asc
+          )::int route_pos
+        from public.md_routing_detailed d
+        where d.is_active=true
+      ),
+      batch_job as (
         select
           bj.planning_job_operation_id,
           bj.job_num,
@@ -158,6 +177,7 @@ export async function loadMaskingUnmaskingPlan(
           po.previous_source_seq_snapshot,
           po.source_seq main_source_seq,
           d.source_seq support_seq,
+          d.route_pos support_route_pos,
           d.operation_code support_operation_code,
           d.operation_detail_code,
           d.operation_detail_name,
@@ -185,12 +205,14 @@ export async function loadMaskingUnmaskingPlan(
         left join public.md_operation_master om
           on upper(trim(om.standard_operation))=upper(trim(po.standard_operation))
          and om.is_active=true
-        join public.md_routing_detailed d
-          on d.part_num=j.part_num
-         and d.revision_num=j.revision_num
-         and d.is_active=true
-         and d.source_seq>coalesce(po.previous_source_seq_snapshot,-2147483648)
-         and d.source_seq<po.source_seq
+        join route_detail d
+          on upper(trim(d.part_num))=upper(trim(j.part_num))
+         and upper(trim(d.revision_num))=upper(trim(j.revision_num))
+         -- planning_job_operation.source_seq / previous_source_seq_snapshot are
+         -- 1-based positions in AllOperation. Routing Detail uses 10/20/30...
+         -- source_seq values, so compare against normalized route_pos instead.
+         and d.route_pos>coalesce(po.previous_source_seq_snapshot,0)
+         and d.route_pos<po.source_seq
         left join public.md_st_operation_scope support_scope
           on upper(trim(support_scope.operation_code))=upper(trim(d.operation_code))
          and support_scope.is_active=true
