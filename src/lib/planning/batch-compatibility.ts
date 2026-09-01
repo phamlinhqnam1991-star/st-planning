@@ -95,7 +95,7 @@ export async function loadRecipeSelectionConditions(
   where upper(trim(operation_code))=$1
     and recipe_key=$2
     and is_active=true
-  order by priority asc,is_default desc,updated_at asc,id asc
+  order by priority asc,is_default desc,updated_at asc
   limit 1
  `,[op,recipeKey]);
  if(!q.rowCount)return [];
