@@ -6763,3 +6763,33 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
  opacity:.42;
  filter:grayscale(.85);
 }
+
+/* ============================================================
+   v341 - Batch Selection READY dimming
+   READY has its own !important visual rules, so generic opacity/filter on the
+   selection classes was not enough. Explicitly override READY for:
+   1) READY cells belonging to another Main Planning operation; and
+   2) READY cells in the active Main that fail Recipe/condition compatibility.
+   Only compatible READY cells stay blue/clickable.
+   ============================================================ */
+.planning-candidate-table td.route-status-cell.route-status-ready.batch-selection-main-dimmed,
+.planning-candidate-table td.route-status-cell.route-status-ready.batch-compatibility-cell-locked{
+  background:#f3f4f6!important;
+  color:#98a2b3!important;
+  border-color:#d0d5dd!important;
+  box-shadow:none!important;
+  opacity:.34!important;
+  filter:grayscale(1)!important;
+  cursor:not-allowed!important;
+}
+.planning-candidate-table td.route-status-cell.route-status-ready.batch-selection-main-dimmed > b,
+.planning-candidate-table td.route-status-cell.route-status-ready.batch-compatibility-cell-locked > b{
+  color:#98a2b3!important;
+  opacity:1!important;
+}
+.planning-candidate-table td.route-status-cell.route-status-ready.batch-selection-main-dimmed:hover,
+.planning-candidate-table td.route-status-cell.route-status-ready.batch-compatibility-cell-locked:hover{
+  background:#f3f4f6!important;
+  border-color:#d0d5dd!important;
+  outline:none!important;
+}

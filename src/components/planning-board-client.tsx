@@ -2787,7 +2787,7 @@ const currentPriorityMonth=useMemo(()=>{
       compatibilityLockedId(Number(x.id),mainOperation);
      return <td
       key={key}
-      className={`route-status-cell ${routeStatusClass(status)} ${normalized(status)==="WAITING"?fallbackWaiting.kind:""} route-status-current ${routeCellSelected(fallbackItem)?"route-status-selected":""} ${status==="READY"&&!mainDimmed?"route-status-clickable":""} ${fallbackCompatLocked?"batch-compatibility-cell-locked":""} ${mainDimClass}`}
+      className={`route-status-cell ${routeStatusClass(status)} ${normalized(status)==="WAITING"?fallbackWaiting.kind:""} route-status-current ${routeCellSelected(fallbackItem)?"route-status-selected":""} ${status==="READY"&&!mainDimmed&&!fallbackCompatLocked?"route-status-clickable":""} ${fallbackCompatLocked?"batch-compatibility-cell-locked":""} ${mainDimClass}`}
       title={`${mainOperation} · ${fallbackDisplay}${fallbackWaiting.reason?` · ${fallbackWaiting.reason}`:""}${x.batch_no?` · ${x.batch_no}`:""}${fallbackCompatLocked?` · ${compatibilityReasonForId(Number(x.id),mainOperation)||"Khác Recipe / điều kiện Batch"}`:""}${mainDimReason?` · ${mainDimReason}`:""}`}
       onClick={()=>{
        if(mainDimmed){setMessage(mainDimReason);return;}
@@ -2918,11 +2918,6 @@ const currentPriorityMonth=useMemo(()=>{
    // v159: one source of truth for interaction.
    // What the cell displays is exactly what the user clicks/selects.
    const selectableItem=displayItem;
-   const clickable=
-    !mainDimmed && (
-     normalized(status)==="READY" ||
-     normalized(status)==="WAITING"
-    );
    const rawSelectableId=Number(selectableItem.planning_job_operation_id);
    const selectableOperationId=Number.isFinite(rawSelectableId)
     ?rawSelectableId
@@ -2935,6 +2930,12 @@ const currentPriorityMonth=useMemo(()=>{
     normalized(status)==="READY" &&
     Number.isFinite(selectableOperationId) &&
     compatibilityLockedId(selectableOperationId,mainOperation);
+   const clickable=
+    !mainDimmed &&
+    !compatLocked && (
+     normalized(status)==="READY" ||
+     normalized(status)==="WAITING"
+    );
 
    return <td
     key={key}
