@@ -31,13 +31,15 @@ export async function POST(req: Request) {
       .from(IMPORT_STORAGE_BUCKET)
       .createSignedUploadUrl(storagePath);
 
-    if (error || !data?.token) {
+    if (error || !data?.token || !data?.signedUrl) {
       throw error || new Error("Không tạo được Signed Upload URL cho file import.");
     }
 
     return NextResponse.json({
       bucket: IMPORT_STORAGE_BUCKET,
       path: storagePath,
+      signedUrl: data.signedUrl,
+      // Keep token for backward compatibility with any older client still open.
       token: data.token,
     });
   } catch (error) {

@@ -2,8 +2,8 @@
 
 import {useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
-import {createClient} from "@/lib/supabase/client";
 import {safeJson} from "@/lib/fetch-json";
+import {uploadFileToSignedUrl} from "@/lib/storage/signed-upload-client";
 
 type BridgeRun={runId:string;status:string;totalRoutings:number;processedRoutings:number;chunkSize:number};
 
@@ -39,16 +39,12 @@ export function MasterImporter(){
   if(!file)return;
   setBusy(true);setStatus("Đang upload...");
   try{
-   const s=createClient();
    const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
    const path=`master/${new Date().toISOString().replace(/[:.]/g,"-")}_${safe}`;
    const prepResponse=await fetch("/api/import/upload-url",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({path,fileName:file.name})});
    const prep=await safeJson(prepResponse);
    if(!prepResponse.ok)throw new Error(prep.error||"Không chuẩn bị được Storage upload.");
-   const {error}=await s.storage.from(String(prep.bucket)).uploadToSignedUrl(String(prep.path),String(prep.token),file,{
-    contentType:file.type||"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-   });
-   if(error)throw error;
+   await uploadFileToSignedUrl(String(prep.signedUrl || ""), file);
    setStatus("Đang so sánh NEW / CHANGED...");
    const r=await fetch("/api/import/master",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({path,fileName:file.name})});
    const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Import failed");
