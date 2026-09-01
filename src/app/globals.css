@@ -6642,3 +6642,56 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .col-filter-item.is-checked{background:#eaf2ff}
 .col-filter-item input{accent-color:#175cd3}
 .col-filter-empty{padding:8px;font-size:11px;text-align:center}
+
+/* Process Time · multi-column All Open Job conditions */
+.process-condition-editor{
+ grid-column:1/-1;
+ border:1px solid #d8dee7;
+ border-radius:6px;
+ background:#fbfcfe;
+ padding:10px;
+}
+.process-condition-head{
+ display:flex;
+ justify-content:space-between;
+ align-items:flex-start;
+ gap:12px;
+ margin-bottom:8px;
+}
+.process-condition-head .muted{font-size:11px;font-weight:500;margin-top:3px}
+.process-condition-row{
+ display:grid;
+ grid-template-columns:minmax(220px,1fr) minmax(260px,1.4fr) auto;
+ gap:8px;
+ align-items:end;
+ padding:8px 0;
+ border-top:1px dashed #d8dee7;
+}
+.process-condition-row:first-of-type{border-top:0}
+.process-condition-remove{margin-bottom:0}
+.process-condition-warning{
+ display:block;
+ color:#b54708;
+ font-size:11px;
+ font-weight:500;
+ margin-top:3px;
+}
+.process-condition-empty{
+ border:1px dashed #cfd6e1;
+ border-radius:5px;
+ padding:9px 10px;
+ color:#667085;
+ font-size:12px;
+ background:white;
+}
+.process-condition-cell{
+ min-width:240px;
+ max-width:420px;
+ white-space:normal;
+ font-size:12px;
+}
+@media(max-width:900px){
+ .process-condition-head{flex-direction:column;align-items:stretch}
+ .process-condition-row{grid-template-columns:1fr}
+ .process-condition-remove{justify-self:start}
+}

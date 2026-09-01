@@ -1,45 +1,180 @@
 import type {PoolClient} from "pg";
 
+export type ProcessTimeRuleCondition={
+ source_column:string;
+ source_value:string;
+};
+
+export type ProcessTimeRuleRow={
+ id:number;
+ recipe_key:string;
+ calc_type:"FIXED_HOURS"|"QTY_SURFACE";
+ priority:number;
+ qty_min:number|null;
+ qty_max:number|null;
+ surface_min_dm2:number|null;
+ surface_max_dm2:number|null;
+ fixed_hours:number|null;
+ standard_hours:number|null;
+ conditions:ProcessTimeRuleCondition[];
+};
+
+export type ProcessTimeResolveContext={
+ /** Batch đã tồn tại: resolver tự đọc All Open Job của mọi Job trong Batch. */
+ batchId?:number|null;
+ /** Batch đang tạo: truyền danh sách Job Number trước khi planning_batch_job tồn tại. */
+ jobNums?:string[]|null;
+ /** Dùng cho caller đã có sẵn dữ liệu All Open Job, tránh query DB lại. */
+ jobData?:Record<string,unknown>[]|null;
+};
+
+const cleanProcessValue=(v:unknown)=>String(v??"").trim();
+
+function processConditionMatches(
+ cond:ProcessTimeRuleCondition,
+ row:Record<string,unknown>
+){
+ return cleanProcessValue(row?.[cond.source_column])===cleanProcessValue(cond.source_value);
+}
+
+/**
+ * Chọn Process Time Rule đã match.
+ * Thứ tự:
+ *   1) Rule có NHIỀU điều kiện Open Job match hơn;
+ *   2) Priority nhỏ hơn;
+ *   3) ID nhỏ hơn.
+ *
+ * Rule có điều kiện chỉ match khi TẤT CẢ Job trong Batch đều thỏa TẤT CẢ điều kiện.
+ * Batch có giá trị trộn (vd Program=A320 + A350) sẽ không match rule Program=A320
+ * và tự rơi về rule không điều kiện nếu có.
+ */
+export function selectProcessMinutesFromRules(
+ rules:ProcessTimeRuleRow[],
+ totalQty:number,
+ totalSurface:number,
+ jobData:Record<string,unknown>[]=[]
+):number|null{
+ const fixed=rules.filter(r=>r.calc_type==="FIXED_HOURS");
+ const modeRules=fixed.length
+  ? fixed
+  : rules.filter(r=>
+     r.calc_type==="QTY_SURFACE" &&
+     (r.qty_min==null||totalQty>=Number(r.qty_min)) &&
+     (r.qty_max==null||totalQty<=Number(r.qty_max)) &&
+     (r.surface_min_dm2==null||totalSurface>=Number(r.surface_min_dm2)) &&
+     (r.surface_max_dm2==null||totalSurface<=Number(r.surface_max_dm2))
+    );
+
+ const matched=modeRules.filter(r=>{
+  const conds=Array.isArray(r.conditions)?r.conditions:[];
+  if(!conds.length)return true;
+  if(!jobData.length)return false;
+  return jobData.every(row=>conds.every(cond=>processConditionMatches(cond,row)));
+ }).sort((a,b)=>{
+  const ca=Array.isArray(a.conditions)?a.conditions.length:0;
+  const cb=Array.isArray(b.conditions)?b.conditions.length:0;
+  if(ca!==cb)return cb-ca;
+  const pa=Number(a.priority)||100;
+  const pb=Number(b.priority)||100;
+  if(pa!==pb)return pa-pb;
+  return Number(a.id)-Number(b.id);
+ });
+
+ const winner=matched[0];
+ if(!winner)return null;
+ const hours=winner.calc_type==="FIXED_HOURS"
+  ?Number(winner.fixed_hours)
+  :Number(winner.standard_hours);
+ return Number.isFinite(hours)&&hours>0?Math.round(hours*60):null;
+}
+
+async function loadProcessConditionJobData(
+ c:PoolClient,
+ ctx:ProcessTimeResolveContext
+):Promise<Record<string,unknown>[]>{
+ if(Array.isArray(ctx.jobData))return ctx.jobData;
+
+ if(ctx.batchId!=null&&Number.isFinite(Number(ctx.batchId))){
+  const q=await c.query(`
+    select distinct on (j.job_num)
+      coalesce(j.source_data,'{}'::jsonb) || (to_jsonb(j)-'source_data') condition_data
+    from planning_batch_job bj
+    join open_job_current j on j.job_num=bj.job_num
+    where bj.batch_id=$1
+    order by j.job_num
+  `,[Number(ctx.batchId)]);
+  return q.rows.map(r=>(r.condition_data||{}) as Record<string,unknown>);
+ }
+
+ const jobNums=[...new Set((ctx.jobNums||[]).map(x=>cleanProcessValue(x)).filter(Boolean))];
+ if(jobNums.length){
+  const q=await c.query(`
+    select coalesce(j.source_data,'{}'::jsonb) || (to_jsonb(j)-'source_data') condition_data
+    from open_job_current j
+    where j.job_num=any($1::text[])
+    order by j.job_num
+  `,[jobNums]);
+  return q.rows.map(r=>(r.condition_data||{}) as Record<string,unknown>);
+ }
+
+ return [];
+}
+
 export async function resolveProcessMinutes(
  c:PoolClient,
  recipeKey:string|null,
  totalQty:number,
- totalSurface:number
+ totalSurface:number,
+ context:ProcessTimeResolveContext={}
 ){
  if(!recipeKey)return null;
 
- // Generic rule cho MỌI công đoạn:
- // 1) FIXED_HOURS (priority,id) — thời gian cố định.
- // 2) QTY_SURFACE — khoảng Qty + Surface (priority,id).
- const fixed=await c.query(`
-   select fixed_hours
-   from md_recipe_time_rule
-   where recipe_key=$1
-     and is_active=true
-     and calc_type='FIXED_HOURS'
-   order by priority,id
-   limit 1
+ // Load tất cả active rule cùng các điều kiện Open Job của từng rule.
+ // API cấu hình bảo đảm một Recipe chỉ có một Calculation Mode active;
+ // fallback FIXED-first vẫn giữ tương thích dữ liệu cũ nếu DB từng có 2 mode.
+ const q=await c.query(`
+   select
+     t.id,t.recipe_key,t.calc_type,t.priority,
+     t.qty_min,t.qty_max,t.surface_min_dm2,t.surface_max_dm2,
+     t.fixed_hours,t.standard_hours,
+     coalesce((
+       select jsonb_agg(
+         jsonb_build_object(
+           'source_column',cnd.source_column,
+           'source_value',cnd.source_value
+         )
+         order by cnd.condition_order,cnd.id
+       )
+       from md_recipe_time_rule_condition cnd
+       where cnd.rule_id=t.id
+         and cnd.is_active=true
+     ),'[]'::jsonb) conditions
+   from md_recipe_time_rule t
+   where t.recipe_key=$1
+     and t.is_active=true
+   order by t.priority,t.id
  `,[recipeKey]);
 
- const fixedHours=Number(fixed.rows[0]?.fixed_hours);
- if(Number.isFinite(fixedHours))return Math.round(fixedHours*60);
+ const rules=q.rows.map((r:any)=>({
+  ...r,
+  id:Number(r.id),
+  priority:Number(r.priority)||100,
+  qty_min:r.qty_min==null?null:Number(r.qty_min),
+  qty_max:r.qty_max==null?null:Number(r.qty_max),
+  surface_min_dm2:r.surface_min_dm2==null?null:Number(r.surface_min_dm2),
+  surface_max_dm2:r.surface_max_dm2==null?null:Number(r.surface_max_dm2),
+  fixed_hours:r.fixed_hours==null?null:Number(r.fixed_hours),
+  standard_hours:r.standard_hours==null?null:Number(r.standard_hours),
+  conditions:Array.isArray(r.conditions)?r.conditions:[]
+ })) as ProcessTimeRuleRow[];
+ if(!rules.length)return null;
 
- const qtySurface=await c.query(`
-   select standard_hours
-   from md_recipe_time_rule
-   where recipe_key=$1
-     and is_active=true
-     and calc_type='QTY_SURFACE'
-     and (qty_min is null or $2 >= qty_min)
-     and (qty_max is null or $2 <= qty_max)
-     and (surface_min_dm2 is null or $3 >= surface_min_dm2)
-     and (surface_max_dm2 is null or $3 <= surface_max_dm2)
-   order by priority,id
-   limit 1
- `,[recipeKey,totalQty,totalSurface]);
+ const hasConditionalRule=rules.some(r=>r.conditions.length>0);
+ const jobData=hasConditionalRule
+  ?await loadProcessConditionJobData(c,context)
+  :[];
 
- const hours=Number(qtySurface.rows[0]?.standard_hours);
- return Number.isFinite(hours)?Math.round(hours*60):null;
+ return selectProcessMinutesFromRules(rules,totalQty,totalSurface,jobData);
 }
 
 export async function refreshBatchTotals(c:PoolClient,batchId:number){
@@ -65,7 +200,7 @@ export async function refreshBatchTotals(c:PoolClient,batchId:number){
  const totalSurface=Number(totalsQ.rows[0]?.total_surface||0);
  const recipeKey=batchQ.rows[0].recipe_key||null;
  const processMinutes=recipeKey
-   ? await resolveProcessMinutes(c,recipeKey,totalQty,totalSurface)
+   ? await resolveProcessMinutes(c,recipeKey,totalQty,totalSurface,{batchId})
    : null;
 
  let endTimestamp:string|null=null;

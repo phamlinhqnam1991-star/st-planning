@@ -1,4 +1,5 @@
 import {NextRequest,NextResponse} from "next/server";
+import type {PoolClient} from "pg";
 import {getPool} from "@/lib/db";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
 import {refreshUnscheduledRecipeBatches} from "@/lib/planning/batch-utils";
@@ -29,6 +30,62 @@ const durationHours=(v:unknown)=>{
  return Number.isFinite(n)?n:null;
 };
 
+type ConditionInput={source_column:string;source_value:string};
+
+function parseConditions(v:unknown):ConditionInput[]{
+ if(v==null)return [];
+ if(!Array.isArray(v))throw new Error("Điều kiện Open Job phải là danh sách.");
+ if(v.length>8)throw new Error("Mỗi Time Rule được tối đa 8 cột điều kiện.");
+ const rows=v.map((x:any)=>({
+  source_column:clean(x?.source_column),
+  source_value:clean(x?.source_value)
+ }));
+ if(rows.some(x=>!x.source_column||!x.source_value))
+  throw new Error("Mỗi điều kiện phải chọn đủ Cột Open Job và Giá trị.");
+ const seen=new Set<string>();
+ for(const row of rows){
+  const key=row.source_column.toUpperCase();
+  if(seen.has(key))throw new Error(`Cột ${row.source_column} đang được chọn lặp trong cùng một rule.`);
+  seen.add(key);
+ }
+ return rows;
+}
+
+async function validateConditions(c:PoolClient,rows:ConditionInput[]){
+ if(!rows.length)return;
+ const columns=rows.map(x=>x.source_column);
+ const values=rows.map(x=>x.source_value);
+ const q=await c.query(`
+   select v.source_column,v.source_value
+   from md_open_job_column_value v
+   join unnest($1::text[],$2::text[]) x(source_column,source_value)
+     on x.source_column=v.source_column
+    and x.source_value=v.source_value
+   where v.is_active=true
+ `,[columns,values]);
+ const found=new Set(q.rows.map((r:any)=>`${String(r.source_column)}\u0001${String(r.source_value)}`));
+ const missing=rows.filter(x=>!found.has(`${x.source_column}\u0001${x.source_value}`));
+ if(missing.length){
+  throw new Error(
+   "Giá trị điều kiện không còn tồn tại trong Open Job Column Values: "+
+   missing.map(x=>`${x.source_column} = ${x.source_value}`).join("; ")
+  );
+ }
+}
+
+async function replaceConditions(c:PoolClient,ruleId:number,rows:ConditionInput[]){
+ await c.query(`delete from md_recipe_time_rule_condition where rule_id=$1`,[ruleId]);
+ if(!rows.length)return;
+ await c.query(`
+   insert into md_recipe_time_rule_condition(
+     rule_id,condition_order,source_column,source_value,is_active
+   )
+   select $1,x.ord::int,x.source_column,x.source_value,true
+   from unnest($2::text[],$3::text[]) with ordinality
+        as x(source_column,source_value,ord)
+ `,[ruleId,rows.map(x=>x.source_column),rows.map(x=>x.source_value)]);
+}
+
 function validateRange(min:number|null,max:number|null,label:string){
  if(min!==null&&min<0)throw new Error(`${label} Min không được âm.`);
  if(max!==null&&max<0)throw new Error(`${label} Max không được âm.`);
@@ -56,11 +113,13 @@ export async function POST(req:NextRequest){
  const fixedHours=durationHours(b.fixed_hours);
  const standardHours=durationHours(b.standard_hours);
  const note=clean(b.note)||null;
+ let conditions:ConditionInput[]=[];
 
  if(!recipeKey)
   return NextResponse.json({error:"Recipe là bắt buộc."},{status:400});
 
  try{
+  conditions=parseConditions(b.conditions);
   validateRule(calcType,fixedHours,standardHours);
   validateRange(qtyMin,qtyMax,"Qty");
   validateRange(surfaceMin,surfaceMax,"Surface");
@@ -79,17 +138,19 @@ export async function POST(req:NextRequest){
   `,[recipeKey]);
   if(!recipe.rowCount)throw new Error("Recipe không tồn tại hoặc đã inactive.");
 
-  // Một Recipe chỉ có MỘT Calculation Mode active. QTY_SURFACE vẫn được phép
-  // có nhiều dòng range; khi chuyển mode, mode cũ được deactivate tự động.
+  await validateConditions(c,conditions);
+
+  // Một Recipe chỉ có MỘT Calculation Mode active, nhưng trong mode đó được
+  // có NHIỀU rule (vd FIXED theo Program/Category khác nhau + 1 fallback).
   await c.query(`
     update md_recipe_time_rule
     set is_active=false,updated_at=now()
     where recipe_key=$1
       and is_active=true
-      and (calc_type<>$2 or $2='FIXED_HOURS')
+      and calc_type<>$2
   `,[recipeKey,calcType]);
 
-  await c.query(`
+  const inserted=await c.query(`
     insert into md_recipe_time_rule(
       recipe_key,calc_type,priority,
       qty_min,qty_max,
@@ -98,6 +159,7 @@ export async function POST(req:NextRequest){
       note,is_active
     )
     values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true)
+    returning id
   `,[
     recipeKey,calcType,priority,
     qtyMin,qtyMax,surfaceMin,surfaceMax,
@@ -105,11 +167,13 @@ export async function POST(req:NextRequest){
     calcType==="QTY_SURFACE"?standardHours:null,
     note
   ]);
+  const ruleId=Number(inserted.rows[0].id);
+  await replaceConditions(c,ruleId,conditions);
 
   const updatedBatches=await refreshUnscheduledRecipeBatches(c,recipeKey);
   await c.query("commit");
   invalidateConfigHealth();
-  return NextResponse.json({ok:true,updated_batches:updatedBatches});
+  return NextResponse.json({ok:true,id:ruleId,updated_batches:updatedBatches});
  }catch(e){
   await c.query("rollback");
   return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:400});
@@ -131,8 +195,10 @@ export async function PATCH(req:NextRequest){
  const fixedHours=durationHours(b.fixed_hours);
  const standardHours=durationHours(b.standard_hours);
  const note=clean(b.note)||null;
+ let conditions:ConditionInput[]=[];
 
  try{
+  conditions=parseConditions(b.conditions);
   validateRule(calcType,fixedHours,standardHours);
   validateRange(qtyMin,qtyMax,"Qty");
   validateRange(surfaceMin,surfaceMax,"Surface");
@@ -152,13 +218,15 @@ export async function PATCH(req:NextRequest){
   if(!current.rowCount)throw new Error("Không tìm thấy Time Rule.");
   const recipeKey=String(current.rows[0].recipe_key);
 
+  await validateConditions(c,conditions);
+
   await c.query(`
     update md_recipe_time_rule
     set is_active=false,updated_at=now()
     where recipe_key=$1
       and id<>$2
       and is_active=true
-      and (calc_type<>$3 or $3='FIXED_HOURS')
+      and calc_type<>$3
   `,[recipeKey,id,calcType]);
 
   await c.query(`
@@ -182,6 +250,7 @@ export async function PATCH(req:NextRequest){
     calcType==="QTY_SURFACE"?standardHours:null,
     note
   ]);
+  await replaceConditions(c,id,conditions);
 
   const updatedBatches=await refreshUnscheduledRecipeBatches(c,recipeKey);
   await c.query("commit");

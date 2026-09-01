@@ -487,7 +487,7 @@ export async function POST(req:NextRequest){
      const newTotalQty=Number(totalsQ.rows[0]?.total_qty||0);
      const newTotalSurface=Number(totalsQ.rows[0]?.total_surface||0);
      const newProcessMinutes=await resolveProcessMinutes(
-      c,recipeKey,newTotalQty,newTotalSurface
+      c,recipeKey,newTotalQty,newTotalSurface,{batchId:Number(targetBatch.id)}
      );
 
      await c.query(`
@@ -531,7 +531,9 @@ export async function POST(req:NextRequest){
 
    const totalQty=q.rows.reduce((a:number,r:any)=>a+Number(r.plan_qty||0),0);
    const totalSurface=q.rows.reduce((a:number,r:any)=>a+Number(r.plan_surface||0),0);
-   const processMinutes=await resolveProcessMinutes(c,recipeKey,totalQty,totalSurface);
+   const processMinutes=await resolveProcessMinutes(
+    c,recipeKey,totalQty,totalSurface,{jobNums:q.rows.map((r:any)=>String(r.job_num||""))}
+   );
 
    const areaQ=await c.query(`
      select a.id

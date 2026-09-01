@@ -7,7 +7,7 @@ export const dynamic="force-dynamic";
 export default async function Page(){
  const c=await getPool().connect();
  try{
-  const [recipesQ,timeRulesQ]=await Promise.all([
+  const [recipesQ,timeRulesQ,columnsQ]=await Promise.all([
    c.query(`select r.recipe_key,r.process_family,r.recipe_group,r.recipe_no,r.recipe_name,r.batch_key,
                    coalesce((
                      select array_agg(x.standard_operation order by x.standard_operation)
@@ -35,6 +35,16 @@ export default async function Page(){
                    t.fixed_hours,t.standard_hours,t.note,
                    r.process_family,r.recipe_group,r.recipe_no,r.recipe_name,
                    coalesce((
+                     select jsonb_agg(jsonb_build_object(
+                       'id',cnd.id,
+                       'source_column',cnd.source_column,
+                       'source_value',cnd.source_value,
+                       'condition_order',cnd.condition_order
+                     ) order by cnd.condition_order,cnd.id)
+                     from md_recipe_time_rule_condition cnd
+                     where cnd.rule_id=t.id and cnd.is_active=true
+                   ),'[]'::jsonb) conditions,
+                   coalesce((
                      select array_agg(x.standard_operation order by x.standard_operation)
                      from (
                        select distinct z.standard_operation
@@ -53,7 +63,12 @@ export default async function Page(){
             from md_recipe_time_rule t
             join md_process_recipe r on r.recipe_key=t.recipe_key
             where t.is_active=true and r.is_active=true
-            order by r.process_family,r.recipe_group,r.recipe_no,t.priority,t.id`)
+            order by r.process_family,r.recipe_group,r.recipe_no,t.priority,t.id`),
+   c.query(`select source_column,count(*)::int value_count
+            from md_open_job_column_value
+            where is_active=true
+            group by source_column
+            order by source_column`)
   ]);
   return <main className="erp-shell">
    <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION</div></header>
@@ -64,12 +79,12 @@ export default async function Page(){
      <ConfigPageHeader
       title="Thời gian xử lý (Process)"
       subtitle="Main Operation → Recipe → Process Time — nguồn thời gian chuẩn dùng cho Planning và Board Điều Độ."
-      purpose="Định nghĩa thời gian xử lý của từng Recipe: Cố định hoặc theo khoảng Số lượng + Diện tích. Thời gian nhập theo HH:MM."
+      purpose="Định nghĩa thời gian xử lý của từng Recipe: Cố định hoặc theo khoảng Số lượng + Diện tích; mỗi rule có thể thêm nhiều điều kiện từ các cột All Open Job. Thời gian nhập theo HH:MM."
       impact="Khi tạo/thêm/bớt Job hoặc đổi Recipe, Process Time của Batch được tính lại. Duration trên Board Điều Độ vẫn có thể được planner chỉnh riêng mà không sửa rule chuẩn."
       prev={{label:"Thời gian Loading / Unloading",href:"/recipe-time-loading"}}
       next={{label:"Cột All Open Job (từ điển)",href:"/open-job-column-values"}}
      />
-     <ProcessTimeRuleManager recipes={recipesQ.rows as any} rules={timeRulesQ.rows as any}/>
+     <ProcessTimeRuleManager recipes={recipesQ.rows as any} rules={timeRulesQ.rows as any} columns={columnsQ.rows as any}/>
     </section>
    </div>
   </main>

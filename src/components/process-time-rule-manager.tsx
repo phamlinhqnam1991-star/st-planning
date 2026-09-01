@@ -14,6 +14,12 @@ type Recipe={
  batch_key:string;
  main_operations:string[];
 };
+type RuleCondition={
+ id?:number;
+ source_column:string;
+ source_value:string;
+ condition_order?:number;
+};
 type Rule={
  id:number;
  recipe_key:string;
@@ -31,7 +37,10 @@ type Rule={
  fixed_hours:number|null;
  standard_hours:number|null;
  note:string|null;
+ conditions:RuleCondition[];
 };
+type ColumnOption={source_column:string;value_count:number};
+type ValueOption={source_value:string;display_name:string};
 
 function hoursToHhmm(value:unknown){
  const hours=Number(value);
@@ -49,8 +58,19 @@ function operationText(x:{main_operations?:string[]}){
  const ops=operationsOf(x);
  return ops.length?ops.join(", "):"—";
 }
+function conditionText(conditions:RuleCondition[]|null|undefined){
+ const rows=Array.isArray(conditions)?conditions:[];
+ if(!rows.length)return "Mặc định / Không điều kiện";
+ return rows.map(x=>`${x.source_column} = ${x.source_value}`).join(" AND ");
+}
 
-export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:Rule[]}){
+export function ProcessTimeRuleManager({
+ recipes,rules,columns
+}:{
+ recipes:Recipe[];
+ rules:Rule[];
+ columns:ColumnOption[];
+}){
  const router=useRouter();
  const [busy,setBusy]=useState(false);
  const [calcType,setCalcType]=useState<"FIXED_HOURS"|"QTY_SURFACE">("FIXED_HOURS");
@@ -59,6 +79,10 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
  const [recipeKey,setRecipeKey]=useState("");
  const [edit,setEdit]=useState<Rule|null>(null);
  const [filter,setFilter]=useState("");
+ const [conditions,setConditions]=useState<RuleCondition[]>([]);
+ const [conditionValues,setConditionValues]=useState<Record<string,ValueOption[]>>({});
+ const [conditionTruncated,setConditionTruncated]=useState<Record<string,boolean>>({});
+ const [conditionLoading,setConditionLoading]=useState<Record<string,boolean>>({});
  const [f,setF]=useState({
    priority:"100",
    qty_min:"",
@@ -90,12 +114,30 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
      return (x.recipe_no||"").toUpperCase().includes(q) ||
             (x.recipe_name||"").toUpperCase().includes(q) ||
             x.recipe_group.toUpperCase().includes(q) ||
-            operationText(x).toUpperCase().includes(q);
+            operationText(x).toUpperCase().includes(q) ||
+            conditionText(x.conditions).toUpperCase().includes(q);
    });
  },[rules,operationFilter,familyFilter,calcType,filter]);
 
+ async function ensureValues(column:string){
+   if(!column||conditionValues[column]||conditionLoading[column])return;
+   setConditionLoading(x=>({...x,[column]:true}));
+   try{
+     const r=await fetch(`/api/process-recipe/time-rule/condition-options?column=${encodeURIComponent(column)}&limit=1000`,{cache:"no-store"});
+     const d=await safeJson(r);
+     if(!r.ok)throw new Error(d.error||"Không tải được giá trị Open Job.");
+     setConditionValues(x=>({...x,[column]:Array.isArray(d.rows)?d.rows:[]}));
+     setConditionTruncated(x=>({...x,[column]:Boolean(d.truncated)}));
+   }catch(e){
+     alert(e instanceof Error?e.message:String(e));
+   }finally{
+     setConditionLoading(x=>({...x,[column]:false}));
+   }
+ }
+
  function clear(){
    setEdit(null);
+   setConditions([]);
    setF({
     priority:"100",qty_min:"",qty_max:"",
     surface_min_dm2:"",surface_max_dm2:"",
@@ -116,6 +158,14 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
    const firstOp=operationsOf(r)[0];
    if(firstOp)setOperationFilter(firstOp);
    setFamilyFilter(r.process_family||"ALL");
+   const conds=(Array.isArray(r.conditions)?r.conditions:[]).map(x=>({
+    id:x.id,
+    source_column:x.source_column,
+    source_value:x.source_value,
+    condition_order:x.condition_order
+   }));
+   setConditions(conds);
+   conds.forEach(x=>{if(x.source_column)void ensureValues(x.source_column)});
    setF({
      priority:String(r.priority??100),
      qty_min:r.qty_min==null?"":String(r.qty_min),
@@ -129,10 +179,33 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
    window.scrollTo({top:0,behavior:"smooth"});
  }
 
+ function addCondition(){
+   if(conditions.length>=8)return alert("Mỗi rule được tối đa 8 cột điều kiện.");
+   setConditions(x=>[...x,{source_column:"",source_value:""}]);
+ }
+
+ function removeCondition(index:number){
+   setConditions(x=>x.filter((_,i)=>i!==index));
+ }
+
+ function changeConditionColumn(index:number,column:string){
+   setConditions(x=>x.map((row,i)=>i===index?{...row,source_column:column,source_value:""}:row));
+   if(column)void ensureValues(column);
+ }
+
+ function changeConditionValue(index:number,value:string){
+   setConditions(x=>x.map((row,i)=>i===index?{...row,source_value:value}:row));
+ }
+
  async function save(){
    if(!selectedRecipeKey)return alert("Chọn Recipe.");
    const timeValue=calcType==="FIXED_HOURS"?f.fixed_hours:f.standard_hours;
    if(!validHhmm(timeValue))return alert("Thời gian phải nhập theo HH:MM, ví dụ 07:30.");
+   if(conditions.some(x=>!x.source_column||!x.source_value))
+     return alert("Điều kiện Open Job phải chọn đủ Cột và Giá trị, hoặc xóa dòng điều kiện chưa dùng.");
+   const cols=conditions.map(x=>x.source_column.toUpperCase());
+   if(new Set(cols).size!==cols.length)
+     return alert("Không được chọn lặp cùng một cột trong một Time Rule.");
 
    const body={
      ...(edit?{id:edit.id}:{}),
@@ -145,7 +218,12 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
      surface_max_dm2:f.surface_max_dm2,
      fixed_hours:f.fixed_hours,
      standard_hours:f.standard_hours,
-     note:f.note
+     note:f.note,
+     conditions:conditions.map((x,i)=>({
+      source_column:x.source_column,
+      source_value:x.source_value,
+      condition_order:i+1
+     }))
    };
 
    setBusy(true);
@@ -186,7 +264,7 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
    <div className="erp-table-panel">
     <div className="erp-panel-head">
       <b>Thời gian xử lý (Process)</b>
-      <span>Main Operation → Recipe → Rule · Mỗi Recipe chỉ dùng một kiểu tính active · thời gian nhập HH:MM</span>
+      <span>Main Operation → Recipe → Rule · Có thể thêm nhiều cột điều kiện All Open Job · điều kiện dùng AND · thời gian HH:MM</span>
     </div>
 
     <div className="time-family-tabs">
@@ -242,7 +320,7 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
 
       <label className="process-time-note">
        Note
-       <input className="input" value={f.note} placeholder="Ghi chú / điều kiện" onChange={e=>setF({...f,note:e.target.value})}/>
+       <input className="input" value={f.note} placeholder="Ghi chú" onChange={e=>setF({...f,note:e.target.value})}/>
       </label>
 
       <div className="process-time-actions">
@@ -250,6 +328,56 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
         {edit?"Lưu thay đổi":"Thêm rule thời gian"}
        </button>
        {edit&&<button className="btn" onClick={clear}>Hủy</button>}
+      </div>
+
+      <div className="process-condition-editor">
+       <div className="process-condition-head">
+        <div>
+         <b>Điều kiện theo All Open Job <span className="muted">(tùy chọn)</span></b>
+         <div className="muted">Không thêm điều kiện = rule mặc định/fallback. Nhiều cột = AND. Rule match nhiều điều kiện hơn được ưu tiên trước Priority.</div>
+        </div>
+        <button type="button" className="btn small" onClick={addCondition}>+ Thêm cột điều kiện</button>
+       </div>
+
+       {conditions.map((cond,index)=>{
+        const values=conditionValues[cond.source_column]||[];
+        const hasCurrent=values.some(x=>x.source_value===cond.source_value);
+        return <div className="process-condition-row" key={`${index}-${cond.source_column}`}>
+         <label>
+          Cột Open Job {index+1}
+          <select className="input" value={cond.source_column} onChange={e=>changeConditionColumn(index,e.target.value)}>
+           <option value="">-- Chọn cột --</option>
+           {columns.map(c=>{
+            const selectedElsewhere=conditions.some((x,i)=>i!==index&&x.source_column===c.source_column);
+            return <option key={c.source_column} value={c.source_column} disabled={selectedElsewhere}>
+             {c.source_column} ({c.value_count})
+            </option>
+           })}
+          </select>
+         </label>
+
+         <label>
+          Giá trị unique
+          <select
+           className="input"
+           value={cond.source_value}
+           disabled={!cond.source_column||Boolean(conditionLoading[cond.source_column])}
+           onChange={e=>changeConditionValue(index,e.target.value)}
+          >
+           <option value="">{conditionLoading[cond.source_column]?"Đang tải...":"-- Chọn giá trị --"}</option>
+           {cond.source_value&&!hasCurrent&&<option value={cond.source_value}>{cond.source_value}</option>}
+           {values.map(v=><option key={v.source_value} value={v.source_value}>
+            {v.display_name===v.source_value?v.source_value:`${v.display_name} · ${v.source_value}`}
+           </option>)}
+          </select>
+          {conditionTruncated[cond.source_column]&&<span className="process-condition-warning">Hiển thị 1000 giá trị đầu tiên của cột này.</span>}
+         </label>
+
+         <button type="button" className="btn danger-btn small process-condition-remove" onClick={()=>removeCondition(index)}>Xóa</button>
+        </div>
+       })}
+
+       {!conditions.length&&<div className="process-condition-empty">Rule này đang áp dụng cho mọi Job của Recipe nếu không có rule điều kiện cụ thể hơn match.</div>}
       </div>
     </div>
    </div>
@@ -259,7 +387,7 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
       <b>Time Rules · {calcType==="FIXED_HOURS"?"Cố định":"Qty + Surface"}</b>
       <div className="row">
        <span>{visible.length} active rules</span>
-       <input className="input process-time-filter" value={filter} placeholder="Tìm operation / recipe..." onChange={e=>setFilter(e.target.value)}/>
+       <input className="input process-time-filter" value={filter} placeholder="Tìm operation / recipe / điều kiện..." onChange={e=>setFilter(e.target.value)}/>
       </div>
     </div>
 
@@ -270,6 +398,7 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
         <th>Process Family</th>
         <th>Recipe No.</th>
         <th>Recipe Name</th>
+        <th>Điều kiện Open Job</th>
         <th>Ưu tiên</th>
         {calcType==="QTY_SURFACE"&&<><th>Qty Min</th><th>Qty Max</th><th>dm² Min</th><th>dm² Max</th></>}
         <th>Process</th>
@@ -282,6 +411,7 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
         <td>{r.process_family}</td>
         <td className="mono">{r.recipe_no||"—"}</td>
         <td><b>{r.recipe_name||"CHƯA KHAI BÁO"}</b></td>
+        <td className="process-condition-cell">{conditionText(r.conditions)}</td>
         <td className="num mono">{r.priority}</td>
         {calcType==="QTY_SURFACE"&&<>
          <td className="num">{r.qty_min??"—"}</td><td className="num">{r.qty_max??"—"}</td>
@@ -294,7 +424,7 @@ export function ProcessTimeRuleManager({recipes,rules}:{recipes:Recipe[];rules:R
           <button className="btn danger-btn small" onClick={()=>remove(r)}>Ngưng</button>
         </div></td>
        </tr>)}
-       {!visible.length&&<tr><td colSpan={calcType==="QTY_SURFACE"?12:8} className="muted">Chưa có Time Rule phù hợp bộ lọc.</td></tr>}
+       {!visible.length&&<tr><td colSpan={calcType==="QTY_SURFACE"?13:9} className="muted">Chưa có Time Rule phù hợp bộ lọc.</td></tr>}
       </tbody>
      </table>
     </div>

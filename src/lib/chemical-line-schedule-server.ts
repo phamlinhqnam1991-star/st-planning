@@ -1,4 +1,5 @@
 import type {PoolClient} from "pg";
+import {selectProcessMinutesFromRules,type ProcessTimeRuleRow} from "@/lib/planning/batch-utils";
 import {
  buildChemicalScheduleWindow,
  isPrecleanRecipe,
@@ -446,17 +447,26 @@ export async function simulateChemicalDay(
 ):Promise<SimulatedRun[]>{
  if(!runs.length)return [];
 
- const [handlingQ,timeRulesQ,recipesQ,existingQ,maxConcQ,opMapQ,fbQ]=await Promise.all([
+ const batchIds=[...new Set(runs.map(r=>Number(r.batch_id)).filter(Number.isFinite))];
+ const [handlingQ,timeRulesQ,recipesQ,existingQ,maxConcQ,opMapQ,fbQ,batchJobDataQ]=await Promise.all([
   client.query(`
    select id,phase,priority,qty_min,qty_max,surface_min_dm2,surface_max_dm2,duration_minutes
    from md_chemical_handling_time_rule
    where is_active=true order by priority,id
   `),
   client.query(`
-   select recipe_key,calc_type,priority,qty_min,qty_max,
-          surface_min_dm2,surface_max_dm2,fixed_hours,standard_hours
-   from md_recipe_time_rule
-   where is_active=true
+   select t.id,t.recipe_key,t.calc_type,t.priority,t.qty_min,t.qty_max,
+          t.surface_min_dm2,t.surface_max_dm2,t.fixed_hours,t.standard_hours,
+          coalesce((
+            select jsonb_agg(jsonb_build_object(
+              'source_column',cnd.source_column,
+              'source_value',cnd.source_value
+            ) order by cnd.condition_order,cnd.id)
+            from md_recipe_time_rule_condition cnd
+            where cnd.rule_id=t.id and cnd.is_active=true
+          ),'[]'::jsonb) conditions
+   from md_recipe_time_rule t
+   where t.is_active=true
   `),
   client.query(`
    select recipe_key,recipe_no,recipe_name
@@ -488,7 +498,16 @@ export async function simulateChemicalDay(
    from md_schedule_resource
    where resource_group='CHEMICAL_LINE' and is_active=true
    order by resource_code
-  `)
+  `),
+  batchIds.length?client.query(`
+   select bj.batch_id,b.total_qty,b.total_surface_dm2,
+          coalesce(j.source_data,'{}'::jsonb) || (to_jsonb(j)-'source_data') condition_data
+   from planning_batch_job bj
+   join planning_batch b on b.id=bj.batch_id
+   join open_job_current j on j.job_num=bj.job_num
+   where bj.batch_id=any($1::bigint[])
+   order by bj.batch_id,bj.id
+  `,[batchIds]):Promise.resolve({rows:[]} as any)
  ]);
 
  const handlingRules=handlingQ.rows as ChemicalHandlingRule[];
@@ -514,17 +533,44 @@ export async function simulateChemicalDay(
   return list[0];
  };
 
- // Process minutes theo recipe: FIXED_HOURS trước, rồi QTY_SURFACE (khoảng Qty/Surface).
- const processMinutesFor=(recipeKey:string):number=>{
-  const rules=(timeRulesQ.rows as any[]).filter(r=>r.recipe_key===recipeKey);
-  const fixed=rules.filter(r=>r.calc_type==="FIXED_HOURS").sort((a,b)=>a.priority-b.priority||a.id-b.id)[0];
-  if(fixed&&Number.isFinite(Number(fixed.fixed_hours)))
-   return Math.round(Number(fixed.fixed_hours)*60);
-  const qs=rules.filter(r=>r.calc_type==="QTY_SURFACE"&&(r.qty_min==null||0>=Number(r.qty_min))&&(r.qty_max==null||0<=Number(r.qty_max))&&(r.surface_min_dm2==null||0>=Number(r.surface_min_dm2))&&(r.surface_max_dm2==null||0<=Number(r.surface_max_dm2)))
-   .sort((a,b)=>a.priority-b.priority||a.id-b.id)[0];
-  if(qs&&Number.isFinite(Number(qs.standard_hours)))
-   return Math.round(Number(qs.standard_hours)*60);
-  return 0;
+ // Process minutes theo Recipe + điều kiện All Open Job của Batch.
+ // Simulation chưa có Qty/Surface chi tiết nên vẫn dùng 0/0 như logic cũ;
+ // riêng điều kiện cột sẽ match theo toàn bộ Job của batch_id nếu có.
+ const processJobDataByBatch=new Map<number,Record<string,unknown>[]>();
+ const processTotalsByBatch=new Map<number,{qty:number;surface:number}>();
+ for(const row of batchJobDataQ.rows as any[]){
+  const id=Number(row.batch_id);
+  if(!Number.isFinite(id))continue;
+  const list=processJobDataByBatch.get(id)||[];
+  list.push((row.condition_data||{}) as Record<string,unknown>);
+  processJobDataByBatch.set(id,list);
+  if(!processTotalsByBatch.has(id)){
+   processTotalsByBatch.set(id,{
+    qty:Number(row.total_qty)||0,
+    surface:Number(row.total_surface_dm2)||0
+   });
+  }
+ }
+ const allTimeRules=(timeRulesQ.rows as any[]).map(r=>({
+  ...r,
+  id:Number(r.id),
+  priority:Number(r.priority)||100,
+  qty_min:r.qty_min==null?null:Number(r.qty_min),
+  qty_max:r.qty_max==null?null:Number(r.qty_max),
+  surface_min_dm2:r.surface_min_dm2==null?null:Number(r.surface_min_dm2),
+  surface_max_dm2:r.surface_max_dm2==null?null:Number(r.surface_max_dm2),
+  fixed_hours:r.fixed_hours==null?null:Number(r.fixed_hours),
+  standard_hours:r.standard_hours==null?null:Number(r.standard_hours),
+  conditions:Array.isArray(r.conditions)?r.conditions:[]
+ })) as ProcessTimeRuleRow[];
+ const processMinutesFor=(recipeKey:string,batchId:unknown):number=>{
+  const rules=allTimeRules.filter(r=>r.recipe_key===recipeKey);
+  const id=Number(batchId);
+  const totals=Number.isFinite(id)?processTotalsByBatch.get(id):null;
+  return selectProcessMinutesFromRules(
+   rules,totals?.qty||0,totals?.surface||0,
+   Number.isFinite(id)?(processJobDataByBatch.get(id)||[]):[]
+  )||0;
  };
 
  // Trạng thái hiện có (đã lưu).
@@ -654,7 +700,7 @@ export async function simulateChemicalDay(
   if(!loading||!unloading)
    throw new Error(`Lô ${idx+1} (${meta.recipe_no||recipeKey}): chưa cấu hình Loading/Unloading Time phù hợp (Qty 0).`);
 
-  const processMinutes=processMinutesFor(recipeKey);
+  const processMinutes=processMinutesFor(recipeKey,runs[idx].batch_id);
   if(processMinutes<=0)
    throw new Error(`Lô ${idx+1} (${meta.recipe_no||recipeKey}): chưa cấu hình Process Time cho recipe này.`);
 
