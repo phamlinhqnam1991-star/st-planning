@@ -4,7 +4,7 @@ import {substituteTemplate} from "@/lib/batch-key-recipe";
 import {bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
 import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
-import {resolveProcessMinutes} from "@/lib/planning/batch-utils";
+import {resolveProcessMinutes,recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
 import {assertSameRecipeConditionGroup} from "@/lib/planning/batch-compatibility";
 
 import {requireApiUser} from "@/lib/api-auth";
@@ -529,6 +529,11 @@ export async function POST(req:NextRequest){
 
      await insertBatchJobs(c,targetBatch.id,q.rows);
      await markOpsPlanned(c,q.rows.map((r:any)=>r.id),recipeKey);
+     // v342: UNSCHEDULED Batch is already a valid handoff. Unlock only the
+     // immediate next Main; all later Main Planning operations remain WAIT.
+     for(const r of q.rows){
+       await recomputeJobPlanningStatus(c,String(r.job_num||""));
+     }
 
      const totalsQ=await c.query(`
       select
@@ -718,6 +723,11 @@ export async function POST(req:NextRequest){
 
    await insertBatchJobs(c,batchId,q.rows);
    await markOpsPlanned(c,q.rows.map((r:any)=>r.id),recipeKey);
+   // v342: creating a Batch (still UNSCHEDULED) unlocks only the immediate
+   // next Main Planning operation for each Job. Next-next stays WAIT.
+   for(const r of q.rows){
+     await recomputeJobPlanningStatus(c,String(r.job_num||""));
+   }
 
    const affectedJobNums=q.rows.map((r:any)=>String(r.job_num||"")).filter(Boolean);
    const batchTarget=await loadBatchTarget(c,Number(batchId));

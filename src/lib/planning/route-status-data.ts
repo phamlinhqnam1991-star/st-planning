@@ -352,11 +352,14 @@ export async function loadPlanningRouteStatus(c:any,candidateIds:number[]){
                    then 'PLANNED-UNSCHEDULED'
                  when upper(coalesce(planning_job_status,''))='PLANNED'
                    then 'PLANNED-UNSCHEDULED'
-                 else 'READY'
+                 when upper(coalesce(planning_job_status,''))='ELIGIBLE'
+                   then 'READY'
+                 else 'WAITING'
                end
 
-             -- v312 plan-ahead: every Main after Current is READY by default.
-             -- Existing Batch/Schedule state still has higher display priority.
+             -- v342 sequential gating: future Main(s) are WAITING unless the
+             -- exact planning row has been unlocked to ELIGIBLE. Existing
+             -- Batch/Schedule history still has higher display priority.
              when ready_source_seq is not null
               and source_seq > ready_source_seq
                then case
@@ -375,7 +378,9 @@ export async function loadPlanningRouteStatus(c:any,candidateIds:number[]){
                    then 'PLANNED-UNSCHEDULED'
                  when upper(coalesce(planning_job_status,''))='PLANNED'
                    then 'PLANNED-UNSCHEDULED'
-                 else 'READY'
+                 when upper(coalesce(planning_job_status,''))='ELIGIBLE'
+                   then 'READY'
+                 else 'WAITING'
                end
 
              -- Legacy fallback only if a ready position cannot be found.

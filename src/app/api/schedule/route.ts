@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import {assertResourceAndChemicalCapacity,chemicalScheduleColumns,resolveChemicalScheduleWindow} from "@/lib/chemical-line-schedule-server";
+import {recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
 
 import {requireApiUser} from "@/lib/api-auth";
 function asDate(v:any){const d=new Date(v);return Number.isNaN(d.getTime())?null:d}
@@ -141,8 +142,19 @@ export async function POST(req:Request){
     where id=$1
   `,[batchId,effectiveStart,end]);
 
-  // v312: Scheduling no longer unlocks later Main(s); they are already
-  // plan-ahead READY. Schedule only records the actual state of this Batch.
+  // v342: SCHEDULED is a valid handoff just like PLANNED-UNSCHEDULED.
+  // Recompute every Job in this Batch so exactly the immediate next unplanned
+  // Main becomes READY and every later Main stays WAIT.
+  const handoffJobsQ=await c.query(`
+    select distinct job_num
+    from planning_batch_job
+    where batch_id=$1
+      and nullif(trim(job_num),'') is not null
+  `,[batchId]);
+  for(const row of handoffJobsQ.rows){
+    await recomputeJobPlanningStatus(c,String(row.job_num||""));
+  }
+
   await c.query("commit");
   return NextResponse.json({ok:true,schedule:iq.rows[0]});
  }catch(e:any){

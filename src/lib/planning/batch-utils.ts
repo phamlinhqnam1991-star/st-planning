@@ -355,12 +355,23 @@ export async function recomputeJobPlanningStatus(c:PoolClient,jobNum:string){
    order by p.planning_seq,p.source_seq,p.id
  `,[jobNum]);
 
- // v312: syncPlanningChains() already resolved physical position from
- // LastLaborOp + NextOperation and keeps only Current Main + future Main(s)
- // active. Every active unbatched Main is plan-ahead READY. Batch/Schedule
- // history changes the displayed/working state but never gates later Main(s).
+ // v342: sequential READY. The active suffix starts at the physical Current
+ // Main, so the first unplanned Main is READY. Every later unplanned Main stays
+ // LOCKED until the continuous previous chain has a non-cancelled Batch.
+ // A Batch may be UNSCHEDULED or SCHEDULED; both count as planned handoff.
+ // Historical out-of-sequence PLANNED rows are preserved but never reopen a
+ // gate that was already closed by an earlier unplanned Main.
+ let sequentialGateOpen=true;
  for(const r of q.rows){
-   const status=Boolean(r.is_planned)?"PLANNED":"ELIGIBLE";
+   let status:string;
+   if(Boolean(r.is_planned)){
+     status="PLANNED";
+   }else if(sequentialGateOpen){
+     status="ELIGIBLE";
+     sequentialGateOpen=false;
+   }else{
+     status="LOCKED";
+   }
 
    if(r.status===status)continue;
 

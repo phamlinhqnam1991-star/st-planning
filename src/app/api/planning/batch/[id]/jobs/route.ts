@@ -409,8 +409,9 @@ export async function POST(
      throw new Error(`Thêm Job làm thay đổi thời gian Chemical Line: ${e instanceof Error?e.message:String(e)}`);
    });
 
-   // v312: No Schedule handoff is needed. Current + future Main(s) are
-   // already plan-ahead READY; this exact operation remains PLANNED.
+   // v342: recomputeJobPlanningStatus above performs the sequential handoff:
+   // this exact operation stays PLANNED, only the immediate next unplanned
+   // Main becomes READY, and all later Main(s) stay WAIT.
 
    for(const r of q.rows){
      await createCrossPlannerEvent(c,{

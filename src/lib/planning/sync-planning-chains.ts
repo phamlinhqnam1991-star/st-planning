@@ -314,10 +314,10 @@ function allOperationFallbackAnchor(
   }
  }
  if(byTarget.size!==1){
-  // v335: AMBIGUOUS fallback — cặp LastLaborOp + NextOperation khớp trong
+  // v342: AMBIGUOUS fallback — cặp LastLaborOp + NextOperation khớp trong
   // AllOperation nhưng dẫn tới NHIỀU occurrence Main khác nhau. Thay vì
-  // NO CHAIN, mở plan-ahead READY cho mọi Main từ occurrence sớm nhất trong
-  // tập candidate trở đi; Main nào đã có Batch thì vẫn PLANNED theo lịch sử.
+  // NO CHAIN, bắt đầu chain từ occurrence sớm nhất; sequential gating bên dưới
+  // chỉ mở READY cho Main đầu tiên hợp lệ, các Main sau giữ WAIT.
   // Các trường hợp NO CHAIN khác (NextOperation trống, route không có Main,
   // Bridge mơ hồ) giữ nguyên NO CHAIN.
   const targets=[...byTarget.values()].map(x=>x.target);
@@ -327,7 +327,7 @@ function allOperationFallbackAnchor(
    mode:"ALLOPERATION_AMBIGUOUS",
    targetInstanceKey:null,
    requiredPreviousInstanceKey:null,
-   reason:`Pair ${lastOperation} -> ${nextOperation} is ambiguous: ${byTarget.size} distinct Main occurrences (${targets.map(t=>`${t.standardOperation} (${t.sourceCode}) #${t.sourceSeq}`).join(", ")}); opened all Main(s) from the earliest occurrence as READY (plan-ahead v335)`
+   reason:`Pair ${lastOperation} -> ${nextOperation} is ambiguous: ${byTarget.size} distinct Main occurrences (${targets.map(t=>`${t.standardOperation} (${t.sourceCode}) #${t.sourceSeq}`).join(", ")}); chain starts from the earliest occurrence and uses sequential READY gating`
   };
  }
 
@@ -984,21 +984,19 @@ export async function syncPlanningChains(c:PoolClient){
 
    const chain=planningChainFromAnchor(full,anchor);
 
-   // v312 PLAN-AHEAD STATUS RULE:
-   // Physical position has already been resolved from LastLaborOp + NextOperation.
-   // Therefore every active Main in `chain` is either the Current Main or a
-   // future Next Main and is READY by default. This intentionally allows the
-   // planner to create Batches ahead of the current production position.
+   // v342 SEQUENTIAL READY RULE:
+   // The live chain already starts at the physical Current Main resolved from
+   // LastLaborOp + NextOperation. Only ONE unplanned Main may be READY at a
+   // time. A later Main opens only after every previous active Main in the
+   // continuous chain has a non-cancelled Batch (UNSCHEDULED/SCHEDULED) or has
+   // moved behind the physical anchor (DONE and therefore no longer in chain).
    //
-   // Status precedence for Current + future Main(s):
-   // 1. Existing non-cancelled Batch membership => PLANNED.
-   // 2. Otherwise => ELIGIBLE (shown as READY).
-   //
-   // Main(s) before Current are not part of this active suffix. Route Matrix
-   // displays their actual Batch/Schedule history when present; if there is no
-   // history, progress position itself marks them DONE. No Schedule handoff is
-   // required to make later Main(s) READY.
+   // Existing historical Batch membership is preserved as PLANNED, but an old
+   // out-of-sequence future Batch must not punch through an earlier unplanned
+   // gap and unlock another future Main. This keeps: READY -> WAIT -> WAIT...
+   // until the READY Main is put into a Batch.
 
+   let sequentialGateOpen=true;
    for(let i=0;i<chain.length;i++){
      const op=chain[i];
      const old=existing.get(op.instanceKey);
@@ -1011,9 +1009,15 @@ export async function syncPlanningChains(c:PoolClient){
      if(historicalPlanned){
        status="PLANNED";
        preservedPlanned++;
-     }else{
+       // Preserve the gate state. If an earlier gap already closed the gate,
+       // historical plan-ahead data must not reopen it.
+     }else if(sequentialGateOpen){
        status="ELIGIBLE";
        eligible++;
+       sequentialGateOpen=false;
+     }else{
+       status="LOCKED";
+       locked++;
      }
 
      let recipeKey:string|null=null;

@@ -1853,10 +1853,10 @@ const currentPriorityMonth=useMemo(()=>{
    [selectedTargets]
  );
 
- // v290: Tổng hợp Recipe theo CHÍNH Planning Operation target đang được chọn.
- // Candidate row chỉ là dòng đại diện để hiển thị; với plan-ahead v312, checkbox/cell
- // có thể trỏ tới bất kỳ Current/Next Planning Job Operation đang READY (vd row CPBILP nhưng target TSAUNSLD).
- // Không được dùng candidate.effective_recipe_key trong trường hợp đó.
+ // v342: Tổng hợp Recipe theo CHÍNH Planning Operation target đang được chọn.
+ // Candidate row chỉ là dòng đại diện để hiển thị; checkbox/cell có thể trỏ tới
+ // Current Main hoặc immediate-next Main đang READY. Các Main sau đó luôn WAIT.
+ // Không được dùng candidate.effective_recipe_key khi target là Main khác.
  const selectedRecipeTargets=useMemo(()=>selectedTargets.map(target=>{
    const routeItem=target.routeItem;
    const exactCandidateTarget=
@@ -1973,8 +1973,8 @@ const currentPriorityMonth=useMemo(()=>{
  },[selectedTargets,standardOperation]);
 
  // Single source for row/checkbox/drag selection:
- // a Candidate row may be PLANNED at Current Main while any later Main remains
- // READY for plan-ahead. Route-cell selection must therefore target the exact occurrence.
+ // a Candidate row may be PLANNED at Current Main while ONLY the immediate
+ // next unlocked Main is READY; later Main(s) remain WAIT. Route-cell selection must therefore target the exact occurrence.
  const computeSelectableTarget=(row:Candidate)=>{
    const route=(row.route_status||[])
     .filter(r=>r.standard_operation&&normalized(r.standard_operation)!=="PIONBL")
@@ -2538,7 +2538,7 @@ const currentPriorityMonth=useMemo(()=>{
    const canSelect=Boolean(target)&&!compatLocked;
    const display=
     status==="PLANNED-UNSCHEDULED"?"PLANNED":
-    status==="WAITING"?"WAIT PREV":
+    status==="WAITING"?"WAIT":
     view.status;
 
    return <td
@@ -2719,14 +2719,14 @@ const currentPriorityMonth=useMemo(()=>{
    if(Number(item.source_seq)===immediate){
     return {
      label:"WAIT",
-     reason:"Chain chưa được chuẩn hóa theo plan-ahead v312; hãy Rebuild Chain hoặc kiểm tra route.",
+     reason:"Previous Main Planning chưa DONE / SCHEDULED / UNSCHEDULED.",
      kind:"route-status-wait-prev"
     };
    }
 
    return {
     label:"WAIT",
-    reason:"Future Main Operation",
+    reason:"Next Main Planning chưa tới lượt. Chỉ Main ngay sau handoff mới được READY.",
     kind:"route-status-wait-future"
    };
  }
