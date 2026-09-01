@@ -156,7 +156,7 @@ export async function POST(req:Request){
   return NextResponse.json({error:"Cần Operation Code và loại Operation hợp lệ."},{status:400});
  if(operationType==="PLANNING_OPERATION"&&(!standard||!stGroup||!areaId||!scheduleArea||!RULES.has(mappingRule)||!["1","2"].includes(plannerOwner)))
   return NextResponse.json({error:"Planning Operation bắt buộc đủ Main Operation → ST Group → Physical Area → Schedule Area → Planner."},{status:400});
- if(sourceOrder!==null&&!Number.isInteger(sourceOrder))return NextResponse.json({error:"Source Planning Order phải là số nguyên."},{status:400});
+ if(sourceOrder!==null&&!Number.isInteger(sourceOrder))return NextResponse.json({error:"Next Op Sort phải là số nguyên."},{status:400});
  if(operationType==="PLANNING_OPERATION"&&mainOrder!==null&&!Number.isInteger(mainOrder))return NextResponse.json({error:"Main Planning Order phải là số nguyên."},{status:400});
  if(operationType==="PLANNING_OPERATION"&&batchPrefix&&!/^[A-Z0-9]{3}$/.test(batchPrefix))return NextResponse.json({error:"Batch Prefix phải đúng 3 ký tự."},{status:400});
 

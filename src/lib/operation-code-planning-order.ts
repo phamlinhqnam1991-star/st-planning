@@ -1,6 +1,7 @@
 /**
- * Global production priority for raw Operation Code / NextOperation.
- * Independent from Job routing and Standard Operation mapping.
+ * Next Operation Sort Order for RAW Operation Code / NextOperation.
+ * Applies to Planning, ST_SCOPE_ONLY and Bridge Intermediate codes.
+ * Independent from Main Planning Order, READY/WAIT and Planning Chain.
  * Shared seam for Candidate sorting now and Auto Planning later.
  */
 export async function ensureOperationCodePlanningOrderSchema(client:any){

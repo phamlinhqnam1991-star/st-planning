@@ -24,7 +24,7 @@ export async function POST(req:Request){
    return NextResponse.json({error:"Thiếu Operation Code."},{status:400});
 
   if(order!==null && (!Number.isInteger(order)||order<0))
-   return NextResponse.json({error:"Planning Order phải là số nguyên >= 0."},{status:400});
+   return NextResponse.json({error:"Next Op Sort phải là số nguyên >= 0."},{status:400});
 
   c=await getPool().connect();
   await c.query("begin");
@@ -70,26 +70,37 @@ export async function POST(req:Request){
     });
   }
 
-  // Default: update Planning Order of an existing active Operation Code.
+  // Next Op Sort belongs to the RAW Operation Code only.
+  // It is intentionally independent from Main Planning Order / READY-WAIT / Planning Chain.
+  // Therefore changing this number MUST NOT rebuild or remap Planning Chain.
   const q=await c.query(`
    update public.md_operation
-      set planning_sort_order=$2
+      set planning_sort_order=$2,
+          operation_name=coalesce(nullif(trim(operation_name),''),$3),
+          is_active=true
     where upper(trim(operation_code))=$1
-      and is_active=true
     returning operation_code,operation_name,planning_sort_order
-  `,[operationCode,order]);
+  `,[operationCode,order,operationName]);
 
+  let row:any=q.rows[0];
   if(!q.rowCount){
-    await c.query("rollback");
-    return NextResponse.json({error:`Không tìm thấy Operation Code ${operationCode}.`},{status:404});
+    const ins=await c.query(`
+      insert into public.md_operation(operation_code,operation_name,planning_sort_order,is_active)
+      values($1,$2,$3,true)
+      returning operation_code,operation_name,planning_sort_order
+    `,[operationCode,operationName,order]);
+    row=ins.rows[0];
   }
 
-  // User requirement: every add/remove/order change remaps/syncs all.
-  const sync=await remapAll(c);
   await c.query("commit");
   invalidatePlanningStaticData();
   invalidateConfigHealth();
-  return NextResponse.json({ok:true,action:"set-order",row:q.rows[0],sync});
+  return NextResponse.json({
+    ok:true,
+    action:action==="set-next-op-sort"?"set-next-op-sort":"set-order",
+    row,
+    note:"Next Op Sort chỉ dùng để sắp xếp RAW NextOperation; không rebuild Planning Chain."
+  });
  }catch(e){
   if(c){try{await c.query("rollback")}catch{}}
   return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500});

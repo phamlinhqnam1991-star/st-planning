@@ -10,7 +10,7 @@ type Row={
  operation_code:string;
  operation_name:string|null;
  planning_sort_order:number|null;
- operation_type:"PLANNING_OPERATION"|"ST_SCOPE_ONLY";
+ operation_type:"PLANNING_OPERATION"|"BRIDGE_INTERMEDIATE"|"ST_SCOPE_ONLY";
 };
 
 export function OperationCodeOrderManager({rows}:{rows:Row[]}){
@@ -46,18 +46,18 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
   setMessage("");
   try{
    const d=await request({
-    action:"set-order",
+    action:"set-next-op-sort",
     operation_code:operationCode,
     planning_sort_order:value.trim()===""?null:Number(value)
    });
 
    setMessage(
-    `Đã lưu ${operationCode} = ${d.row.planning_sort_order??"chưa gán"} và mapping/sync lại toàn bộ.`
+    `Đã lưu Next Op Sort ${operationCode} = ${d.row.planning_sort_order??"chưa gán"}. Không thay đổi Planning Chain.`
    );
    setEditing(null);
    refreshConfigPage(router);
   }catch(e){
-   setMessage(e instanceof Error?e.message:"Không lưu được Planning Order.");
+   setMessage(e instanceof Error?e.message:"Không lưu được Next Op Sort.");
   }finally{
    setBusy(false);
   }
@@ -124,9 +124,9 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
  return <div className="section">
   <div className="erp-panel-head" style={{marginBottom:8}}>
    <div>
-    <b>ST Scope & Operation Code Order</b>
+    <b>ST Scope & Next Operation Sort</b>
     <small className="planning-sub">
-     Trang này chỉ chỉnh ST Scope và thứ tự RAW NextOperation. Thêm mới đầy đủ dùng ST Operation Flow.
+     Next Op Sort áp dụng cho cả Planning và Intermediate, chỉ dùng khi sort RAW NextOperation trên Planning Board. Thêm mới đầy đủ dùng ST Operation Flow.
     </small>
    </div>
    <button className="btn primary" type="button" disabled={busy} onClick={()=>router.push("/st-operation-flow")}>＋ Add / Configure Full Flow</button>
@@ -142,7 +142,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
    <table className="erp-table">
     <thead>
      <tr>
-      <th>Thứ tự</th>
+      <th>Next Op Sort</th>
      <th>Mã công đoạn</th>
      <th>Tên công đoạn</th>
       <th>Loại</th>
@@ -167,7 +167,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
        </td>
        <td><b>{row.operation_code}</b></td>
        <td>{row.operation_name||"—"}</td>
-       <td><b>{row.operation_type==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":"Planning"}</b></td>
+       <td><b>{row.operation_type==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":row.operation_type==="BRIDGE_INTERMEDIATE"?"Intermediate":"Planning"}</b></td>
        <td>
         {editing===row.operation_code
          ? <div className="row">
@@ -176,7 +176,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
            </div>
          : <div className="row">
             <button className="btn small" type="button" disabled={busy} onClick={()=>begin(row)}>Đặt thứ tự</button>
-            <button
+            {row.operation_type!=="BRIDGE_INTERMEDIATE"&&<button
              className="btn small"
              type="button"
              disabled={busy}
@@ -184,7 +184,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
              style={{borderColor:"#dc2626",color:"#b91c1c"}}
             >
              Bỏ khỏi ST
-            </button>
+            </button>}
            </div>}
        </td>
       </tr>

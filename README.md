@@ -341,3 +341,8 @@ Batch/Schedule history không bị xóa.
 ## v308 — Current Main theo LastLaborOp + NextOperation
 
 Planning Chain/Candidate định vị vị trí Job chỉ bằng cặp `LastLaborOp + NextOperation` từ All Open Job. Cặp này được match trực tiếp trong `AllOperation` hoặc trong Auto Intermediate Bridge ACTIVE. Không còn fallback dùng một field đơn lẻ hay Schedule history để đoán Current Main. Candidate lấy row đầu của live chain làm Current Main; các Main phía sau vẫn chọn được trong Route Matrix để tạo Batch. Không cần migration mới.
+
+### V345 · Next Operation Sort
+- `Next Op Sort` được quản lý ở cấp RAW Operation Code (`md_operation.planning_sort_order`) và dùng để sort `NextOperation` trên Planning Board.
+- Cho phép đặt thứ tự cho cả Planning Operation, ST_SCOPE_ONLY và Bridge Intermediate.
+- Độc lập hoàn toàn với Main Planning Order / READY-WAIT / Planning Chain; đổi Next Op Sort không rebuild chain.

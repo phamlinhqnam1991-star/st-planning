@@ -50,6 +50,8 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
  const [search,setSearch]=useState("");
+ const [nextOpSortEditing,setNextOpSortEditing]=useState<string|null>(null);
+ const [nextOpSortValue,setNextOpSortValue]=useState("");
  const [bridgeRun,setBridgeRun]=useState<BridgeRun|null>(null);
  const [bridgeBatch,setBridgeBatch]=useState<{start:number|null;end:number|null}|null>(null);
  const [manualBridge,setManualBridge]=useState<ManualBridgeForm>(emptyManualBridge);
@@ -79,6 +81,37 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
  const shownBridgeSegments=useMemo(()=>bridgeSourceFilter==="ALL"?bridgeSegments:bridgeSegments.filter(x=>x.source===bridgeSourceFilter),[bridgeSegments,bridgeSourceFilter]);
  const autoBridgeCount=bridgeSegments.filter(x=>x.source==="AUTO_ROUTING").length;
  const manualBridgeCount=bridgeSegments.filter(x=>x.source==="MANUAL").length;
+
+ const beginNextOpSort=(r:FlowRow)=>{
+  setNextOpSortEditing(r.operation_code);
+  setNextOpSortValue(r.planning_sort_order==null?"":String(r.planning_sort_order));
+ };
+
+ const saveNextOpSort=async(r:FlowRow)=>{
+  const raw=nextOpSortValue.trim();
+  const parsed=raw===""?null:Number(raw);
+  if(parsed!==null&&(!Number.isInteger(parsed)||parsed<0)){
+   setMessage("Next Op Sort phải là số nguyên >= 0 hoặc để trống.");
+   return;
+  }
+  setBusy(true);setMessage("");
+  try{
+   const res=await fetch("/api/config/operation-code-order",{
+    method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({
+     action:"set-next-op-sort",
+     operation_code:r.operation_code,
+     operation_name:r.operation_name||r.operation_code,
+     planning_sort_order:parsed
+    })
+   });
+   const d=await safeJson(res);
+   if(!res.ok)throw new Error(d.error||"Không lưu được Next Op Sort.");
+   setNextOpSortEditing(null);
+   setMessage(`Đã lưu Next Op Sort ${r.operation_code} = ${d.row?.planning_sort_order??"chưa gán"}. Chỉ dùng để sort Next Operation trên Planning Board; không thay đổi READY/WAIT hay Planning Chain.`);
+   router.refresh();
+  }catch(e){setMessage(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
+ };
 
  const selectSource=(code:string)=>{
   const op=rawOperations.find(x=>x.operation_code===code);
@@ -298,7 +331,7 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
      <label>Mã công đoạn<input className="input" list="st-source-ops" value={form.source_operation_code} onChange={e=>selectSource(e.target.value.toUpperCase())} placeholder="VD: CPBILP"/><datalist id="st-source-ops">{rawOperations.map(x=><option key={x.operation_code} value={x.operation_code}>{x.operation_name||x.operation_code} · {x.open_jobs||0} job</option>)}</datalist></label>
      <label>Tên công đoạn<input className="input" value={form.source_operation_name} onChange={e=>setForm({...form,source_operation_name:e.target.value})}/></label>
      <label>Loại Operation<select className="input" value={form.operation_type} onChange={e=>{const type=e.target.value as FormState["operation_type"];setStep(1);if(type==="ST_SCOPE_ONLY")setForm({...form,operation_type:type,standard_operation:"",main_planning_order:"",batch_prefix:"",st_group:"",area_id:"",schedule_area_code:"",planner_owner:"",mapping_rule:"DIRECT"});else setForm({...form,operation_type:type})}}><option value="PLANNING_OPERATION">Planning Operation — tạo Main/Batch/Schedule</option><option value="ST_SCOPE_ONLY">ST_SCOPE_ONLY — chỉ hiển thị, không lập kế hoạch</option></select></label>
-     <label>Thứ tự công đoạn (tùy chọn)<input className="input" type="number" value={form.source_planning_order} onChange={e=>setForm({...form,source_planning_order:e.target.value})}/></label>
+     <label>Next Op Sort (tùy chọn)<input className="input" type="number" value={form.source_planning_order} onChange={e=>setForm({...form,source_planning_order:e.target.value})}/></label>
     </div>{scopeOnly&&<div className="notice" style={{marginTop:10}}><b>ST_SCOPE_ONLY:</b> không sinh Planning Chain/Batch/Schedule.</div>}</>}
     {step===2&&<><div className="notice" style={{marginBottom:10}}><b>Bước 2 · Công đoạn chính & Nhóm.</b></div><div className="candidate-filter-grid">
      <label>Công đoạn chính<input className="input" list="st-main-ops" value={form.standard_operation} onChange={e=>selectMain(e.target.value.toUpperCase())}/><datalist id="st-main-ops">{mainOperations.map(x=><option key={x.standard_operation} value={x.standard_operation}>{x.st_group}</option>)}</datalist></label>
@@ -317,9 +350,9 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
   </div>
 
   <div className="erp-table-panel section">
-   <div className="erp-panel-head"><div><b>Danh sách Operation</b><small className="planning-sub">Planning/ST Scope Only = cấu hình tay · Bridge Intermediate = AUTO hoặc MANUAL Segment.</small></div><div className="row"><span>Planning OK {statusCounts.OK||0}</span><span>Bridge Intermediate {autoIntermediateCount}</span><span>ST Scope Only {statusCounts.ST_SCOPE_ONLY||0}</span><input className="input" style={{width:220}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm Operation..."/></div></div>
-   <div className="table-wrap" style={{maxHeight:560}}><table className="erp-table"><thead><tr><th>Mã nguồn</th><th>Loại</th><th>Số Job</th><th>Thứ tự</th><th>Main / Bridge</th><th>Rule</th><th>Nhóm ST</th><th>Khu vật lý</th><th>Khu điều độ</th><th>Planner</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
-    {filtered.map(r=>{const auto=r.operation_type==="BRIDGE_INTERMEDIATE";const valid=r.config_status==="OK"||r.config_status==="INTERMEDIATE_BRIDGE"||r.config_status==="ST_SCOPE_ONLY";return <tr key={r.operation_code} style={{background:valid?undefined:"#fff7ed"}}><td><b>{r.operation_code}</b><small className="planning-sub">{r.operation_name||""}</small></td><td><b>{r.operation_type==="ST_SCOPE_ONLY"?"Chỉ hiển thị":auto?"Bridge Intermediate":"Planning"}</b></td><td className="num">{r.open_jobs||0}</td><td>{r.planning_sort_order??"—"}</td><td><b>{auto?(r.bridge_summary||"Auto Bridge"):(r.standard_operation||"—")}</b>{auto&&<small className="planning-sub">{r.bridge_count||0} segment</small>}</td><td>{auto?"AUTO ROUTING":(r.mapping_rule||"—")}</td><td>{r.st_group||"—"}</td><td>{r.area_name||"—"}</td><td>{r.schedule_area_name||"—"}</td><td>{r.planner_owner||"—"}</td><td><b>{r.config_status}</b></td><td>{auto?<span className="muted">Tự động</span>:<div className="row"><button className="btn small" onClick={()=>edit(r)}>Sửa</button><button className="btn small danger-btn" onClick={()=>deactivate(r.operation_code)} disabled={busy}>Bỏ khỏi ST</button></div>}</td></tr>})}
+   <div className="erp-panel-head"><div><b>Danh sách Operation</b><small className="planning-sub">Planning/ST Scope Only = cấu hình tay · Bridge Intermediate = AUTO hoặc MANUAL Segment. Next Op Sort chỉ dùng để sắp xếp Next Operation trên Planning Board.</small></div><div className="row"><span>Planning OK {statusCounts.OK||0}</span><span>Bridge Intermediate {autoIntermediateCount}</span><span>ST Scope Only {statusCounts.ST_SCOPE_ONLY||0}</span><input className="input" style={{width:220}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm Operation..."/></div></div>
+   <div className="table-wrap" style={{maxHeight:560}}><table className="erp-table"><thead><tr><th>Mã nguồn</th><th>Loại</th><th>Số Job</th><th>Next Op Sort</th><th>Main / Bridge</th><th>Rule</th><th>Nhóm ST</th><th>Khu vật lý</th><th>Khu điều độ</th><th>Planner</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
+    {filtered.map(r=>{const auto=r.operation_type==="BRIDGE_INTERMEDIATE";const valid=r.config_status==="OK"||r.config_status==="INTERMEDIATE_BRIDGE"||r.config_status==="ST_SCOPE_ONLY";return <tr key={r.operation_code} style={{background:valid?undefined:"#fff7ed"}}><td><b>{r.operation_code}</b><small className="planning-sub">{r.operation_name||""}</small></td><td><b>{r.operation_type==="ST_SCOPE_ONLY"?"Chỉ hiển thị":auto?"Bridge Intermediate":"Planning"}</b></td><td className="num">{r.open_jobs||0}</td><td style={{minWidth:145}}>{nextOpSortEditing===r.operation_code?<div className="row" style={{flexWrap:"nowrap"}}><input className="input" type="number" min={0} step={1} value={nextOpSortValue} onChange={e=>setNextOpSortValue(e.target.value)} style={{width:72}} autoFocus/><button className="btn small primary" type="button" disabled={busy} onClick={()=>saveNextOpSort(r)}>Lưu</button><button className="btn small" type="button" disabled={busy} onClick={()=>setNextOpSortEditing(null)}>Hủy</button></div>:<button className="btn small mono" type="button" disabled={busy} onClick={()=>beginNextOpSort(r)} title="Chỉ dùng để sort Next Operation trên Planning Board">{r.planning_sort_order??"ĐẶT"}</button>}</td><td><b>{auto?(r.bridge_summary||"Auto Bridge"):(r.standard_operation||"—")}</b>{auto&&<small className="planning-sub">{r.bridge_count||0} segment</small>}</td><td>{auto?"AUTO ROUTING":(r.mapping_rule||"—")}</td><td>{r.st_group||"—"}</td><td>{r.area_name||"—"}</td><td>{r.schedule_area_name||"—"}</td><td>{r.planner_owner||"—"}</td><td><b>{r.config_status}</b></td><td>{auto?<span className="muted">Tự động</span>:<div className="row"><button className="btn small" onClick={()=>edit(r)}>Sửa</button><button className="btn small danger-btn" onClick={()=>deactivate(r.operation_code)} disabled={busy}>Bỏ khỏi ST</button></div>}</td></tr>})}
    </tbody></table></div>
   </div>
 
