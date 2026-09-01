@@ -379,3 +379,15 @@ Planning Chain/Candidate định vị vị trí Job chỉ bằng cặp `LastLabo
 - Tra cứu theo Job Number/Part/Description.
 - Gom Routing, Planning status, Recipe Rule, Batch, Process Time, Schedule, Resource, Chemical phases, All Open Job source data, Master routing, history và handover vào một màn hình read-only.
 - Không cần migration SQL mới.
+
+
+## v364 — Repeated NextOperation occurrence resolver
+
+Khi cùng raw NextOperation lặp nhiều lần và physical pair vẫn ambiguous, Planning Chain chọn occurrence sớm nhất chưa có Batch theo operation_instance_key; occurrence đã plan được bỏ qua. Xem `V364_FIX.md`.
+
+## v365 — Repeated NextOperation khi LastLaborOp blank / START
+- `START` được xem như LastLaborOp chưa có.
+- NextOperation lặp nhiều occurrence không còn bị NO_CHAIN chỉ vì LastLaborOp blank/START.
+- Chọn occurrence sớm nhất chưa có Batch; nếu chưa có progress context thì lấy occurrence đầu tiên theo route.
+- Ví dụ START → HE-BAKE sẽ mở HE-BAKE before blasting trước, sau đó mới tới các occurrence HE-BAKE tiếp theo theo sequential gating.
+- Không cần migration SQL.

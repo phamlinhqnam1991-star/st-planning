@@ -499,6 +499,11 @@ export default async function Page(){
      </tbody>
     </table></div>
 
+    <div className="lg-subtitle">7.1.1 · NextOperation lặp lại nhiều occurrence</div>
+    <Rule title="Earliest unfinished occurrence" tone="important">
+     Một raw Operation Code có thể xuất hiện nhiều lần trong cùng Job, ví dụ <code>SIPT</code> lần đầu chuẩn hóa thành PRIMER1 và lần sau thành PRIMER2, hoặc <code>HE-BAKE</code> xuất hiện ở before blasting / after plating / HE-BAKE thường. Nếu <code>LastLaborOp → NextOperation</code> vẫn trùng ở nhiều occurrence, hoặc <code>LastLaborOp</code> đang blank/<code>START</code>, resolver không trả NO CHAIN chỉ vì NextOperation lặp. Hệ thống xét Batch history của từng occurrence theo đúng <code>operation_instance_key</code> và chọn <b>occurrence sớm nhất chưa có Batch</b>; nếu chưa có progress context thì chọn occurrence đầu tiên theo route. Ví dụ PRIMER1 chưa plan → PRIMER1 READY; PRIMER1 đã có Batch → SIPT kế tiếp/PRIMER2 trở thành Current Main. Với START → HE-BAKE, occurrence HE-BAKE đầu tiên chưa plan (ví dụ HE-BAKE before blasting) là Current Main. Nếu tất cả occurrence lặp lại đã plan, resolver giữ occurrence đầu để sequential gating replay chuỗi đã plan và mở Main chưa plan tiếp theo. Logic này áp dụng chung cho mọi raw Operation lặp, không hard-code SIPT hay HE-BAKE.
+    </Rule>
+
     <div className="lg-subtitle">7.2 · Columns / Freeze / Excel Filter / Default View</div>
     <ul className="lg-list">
      <li><b>Columns:</b> chọn cột Planning và cột All Open Job, reorder, gom/thu gọn package All Open Job.</li>
@@ -767,7 +772,7 @@ export default async function Page(){
     <Faq q="Tạo Batch xong có reload toàn Board không?" a={<>Không. Luồng hiện tại dùng <b>Delta Refresh</b> cho affected Job/Route Matrix và refresh Target Batch. Rebuild Chain mới là thao tác có thể tải lại nhiều dữ liệu.</>}/>
     <Faq q="Recipe đúng nhưng Process Time = — / chưa xác định?" a={<>Kiểm tra Cấu hình → Thời gian xử lý. Batch có thể không match range Qty/Surface hoặc condition cụ thể; cần rule fallback không condition nếu muốn có thời gian cho trường hợp trộn value.</>}/>
     <Faq q="Job không xuất hiện ở All Open Jobs ST?" a={<>Kiểm tra RAW <b>NextOperation</b> của Job có nằm trong <code>md_st_operation_scope</code> active hay không. Source→Main Mapping không quyết định visibility của tab All Open Jobs.</>}/>
-    <Faq q="Job xuất hiện All Open Jobs nhưng không có READY?" a={<>Có thể Operation là ST_SCOPE_ONLY, chain chưa resolve, Main phía trước còn WAIT/gap, hoặc dữ liệu Last/Next/AllOperation/Bridge không định vị được. Kiểm tra Route Matrix/NO CHAIN và ST Operation Flow.</>}/>
+    <Faq q="Job xuất hiện All Open Jobs nhưng không có READY?" a={<>Có thể Operation là ST_SCOPE_ONLY, chain chưa resolve, Main phía trước còn WAIT/gap, hoặc dữ liệu Last/Next/AllOperation/Bridge không định vị được. Với raw Operation lặp lại nhiều occurrence, engine sẽ ưu tiên occurrence sớm nhất chưa có Batch; dùng nút Job Planning Debug để xem occurrence nào đang được chọn. Kiểm tra Route Matrix/NO CHAIN và ST Operation Flow.</>}/>
     <Faq q="Đổi Next Op Sort có cần Rebuild Chain?" a={<>Không. Next Op Sort chỉ dùng presentation sort. Rebuild Chain chỉ cần cho thay đổi cấu trúc Planning/Mapping/Bridge/Scope.</>}/>
     <Faq q="Ngưng Main Operation có mất Batch lịch sử không?" a={<>Không. Ngưng giữ lịch sử. Xóa vĩnh viễn chỉ được phép khi đã ngưng và không còn dependency; API sẽ chặn và báo các nhóm còn tham chiếu.</>}/>
     <Faq q="Import Master và Import All Open Job khác gì?" a={<>Import Master = dữ liệu kỹ thuật Part/Revision/Routing/Finish/Requirement. Import All Open Job = snapshot WIP/job thực tế. Hai luồng độc lập nhưng gặp nhau tại Planning resolver.</>}/>

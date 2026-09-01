@@ -50,6 +50,9 @@ type PlanningAnchor={
  requiredPreviousInstanceKey?:string|null;
 };
 
+type PlanningOccurrenceProgress={planned:boolean;scheduled:boolean};
+type PlanningOccurrenceProgressResolver=(op:RawPlanningOp)=>PlanningOccurrenceProgress;
+
 const normCode=(v:unknown)=>clean(v).toUpperCase();
 
 /**
@@ -365,15 +368,21 @@ function allOperationFallbackAnchor(
  * keeps this occurrence and every following Main from the SAME Job AllOperation,
  * so Next Main Planning is derived from AllOperation automatically.
  *
- * We only accept a unique canonical occurrence. If the same raw source code is
- * repeated, LastLaborOp is used only to disambiguate the occurrence inside the
- * same AllOperation. We never guess between two remaining occurrences.
+ * Repeated source operation rule (v364):
+ * - first try the physical LastLaborOp -> NextOperation pair as before;
+ * - when the physical pair still maps to several Main occurrences, select the
+ *   EARLIEST occurrence that has no durable non-cancelled Batch history;
+ * - if every repeated occurrence is already planned, retain the earliest one so
+ *   sequential gating can replay the complete planned chain deterministically.
+ *
+ * This is occurrence-aware and generic: SIPT/PRIMER is only one example.
  */
 function directNextMainAnchor(
  raw:string[],
  full:RawPlanningOp[],
  lastOperation:string,
- nextOperation:string
+ nextOperation:string,
+ progressResolver?:PlanningOccurrenceProgressResolver
 ):PlanningAnchor|null{
  const next=normCode(nextOperation);
  if(!next||!full.length)return null;
@@ -446,6 +455,56 @@ function directNextMainAnchor(
   }
  }
 
+ // v364: the same raw NextOperation may legitimately appear multiple times in
+ // one route (for example SIPT may become PRIMER1 and later PRIMER2). When the
+ // physical Last/Next pair is itself repeated, do not fall back to NO_CHAIN.
+ // Use durable Batch/Planning progress only to choose WHICH identical source
+ // occurrence is the current one. It never changes the route or Main mapping.
+ const orderedCandidates=[...directCandidates].sort((a,b)=>a.sourceSeq-b.sourceSeq);
+
+ // v365: repeated NextOperation is never NO_CHAIN merely because LastLaborOp
+ // is blank/START or because the physical pair is not unique. Prefer durable
+ // Batch history when available; otherwise choose the earliest route
+ // occurrence. This is the same "earliest unfinished occurrence" rule used
+ // for SIPT/PRIMER and now also covers START -> HE-BAKE and every other
+ // repeated raw operation.
+ if(progressResolver){
+  const progressByInstance=new Map<string,PlanningOccurrenceProgress>();
+  for(const op of orderedCandidates)progressByInstance.set(op.instanceKey,progressResolver(op));
+
+  const earliestUnfinished=orderedCandidates.find(op=>!progressByInstance.get(op.instanceKey)?.planned);
+  if(earliestUnfinished){
+   const skipped=orderedCandidates
+    .filter(op=>op.sourceSeq<earliestUnfinished.sourceSeq)
+    .filter(op=>progressByInstance.get(op.instanceKey)?.planned)
+    .map(op=>`${op.standardOperation} (${op.instanceKey})`);
+   const detail=skipped.length
+    ?`repeated NextOperation; earlier occurrence(s) already have Batch history [${skipped.join(", ")}], so earliest unfinished occurrence selected`
+    :`repeated NextOperation; earliest unfinished occurrence selected`;
+   return makeAnchor(earliestUnfinished,detail);
+  }
+
+  // All repeated occurrences already have Batch history. Start from the first
+  // occurrence so planningChainFromAnchor() can replay the complete planned
+  // chain and sequential gating remains deterministic.
+  if(orderedCandidates.length){
+   return makeAnchor(
+    orderedCandidates[0],
+    `repeated NextOperation and every occurrence already has Batch history; earliest occurrence retained for deterministic sequential gating`
+   );
+  }
+ }
+
+ // Some diagnostic/read-only callers may not have durable progress loaded.
+ // A repeated NextOperation is still a valid physical Current Main candidate;
+ // with no contrary history, the first route occurrence is the canonical one.
+ if(orderedCandidates.length){
+  return makeAnchor(
+   orderedCandidates[0],
+   `repeated NextOperation with no durable progress context; earliest route occurrence selected`
+  );
+ }
+
  return null;
 }
 
@@ -454,9 +513,11 @@ function currentAnchor(
  full:RawPlanningOp[],
  lastOperation:string,
  nextOperation:string,
- bridgeRules:IntermediateBridgeRule[]
+ bridgeRules:IntermediateBridgeRule[],
+ progressResolver?:PlanningOccurrenceProgressResolver
 ):PlanningAnchor{
- const last=clean(lastOperation);
+ const rawLast=clean(lastOperation);
+ const last=normCode(rawLast)==="START"?"":rawLast;
  const next=clean(nextOperation);
  if(!next){
   return {
@@ -470,12 +531,12 @@ function currentAnchor(
  // unambiguous Main Planning occurrence. The agreed rule still makes that Main
  // the Current Main and lets AllOperation provide all following Next Main(s).
  if(!last){
-  const directNextMain=directNextMainAnchor(raw,full,last,next);
+  const directNextMain=directNextMainAnchor(raw,full,last,next,progressResolver);
   if(directNextMain)return directNextMain;
   return {
    startIndex:-1,
    mode:"NO_CHAIN",
-   reason:`NO CHAIN: LastLaborOp is blank and NextOperation ${next} is not one unique Main Planning occurrence`
+   reason:`NO CHAIN: LastLaborOp is blank/START and NextOperation ${next} is not a Main Planning occurrence`
   };
  }
 
@@ -485,7 +546,7 @@ function currentAnchor(
  const bridgeAnchor=bridgePairAnchor(full,last,next,bridgeRules);
  if(bridgeAnchor){
   if(bridgeAnchor.mode!=="NO_CHAIN")return bridgeAnchor;
-  const directNextMain=directNextMainAnchor(raw,full,last,next);
+  const directNextMain=directNextMainAnchor(raw,full,last,next,progressResolver);
   return directNextMain||bridgeAnchor;
  }
 
@@ -498,7 +559,7 @@ function currentAnchor(
  // if NextOperation itself is Main Planning, that exact Main is Current Main.
  // planningChainFromAnchor(full, ...) then derives every Next Main from
  // AllOperation, preserving the canonical source occurrence/order.
- const directNextMain=directNextMainAnchor(raw,full,last,next);
+ const directNextMain=directNextMainAnchor(raw,full,last,next,progressResolver);
  if(directNextMain)return directNextMain;
 
  return {
@@ -974,7 +1035,8 @@ export async function syncPlanningChains(c:PoolClient){
      full,
      clean(job.last_operation),
      nextCode,
-     intermediateRules
+     intermediateRules,
+     routeOpHistory
    );
 
    if(anchor.mode==="BRIDGE_PAIR")bridgePairAnchored++;
@@ -1220,7 +1282,25 @@ export async function debugPlanningJob(c:PoolClient,jobNumInput:string){
  const intermediateRules=await loadIntermediateBridgeRules(c);
  const raw=splitAllOperation(job.all_operation);
  const full=standardize(raw,mappingBySource,planningScope);
- const anchor=currentAnchor(raw,full,clean(job.last_operation),clean(job.next_operation),intermediateRules);
+
+ // v364 debug uses the same occurrence-progress rule as the rebuild engine.
+ // A non-cancelled Batch attached to this exact occurrence means that repeated
+ // occurrence is already planned; a live Schedule is a stronger subset.
+ const debugProgressByInstance=new Map<string,PlanningOccurrenceProgress>();
+ for(const r of persistedQ.rows){
+  const instance=clean(r.operation_instance_key);
+  if(!instance)continue;
+  const old=debugProgressByInstance.get(instance)||{planned:false,scheduled:false};
+  if(r.batch_id)old.planned=true;
+  if(r.schedule_id && r.planned_start)old.scheduled=true;
+  debugProgressByInstance.set(instance,old);
+ }
+ const debugProgress:PlanningOccurrenceProgressResolver=(op)=>
+  debugProgressByInstance.get(op.instanceKey)||{planned:false,scheduled:false};
+
+ const anchor=currentAnchor(
+  raw,full,clean(job.last_operation),clean(job.next_operation),intermediateRules,debugProgress
+ );
  const chain=planningChainFromAnchor(full,anchor);
 
  const nextNorm=normCode(job.next_operation);
