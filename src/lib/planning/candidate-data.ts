@@ -18,6 +18,8 @@ export type PlanningCandidateQuery={
  // the ~2.9MB payload (643 rows) and is loaded separately only when needed
  // for All Open Source columns.
  light?:boolean;
+ // v335: optional delta scope used after Create/Add Batch.
+ deltaJobNums?:string[];
 };
 
 
@@ -148,6 +150,14 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
    if(previousBatchNo){
      params.push(previousBatchNo);
      conditions.push(`prevhist.previous_batch_no=$${params.length}`);
+   }
+
+   // v335: local/delta refresh after Create/Add Batch. Restrict the heavy
+   // Candidate SQL to only Jobs changed by the mutation.
+   const deltaJobNums=[...new Set((input.deltaJobNums||[]).map(x=>String(x||"").trim()).filter(Boolean))];
+   if(deltaJobNums.length){
+     params.push(deltaJobNums);
+     conditions.push(`j.job_num=any($${params.length}::text[])`);
    }
 
    // v243: lọc theo VIEW CÔNG ĐOẠN ST trước khi phân trang.

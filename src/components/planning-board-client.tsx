@@ -1,6 +1,6 @@
 "use client";
 
-import {Fragment,useEffect,useLayoutEffect,useMemo,useRef,useState,type MouseEvent as ReactMouseEvent} from "react";
+import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,type MouseEvent as ReactMouseEvent} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 import {safeJson} from "@/lib/fetch-json";
 
@@ -364,6 +364,27 @@ type BatchTargetOption={
  schedule_end:string|null;
 };
 
+type BatchCompatibilityCondition={source_column:string;source_value:string};
+type BatchCompatibilityLock={
+ key:string;
+ loading:boolean;
+ error:string;
+ profile:{
+  source:"JOB"|"BATCH";
+  standardOperation:string;
+  recipeKey:string;
+  recipeNo:string|null;
+  recipeName:string|null;
+  conditions:BatchCompatibilityCondition[];
+  conditionText:string;
+ }|null;
+ compatibleIds:number[];
+ reasons:Record<string,string[]|string>;
+ total:number;
+ compatible:number;
+ locked:number;
+};
+
 type CandidateViewPreset={
  columns:string[];
  // v292: virtual layout item. All Open Job columns can stay collapsed in one group
@@ -414,6 +435,7 @@ export function PlanningBoardClient({
  pagination,
  onVisibleCandidateIds,
  onReloadCandidates,
+ onBatchMutation,
  onAfterMutation
 }:{
  candidates:Candidate[];
@@ -434,14 +456,25 @@ export function PlanningBoardClient({
  pagination:{page:number;pageSize:number;totalCandidates:number;totalPages:number};
  onVisibleCandidateIds?:(ids:number[])=>void;
  onReloadCandidates?:()=>void;
- // v331: sau khi tạo/thêm Batch xong — refresh dữ liệu tại chỗ thay vì
- // location.reload() (trang cũ phải SSR + tải lại toàn bộ Candidates).
+ // v335: Create/Add Batch only refreshes the affected Jobs and updates the
+ // Target Batch dropdown. It must NOT call the full Candidate load().
+ onBatchMutation?:(event:{
+  affectedJobNums:string[];
+  batchTarget?:BatchTargetOption|null;
+ })=>void|Promise<void>;
+ // Full refresh remains available for explicit structural mutations such as
+ // Rebuild Planning Chain.
  onAfterMutation?:()=>void;
 }){
  const [selected,setSelected]=useState<number[]>([]);
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
  const [targetBatchId,setTargetBatchId]=useState("");
+ // v336: first READY Job (or Existing Batch) establishes Recipe + Process
+ // condition compatibility. Incompatible rows stay visible but are dimmed/disabled.
+ const [compatibilityLock,setCompatibilityLock]=useState<BatchCompatibilityLock|null>(null);
+ const compatibilitySeq=useRef(0);
+ const compatibilityAnchorId=useRef<number|null>(null);
  usePopupMessage(message);
  // v298: pagination removed — clear row selection whenever a fresh Candidate
  // set (new total) arrives.
@@ -449,6 +482,8 @@ export function PlanningBoardClient({
  useEffect(()=>{
   setSelected([]);
   setTargetBatchId("");
+  setCompatibilityLock(null);
+  compatibilityAnchorId.current=null;
  },[paginationKey]);
  const [columnPickerOpen,setColumnPickerOpen]=useState(false);
  const [columnSearch,setColumnSearch]=useState("");
@@ -2008,6 +2043,124 @@ const currentPriorityMonth=useMemo(()=>{
  },[candidates]);
  const selectableTargetFor=(row:Candidate)=>selectableTargetMap.get(Number(row.id))??null;
 
+ const compatibilityCandidates=useMemo(()=>{
+  const out:{id:number;recipeKey:string|null;standardOperation:string}[]=[];
+  const seen=new Set<number>();
+  for(const row of candidates){
+   const target=selectableTargetMap.get(Number(row.id))??null;
+   if(!target||seen.has(Number(target.id)))continue;
+   seen.add(Number(target.id));
+   const exactCurrent=
+    normalized(target.standardOperation)===normalized(row.standard_operation) &&
+    normalized(target.sourceOperation)===normalized(row.source_operation_code);
+   const liveRecipe=target.routeItem?.effective_recipe_key ||
+    (exactCurrent?row.effective_recipe_key:null) || null;
+   out.push({
+    id:Number(target.id),
+    recipeKey:liveRecipe,
+    standardOperation:String(target.standardOperation||"")
+   });
+  }
+  return out;
+ },[candidates,selectableTargetMap]);
+ const compatibilityScopeKey=useMemo(
+  ()=>compatibilityCandidates.map(x=>`${x.id}:${x.recipeKey||""}:${x.standardOperation}`).join("|"),
+  [compatibilityCandidates]
+ );
+
+ const requestCompatibilityLock=useCallback(async(args:{key:string;anchorId:number;batchId:number})=>{
+  const seq=++compatibilitySeq.current;
+  setCompatibilityLock(prev=>({
+   key:args.key,loading:true,error:"",profile:prev?.profile||null,
+   compatibleIds:prev?.compatibleIds||[],reasons:prev?.reasons||{},
+   total:compatibilityCandidates.length,compatible:0,locked:0
+  }));
+  try{
+   const r=await fetch("/api/planning/batch-compatibility",{
+    method:"POST",
+    headers:{"content-type":"application/json"},
+    cache:"no-store",
+    body:JSON.stringify({
+     anchorId:args.anchorId||null,
+     batchId:args.batchId||null,
+     candidates:compatibilityCandidates
+    })
+   });
+   const d=await safeJson(r);
+   if(!r.ok)throw new Error(d?.error||"Không kiểm tra được Batch Compatibility.");
+   if(seq!==compatibilitySeq.current)return;
+   const compatibleIds=Array.isArray(d.compatibleIds)?d.compatibleIds.map(Number).filter(Number.isFinite):[];
+   const next:BatchCompatibilityLock={
+    key:args.key,loading:false,error:"",profile:d.profile||null,
+    compatibleIds,reasons:(d.reasons&&typeof d.reasons==="object")?d.reasons:{},
+    total:Number(d.total)||compatibilityCandidates.length,
+    compatible:Number(d.compatible)||compatibleIds.length,
+    locked:Number(d.locked)||Math.max(0,compatibilityCandidates.length-compatibleIds.length)
+   };
+   setCompatibilityLock(next);
+   if(args.batchId>0){
+    const allowed=new Set(compatibleIds);
+    setSelected(prev=>prev.filter(id=>allowed.has(Number(id))));
+   }
+  }catch(e){
+   if(seq!==compatibilitySeq.current)return;
+   const error=e instanceof Error?e.message:String(e);
+   // Fail closed: khi chưa xác định được Recipe/condition, không cho thêm Job
+   // khác vào lô. Job chuẩn vẫn giữ selected để planner thấy nguyên nhân.
+   setCompatibilityLock({
+    key:args.key,loading:false,error,profile:null,
+    compatibleIds:args.anchorId>0?[args.anchorId]:[],reasons:{},
+    total:compatibilityCandidates.length,
+    compatible:args.anchorId>0?1:0,locked:Math.max(0,compatibilityCandidates.length-(args.anchorId>0?1:0))
+   });
+  }
+ },[compatibilityCandidates]);
+
+ useEffect(()=>{
+  const batchId=Number(targetBatchId||0);
+  let anchorId=0;
+  let baseKey="";
+  if(batchId>0){
+   anchorId=Number(selected[0]||0);
+   compatibilityAnchorId.current=null;
+   baseKey=`B:${batchId}${anchorId?`|A:${anchorId}`:""}`;
+  }else if(selected.length){
+   if(!compatibilityAnchorId.current)compatibilityAnchorId.current=Number(selected[0]);
+   anchorId=Number(compatibilityAnchorId.current||0);
+   baseKey=`J:${anchorId}`;
+  }else{
+   compatibilityAnchorId.current=null;
+   compatibilitySeq.current+=1;
+   setCompatibilityLock(null);
+   return;
+  }
+  const key=`${baseKey}|S:${compatibilityScopeKey}`;
+  if(compatibilityLock?.key===key)return;
+  void requestCompatibilityLock({key,anchorId,batchId});
+ },[targetBatchId,selected,compatibilityScopeKey,compatibilityLock?.key,requestCompatibilityLock]);
+
+ const compatibilityAllowedSet=useMemo(
+  ()=>new Set((compatibilityLock?.compatibleIds||[]).map(Number)),
+  [compatibilityLock?.compatibleIds]
+ );
+ const compatibilityLockedId=(id:number)=>{
+  if(!compatibilityLock)return false;
+  if(selected.includes(Number(id)))return false;
+  if(compatibilityLock.loading)return true;
+  return !compatibilityAllowedSet.has(Number(id));
+ };
+ const compatibilityReasonForId=(id:number)=>{
+  if(!compatibilityLock)return "";
+  if(compatibilityLock.loading)return "Đang kiểm tra Recipe và điều kiện Batch…";
+  if(compatibilityLock.error)return compatibilityLock.error;
+  const raw=compatibilityLock.reasons[String(id)];
+  return Array.isArray(raw)?raw.join(" · "):String(raw||"");
+ };
+ const compatibilityLockedForTarget=(row:Candidate)=>{
+  const target=selectableTargetFor(row);
+  return target?compatibilityLockedId(Number(target.id)):false;
+ };
+
  const paintSelectionLockedForTarget=(row:Candidate)=>{
    const target=selectableTargetFor(row);
    if(!target)return false;
@@ -2070,6 +2223,10 @@ const currentPriorityMonth=useMemo(()=>{
 
    const existingOperation=selectedTargets[0]?.standardOperation||"";
    if(existingOperation && normalized(existingOperation)!==normalized(target.standardOperation))return;
+   if(compatibilityLockedForTarget(row)){
+    setMessage(compatibilityReasonForId(Number(target.id))||"Job không cùng Recipe / điều kiện với Batch đang chọn.");
+    return;
+   }
    if(paintSelectionLockedForTarget(row))return;
 
    setSelected(prev=>prev.includes(target.id)?prev:[...prev,target.id]);
@@ -2138,6 +2295,11 @@ const currentPriorityMonth=useMemo(()=>{
    }
 
    if(operationSelectionLocked(row)||paintSelectionLockedForTarget(row))return;
+   if(compatibilityLockedForTarget(row)){
+    setMessage(compatibilityReasonForId(Number(target.id))||"Job không cùng Recipe / điều kiện với Batch đang chọn.");
+    return;
+   }
+   setMessage("");
    setSelected(x=>[...new Set([...x,target.id])]);
  }
 
@@ -2145,7 +2307,7 @@ const currentPriorityMonth=useMemo(()=>{
    const selectableRows=displayCandidates
     .map(row=>({row,target:selectableTargetFor(row)}))
     .filter(x=>x.target)
-    .filter(x=>!operationSelectionLocked(x.row)&&!paintSelectionLockedForTarget(x.row));
+    .filter(x=>!operationSelectionLocked(x.row)&&!paintSelectionLockedForTarget(x.row)&&!compatibilityLockedForTarget(x.row));
 
    const ids=selectableRows.map(x=>Number(x.target!.id));
    const all=ids.length>0 && ids.every(id=>selected.includes(id));
@@ -2156,6 +2318,8 @@ const currentPriorityMonth=useMemo(()=>{
 
  async function createBatch(){
    if(!selected.length)return alert("Chọn ít nhất 1 Candidate Job.");
+   if(compatibilityLock?.loading)return alert("Đang kiểm tra Recipe và điều kiện Batch. Vui lòng chờ một chút.");
+   if(compatibilityLock?.error)return alert(`Batch Compatibility: ${compatibilityLock.error}`);
    const effectiveOperation=selectedTargets[0]?.standardOperation||standardOperation||"";
    if(!effectiveOperation)return alert("Không xác định được Standard Operation.");
    if(selectedTargets.some(x=>x.standardOperation!==effectiveOperation))
@@ -2191,11 +2355,23 @@ const currentPriorityMonth=useMemo(()=>{
        (d.ruleName?` · Rule: ${d.ruleName}`:"")
      );
 
-     // v331: xoá selection rồi refresh dữ liệu tại chỗ (candidates + deferred
-     // data) — không còn full page reload.
+     // v335: Batch mutation is a DELTA update. Keep the current board mounted
+     // (scroll/filter/sort/freeze stay exactly where they are) and refresh only
+     // the Jobs touched by this Batch.
+     const fallbackAffectedJobNums=[...new Set(
+      selectedTargets.map(x=>String(x.candidate.job_num||"").trim()).filter(Boolean)
+     )];
      setSelected([]);
      setTargetBatchId("");
-     setTimeout(()=>onAfterMutation?.(),800);
+     try{
+      await onBatchMutation?.({
+       affectedJobNums:Array.isArray(d.affectedJobNums)?d.affectedJobNums:fallbackAffectedJobNums,
+       batchTarget:d.batchTarget||null
+      });
+     }catch(deltaError){
+      console.error("[planning] batch delta refresh failed",deltaError);
+      setMessage(prev=>`${prev} · Cập nhật dòng tại chỗ lỗi; bấm Reload Candidates nếu cần.`);
+     }
    }catch(e){
      setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`);
    }finally{
@@ -2264,7 +2440,9 @@ const currentPriorityMonth=useMemo(()=>{
  const renderCurrentMainCell=(x:Candidate)=>{
    const view=currentMainView(x);
    const status=normalized(view.status);
-   const canSelect=Boolean(selectableTargetFor(x));
+   const target=selectableTargetFor(x);
+   const compatLocked=Boolean(target&&compatibilityLockedForTarget(x));
+   const canSelect=Boolean(target)&&!compatLocked;
    const display=
     status==="PLANNED-UNSCHEDULED"?"PLANNED":
     status==="WAITING"?"WAIT PREV":
@@ -2272,8 +2450,8 @@ const currentPriorityMonth=useMemo(()=>{
 
    return <td
     key="__current_main"
-    className={`candidate-current-main ${routeStatusClass(status)} ${canSelect?"candidate-current-main-selectable":""}`}
-    title={`${view.operation} · ${display}${canSelect?" · Click để chọn Job":""}`}
+    className={`candidate-current-main ${routeStatusClass(status)} ${canSelect?"candidate-current-main-selectable":""} ${compatLocked?"batch-compatibility-cell-locked":""}`}
+    title={`${view.operation} · ${display}${canSelect?" · Click để chọn Job":""}${compatLocked&&target?` · ${compatibilityReasonForId(Number(target.id))||"Khác Recipe / điều kiện Batch"}`:""}`}
     onClick={()=>{
      if(!canSelect)return;
      toggle(x.id);
@@ -2386,6 +2564,11 @@ const currentPriorityMonth=useMemo(()=>{
 
    if(selected.includes(id)){
     setSelected(prev=>prev.filter(x=>x!==id));
+    return;
+   }
+
+   if(compatibilityLockedId(id)){
+    setMessage(compatibilityReasonForId(id)||"Job không cùng Recipe / điều kiện với Batch đang chọn.");
     return;
    }
 
@@ -3365,7 +3548,7 @@ const currentPriorityMonth=useMemo(()=>{
            const rows=displayCandidates
             .map(row=>({row,target:selectableTargetFor(row)}))
             .filter(x=>x.target)
-            .filter(x=>!operationSelectionLocked(x.row)&&!paintSelectionLockedForTarget(x.row));
+            .filter(x=>!operationSelectionLocked(x.row)&&!paintSelectionLockedForTarget(x.row)&&!compatibilityLockedForTarget(x.row));
            return rows.length>0 && rows.every(x=>selected.includes(Number(x.target!.id)));
           })()}
           onChange={toggleAll}
@@ -3386,11 +3569,11 @@ const currentPriorityMonth=useMemo(()=>{
        {renderedCandidates.map((x)=>
         <tr
          key={String(x.job_num)}
-         className={`${selectableTargetFor(x)&&selected.includes(selectableTargetFor(x)!.id)?"planning-row-selected ":""}${dragCandidateId===x.id?"planning-row-dragging ":""}${priorityClass(x.priority_type)}`.trim()}
-         draggable={Boolean(selectableTargetFor(x))&&!operationSelectionLocked(x)&&!paintSelectionLockedForTarget(x)}
+         className={`${selectableTargetFor(x)&&selected.includes(selectableTargetFor(x)!.id)?"planning-row-selected ":""}${compatibilityLockedForTarget(x)?"planning-row-compat-locked ":""}${dragCandidateId===x.id?"planning-row-dragging ":""}${priorityClass(x.priority_type)}`.trim()}
+         draggable={Boolean(selectableTargetFor(x))&&!operationSelectionLocked(x)&&!paintSelectionLockedForTarget(x)&&!compatibilityLockedForTarget(x)}
          onDragStart={e=>{
           const target=selectableTargetFor(x);
-          if(!target||operationSelectionLocked(x)||paintSelectionLockedForTarget(x))return;
+          if(!target||operationSelectionLocked(x)||paintSelectionLockedForTarget(x)||compatibilityLockedForTarget(x))return;
           setDragCandidateId(x.id);
           e.dataTransfer.effectAllowed="copy";
           e.dataTransfer.setData("application/x-st-candidate",String(x.id));
@@ -3401,14 +3584,16 @@ const currentPriorityMonth=useMemo(()=>{
           <input
            type="checkbox"
            checked={Boolean(selectableTargetFor(x)&&selected.includes(selectableTargetFor(x)!.id))}
-           disabled={!selectableTargetFor(x)||operationSelectionLocked(x)||paintSelectionLockedForTarget(x)}
+           disabled={!selectableTargetFor(x)||operationSelectionLocked(x)||paintSelectionLockedForTarget(x)||compatibilityLockedForTarget(x)}
            title={!selectableTargetFor(x)
               ?"Job chưa có Main READY để thêm Batch"
               :operationSelectionLocked(x)
                ?"Khác Standard Operation với Job đã chọn"
-               :paintSelectionLockedForTarget(x)
-                ?"Khác loại sơn với Job đã chọn hoặc chưa có loại sơn"
-                :`Chọn ${selectableTargetFor(x)!.standardOperation} READY`}
+               :compatibilityLockedForTarget(x)
+                ?(compatibilityReasonForId(Number(selectableTargetFor(x)!.id))||"Khác Recipe / điều kiện của Batch")
+                :paintSelectionLockedForTarget(x)
+                 ?"Khác loại sơn với Job đã chọn hoặc chưa có loại sơn"
+                 :`Chọn ${selectableTargetFor(x)!.standardOperation} READY`}
            onChange={()=>toggle(x.id)}
           />
          </td>
@@ -3463,6 +3648,21 @@ const currentPriorityMonth=useMemo(()=>{
       <div><span>Total Surface</span><b>{formatNumber(totalSurface)} dm²</b></div>
       <div className="planning-process-time"><span>Process Time</span><b>{minutesToHHMM(estimatedMinutes)}</b></div>
      </div>
+
+     {compatibilityLock&&
+      <div className={`planning-compatibility-lock ${compatibilityLock.error?"is-error":compatibilityLock.loading?"is-loading":"is-active"}`}>
+       <div className="planning-compatibility-lock-head">
+        <b>🔒 Batch Compatibility</b>
+        <span>{compatibilityLock.loading?"Đang kiểm tra…":`${compatibilityLock.compatible} cho phép · ${compatibilityLock.locked} khóa`}</span>
+       </div>
+       {compatibilityLock.error?
+        <small>{compatibilityLock.error}</small>:
+        compatibilityLock.profile&&<>
+         <div><span>Recipe</span><b>{compatibilityLock.profile.recipeNo||compatibilityLock.profile.recipeKey||"Chọn Job đầu tiên"}{compatibilityLock.profile.recipeName?` · ${compatibilityLock.profile.recipeName}`:""}</b></div>
+         <div><span>Điều kiện</span><b>{compatibilityLock.profile.conditionText||"Không có điều kiện Open Job"}</b></div>
+         <small>{compatibilityLock.profile.source==="BATCH"?"Khóa theo Target Batch hiện tại":"Khóa theo Job READY đầu tiên đã chọn"}</small>
+        </>}
+      </div>}
 
      {suggestionSummary&&selectedRows.length>0&&
       <div className={`planning-rule-suggestion ${suggestionSummary.allSameRecipe?"ok":suggestionSummary.mixedRecipes?"warn":""}`}>
@@ -3618,7 +3818,7 @@ const currentPriorityMonth=useMemo(()=>{
 
      <button
       className="btn primary planning-create-batch"
-      disabled={busy||!selected.length}
+      disabled={busy||!selected.length||Boolean(compatibilityLock?.loading)||Boolean(compatibilityLock?.error)}
       onClick={createBatch}>
       {busy
        ?"Đang xử lý..."

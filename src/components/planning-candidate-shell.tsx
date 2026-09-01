@@ -165,6 +165,91 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
   }
  },[]);
 
+ // v335: after Create/Add Batch, re-evaluate ONLY the affected Jobs using the
+ // canonical Candidate resolver. No global loading state, no tab reload, no
+ // scroll/filter reset. Route Matrix cache is invalidated only for those Jobs.
+ const refreshAffectedCandidates=useCallback(async(event:{affectedJobNums:string[];batchTarget?:any|null})=>{
+  const batchTarget=event?.batchTarget;
+  if(batchTarget&&Number.isFinite(Number(batchTarget.id))){
+   setAvailableBatchesState(prev=>[
+    batchTarget,
+    ...prev.filter((x:any)=>Number(x.id)!==Number(batchTarget.id))
+   ].slice(0,100));
+  }
+
+  const jobNums=[...new Set((event?.affectedJobNums||[])
+   .map(x=>String(x||"").trim()).filter(Boolean))];
+  if(!jobNums.length)return;
+  const affectedSet=new Set(jobNums);
+
+  // Capture current source_data before replacing the rows. Batch creation does
+  // not modify All Open Job source columns, so keeping this avoids another
+  // source_data request.
+  const sourceByJob=new Map<string,unknown>();
+  const oldIds:number[]=[];
+  for(const row of candidates){
+   if(!affectedSet.has(String(row.job_num)))continue;
+   if(row.source_data!=null)sourceByJob.set(String(row.job_num),row.source_data);
+   const id=Number(row.id);
+   if(Number.isFinite(id))oldIds.push(id);
+  }
+  for(const id of oldIds){
+   routeStatusCache.current.delete(id);
+   routeRequestedIds.current.delete(id);
+  }
+
+  const r=await fetch("/api/planning/candidates/delta",{
+   method:"POST",
+   headers:{"content-type":"application/json"},
+   cache:"no-store",
+   body:JSON.stringify({
+    areaId:loadedAreaId,
+    op:loadedOp,
+    recipeKey:loadedRecipeKey,
+    previousBatchNo:loadedPreviousBatchNo,
+    jobNums
+   })
+  });
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d?.error||"Không cập nhật được Candidate vừa tạo Batch.");
+
+  const deltaRows=(Array.isArray(d.candidates)?d.candidates:[]).map((row:any)=>({
+   ...row,
+   source_data:row.source_data??sourceByJob.get(String(row.job_num))??null,
+   route_status:[],
+   route_status_loaded:false
+  }));
+  const newIds=deltaRows.map((x:any)=>Number(x.id)).filter(Number.isFinite);
+  for(const id of newIds){
+   routeStatusCache.current.delete(id);
+   routeRequestedIds.current.delete(id);
+  }
+
+  // Preserve the physical row position when the Job still belongs to the
+  // loaded scope. If it no longer belongs, remove it; if a newly matching row
+  // appears, append it. Client sort/filter rules remain untouched.
+  const deltaByJob=new Map(deltaRows.map((row:any)=>[String(row.job_num),row]));
+  const merged:any[]=[];
+  let previousAffectedCount=0;
+  for(const row of candidates){
+   const jobNum=String(row.job_num);
+   if(!affectedSet.has(jobNum)){merged.push(row);continue;}
+   previousAffectedCount+=1;
+   const replacement=deltaByJob.get(jobNum);
+   if(replacement){merged.push(replacement);deltaByJob.delete(jobNum);}
+  }
+  for(const row of deltaByJob.values())merged.push(row);
+  setCandidates(merged);
+  setPagination((p:any)=>{
+   const total=Math.max(0,Number(p?.totalCandidates||0)-previousAffectedCount+deltaRows.length);
+   const pageSize=Math.max(1,Number(p?.pageSize||200));
+   return {...p,totalCandidates:total,totalPages:Math.max(1,Math.ceil(total/pageSize))};
+  });
+
+  // Only these rows need fresh READY/PLANNED/SCHEDULED state.
+  if(newIds.length)await ensureRouteStatuses(newIds);
+ },[candidates,loadedAreaId,loadedOp,loadedRecipeKey,loadedPreviousBatchNo,ensureRouteStatuses]);
+
  // v298: no more pagination — every Load fetches ALL Candidates of the scope
  // in one request. The server skips the filtered COUNT query in this mode, so
  // loading everything is faster than the old count+page pair.
@@ -369,6 +454,7 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
     timeRules={timeRules} today={initial.today} initialView={initialView} initialServerViews={serverViews} pagination={pagination}
     onVisibleCandidateIds={ensureRouteStatuses}
     onReloadCandidates={()=>void load({useLoadedScope:true})}
+    onBatchMutation={refreshAffectedCandidates}
     onAfterMutation={()=>{void load({useLoadedScope:true});void refreshDeferredData();}}
    />
   </div>

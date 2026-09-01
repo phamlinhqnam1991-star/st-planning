@@ -6695,3 +6695,68 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
  .process-condition-row{grid-template-columns:1fr}
  .process-condition-remove{justify-self:start}
 }
+
+/* v336 - Batch Compatibility Lock (Recipe + Process Time Open Job conditions) */
+.planning-candidate-table tr.planning-row-compat-locked>td{
+ opacity:.42;
+ background:#f2f4f7!important;
+}
+.planning-candidate-table tr.planning-row-compat-locked{
+ cursor:not-allowed;
+}
+.planning-candidate-table tr.planning-row-compat-locked input[type="checkbox"]{
+ cursor:not-allowed;
+}
+.planning-candidate-table .batch-compatibility-cell-locked{
+ opacity:.48;
+ cursor:not-allowed!important;
+}
+.planning-compatibility-lock{
+ display:flex;
+ flex-direction:column;
+ gap:5px;
+ margin:8px 0;
+ padding:8px 10px;
+ border:1px solid #d0d5dd;
+ border-radius:8px;
+ background:#f9fafb;
+ font-size:11px;
+}
+.planning-compatibility-lock.is-active{
+ border-color:#84adff;
+ background:#f5f8ff;
+}
+.planning-compatibility-lock.is-loading{
+ border-style:dashed;
+}
+.planning-compatibility-lock.is-error{
+ border-color:#fda29b;
+ background:#fffbfa;
+}
+.planning-compatibility-lock-head{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:8px;
+}
+.planning-compatibility-lock-head>span{
+ font-size:10px;
+ font-weight:700;
+ white-space:nowrap;
+}
+.planning-compatibility-lock>div:not(.planning-compatibility-lock-head){
+ display:grid;
+ grid-template-columns:62px minmax(0,1fr);
+ gap:6px;
+ align-items:start;
+}
+.planning-compatibility-lock>div>span{
+ color:#667085;
+}
+.planning-compatibility-lock>div>b{
+ overflow-wrap:anywhere;
+}
+.planning-compatibility-lock>small{
+ color:#667085;
+ line-height:1.35;
+}

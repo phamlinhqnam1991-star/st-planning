@@ -28,9 +28,9 @@ export type ProcessTimeResolveContext={
  jobData?:Record<string,unknown>[]|null;
 };
 
-const cleanProcessValue=(v:unknown)=>String(v??"").trim();
+export const cleanProcessValue=(v:unknown)=>String(v??"").trim();
 
-function processConditionMatches(
+export function processConditionMatches(
  cond:ProcessTimeRuleCondition,
  row:Record<string,unknown>
 ){
@@ -48,12 +48,27 @@ function processConditionMatches(
  * Batch có giá trị trộn (vd Program=A320 + A350) sẽ không match rule Program=A320
  * và tự rơi về rule không điều kiện nếu có.
  */
-export function selectProcessMinutesFromRules(
+function sortProcessRulesBySpecificity(a:ProcessTimeRuleRow,b:ProcessTimeRuleRow){
+ const ca=Array.isArray(a.conditions)?a.conditions.length:0;
+ const cb=Array.isArray(b.conditions)?b.conditions.length:0;
+ if(ca!==cb)return cb-ca;
+ const pa=Number(a.priority)||100;
+ const pb=Number(b.priority)||100;
+ if(pa!==pb)return pa-pb;
+ return Number(a.id)-Number(b.id);
+}
+
+/**
+ * Chọn đúng Process Time Rule theo cùng semantics của resolver.
+ * Export để Batch Compatibility dùng CHUNG một nguồn rule, tránh tạo một
+ * implementation khác giữa UI-lock và lúc tính Process Time.
+ */
+export function selectProcessTimeRuleFromRules(
  rules:ProcessTimeRuleRow[],
  totalQty:number,
  totalSurface:number,
  jobData:Record<string,unknown>[]=[]
-):number|null{
+):ProcessTimeRuleRow|null{
  const fixed=rules.filter(r=>r.calc_type==="FIXED_HOURS");
  const modeRules=fixed.length
   ? fixed
@@ -70,17 +85,48 @@ export function selectProcessMinutesFromRules(
   if(!conds.length)return true;
   if(!jobData.length)return false;
   return jobData.every(row=>conds.every(cond=>processConditionMatches(cond,row)));
- }).sort((a,b)=>{
-  const ca=Array.isArray(a.conditions)?a.conditions.length:0;
-  const cb=Array.isArray(b.conditions)?b.conditions.length:0;
-  if(ca!==cb)return cb-ca;
-  const pa=Number(a.priority)||100;
-  const pb=Number(b.priority)||100;
-  if(pa!==pb)return pa-pb;
-  return Number(a.id)-Number(b.id);
- });
+ }).sort(sortProcessRulesBySpecificity);
 
- const winner=matched[0];
+ return matched[0]||null;
+}
+
+/**
+ * Compatibility Lock không phụ thuộc Qty/Surface band. Nó chọn nhóm điều kiện
+ * Open Job cụ thể nhất đang khớp Job/Batch. Các Qty/Surface rule lặp cùng một
+ * nhóm điều kiện vì vậy cho ra cùng signature khi số lượng lô thay đổi.
+ */
+export function selectProcessConditionGroupFromRules(
+ rules:ProcessTimeRuleRow[],
+ jobData:Record<string,unknown>[]=[]
+):ProcessTimeRuleCondition[]{
+ const matched=rules.filter(r=>{
+  const conds=Array.isArray(r.conditions)?r.conditions:[];
+  if(!conds.length)return true;
+  if(!jobData.length)return false;
+  return jobData.every(row=>conds.every(cond=>processConditionMatches(cond,row)));
+ }).sort(sortProcessRulesBySpecificity);
+ return (matched[0]?.conditions||[]).map(c=>({
+  source_column:cleanProcessValue(c.source_column),
+  source_value:cleanProcessValue(c.source_value)
+ }));
+}
+
+export function processConditionSignature(conditions:ProcessTimeRuleCondition[]){
+ return [...(conditions||[])]
+  .map(c=>({source_column:cleanProcessValue(c.source_column),source_value:cleanProcessValue(c.source_value)}))
+  .filter(c=>c.source_column)
+  .sort((a,b)=>a.source_column.localeCompare(b.source_column)||a.source_value.localeCompare(b.source_value))
+  .map(c=>`${c.source_column}=${c.source_value}`)
+  .join("\u001f");
+}
+
+export function selectProcessMinutesFromRules(
+ rules:ProcessTimeRuleRow[],
+ totalQty:number,
+ totalSurface:number,
+ jobData:Record<string,unknown>[]=[]
+):number|null{
+ const winner=selectProcessTimeRuleFromRules(rules,totalQty,totalSurface,jobData);
  if(!winner)return null;
  const hours=winner.calc_type==="FIXED_HOURS"
   ?Number(winner.fixed_hours)
@@ -120,18 +166,11 @@ async function loadProcessConditionJobData(
  return [];
 }
 
-export async function resolveProcessMinutes(
+export async function loadProcessTimeRules(
  c:PoolClient,
- recipeKey:string|null,
- totalQty:number,
- totalSurface:number,
- context:ProcessTimeResolveContext={}
-){
- if(!recipeKey)return null;
-
- // Load tất cả active rule cùng các điều kiện Open Job của từng rule.
- // API cấu hình bảo đảm một Recipe chỉ có một Calculation Mode active;
- // fallback FIXED-first vẫn giữ tương thích dữ liệu cũ nếu DB từng có 2 mode.
+ recipeKey:string|null
+):Promise<ProcessTimeRuleRow[]>{
+ if(!recipeKey)return [];
  const q=await c.query(`
    select
      t.id,t.recipe_key,t.calc_type,t.priority,
@@ -154,8 +193,7 @@ export async function resolveProcessMinutes(
      and t.is_active=true
    order by t.priority,t.id
  `,[recipeKey]);
-
- const rules=q.rows.map((r:any)=>({
+ return q.rows.map((r:any)=>({
   ...r,
   id:Number(r.id),
   priority:Number(r.priority)||100,
@@ -167,6 +205,21 @@ export async function resolveProcessMinutes(
   standard_hours:r.standard_hours==null?null:Number(r.standard_hours),
   conditions:Array.isArray(r.conditions)?r.conditions:[]
  })) as ProcessTimeRuleRow[];
+}
+
+export async function resolveProcessMinutes(
+ c:PoolClient,
+ recipeKey:string|null,
+ totalQty:number,
+ totalSurface:number,
+ context:ProcessTimeResolveContext={}
+){
+ if(!recipeKey)return null;
+
+ // Load tất cả active rule cùng các điều kiện Open Job của từng rule.
+ // API cấu hình bảo đảm một Recipe chỉ có một Calculation Mode active;
+ // fallback FIXED-first vẫn giữ tương thích dữ liệu cũ nếu DB từng có 2 mode.
+ const rules=await loadProcessTimeRules(c,recipeKey);
  if(!rules.length)return null;
 
  const hasConditionalRule=rules.some(r=>r.conditions.length>0);

@@ -5,6 +5,7 @@ import {bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
 import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 import {resolveProcessMinutes} from "@/lib/planning/batch-utils";
+import {assertSameRecipeConditionGroup} from "@/lib/planning/batch-compatibility";
 
 import {requireApiUser} from "@/lib/api-auth";
 const clean=(v:unknown)=>String(v??"").trim();
@@ -57,6 +58,34 @@ async function markOpsPlanned(c:any,ids:number[],recipeKey:string|null){
          updated_at=now()
    where id=any($1::bigint[])
  `,[ids,recipeKey]);
+}
+
+
+// v335: return one ready-to-render Target Batch row so the client can update
+// its dropdown immediately without fetching /deferred-data or reloading the board.
+async function loadBatchTarget(c:any,batchId:number){
+ const q=await c.query(`
+  select
+   b.id,b.batch_no,b.standard_operation,b.recipe_key,
+   b.total_jobs,b.total_qty,b.total_surface_dm2,b.process_minutes,b.status,
+   r.recipe_no,r.recipe_name,
+   sch.schedule_id,sch.schedule_status,sch.resource_code,
+   sch.schedule_start,sch.schedule_end
+  from planning_batch b
+  left join md_process_recipe r on r.recipe_key=b.recipe_key
+  left join lateral (
+   select
+    ps.id schedule_id,ps.status schedule_status,ps.resource_code,
+    ps.planned_start schedule_start,ps.planned_end schedule_end
+   from planning_schedule ps
+   where ps.batch_id=b.id and ps.status<>'CANCELLED'
+   order by ps.planned_start desc,ps.id desc
+   limit 1
+  ) sch on true
+  where b.id=$1
+  limit 1
+ `,[batchId]);
+ return q.rows[0]||null;
 }
 
 function paintFieldName(operation:string){
@@ -231,6 +260,7 @@ export async function POST(req:NextRequest){
        processMinutes,priority,note||'EMPTY PLAN-AHEAD BATCH'
      ]);
 
+     const batchTarget=await loadBatchTarget(c,Number(batchQ.rows[0].id));
      await c.query("commit");
 
      return NextResponse.json({
@@ -241,7 +271,9 @@ export async function POST(req:NextRequest){
        totalJobs:0,
        totalQty:0,
        totalSurface:0,
-       processMinutes
+       processMinutes,
+       affectedJobNums:[],
+       batchTarget
      });
    }
 
@@ -251,6 +283,7 @@ export async function POST(req:NextRequest){
        p.source_seq,p.planning_seq,p.operation_instance_key,
        j.part_num,j.revision_num,
        j.source_data,
+       coalesce(j.source_data,'{}'::jsonb) || (to_jsonb(j)-'source_data') condition_data,
        mf.primer1 part_master_primer1,
        mf.primer2 part_master_primer2,
        mf.primer3 part_master_primer3,
@@ -361,6 +394,29 @@ export async function POST(req:NextRequest){
      }else if(resolved.length>1){
        throw new Error("Các Job đang có Recipe khác nhau. Hãy chọn đúng Recipe.");
      }
+   }
+
+   // v336 Batch Compatibility Lock — recipe trên UI chỉ là lớp hướng dẫn.
+   // Server luôn kiểm tra lại live Recipe để không thể bypass checkbox/drag lock.
+   if(recipeKey){
+     const recipeMismatch=matches.filter(x=>clean(x.match.recipeKey)!==recipeKey);
+     if(recipeMismatch.length){
+       throw new Error(
+        `Các Job không cùng Recipe với Batch: `+
+        recipeMismatch.map(x=>String(x.row.job_num||"")).filter(Boolean).join(", ")
+       );
+     }
+
+     const anchorRow=q.rows.find((r:any)=>Number(r.id)===Number(ids[0]))||q.rows[0];
+     await assertSameRecipeConditionGroup(c,{
+      recipeKey,
+      jobs:q.rows.map((r:any)=>({
+       job_num:String(r.job_num||""),
+       condition_data:(r.condition_data||{}) as Record<string,unknown>
+      })),
+      anchorJobNum:String(anchorRow?.job_num||""),
+      targetBatchId:targetBatch?Number(targetBatch.id):null
+     });
    }
 
    // Mã lô mẫu + Prefix từ mapping của các Job dùng ĐÚNG recipe của lô.
@@ -513,6 +569,8 @@ export async function POST(req:NextRequest){
       });
      }
 
+     const affectedJobNums=q.rows.map((r:any)=>String(r.job_num||"")).filter(Boolean);
+     const batchTarget=await loadBatchTarget(c,Number(targetBatch.id));
      await c.query("commit");
 
      return NextResponse.json({
@@ -525,7 +583,9 @@ export async function POST(req:NextRequest){
       totalJobs:newTotalJobs,
       totalQty:newTotalQty,
       totalSurface:newTotalSurface,
-      processMinutes:newProcessMinutes
+      processMinutes:newProcessMinutes,
+      affectedJobNums,
+      batchTarget
      });
    }
 
@@ -659,6 +719,8 @@ export async function POST(req:NextRequest){
    await insertBatchJobs(c,batchId,q.rows);
    await markOpsPlanned(c,q.rows.map((r:any)=>r.id),recipeKey);
 
+   const affectedJobNums=q.rows.map((r:any)=>String(r.job_num||"")).filter(Boolean);
+   const batchTarget=await loadBatchTarget(c,Number(batchId));
    await c.query("commit");
 
    return NextResponse.json({
@@ -670,7 +732,9 @@ export async function POST(req:NextRequest){
     totalQty,
     totalSurface,
     processMinutes,
-    plannedEnd:endTimestamp
+    plannedEnd:endTimestamp,
+    affectedJobNums,
+    batchTarget
    });
  }catch(e){
    await c.query("rollback");
