@@ -1593,31 +1593,6 @@ button,a,input,select,textarea{touch-action:manipulation}
 }
 
 
-/* Paint-type selection lock v78 */
-.paint-selection-lock-banner{
- display:flex;
- align-items:center;
- gap:10px;
- flex-wrap:wrap;
- padding:7px 10px;
- border-bottom:1px solid #d8dee7;
- background:#f8fafc;
- font-size:10px;
-}
-.paint-selection-lock-banner b{
- font-size:10px;
- white-space:nowrap;
-}
-.paint-selection-lock-banner span{
- color:#475467;
-}
-.paint-selection-lock-banner.is-locked{
- background:#fff8e8;
- border-color:#f0c36d;
-}
-.paint-selection-lock-banner.is-locked b{
- color:#92400e;
-}
 /* v263: Recipe đề xuất khi chọn Job vào lô */
 .recipe-suggestion-banner{
  display:flex;
@@ -3168,8 +3143,7 @@ button,a,input,select,textarea{touch-action:manipulation}
  overscroll-behavior:contain;
 }
 .candidate-full-view .candidate-display-rules,
-.candidate-full-view .candidate-column-picker,
-.candidate-full-view .paint-selection-lock-banner{
+.candidate-full-view .candidate-column-picker{
  flex:0 0 auto;
  max-height:32vh;
  overflow:auto;

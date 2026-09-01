@@ -273,66 +273,6 @@ export function BatchDetailManager({
 
  const columns=activeColumns??allColumns.map(x=>x.key);
 
- const paintSelectionField=(operation:string)=>{
-   switch(normalized(operation)){
-     case "PRIMER": return "PRIMER1";
-     case "PRIMER2": return "PRIMER2";
-     case "PRIMER3": return "PRIMER3";
-     case "TOPCOAT1": return "TOPCOAT1";
-     case "TOPCOAT2": return "TOPCOAT2";
-     case "ANTI-ABRASION": return "ANTI-ABRASION";
-     case "VARNISH": return "VARNISH";
-     default:return "";
-   }
- };
-
- const paintKeyFromRow=(x:{
-   part_master_primer1?:string|null;
-   part_master_primer2?:string|null;
-   part_master_primer3?:string|null;
-   part_master_topcoat1?:string|null;
-   part_master_topcoat2?:string|null;
-   part_master_antiabration?:string|null;
-   part_master_varnish?:string|null;
-   recipe_no?:string|null;
- })=>{
-   switch(normalized(standardOperation)){
-     case "PRIMER": return normalized(x.part_master_primer1||x.recipe_no);
-     case "PRIMER2": return normalized(x.part_master_primer2||x.recipe_no);
-     case "PRIMER3": return normalized(x.part_master_primer3||x.recipe_no);
-     case "TOPCOAT1": return normalized(x.part_master_topcoat1||x.recipe_no);
-     case "TOPCOAT2": return normalized(x.part_master_topcoat2||x.recipe_no);
-     case "ANTI-ABRASION": return normalized(x.part_master_antiabration||x.recipe_no);
-     case "VARNISH": return normalized(x.part_master_varnish||x.recipe_no);
-     default:return "";
-   }
- };
-
- const isPaintSelectionOperation=Boolean(paintSelectionField(standardOperation));
-
- const existingBatchPaintKeys=useMemo(()=>{
-   if(!isPaintSelectionOperation)return [];
-   return [...new Set(jobs.map(x=>paintKeyFromRow(x)).filter(Boolean))];
- },[jobs,isPaintSelectionOperation,standardOperation]);
-
- const existingBatchPaintKey=existingBatchPaintKeys.length===1
-   ? existingBatchPaintKeys[0]
-   : "";
-
- const selectedPaintKey=useMemo(()=>{
-   if(!isPaintSelectionOperation)return "";
-   const first=candidates.find(x=>selected.includes(x.id)&&paintKeyFromRow(x));
-   return first?paintKeyFromRow(first):"";
- },[candidates,selected,isPaintSelectionOperation,standardOperation]);
-
- const activePaintKey=existingBatchPaintKey||selectedPaintKey;
-
- const paintSelectionLocked=(x:Candidate)=>{
-   if(!isPaintSelectionOperation)return false;
-   const key=paintKeyFromRow(x);
-   if(!key)return true;
-   return Boolean(activePaintKey&&key!==activePaintKey);
- };
 
  const selectedRecipeSuggestion=useMemo(()=>{
    if(!selected.length)return null;
@@ -503,13 +443,11 @@ export function BatchDetailManager({
      return;
    }
 
-   if(paintSelectionLocked(row))return;
    setSelected(x=>[...x,id]);
  }
 
  function toggleAll(){
-   const compatible=visible.filter(x=>!paintSelectionLocked(x));
-   const ids=compatible.map(x=>x.id);
+   const ids=visible.map(x=>x.id);
    const all=ids.length>0&&ids.every(id=>selected.includes(id));
    if(all)setSelected(x=>x.filter(id=>!ids.includes(id)));
    else setSelected(x=>[...new Set([...x,...ids])]);
@@ -733,17 +671,7 @@ export function BatchDetailManager({
      <span>{visible.length} candidates</span>
     </div>
 
-    {isPaintSelectionOperation&&
-     <div className={`paint-selection-lock-banner ${activePaintKey?"is-locked":""}`}>
-      <b>Paint Selection Lock</b>
-      <span>
-       {existingBatchPaintKeys.length>1
-        ? `Cảnh báo: Batch hiện tại đã có nhiều ${paintSelectionField(standardOperation)} khác nhau.`
-        : activePaintKey
-         ? `${paintSelectionField(standardOperation)} = ${activePaintKey} · Chỉ Job cùng loại sơn được chọn thêm.`
-         : `Chọn Job đầu tiên để khóa theo ${paintSelectionField(standardOperation)}.`}
-      </span>
-     </div>}
+
 
     {selectedRecipeSuggestion&&selected.length>0&&
      <div className={`recipe-suggestion-banner ${selectedRecipeSuggestion.kind==="ok"?"is-ok":selectedRecipeSuggestion.kind==="mixed"?"is-warn":"is-muted"}`}>
@@ -796,8 +724,8 @@ export function BatchDetailManager({
          <input
           type="checkbox"
           checked={
-           visible.filter(x=>!paintSelectionLocked(x)).length>0 &&
-           visible.filter(x=>!paintSelectionLocked(x)).every(x=>selected.includes(x.id))
+           visible.length>0 &&
+           visible.every(x=>selected.includes(x.id))
           }
           onChange={toggleAll}
          />
@@ -810,14 +738,12 @@ export function BatchDetailManager({
        {visible.map(x=>
         <tr
          key={x.id}
-         className={`${selected.includes(x.id)?"planning-row-selected ":""}${paintSelectionLocked(x)?"paint-selection-disabled ":""}${priorityClass(x.priority_type)}`.trim()}
+         className={`${selected.includes(x.id)?"planning-row-selected ":""}${priorityClass(x.priority_type)}`.trim()}
         >
          <td>
           <input
            type="checkbox"
            checked={selected.includes(x.id)}
-           disabled={paintSelectionLocked(x)}
-           title={paintSelectionLocked(x)?"Khác loại sơn với Batch/Job đã chọn hoặc chưa có loại sơn":undefined}
            onChange={()=>toggle(x.id)}
           />
          </td>

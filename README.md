@@ -391,3 +391,10 @@ Khi cùng raw NextOperation lặp nhiều lần và physical pair vẫn ambiguou
 - Chọn occurrence sớm nhất chưa có Batch; nếu chưa có progress context thì lấy occurrence đầu tiên theo route.
 - Ví dụ START → HE-BAKE sẽ mở HE-BAKE before blasting trước, sau đó mới tới các occurrence HE-BAKE tiếp theo theo sequential gating.
 - Không cần migration SQL.
+
+## v366 — Remove Legacy Paint Selection Lock
+- Xóa lớp khóa sơn cũ dựa trực tiếp vào Part Master `PRIMER1/2/3`, `TOPCOAT1/2`, `ANTI-ABRASION`, `VARNISH` khi chọn Job vào Batch.
+- Planning Board READY/checkbox/drag/Select All chỉ còn dùng Main Operation scope + Batch Compatibility chuẩn.
+- Batch Compatibility dùng effective Recipe, `recipe_mapping_id` và các Recipe condition planner chọn; đây là nguồn chuẩn duy nhất để quyết định Job có được gom chung Batch hay không.
+- API Create Batch / Add Job cũng bỏ validation Part Master paint cũ, nhưng vẫn revalidate cùng Recipe và Recipe condition group ở server.
+- Không thay đổi Sequential READY/WAIT, Recipe Resolver, Process Time hoặc Scheduling. Không cần migration SQL.

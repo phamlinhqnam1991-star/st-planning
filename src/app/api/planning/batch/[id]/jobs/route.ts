@@ -28,50 +28,6 @@ async function plannerForOperationDb(c:any,operation:unknown):Promise<"1"|"2"|nu
 
 const clean=(v:unknown)=>String(v??"").trim();
 
-function paintFieldName(operation:string){
- const op=clean(operation).toUpperCase();
- switch(op){
-  case "PRIMER":return "PRIMER1";
-  case "PRIMER2":return "PRIMER2";
-  case "PRIMER3":return "PRIMER3";
-  case "TOPCOAT1":return "TOPCOAT1";
-  case "TOPCOAT2":return "TOPCOAT2";
-  case "ANTI-ABRASION":return "ANTI-ABRASION";
-  case "VARNISH":return "VARNISH";
-  default:return "";
- }
-}
-
-function paintKey(row:any,operation:string){
- const op=clean(operation).toUpperCase();
- const val=
-  op==="PRIMER" ? row.part_master_primer1 :
-  op==="PRIMER2" ? row.part_master_primer2 :
-  op==="PRIMER3" ? row.part_master_primer3 :
-  op==="TOPCOAT1" ? row.part_master_topcoat1 :
-  op==="TOPCOAT2" ? row.part_master_topcoat2 :
-  op==="ANTI-ABRASION" ? row.part_master_antiabration :
-  op==="VARNISH" ? row.part_master_varnish :
-  null;
-
- return clean(val||row.recipe_no||"").toUpperCase();
-}
-
-function validateSamePaint(rows:any[],operation:string){
- const field=paintFieldName(operation);
- if(!field)return;
-
- const keys=[...new Set(rows.map(r=>paintKey(r,operation)).filter(Boolean))];
-
- if(rows.some(r=>!paintKey(r,operation)))
-  throw new Error(`Một số Job chưa có ${field}. Không thể tạo/chỉnh Batch sơn.`);
-
- if(keys.length>1)
-  throw new Error(
-   `Các Job có ${field} khác nhau (${keys.join(", ")}). `+
-   `Một Batch sơn chỉ được chứa cùng một loại sơn.`
-  );
-}
 
 
 async function nextMainOperationForJob(c:any,jobNum:string,planningSeq:number){
@@ -294,46 +250,7 @@ export async function POST(
      if(!batch.recipe_key&&!r.recipe_key&&match.recipeKey)r.recipe_key=match.recipeKey;
    }
 
-   // Server-side paint compatibility check. UI dim/disable is only the
-   // convenience layer; this keeps the Batch safe even with direct API calls.
-   const existingPaintQ=await c.query(`
-     select
-       mf.primer1 part_master_primer1,
-       mf.primer2 part_master_primer2,
-       mf.primer3 part_master_primer3,
-       mf.topcoat1 part_master_topcoat1,
-       mf.topcoat2 part_master_topcoat2,
-       mf.antiabration part_master_antiabration,
-       mf.varinish_name part_master_varnish,
-       pr.recipe_no
-     from planning_batch_job bj
-     join open_job_current j on j.job_num=bj.job_num
-     left join md_material_finish mf
-       on mf.part_num=j.part_num
-      and mf.revision_num=j.revision_num
-      and mf.is_active=true
-     left join planning_job_operation p
-       on p.id=bj.planning_job_operation_id
-     left join md_process_recipe pr
-       on pr.recipe_key=p.recipe_key
-      and pr.is_active=true
-     where bj.batch_id=$1
-   `,[batchId]);
 
-   validateSamePaint(q.rows,batch.standard_operation);
-
-   if(paintFieldName(batch.standard_operation) && existingPaintQ.rowCount){
-     validateSamePaint(existingPaintQ.rows,batch.standard_operation);
-
-     const existingKey=paintKey(existingPaintQ.rows[0],batch.standard_operation);
-     const incomingKey=paintKey(q.rows[0],batch.standard_operation);
-
-     if(existingKey && incomingKey && existingKey!==incomingKey)
-       throw new Error(
-         `Batch đang khóa ${paintFieldName(batch.standard_operation)} = ${existingKey}. `+
-         `Job mới có ${incomingKey}.`
-       );
-   }
 
    for(const r of q.rows){
      if(r.status!=="ELIGIBLE")

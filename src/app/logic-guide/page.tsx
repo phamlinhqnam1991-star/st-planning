@@ -264,7 +264,7 @@ export default async function Page(){
       <tr><td><b>Part Revision</b></td><td>Revision thuộc Part, active/inactive.</td><td>Join Finish, Requirement, Routing, Recipe fallback.</td><td>Revision không còn active sẽ không nên dùng cho routing mới.</td></tr>
       <tr><td><b>Source Operation</b></td><td>Danh mục Operation Code gốc từ Master; chứa <b>Next Op Sort</b>.</td><td>ST Scope, Bridge, Planning Board sort NextOperation.</td><td>Đổi Next Op Sort chỉ đổi thứ tự hiển thị/sort, không đổi READY/WAIT.</td></tr>
       <tr><td><b>Routing Detail</b></td><td>Chuỗi operation đầy đủ theo Part + Revision, có seq và Next Operation.</td><td>Dựng ST Routing standardized, Bridge Intermediate, Part Tracker.</td><td>Routing thay đổi sẽ làm thay đổi physical sequence và có thể cần rebuild derived routing/bridge.</td></tr>
-      <tr><td><b>Material Finish</b></td><td>Primer1/2/3, Topcoat1/2, Anti-abrasion, finish name...</td><td>Paint Recipe resolver, Batch validation, Part Tracker.</td><td>Có thể làm Job resolve sang Recipe sơn khác.</td></tr>
+      <tr><td><b>Material Finish</b></td><td>Primer1/2/3, Topcoat1/2, Anti-abrasion, finish name...</td><td>Paint Recipe resolver/condition, Part Tracker.</td><td>Có thể làm Job resolve sang Recipe sơn khác.</td></tr>
       <tr><td><b>Process Requirement</b></td><td>Requirement code/value theo Part + Revision.</td><td>Recipe condition builder (các condition Master), Part Tracker.</td><td>Có thể thay kết quả Recipe nếu mapping dùng requirement.</td></tr>
       <tr><td><b>ST Routing Master</b></td><td>Routing ST chuẩn hóa theo signature.</td><td>Canonical route, Part → Routing.</td><td>Ảnh hưởng route nào được Part dùng.</td></tr>
       <tr><td><b>ST Routing Chain</b></td><td>Chuỗi ST theo routing_code + seq + raw operation + standard operation.</td><td>Auto Intermediate Bridge, Planning Chain, Part Tracker.</td><td>Đây là nguồn quan trọng để suy ra operation trung gian giữa hai Main.</td></tr>
@@ -361,6 +361,7 @@ export default async function Page(){
      <div className="lg-key lg-key-2">
       <Rule title="Recipe resolver">Nếu một Operation có nhiều Recipe: rule có điều kiện khớp Job được xét; sau đó Priority nhỏ hơn → Default → thứ tự ổn định. Rule không condition là fallback.</Rule>
       <Rule title="Batch Compatibility" tone="important">Các condition trong <code>selection_rule</code> của Recipe mapping là nguồn checkbox “Điều kiện Recipe dùng để gom lô”. Planner có thể bỏ tích một số condition để mở rộng Job cùng Recipe; lựa chọn được lưu trên Batch.</Rule>
+      <Rule title="Không còn Paint Selection Lock cũ" tone="important">Planning Board không còn khóa riêng theo <code>Part Master PRIMER1/2/3/TOPCOAT...</code>. READY Job được chọn theo <b>effective Recipe + Recipe Rule + các condition Batch Compatibility đang tích</b>. Vì vậy Job không bị khóa chỉ vì field Part Master paint trống nếu Recipe resolver đã xác định được Recipe hợp lệ.</Rule>
      </div>
      <StepList items={[
       <>Tạo/kiểm tra Recipe trong Danh mục Recipe. Có thể <b>chọn từ All Open Job</b> hoặc chuyển từng field Recipe Group / Recipe No / Recipe Name sang <b>Nhập tay</b>; field nhập tay không lưu source column.</>,

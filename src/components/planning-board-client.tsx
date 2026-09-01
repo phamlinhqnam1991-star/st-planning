@@ -1817,33 +1817,6 @@ const currentPriorityMonth=useMemo(()=>{
    [displayCandidates]
  );
 
- const paintSelectionField=(operation:string)=>{
-   switch(normalized(operation)){
-     case "PRIMER": return "PRIMER1";
-     case "PRIMER2": return "PRIMER2";
-     case "PRIMER3": return "PRIMER3";
-     case "TOPCOAT1": return "TOPCOAT1";
-     case "TOPCOAT2": return "TOPCOAT2";
-     case "ANTI-ABRASION": return "ANTI-ABRASION";
-     case "VARNISH": return "VARNISH";
-     default:return "";
-   }
- };
-
- const paintSelectionKey=(x:Candidate,operation=standardOperation)=>{
-   switch(normalized(operation)){
-     case "PRIMER": return normalized(x.part_master_primer1||x.recipe_no);
-     case "PRIMER2": return normalized(x.part_master_primer2||x.recipe_no);
-     case "PRIMER3": return normalized(x.part_master_primer3||x.recipe_no);
-     case "TOPCOAT1": return normalized(x.part_master_topcoat1||x.recipe_no);
-     case "TOPCOAT2": return normalized(x.part_master_topcoat2||x.recipe_no);
-     case "ANTI-ABRASION": return normalized(x.part_master_antiabration||x.recipe_no);
-     case "VARNISH": return normalized(x.part_master_varnish||x.recipe_no);
-     default:return "";
-   }
- };
-
- const isPaintSelectionOperation=Boolean(paintSelectionField(standardOperation));
 
  const selectedTargets=useMemo(()=>{
    const out:{
@@ -2029,14 +2002,6 @@ const currentPriorityMonth=useMemo(()=>{
  };
 
 
- const selectedPaintKey=useMemo(()=>{
-   const firstTarget=selectedTargets[0];
-   if(!firstTarget)return "";
-   const op=firstTarget.standardOperation;
-   if(!paintSelectionField(op))return "";
-   const first=selectedTargets.find(x=>paintSelectionKey(x.candidate,op));
-   return first?paintSelectionKey(first.candidate,op):"";
- },[selectedTargets,standardOperation]);
 
  // Single source for row/checkbox/drag selection:
  // a Candidate row may be PLANNED at Current Main while ONLY the immediate
@@ -2358,21 +2323,6 @@ const currentPriorityMonth=useMemo(()=>{
    ?`Batch Selection Mode đang chọn ${batchSelectionOperation}. ${operation} tạm thời bị khóa.`
    :"";
 
- const paintSelectionLockedForTarget=(row:Candidate)=>{
-   const target=selectableTargetFor(row);
-   if(!target)return false;
-   const op=target.standardOperation;
-   if(!paintSelectionField(op))return false;
-
-   const key=paintSelectionKey(row,op);
-   if(!key)return true;
-
-   const selectedPaint=selectedTargets.length
-    ?paintSelectionKey(selectedTargets[0].candidate,op)
-    :"";
-
-   return Boolean(selectedPaint && selectedPaint!==key);
- };
 
 
 
@@ -2424,7 +2374,6 @@ const currentPriorityMonth=useMemo(()=>{
     setMessage(compatibilityReasonForId(Number(target.id),target.standardOperation)||"Job không cùng Recipe / điều kiện với Batch đang chọn.");
     return;
    }
-   if(paintSelectionLockedForTarget(row))return;
 
    setSelected(prev=>prev.includes(target.id)?prev:[...prev,target.id]);
  };
@@ -2491,7 +2440,7 @@ const currentPriorityMonth=useMemo(()=>{
      return;
    }
 
-   if(operationSelectionLocked(row)||paintSelectionLockedForTarget(row))return;
+   if(operationSelectionLocked(row))return;
    if(compatibilityLockedForTarget(row)){
     setMessage(compatibilityReasonForId(Number(target.id),target.standardOperation)||"Job không cùng Recipe / điều kiện với Batch đang chọn.");
     return;
@@ -2504,7 +2453,7 @@ const currentPriorityMonth=useMemo(()=>{
    const selectableRows=displayCandidates
     .map(row=>({row,target:selectableTargetFor(row)}))
     .filter(x=>x.target)
-    .filter(x=>!operationSelectionLocked(x.row)&&!paintSelectionLockedForTarget(x.row)&&!compatibilityLockedForTarget(x.row));
+    .filter(x=>!operationSelectionLocked(x.row)&&!compatibilityLockedForTarget(x.row));
 
    const ids=selectableRows.map(x=>Number(x.target!.id));
    const all=ids.length>0 && ids.every(id=>selected.includes(id));
@@ -2734,22 +2683,7 @@ const currentPriorityMonth=useMemo(()=>{
     return;
    }
 
-   if(paintSelectionField(op)){
-    const keyValue=paintSelectionKey(candidate,op);
-    if(!keyValue){
-     setMessage(`${candidate.job_num} chưa có ${paintSelectionField(op)}.`);
-     return;
-    }
 
-    const selectedPaint=selectedTargets.length
-     ? paintSelectionKey(selectedTargets[0].candidate,op)
-     :"";
-
-    if(selectedPaint && selectedPaint!==keyValue){
-     setMessage(`Không thể trộn loại sơn khác nhau trong cùng Batch ${op}.`);
-     return;
-    }
-   }
 
    setMessage("");
    setSelected(prev=>[...new Set([...prev,id])]);
@@ -3295,15 +3229,7 @@ const currentPriorityMonth=useMemo(()=>{
       </div>
      </div>}
 
-    {isPaintSelectionOperation&&
-     <div className={`paint-selection-lock-banner ${selectedPaintKey?"is-locked":""}`}>
-      <b>Paint Selection Lock</b>
-      <span>
-       {selectedPaintKey
-        ? `${paintSelectionField(standardOperation)} = ${selectedPaintKey} · Các Job khác loại sơn đã bị khóa.`
-        : `Chọn Job đầu tiên để khóa theo ${paintSelectionField(standardOperation)}. Job thiếu loại sơn cũng không được chọn.`}
-      </span>
-     </div>}
+
 
     {/* v282: Modal So sánh Cấu hình Recipe ↔ Board */}
     {recipeCompareOpen&&recipeCompare&&
@@ -3729,7 +3655,7 @@ const currentPriorityMonth=useMemo(()=>{
            const rows=displayCandidates
             .map(row=>({row,target:selectableTargetFor(row)}))
             .filter(x=>x.target)
-            .filter(x=>!operationSelectionLocked(x.row)&&!paintSelectionLockedForTarget(x.row)&&!compatibilityLockedForTarget(x.row));
+            .filter(x=>!operationSelectionLocked(x.row)&&!compatibilityLockedForTarget(x.row));
            return rows.length>0 && rows.every(x=>selected.includes(Number(x.target!.id)));
           })()}
           onChange={toggleAll}
@@ -3743,10 +3669,10 @@ const currentPriorityMonth=useMemo(()=>{
         <tr
          key={String(x.job_num)}
          className={`${selectableTargetFor(x)&&selected.includes(selectableTargetFor(x)!.id)?"planning-row-selected ":""}${dragCandidateId===x.id?"planning-row-dragging ":""}${priorityClass(x.priority_type)}`.trim()}
-         draggable={Boolean(selectableTargetFor(x))&&!operationSelectionLocked(x)&&!paintSelectionLockedForTarget(x)&&!compatibilityLockedForTarget(x)}
+         draggable={Boolean(selectableTargetFor(x))&&!operationSelectionLocked(x)&&!compatibilityLockedForTarget(x)}
          onDragStart={e=>{
           const target=selectableTargetFor(x);
-          if(!target||operationSelectionLocked(x)||paintSelectionLockedForTarget(x)||compatibilityLockedForTarget(x))return;
+          if(!target||operationSelectionLocked(x)||compatibilityLockedForTarget(x))return;
           setDragCandidateId(x.id);
           e.dataTransfer.effectAllowed="copy";
           e.dataTransfer.setData("application/x-st-candidate",String(x.id));
@@ -3757,16 +3683,14 @@ const currentPriorityMonth=useMemo(()=>{
           <input
            type="checkbox"
            checked={Boolean(selectableTargetFor(x)&&selected.includes(selectableTargetFor(x)!.id))}
-           disabled={!selectableTargetFor(x)||operationSelectionLocked(x)||paintSelectionLockedForTarget(x)||compatibilityLockedForTarget(x)}
+           disabled={!selectableTargetFor(x)||operationSelectionLocked(x)||compatibilityLockedForTarget(x)}
            title={!selectableTargetFor(x)
               ?"Job chưa có Main READY để thêm Batch"
               :operationSelectionLocked(x)
                ?"Khác Standard Operation với Job đã chọn"
                :compatibilityLockedForTarget(x)
                 ?(compatibilityReasonForId(Number(selectableTargetFor(x)!.id),selectableTargetFor(x)!.standardOperation)||"Khác Recipe / điều kiện của Batch")
-                :paintSelectionLockedForTarget(x)
-                 ?"Khác loại sơn với Job đã chọn hoặc chưa có loại sơn"
-                 :`Chọn ${selectableTargetFor(x)!.standardOperation} READY`}
+                :`Chọn ${selectableTargetFor(x)!.standardOperation} READY`}
            onChange={()=>toggle(x.id)}
           />
          </td>
