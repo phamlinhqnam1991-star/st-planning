@@ -6852,3 +6852,10 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .support-table-wrap{max-height:420px;overflow:auto;border:1px solid #dde3eb}
 .support-table{min-width:1450px}.support-table th{position:sticky;top:0;z-index:1;background:#f3f6fa}.support-table td{vertical-align:top}
 @media(max-width:900px){.support-summary{grid-template-columns:repeat(2,minmax(120px,1fr))}.support-filter{align-items:stretch;flex-direction:column}}
+
+/* v359 · scheduled-day Masking / Unmasking planning */
+.support-date-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;border:1px solid #cfd6df;padding:9px 10px;border-radius:4px}
+.support-view-tabs,.support-date-nav{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.support-selected-date{font-weight:800;color:#14365f;min-width:96px;text-align:center}
+.support-operation-detail+ .support-operation-detail{margin-top:6px;padding-top:6px;border-top:1px dashed #d8e0e8}
+@media(max-width:900px){.support-date-bar{align-items:stretch;flex-direction:column}.support-date-nav{justify-content:space-between}.support-selected-date{flex:1}}

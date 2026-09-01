@@ -556,25 +556,31 @@ export default async function Page(){
     <p>Không cần rebuild chỉ vì tạo Batch hoặc đổi Next Op Sort. Nên rebuild sau thay đổi cấu trúc như ST Scope/Main Mapping/Bridge/Planning chain rule hoặc khi dữ liệu chain cũ được tạo trước logic mới. Rebuild là thao tác nặng và có thể tải lại Candidates.</p>
    </Section>
 
-   <Section id="masking" title="8 · Tab Masking / Unmasking — kế hoạch support theo từng Main Planning"
-    sub="Derived planning: Main Planning Order → Main Operation → Masking / Unmasking → Job + Batch + Start Time">
+   <Section id="masking" title="8 · Tab Masking / Unmasking — kế hoạch support theo ngày điều độ"
+    sub="Ngày điều độ → Main Planning Order → Main Operation → Masking / Unmasking → Job + Batch + Time">
     <StepList items={[
-     <>Tab hiển thị <b>tất cả Main Planning Operation</b> theo đúng <code>md_operation_master.planning_sort_order</code>. Riêng Main <code>PRIMER</code> được hiển thị nhãn <b>PRIMER1</b>; PRIMER2/PRIMER3/TOPCOAT1/TOPCOAT2 giữ tách riêng.</>,
-     <>Một Job chỉ xuất hiện khi occurrence Main đó đã nằm trong <b>Planning Batch</b>. Batch chưa schedule vẫn hiện với Batch No. và trạng thái <b>UNSCHEDULED</b>.</>,
-     <>Để tìm support operation, engine đọc <b>Routing Detail.operation_detail_code</b> của đúng Part + Revision, chỉ xét đoạn vật lý <b>sau Previous Main và trước Current Main</b>.</>,
-     <><code>operation_detail_code</code> chứa <b>MSKG / MASK</b> được phân loại Masking; chứa <b>UNMSK / UNMASK</b> được phân loại Unmasking. Unmasking được xét trước để không bị nhận nhầm thành Masking.</>,
-     <>Nếu có nhiều Masking/Unmasking trong cùng đoạn route, Job vẫn chỉ có một dòng cho mỗi loại; cột support operation liệt kê tất cả detail code theo thứ tự route.</>,
-     <>Batch No. lấy từ Batch của <b>chính Main Planning phía sau</b>. <b>Start Time = planning_schedule.planned_start</b> của Batch đó; khi planner đổi giờ điều độ Main, tab này đọc lại và tự phản ánh giờ mới.</>,
-     <>Tab này <b>không tạo Planning Chain/READY/WAIT mới</b>, không tạo Batch Masking riêng và không thay đổi Recipe/Process Time. Đây là view kế hoạch support suy ra từ Routing + Batch + Schedule hiện có.</>
+     <>Tab hiển thị <b>tất cả Main Planning Operation</b> theo đúng <code>md_operation_master.planning_sort_order</code>. Main <code>PRIMER</code> được hiển thị là <b>PRIMER1</b>; PRIMER2/PRIMER3/TOPCOAT1/TOPCOAT2 giữ tách riêng.</>,
+     <>Việc phân biệt <b>PRIMER1 / PRIMER2 / PRIMER3</b> và <b>TOPCOAT1 / TOPCOAT2</b> không hard-code theo một raw Operation Code. Tab dùng chính occurrence đã được Planning Chain chuẩn hóa từ <b>ST Group + thứ tự xuất hiện trong routing</b>. Vì vậy PPRSLVT rồi FULTKAPP vẫn có thể lần lượt là PRIMER1 rồi PRIMER2.</>,
+     <>Một support operation chỉ được xét khi nằm vật lý <b>sau Previous Main và trước Current Main</b> của đúng occurrence Job. Như vậy support luôn gắn vào <b>Main Planning phía sau</b>.</>,
+     <>Chỉ raw routing operation có chữ <b>MSKG</b> mới được coi là Masking/Unmasking. <b>UNMSKG*</b> = Unmasking; các code MSKG còn lại = Masking. Main Planning có chữ MSKG như FMSKG-CM được loại bằng Operation Type, không bị nhận nhầm thành support.</>,
+     <>Cột planner nhìn thấy sử dụng <b>md_routing_detailed.operation_detail_code</b> để phân biệt chi tiết như <code>MSKG-TC_BEFORE_PPRSLVT</code>, <code>UNMSKG_BEFORE_MRKG-IJ</code>... Raw operation_code vẫn được giữ để trace.</>,
+     <>View mặc định là <b>Theo ngày điều độ</b>: chỉ Job có Batch Main được schedule đúng ngày đang chọn mới xuất hiện. Ngày lấy từ <code>planning_schedule.schedule_date</code>.</>,
+     <>View <b>Chưa điều độ</b> hiển thị Job đã nằm trong Batch Main nhưng Batch chưa có planning_schedule. Có Batch No. nhưng Start/End để “Chưa điều độ”.</>,
+     <>Batch No., Recipe, Process Time, Start, End và Resource đều lấy từ <b>chính Batch/Schedule của Main phía sau</b>. Tab không lưu một bản thời gian support riêng.</>,
+     <>Khi planner đổi ngày/giờ/resource trên Board Điều Độ, Job support tự chuyển ngày và cập nhật Start/End theo dữ liệu schedule mới ở lần mở/refresh tiếp theo.</>,
+     <>Tab này <b>không thay đổi READY/WAIT, Recipe Resolver, Batch Compatibility hay Scheduling Engine</b>. Đây là derived planning view dùng chung dữ liệu chuẩn hiện có.</>
     ]}/>
-    <div className="table-wrap"><table className="erp-table"><thead><tr><th>Cột</th><th>Nguồn</th><th>Ý nghĩa</th></tr></thead><tbody>
-     <tr><td>Job / Part / Rev / Description / Qty / Surface</td><td><code>open_job_current</code></td><td>Thông tin Job hiện tại giống Planning Board.</td></tr>
-     <tr><td>LastLaborOp / NextOperation / Priority</td><td><code>open_job_current</code></td><td>Vị trí sản xuất và ưu tiên hiện tại.</td></tr>
-     <tr><td>Masking / Unmasking Operation</td><td><code>md_routing_detailed.operation_detail_code</code></td><td>Support operation nằm trước Main đang xét.</td></tr>
-     <tr><td>Batch No.</td><td><code>planning_batch</code></td><td>Batch của Main Planning mà support operation phục vụ.</td></tr>
-     <tr><td>Start / End / Resource</td><td><code>planning_schedule</code></td><td>Thời gian điều độ của Main; support Start kế thừa đúng Start này.</td></tr>
+    <div className="table-wrap"><table className="erp-table"><thead><tr><th>Thông tin</th><th>Nguồn chuẩn</th><th>Logic</th></tr></thead><tbody>
+     <tr><td>Main Planning / Planning Order</td><td><code>planning_job_operation</code> + <code>md_operation_master</code></td><td>Occurrence Main đã chuẩn hóa; PRIMER/TOPCOAT occurrence dùng cùng logic Planning Board.</td></tr>
+     <tr><td>Previous Main → Current Main boundary</td><td><code>previous_source_seq_snapshot</code> + <code>source_seq</code></td><td>Chỉ lấy support operation nằm giữa hai mốc vật lý này.</td></tr>
+     <tr><td>Masking / Unmasking</td><td><code>md_routing_detailed.operation_code</code></td><td>Có MSKG; UNMSKG* là Unmasking, còn lại là Masking; Planning Operation bị loại.</td></tr>
+     <tr><td>Support Operation Detail</td><td><code>md_routing_detailed.operation_detail_code</code></td><td>Code chi tiết planner dùng để biết support trước operation nào/lần nào.</td></tr>
+     <tr><td>Job / Part / Rev / Qty / Surface / Last / Next / Priority</td><td><code>open_job_current</code></td><td>Thông tin Job hiện tại giống Planning Board.</td></tr>
+     <tr><td>Batch / Recipe / Process</td><td><code>planning_batch</code> + <code>md_process_recipe</code></td><td>Luôn là Batch của Current Main mà support phục vụ.</td></tr>
+     <tr><td>Ngày / Start / End / Resource</td><td><code>planning_schedule</code></td><td>Support kế thừa lịch điều độ Main; schedule_date quyết định Job nằm ở ngày nào.</td></tr>
     </tbody></table></div>
-    <Rule title="Ví dụ" tone="important"><code>BSAUNSLD → INSAND-B → MSKG-TC → PPRSLVT</code>. Nếu Batch PPRSLVT của Job được điều độ 10:30 thì Job xuất hiện tại <b>PPRSLVT → Masking</b>, Support Operation = <b>MSKG-TC</b>, Start Time = <b>10:30</b>.</Rule>
+    <Rule title="Ví dụ 1 · Main thường" tone="important"><code>BSAUNSLD → INSAND-B → MSKG-TC → PPRSLVT</code>. Nếu PPRSLVT là Current Main và Batch được điều độ 05/09 lúc 10:30, Job nằm tại <b>05/09 → PRIMER1 → Masking</b>, support detail của MSKG-TC, cùng Batch No. và Start 10:30.</Rule>
+    <Rule title="Ví dụ 2 · Primer khác raw code" tone="important"><code>PPRSLVT → UNMSKG... → MSKG-TC → FULTKAPP</code>. Vì cả PPRSLVT và FULTKAPP thuộc ST Group PRIMER, occurrence đầu là <b>PRIMER1</b>, occurrence sau là <b>PRIMER2</b>. UNMSKG/MSKG nằm giữa hai occurrence được gắn vào <b>PRIMER2</b> và đi theo ngày điều độ của Batch PRIMER2.</Rule>
    </Section>
 
    <Section id="schedule" title="9 · Tab Board Điều Độ — xếp Batch vào resource và thời gian"

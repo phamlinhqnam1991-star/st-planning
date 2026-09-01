@@ -1,6 +1,7 @@
 import type {PoolClient} from "pg";
 
 export type SupportType="MASKING"|"UNMASKING";
+export type SupportView="scheduled"|"unscheduled";
 
 export type MainPlanningOperation={
   standard_operation:string;
@@ -31,12 +32,23 @@ export type SupportPlanRawRow={
   batch_no:string|null;
   batch_status:string|null;
   planning_date:string|null;
+  recipe_key:string|null;
+  recipe_no:string|null;
+  recipe_name:string|null;
+  process_minutes:number|null;
   schedule_id:number|null;
   schedule_date:string|null;
   resource_code:string|null;
   planned_start:string|null;
   planned_end:string|null;
   schedule_status:string|null;
+};
+
+export type SupportOperation={
+  seq:number;
+  operationCode:string;
+  detailCode:string;
+  name:string;
 };
 
 export type SupportPlanJob={
@@ -53,11 +65,15 @@ export type SupportPlanJob={
   standardOperation:string;
   planningOrder:number|null;
   supportType:SupportType;
-  supportOperations:{seq:number;code:string;name:string}[];
+  supportOperations:SupportOperation[];
   batchId:number;
   batchNo:string;
   batchStatus:string;
   planningDate:string|null;
+  recipeKey:string;
+  recipeNo:string;
+  recipeName:string;
+  processMinutes:number|null;
   scheduleId:number|null;
   scheduleDate:string|null;
   resourceCode:string;
@@ -74,11 +90,34 @@ export type MainSupportPlan={
   unmasking:SupportPlanJob[];
 };
 
+export type LoadMaskingUnmaskingPlanInput={
+  search?:string;
+  view?:SupportView;
+  scheduleDate?:string;
+};
+
 const clean=(v:unknown)=>String(v??"").trim();
 const displayMain=(operation:string)=>clean(operation).toUpperCase()==="PRIMER"?"PRIMER1":clean(operation);
 
-export async function loadMaskingUnmaskingPlan(c:PoolClient,search=""):Promise<MainSupportPlan[]>{
-  const q=clean(search);
+/**
+ * Masking / Unmasking is a derived support plan.  The canonical Main Planning
+ * occurrence is planning_job_operation itself, so PRIMER/PRIMER2/PRIMER3 and
+ * TOPCOAT1/TOPCOAT2 stay exactly aligned with Planning Board occurrence logic.
+ *
+ * A support step belongs to the CURRENT Main when its physical routing row is
+ * strictly between previous_source_seq_snapshot and current source_seq.
+ * Only actual routing operations whose raw operation code contains MSKG are
+ * considered.  UNMSKG* is Unmasking; every other *MSKG* operation is Masking.
+ * operation_detail_code is kept for the planner-facing detail/traceability.
+ */
+export async function loadMaskingUnmaskingPlan(
+  c:PoolClient,
+  input:LoadMaskingUnmaskingPlanInput={}
+):Promise<MainSupportPlan[]>{
+  const q=clean(input.search);
+  const view:SupportView=input.view==="unscheduled"?"unscheduled":"scheduled";
+  const scheduleDate=clean(input.scheduleDate);
+
   const [mainQ,supportQ]=await Promise.all([
     c.query(`
       select standard_operation,
@@ -95,7 +134,9 @@ export async function loadMaskingUnmaskingPlan(c:PoolClient,search=""):Promise<M
           b.id batch_id,
           b.batch_no,
           b.status batch_status,
-          b.planning_date
+          b.planning_date,
+          b.recipe_key,
+          b.process_minutes
         from public.planning_batch_job bj
         join public.planning_batch b on b.id=bj.batch_id
         where b.status<>'CANCELLED'
@@ -121,18 +162,19 @@ export async function loadMaskingUnmaskingPlan(c:PoolClient,search=""):Promise<M
           d.operation_detail_code,
           d.operation_detail_name,
           case
-            when upper(coalesce(d.operation_detail_code,'')) like '%UNMSK%'
-              or upper(coalesce(d.operation_detail_code,'')) like '%UNMASK%'
+            when upper(trim(coalesce(d.operation_code,''))) like '%MSKG%'
+             and upper(trim(coalesce(d.operation_code,''))) like '%UNMSKG%'
               then 'UNMASKING'
-            when upper(coalesce(d.operation_detail_code,'')) like '%MSKG%'
-              or upper(coalesce(d.operation_detail_code,'')) like '%MASK%'
+            when upper(trim(coalesce(d.operation_code,''))) like '%MSKG%'
               then 'MASKING'
             else null
           end support_type,
           bj.batch_id,
           bj.batch_no,
           bj.batch_status,
-          bj.planning_date
+          bj.planning_date,
+          bj.recipe_key,
+          bj.process_minutes
         from batch_job bj
         join public.planning_job_operation po
           on po.id=bj.planning_job_operation_id
@@ -149,15 +191,22 @@ export async function loadMaskingUnmaskingPlan(c:PoolClient,search=""):Promise<M
          and d.is_active=true
          and d.source_seq>coalesce(po.previous_source_seq_snapshot,-2147483648)
          and d.source_seq<po.source_seq
-        where ($1::text=''
+        left join public.md_st_operation_scope support_scope
+          on upper(trim(support_scope.operation_code))=upper(trim(d.operation_code))
+         and support_scope.is_active=true
+        where coalesce(support_scope.operation_type,'INTERMEDIATE')<>'PLANNING_OPERATION'
+          and ($1::text=''
           or j.job_num ilike '%'||$1||'%'
           or coalesce(j.part_num,'') ilike '%'||$1||'%'
           or coalesce(j.part_description,'') ilike '%'||$1||'%'
           or po.standard_operation ilike '%'||$1||'%'
-          or coalesce(bj.batch_no,'') ilike '%'||$1||'%')
+          or coalesce(bj.batch_no,'') ilike '%'||$1||'%'
+          or coalesce(d.operation_detail_code,'') ilike '%'||$1||'%')
       )
       select
         l.*,
+        pr.recipe_no,
+        pr.recipe_name,
         ps.id schedule_id,
         ps.schedule_date,
         ps.resource_code,
@@ -165,6 +214,8 @@ export async function loadMaskingUnmaskingPlan(c:PoolClient,search=""):Promise<M
         ps.planned_end,
         ps.status schedule_status
       from linked l
+      left join public.md_process_recipe pr
+        on pr.recipe_key=l.recipe_key
       left join lateral (
         select s.id,s.schedule_date,s.resource_code,s.planned_start,s.planned_end,s.status
         from public.planning_schedule s
@@ -174,6 +225,11 @@ export async function loadMaskingUnmaskingPlan(c:PoolClient,search=""):Promise<M
         limit 1
       ) ps on true
       where l.support_type is not null
+        and (
+          ($2::text='scheduled' and ps.id is not null and ps.schedule_date=$3::date)
+          or
+          ($2::text='unscheduled' and ps.id is null)
+        )
       order by l.planning_order asc nulls last,
                upper(trim(l.standard_operation)) asc,
                l.support_type,
@@ -181,7 +237,7 @@ export async function loadMaskingUnmaskingPlan(c:PoolClient,search=""):Promise<M
                l.batch_no,
                l.job_num,
                l.support_seq
-    `,[q])
+    `,[q,view,scheduleDate||null])
   ]);
 
   const mainRows=mainQ.rows as MainPlanningOperation[];
@@ -211,6 +267,10 @@ export async function loadMaskingUnmaskingPlan(c:PoolClient,search=""):Promise<M
         batchNo:clean(row.batch_no),
         batchStatus:clean(row.batch_status),
         planningDate:row.planning_date,
+        recipeKey:clean(row.recipe_key),
+        recipeNo:clean(row.recipe_no),
+        recipeName:clean(row.recipe_name),
+        processMinutes:row.process_minutes==null?null:Number(row.process_minutes),
         scheduleId:row.schedule_id==null?null:Number(row.schedule_id),
         scheduleDate:row.schedule_date,
         resourceCode:clean(row.resource_code),
@@ -220,10 +280,16 @@ export async function loadMaskingUnmaskingPlan(c:PoolClient,search=""):Promise<M
       };
       group.set(key,item);
     }
-    const code=clean(row.operation_detail_code);
+    const operationCode=clean(row.support_operation_code);
+    const detailCode=clean(row.operation_detail_code)||operationCode;
     const name=clean(row.operation_detail_name);
-    if(code&&!item.supportOperations.some(x=>x.seq===Number(row.support_seq)&&x.code===code)){
-      item.supportOperations.push({seq:Number(row.support_seq),code,name});
+    if(detailCode&&!item.supportOperations.some(x=>x.seq===Number(row.support_seq)&&x.detailCode===detailCode)){
+      item.supportOperations.push({
+        seq:Number(row.support_seq),
+        operationCode,
+        detailCode,
+        name
+      });
     }
   }
 

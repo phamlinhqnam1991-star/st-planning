@@ -1,3 +1,12 @@
+## v359 — Masking / Unmasking theo ngày điều độ
+- Tab Masking / Unmasking dùng Main occurrence chuẩn từ Planning Chain; không duplicate logic PRIMER/TOPCOAT.
+- PRIMER occurrence hiển thị PRIMER1/PRIMER2/PRIMER3; TOPCOAT hiển thị TOPCOAT1/TOPCOAT2 dù raw Operation Code khác nhau.
+- Support operation chỉ lấy trong đoạn Previous Main → Current Main, raw code có `MSKG`; `UNMSKG*` = Unmasking, còn lại = Masking.
+- `operation_detail_code` là code planner nhìn thấy để phân biệt support cụ thể.
+- View mặc định theo `planning_schedule.schedule_date`; có view `Chưa điều độ` cho Batch chưa có schedule.
+- Batch/Recipe/Process/Start/End/Resource lấy từ chính Main Batch phía sau; đổi schedule tự phản ánh, không lưu giờ support riêng.
+- Không cần migration SQL mới.
+
 ## v355 — Process Recipe hỗ trợ nhập tay
 - `+ Thêm Process Recipe` có 2 chế độ cho Recipe Group / Recipe No / Recipe Name: **Chọn từ Open Job** hoặc **Nhập tay**.
 - Có thể trộn cách nhập giữa các field; field nhập tay lưu `source_column = NULL`, field chọn từ Open Job vẫn validate Column Values.
