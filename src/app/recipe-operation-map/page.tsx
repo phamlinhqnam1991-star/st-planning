@@ -52,7 +52,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
             order by process_family,
               case when recipe_no ~ '^[0-9]+$' then recipe_no::int else 9999 end,
               recipe_no`),
-   c.query(`select m.operation_code,o.operation_name,m.standard_operation,m.recipe_key,m.note,
+   c.query(`select m.mapping_id,m.operation_code,o.operation_name,m.standard_operation,m.recipe_key,m.note,
                    m.priority,m.selection_rule,m.is_default,m.updated_at,
                    m.batch_key_template,m.batch_no_prefix,
                    r.recipe_no,r.recipe_name,r.batch_key,r.process_family,r.recipe_group
@@ -60,7 +60,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
             left join md_operation o on o.operation_code=m.operation_code
             join md_process_recipe r on r.recipe_key=m.recipe_key
             where m.is_active=true and r.is_active=true
-            order by m.operation_code,m.priority,r.recipe_no`),
+            order by m.operation_code,m.priority,m.mapping_id,r.recipe_no`),
    c.query(`select recipe_key,process_family,recipe_group,recipe_group_source_column,
                    recipe_no,recipe_no_source_column,recipe_name,recipe_name_source_column,
                    batch_key,source_system,note,is_active

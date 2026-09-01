@@ -449,6 +449,7 @@ export async function loadPlanningRouteStatus(c:any,candidateIds:number[]){
      return {
        ...item,
        effective_recipe_key:match.recipeKey,
+       effective_recipe_mapping_id:match.recipeMappingId,
        effective_recipe_no:meta?.recipe_no||null,
        effective_recipe_name:meta?.recipe_name||null,
        batch_key_suggest:substituteTemplate(match.batchKeyTemplate,jobData),

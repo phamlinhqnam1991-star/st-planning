@@ -7,7 +7,7 @@ export async function getRecentPlanningBatches(client:any,limit=100){
 
  return client.query(`
   select
-   b.id,b.batch_no,b.planning_date,b.standard_operation,b.recipe_key,
+   b.id,b.batch_no,b.planning_date,b.standard_operation,b.recipe_key,b.recipe_mapping_id,
    b.total_jobs,b.total_qty,b.total_surface_dm2,b.process_minutes,
    b.planned_start,b.planned_end,b.status,b.priority,
    a.area_name,

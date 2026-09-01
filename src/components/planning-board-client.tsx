@@ -45,6 +45,7 @@ type RouteStatusItem={
  recipe_name:string|null;
  // v290: live Recipe of this exact route occurrence (not the representative Candidate row).
  effective_recipe_key?:string|null;
+ effective_recipe_mapping_id?:number|null;
  effective_recipe_no?:string|null;
  effective_recipe_name?:string|null;
  batch_key_suggest?:string|null;
@@ -71,6 +72,7 @@ type Candidate={
  st_group:string|null;
  area_name:string|null;
  recipe_key:string|null;
+ recipe_mapping_id?:number|null;
  recipe_no:string|null;
  recipe_name:string|null;
  previous_standard_operation:string|null;
@@ -97,6 +99,7 @@ type Candidate={
 
  // v262/v266: recipe theo CẤU HÌNH HIỆN TẠI (paint Part+Rev → op code ưu tiên).
  effective_recipe_key:string|null;
+ effective_recipe_mapping_id?:number|null;
  // Mã lô mẫu + Prefix (gộp từ Batch Key / Recipe Rules).
  batch_key_suggest:string|null;
  batch_prefix_suggest:string|null;
@@ -365,6 +368,7 @@ type BatchTargetOption={
  batch_no:string;
  standard_operation:string;
  recipe_key:string|null;
+ recipe_mapping_id?:number|null;
  recipe_no:string|null;
  recipe_name:string|null;
  total_jobs:number;
@@ -390,6 +394,7 @@ type BatchCompatibilityLock={
   anchorId?:number|null;
   standardOperation:string;
   recipeKey:string;
+  recipeMappingId:number|null;
   recipeNo:string|null;
   recipeName:string|null;
   conditions:BatchCompatibilityCondition[];
@@ -1902,6 +1907,7 @@ const currentPriorityMonth=useMemo(()=>{
      return {
        target,
        recipeKey:routeItem.effective_recipe_key||null,
+       recipeMappingId:routeItem.effective_recipe_mapping_id||null,
        recipeNo:routeItem.effective_recipe_no||null,
        recipeName:routeItem.effective_recipe_name||null,
        batchKey:routeItem.batch_key_suggest||null,
@@ -1912,6 +1918,7 @@ const currentPriorityMonth=useMemo(()=>{
    return {
      target,
      recipeKey:exactCandidateTarget?target.candidate.effective_recipe_key:null,
+     recipeMappingId:exactCandidateTarget?(target.candidate.effective_recipe_mapping_id||null):null,
      recipeNo:exactCandidateTarget?target.candidate.recipe_no:null,
      recipeName:exactCandidateTarget?target.candidate.recipe_name:null,
      batchKey:exactCandidateTarget?target.candidate.batch_key_suggest:null,
@@ -1924,6 +1931,7 @@ const currentPriorityMonth=useMemo(()=>{
 
    const withRecipe=selectedRecipeTargets.filter(x=>x.recipeKey);
    const keys=[...new Set(withRecipe.map(x=>x.recipeKey).filter(Boolean))];
+   const mappingIds=[...new Set(withRecipe.map(x=>x.recipeMappingId).filter((x):x is number=>Number.isFinite(Number(x))&&Number(x)>0))];
    const labels=[...new Set(withRecipe.map(x=>
      `${x.recipeNo||"—"}${x.recipeName?` · ${x.recipeName}`:""}`
    ))];
@@ -1934,6 +1942,7 @@ const currentPriorityMonth=useMemo(()=>{
      count:selectedRecipeTargets.length,
      unmatchedCount:selectedRecipeTargets.length-withRecipe.length,
      unanimousRecipe:keys.length===1?keys[0]:null,
+     unanimousRecipeMappingId:mappingIds.length===1?mappingIds[0]:null,
      unanimousRecipeLabel:labels.length===1?labels[0]:null,
      unanimousKey:batchKeys.length===1?batchKeys[0]:null,
      unanimousPrefix:prefixes.length===1?prefixes[0]:null,
@@ -2146,7 +2155,7 @@ const currentPriorityMonth=useMemo(()=>{
 
  const compatibilityCandidates=useMemo(()=>{
   if(!compatibilityOperation)return [];
-  const out:{id:number;recipeKey:string|null;standardOperation:string;sourceOperation:string}[]=[];
+  const out:{id:number;recipeKey:string|null;recipeMappingId:number|null;standardOperation:string;sourceOperation:string}[]=[];
   const seen=new Set<number>();
   for(const row of candidates){
    const target=selectableTargetForOperation(row,compatibilityOperation);
@@ -2157,9 +2166,12 @@ const currentPriorityMonth=useMemo(()=>{
     normalized(target.sourceOperation)===normalized(row.source_operation_code);
    const liveRecipe=target.routeItem?.effective_recipe_key ||
     (exactCurrent?row.effective_recipe_key:null) || null;
+   const liveRecipeMappingId=target.routeItem?.effective_recipe_mapping_id ||
+    (exactCurrent?(row.effective_recipe_mapping_id||null):null) || null;
    out.push({
     id:Number(target.id),
     recipeKey:liveRecipe,
+    recipeMappingId:liveRecipeMappingId,
     standardOperation:String(target.standardOperation||compatibilityOperation),
     sourceOperation:String(target.sourceOperation||"")
    });
@@ -2167,7 +2179,7 @@ const currentPriorityMonth=useMemo(()=>{
   return out;
  },[candidates,compatibilityOperation,selectableTargetForOperation]);
  const compatibilityScopeKey=useMemo(
-  ()=>`${normalized(compatibilityOperation)}|${compatibilityCandidates.map(x=>`${x.id}:${x.recipeKey||""}:${normalized(x.sourceOperation)}`).join("|")}`,
+  ()=>`${normalized(compatibilityOperation)}|${compatibilityCandidates.map(x=>`${x.id}:${x.recipeKey||""}:${x.recipeMappingId||""}:${normalized(x.sourceOperation)}`).join("|")}`,
   [compatibilityCandidates,compatibilityOperation]
  );
 
@@ -2503,6 +2515,9 @@ const currentPriorityMonth=useMemo(()=>{
          // filter Recipe and use the exact target Operation suggestion instead.
          recipe_key:(standardOperation&&normalized(standardOperation)===normalized(effectiveOperation)?recipeKey:"")
            ||suggestionSummary?.unanimousRecipe||null,
+         recipe_mapping_id:compatibilityLock?.profile?.recipeMappingId
+           ||suggestionSummary?.unanimousRecipeMappingId
+           ||null,
          target_batch_id:targetBatchId?Number(targetBatchId):null,
          compatibility_condition_columns:compatibilityLock?.profile
           ?compatibilityLock.profile.selectedConditionColumns
@@ -3786,6 +3801,7 @@ const currentPriorityMonth=useMemo(()=>{
        {compatibilityLock.profile&&<>
         <div><span>Main Operation</span><b>{compatibilityLock.profile.standardOperation||"—"}</b></div>
         <div><span>Recipe</span><b>{compatibilityLock.profile.recipeNo||compatibilityLock.profile.recipeKey||"Không dùng Recipe"}{compatibilityLock.profile.recipeName?` · ${compatibilityLock.profile.recipeName}`:""}</b></div>
+        {compatibilityLock.profile.recipeMappingId&&<div><span>Recipe Rule</span><b className="mono">#{compatibilityLock.profile.recipeMappingId}</b></div>}
         {compatibilityLock.profile.conditions.length>0?
          <div className="planning-compatibility-condition-picker">
           <span>Điều kiện Recipe dùng để gom lô</span>

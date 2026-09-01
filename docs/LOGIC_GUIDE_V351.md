@@ -31,7 +31,7 @@ Cập nhật toàn bộ tab `/logic-guide` theo hệ thống hiện tại.
 - Planning Board không hard-sort NextOperation/Priority ngoài Sort Priority.
 - Sequential READY: only immediate next Main opens after DONE / non-cancelled Batch handoff.
 - Batch UNSCHEDULED đã là handoff; Scheduling không phải gate READY.
-- Batch Compatibility checkbox lấy từ `md_main_operation_recipe.selection_rule`, không lấy từ Process Time condition.
+- Mỗi Recipe Rule có `mapping_id` riêng; cùng Operation Code + Recipe có thể có nhiều rule condition. Batch Compatibility checkbox lấy từ `selection_rule` của đúng `recipe_mapping_id` mà Job chuẩn match, không lấy từ Process Time condition.
 - Planner có thể chọn subset condition; selection lưu theo Batch.
 - Process Time condition là hệ rule độc lập.
 - Create/Add Batch dùng Delta Refresh, không full reload Candidate Board.

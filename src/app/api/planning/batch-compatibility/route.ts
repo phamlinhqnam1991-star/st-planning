@@ -1,6 +1,8 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {requireApiUser} from "@/lib/api-auth";
+import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
+import {mergeJobData} from "@/lib/planning/live-recipe";
 import {
  compatibilityConditionMatches,
  describeCompatibilityConditions,
@@ -18,6 +20,7 @@ const up=(v:unknown)=>clean(v).toUpperCase();
 type CandidateInput={
  id:number;
  recipeKey:string|null;
+ recipeMappingId:number|null;
  standardOperation:string;
  sourceOperation:string;
 };
@@ -25,23 +28,29 @@ type CandidateInput={
 async function loadConditionDataByOperationIds(c:any,ids:number[],columns:string[]){
  const result=new Map<number,Record<string,unknown>>();
  if(!ids.length)return result;
- if(!columns.length){
-  ids.forEach(id=>result.set(id,{}));
-  return result;
- }
  const q=await c.query(`
-  select p.id,
-   coalesce(jsonb_object_agg(col_name,
-    (coalesce(j.source_data,'{}'::jsonb) || (to_jsonb(j)-'source_data'))->>col_name
-   ),'{}'::jsonb) condition_data
+  select p.id,j.part_num,j.revision_num,
+         coalesce(j.source_data,'{}'::jsonb) || (to_jsonb(j)-'source_data') condition_data
   from planning_job_operation p
   join open_job_current j on j.job_num=p.job_num and j.is_open=true
-  cross join unnest($2::text[]) as cols(col_name)
   where p.id=any($1::bigint[])
     and p.is_active=true
-  group by p.id
- `,[ids,columns]);
- for(const r of q.rows)result.set(Number(r.id),(r.condition_data||{}) as Record<string,unknown>);
+ `,[ids]);
+ const ctx=await getCachedLiveRecipeContext(c);
+ for(const r of q.rows){
+  const data=mergeJobData(ctx,{
+   partNum:r.part_num,
+   revisionNum:r.revision_num,
+   sourceData:(r.condition_data||{}) as Record<string,unknown>
+  });
+  // Keep only requested columns when possible; matchCondition still receives
+  // the exact same values the live Recipe resolver sees, including MD:* data.
+  if(columns.length){
+   const picked:Record<string,unknown>={};
+   for(const col of columns)picked[col]=data[col];
+   result.set(Number(r.id),picked);
+  }else result.set(Number(r.id),{});
+ }
  return result;
 }
 
@@ -50,23 +59,27 @@ async function loadBatchMemberConditionData(
  batchId:number,
  columns:string[]
 ):Promise<Record<string,unknown>[]>{
- if(!columns.length){
-  const q=await c.query(`select 1 from planning_batch_job where batch_id=$1 limit 1`,[batchId]);
-  return q.rowCount?[{} as Record<string,unknown>]:[];
- }
  const q=await c.query(`
-  select bj.id,
-   coalesce(jsonb_object_agg(col_name,
-    (coalesce(j.source_data,'{}'::jsonb) || (to_jsonb(j)-'source_data'))->>col_name
-   ),'{}'::jsonb) condition_data
+  select bj.id,j.part_num,j.revision_num,
+         coalesce(j.source_data,'{}'::jsonb) || (to_jsonb(j)-'source_data') condition_data
   from planning_batch_job bj
   join open_job_current j on j.job_num=bj.job_num
-  cross join unnest($2::text[]) as cols(col_name)
   where bj.batch_id=$1
-  group by bj.id
   order by bj.id
- `,[batchId,columns]);
- return q.rows.map((r:any)=>(r.condition_data||{}) as Record<string,unknown>);
+ `,[batchId]);
+ if(!q.rowCount)return [];
+ const ctx=await getCachedLiveRecipeContext(c);
+ return q.rows.map((r:any)=>{
+  const data=mergeJobData(ctx,{
+   partNum:r.part_num,
+   revisionNum:r.revision_num,
+   sourceData:(r.condition_data||{}) as Record<string,unknown>
+  });
+  if(!columns.length)return {};
+  const picked:Record<string,unknown>={};
+  for(const col of columns)picked[col]=data[col];
+  return picked;
+ });
 }
 
 function mergeConditionsByColumn(
@@ -94,6 +107,7 @@ export async function POST(req:NextRequest){
  const candidates:CandidateInput[]=rawCandidates.slice(0,5000).map((x:any)=>({
   id:Number(x?.id),
   recipeKey:clean(x?.recipeKey)||null,
+  recipeMappingId:Number(x?.recipeMappingId||0)>0?Number(x.recipeMappingId):null,
   standardOperation:clean(x?.standardOperation),
   sourceOperation:clean(x?.sourceOperation)
  })).filter((x:CandidateInput)=>Number.isFinite(x.id)&&x.id>0&&x.standardOperation);
@@ -112,13 +126,14 @@ export async function POST(req:NextRequest){
  const c=await getPool().connect();
  try{
   let recipeKey="";
+  let recipeMappingId:number|null=null;
   let standardOperation="";
   let anchorSourceOperation="";
   let source:"JOB"|"BATCH"="JOB";
 
   if(batchId>0){
    const bq=await c.query(`
-    select id,batch_no,standard_operation,recipe_key
+    select id,batch_no,standard_operation,recipe_key,recipe_mapping_id
     from planning_batch
     where id=$1 and status not in ('CANCELLED','COMPLETED')
     limit 1
@@ -127,6 +142,7 @@ export async function POST(req:NextRequest){
     return NextResponse.json({error:"Target Batch không tồn tại hoặc đã đóng."},{status:400});
    recipeKey=clean(bq.rows[0].recipe_key);
    standardOperation=clean(bq.rows[0].standard_operation);
+   recipeMappingId=Number(bq.rows[0].recipe_mapping_id||0)>0?Number(bq.rows[0].recipe_mapping_id):null;
    source="BATCH";
   }else{
    const anchor=candidates.find(x=>x.id===anchorId);
@@ -135,6 +151,7 @@ export async function POST(req:NextRequest){
    recipeKey=clean(anchor.recipeKey);
    standardOperation=clean(anchor.standardOperation);
    anchorSourceOperation=clean(anchor.sourceOperation);
+   recipeMappingId=anchor.recipeMappingId;
   }
 
   const scopedCandidates=candidates.filter(
@@ -143,13 +160,14 @@ export async function POST(req:NextRequest){
 
   if(!scopedCandidates.length){
    return NextResponse.json({
-    profile:{source,batchId:source==="BATCH"?batchId:null,anchorId:anchorId>0?anchorId:null,standardOperation,recipeKey,recipeNo:null,recipeName:null,conditions:[],selectedConditions:[],selectedConditionColumns:[],conditionText:"Không có Job READY cùng Main Operation"},
+    profile:{source,batchId:source==="BATCH"?batchId:null,anchorId:anchorId>0?anchorId:null,standardOperation,recipeKey,recipeMappingId,recipeNo:null,recipeName:null,conditions:[],selectedConditions:[],selectedConditionColumns:[],conditionText:"Không có Job READY cùng Main Operation"},
     compatibleIds:[],reasons:{},total:0,compatible:0,locked:0
    });
   }
 
   const anchorCandidate=scopedCandidates.find(x=>x.id===anchorId)||null;
   if(!anchorSourceOperation)anchorSourceOperation=clean(anchorCandidate?.sourceOperation);
+  if(!recipeMappingId&&anchorCandidate?.recipeMappingId)recipeMappingId=anchorCandidate.recipeMappingId;
   if(source==="BATCH"&&!anchorSourceOperation){
    anchorSourceOperation=clean(await loadBatchAnchorSourceOperation(c,batchId));
   }
@@ -164,7 +182,7 @@ export async function POST(req:NextRequest){
    return NextResponse.json({
     profile:{
      source,batchId:source==="BATCH"?batchId:null,anchorId:anchorId>0?anchorId:null,
-     standardOperation,recipeKey:"",recipeNo:null,recipeName:null,
+     standardOperation,recipeKey:"",recipeMappingId:null,recipeNo:null,recipeName:null,
      conditions:[],selectedConditions:[],selectedConditionColumns:[],
      conditionText:"Công đoạn không dùng Recipe · chỉ khóa theo Main Operation"
     },
@@ -176,12 +194,14 @@ export async function POST(req:NextRequest){
   // v348: lấy condition từ Operation Code -> Recipe selection_rule,
   // KHÔNG lấy từ Process Time Rule.
   const mappingConditions=await loadRecipeSelectionConditions(
-   c,recipeKey,anchorSourceOperation
+   c,recipeKey,anchorSourceOperation,recipeMappingId
   );
   const storedConditions=source==="BATCH"
    ?await loadStoredBatchCompatibilityConditions(c,batchId)
    :null;
-  const availableConditions=mergeConditionsByColumn(mappingConditions,storedConditions||[]);
+  const availableConditions=source==="BATCH"
+   ?mergeConditionsByColumn(storedConditions||[],mappingConditions)
+   :mergeConditionsByColumn(mappingConditions,[]);
   const conditionColumns=availableConditions.map(x=>clean(x.source_column)).filter(Boolean);
   const conditionById=await loadConditionDataByOperationIds(
    c,scopedCandidates.map(x=>x.id),conditionColumns
@@ -247,7 +267,7 @@ export async function POST(req:NextRequest){
    profile:{
     source,batchId:source==="BATCH"?batchId:null,
     anchorId:source==="JOB"?anchorId:(anchorId>0?anchorId:null),
-    standardOperation,recipeKey,
+    standardOperation,recipeKey,recipeMappingId,
     recipeNo:rq.rows[0]?.recipe_no||null,
     recipeName:rq.rows[0]?.recipe_name||null,
     conditions:availableConditions,

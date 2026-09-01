@@ -3,7 +3,7 @@ import {getPool} from "@/lib/db";
 
 import {refreshBatchTotals,recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
-import {loadLiveRecipeContext,effectiveRecipeKey} from "@/lib/planning/live-recipe";
+import {loadLiveRecipeContext,bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
 import {recipeAllowedForJob} from "@/lib/planning/batch-utils";
 import {assertSameRecipeConditionGroup} from "@/lib/planning/batch-compatibility";
 
@@ -223,7 +223,7 @@ export async function POST(
    await c.query("begin");
 
    const batchQ=await c.query(`
-     select id,batch_no,standard_operation,recipe_key,status,process_minutes,
+     select id,batch_no,standard_operation,recipe_key,recipe_mapping_id,status,process_minutes,
             coalesce(total_qty,0) total_qty,
             coalesce(total_surface_dm2,0) total_surface_dm2
      from planning_batch
@@ -277,23 +277,21 @@ export async function POST(
    if(q.rowCount!==ids.length)
      throw new Error("Một số Job không còn hợp lệ.");
 
-   // v264: Batch chưa có Recipe → Job chưa có Recipe sẽ tự chọn theo CẤU HÌNH
-   // HIỆN TẠI (rule → paint theo Part → op code theo điều kiện + ưu tiên).
-   if(!batch.recipe_key){
-     const recipeCtx=await loadLiveRecipeContext(c);
-     for(const r of q.rows){
-       if(!r.recipe_key){
-         const eff=effectiveRecipeKey(recipeCtx,{
-           standardOperation:r.standard_operation,
-           sourceOperationCode:r.source_operation_code,
-           partNum:r.part_num,
-           revisionNum:r.revision_num,
-           sourceData:r.source_data||null,
-           ruleSuggestion:null
-         });
-         if(eff)r.recipe_key=eff;
-       }
-     }
+   // v352: resolve BOTH Recipe and the exact Recipe Rule (mapping_id) for
+   // every incoming Job. Same Recipe may have many condition rules.
+   const recipeCtx=await loadLiveRecipeContext(c);
+   for(const r of q.rows){
+     const match=bestRecipeMatch(recipeCtx,{
+       standardOperation:r.standard_operation,
+       sourceOperationCode:r.source_operation_code,
+       partNum:r.part_num,
+       revisionNum:r.revision_num,
+       sourceData:r.source_data||null,
+       ruleSuggestion:null
+     });
+     r.live_recipe_key=match.recipeKey;
+     r.recipe_mapping_id=match.recipeMappingId;
+     if(!batch.recipe_key&&!r.recipe_key&&match.recipeKey)r.recipe_key=match.recipeKey;
    }
 
    // Server-side paint compatibility check. UI dim/disable is only the
@@ -367,19 +365,23 @@ export async function POST(
    if(compatibilityRecipeKey){
      const selectedCompatibilityConditions=await assertSameRecipeConditionGroup(c,{
        recipeKey:compatibilityRecipeKey,
+       recipeMappingId:Number(batch.recipe_mapping_id||q.rows[0]?.recipe_mapping_id||0)||null,
        jobs:q.rows.map((r:any)=>({
          job_num:String(r.job_num||""),
          source_operation_code:String(r.source_operation_code||""),
-         condition_data:(r.condition_data||{}) as Record<string,unknown>
+         recipe_mapping_id:Number(r.recipe_mapping_id||0)||null,
+         condition_data:mergeJobData(recipeCtx,{partNum:r.part_num,revisionNum:r.revision_num,sourceData:(r.condition_data||{}) as Record<string,unknown>})
        })),
        anchorJobNum:String(q.rows[0]?.job_num||""),
        targetBatchId:batchId
      });
      await c.query(`
        update planning_batch
-       set compatibility_conditions=$2::jsonb,updated_at=now()
+       set compatibility_conditions=$2::jsonb,
+           recipe_mapping_id=coalesce(recipe_mapping_id,$3),
+           updated_at=now()
        where id=$1
-     `,[batchId,JSON.stringify(selectedCompatibilityConditions)]);
+     `,[batchId,JSON.stringify(selectedCompatibilityConditions),Number(batch.recipe_mapping_id||q.rows[0]?.recipe_mapping_id||0)||null]);
    }
 
    for(const r of q.rows){
@@ -416,10 +418,13 @@ export async function POST(
      if(recipeKeys.length===1){
        await c.query(`
          update planning_batch
-         set recipe_key=$2,updated_at=now()
+         set recipe_key=$2,
+             recipe_mapping_id=coalesce(recipe_mapping_id,$3),
+             updated_at=now()
          where id=$1
-       `,[batchId,recipeKeys[0]]);
+       `,[batchId,recipeKeys[0],Number(q.rows[0]?.recipe_mapping_id||0)||null]);
        batch.recipe_key=recipeKeys[0];
+       batch.recipe_mapping_id=Number(q.rows[0]?.recipe_mapping_id||0)||null;
      }
    }
 

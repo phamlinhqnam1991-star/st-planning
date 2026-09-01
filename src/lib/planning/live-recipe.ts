@@ -32,7 +32,7 @@ export async function loadLiveRecipeContext(c:any):Promise<LiveRecipeContext>{
   // sync-planning-chains still loads requirements through its own query path.
   const [m,p,partQ,finishQ,recipeKeyQ]=await Promise.all([
     c.query(`
-      select operation_code,recipe_key,priority,is_default,updated_at,selection_rule,
+      select mapping_id,operation_code,recipe_key,priority,is_default,updated_at,selection_rule,
              batch_key_template,batch_no_prefix
       from md_main_operation_recipe
       where is_active=true
@@ -174,7 +174,7 @@ export function bestRecipeMatch(
     sourceData?:Record<string,unknown>|null;
     ruleSuggestion?:{matched:boolean;ambiguous:boolean;recipeKey:string|null}|null;
   }
-):{recipeKey:string|null;batchKeyTemplate:string|null;batchNoPrefix:string|null}{
+):{recipeKey:string|null;recipeMappingId:number|null;batchKeyTemplate:string|null;batchNoPrefix:string|null}{
   // v280: Main Operation · Operation Code là nguồn ƯU TIÊN cho MỌI công đoạn,
   // kể cả sơn. Part + Revision chỉ được dùng khi Operation Code chưa có mapping
   // phù hợp điều kiện Job. Nhờ đó cấu hình ở trang "Công thức & Rule" luôn là
@@ -185,6 +185,7 @@ export function bestRecipeMatch(
   if(best){
     return {
       recipeKey:best.recipe_key,
+      recipeMappingId:best.mapping_id==null?null:Number(best.mapping_id),
       batchKeyTemplate:best.batch_key_template||null,
       batchNoPrefix:best.batch_no_prefix||null
     };
@@ -193,9 +194,9 @@ export function bestRecipeMatch(
   const stdOp=up(args.standardOperation);
   if(PAINT_STANDARD_OPS.has(stdOp)){
     const fallback=ctx.paintRecipeMap.get(`${up(args.partNum)}\u0001${up(args.revisionNum)}\u0001${stdOp}`)||null;
-    return {recipeKey:fallback,batchKeyTemplate:null,batchNoPrefix:null};
+    return {recipeKey:fallback,recipeMappingId:null,batchKeyTemplate:null,batchNoPrefix:null};
   }
-  return {recipeKey:null,batchKeyTemplate:null,batchNoPrefix:null};
+  return {recipeKey:null,recipeMappingId:null,batchKeyTemplate:null,batchNoPrefix:null};
 }
 
 // Chọn item mapping "đang thắng" (điều kiện khớp → ưu tiên), trả về item đầy đủ.
@@ -210,7 +211,11 @@ function pickBestRecipeForJobItem(
     return conds.every(c=>matchCondition(c,sourceData));
   });
   if(!eligible.length)return null;
-  const sorted=[...eligible].sort((a,b)=>{
+  // Conditional rule always wins over an unconditional fallback when at least
+  // one conditional rule matches. Priority is compared only inside that tier.
+  const conditional=eligible.filter(item=>parseSelectionRule(item.selection_rule).length>0);
+  const pool=conditional.length?conditional:eligible.filter(item=>parseSelectionRule(item.selection_rule).length===0);
+  const sorted=[...pool].sort((a,b)=>{
     const pa=a.priority==null?Number.MAX_SAFE_INTEGER:Number(a.priority);
     const pb=b.priority==null?Number.MAX_SAFE_INTEGER:Number(b.priority);
     if(pa!==pb)return pa-pb;
@@ -218,7 +223,9 @@ function pickBestRecipeForJobItem(
     if(da!==db)return db-da;
     const ua=String(a.updated_at??""),ub=String(b.updated_at??"");
     if(ua!==ub)return ua<ub?-1:1;
-    return String(a.recipe_key).localeCompare(String(b.recipe_key));
+    const rk=String(a.recipe_key).localeCompare(String(b.recipe_key));
+    if(rk!==0)return rk;
+    return Number(a.mapping_id||0)-Number(b.mapping_id||0);
   });
   return sorted[0];
 }

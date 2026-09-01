@@ -1,4 +1,6 @@
 import type {PoolClient} from "pg";
+import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
+import {mergeJobData} from "@/lib/planning/live-recipe";
 import {
  matchCondition,
  parseSelectionRule,
@@ -85,35 +87,63 @@ export function selectCompatibilityConditionsByColumns(
 export async function loadRecipeSelectionConditions(
  c:PoolClient,
  recipeKey:string,
- sourceOperationCode:string|null|undefined
+ sourceOperationCode:string|null|undefined,
+ recipeMappingId?:number|null
 ):Promise<BatchCompatibilityRuleCondition[]>{
  const op=up(sourceOperationCode);
- if(!recipeKey||!op)return [];
- const q=await c.query(`
-  select selection_rule
-  from md_main_operation_recipe
-  where upper(trim(operation_code))=$1
-    and recipe_key=$2
-    and is_active=true
-  order by priority asc,is_default desc,updated_at asc
-  limit 1
- `,[op,recipeKey]);
+ if(!recipeKey)return [];
+ const mappingId=Number(recipeMappingId||0);
+ const q=mappingId>0
+  ?await c.query(`
+    select selection_rule
+    from md_main_operation_recipe
+    where mapping_id=$1
+      and recipe_key=$2
+      and is_active=true
+    limit 1
+   `,[mappingId,recipeKey])
+  :(op?await c.query(`
+    select selection_rule
+    from md_main_operation_recipe
+    where upper(trim(operation_code))=$1
+      and recipe_key=$2
+      and is_active=true
+    order by priority asc,is_default desc,updated_at asc,mapping_id asc
+    limit 1
+   `,[op,recipeKey]):{rowCount:0,rows:[]} as any);
  if(!q.rowCount)return [];
  return parseSelectionRule(q.rows[0]?.selection_rule?String(q.rows[0].selection_rule):null)
   .filter(x=>x.is_active!==false)
   .map(x=>({...x,source_column:clean(x.source_column)}));
 }
 
+export async function loadBatchRecipeMappingId(c:PoolClient,batchId:number):Promise<number|null>{
+ const q=await c.query(`
+  select recipe_mapping_id
+  from planning_batch
+  where id=$1
+  limit 1
+ `,[batchId]);
+ const id=Number(q.rows[0]?.recipe_mapping_id||0);
+ return id>0?id:null;
+}
+
 export async function loadBatchCompatibilityJobData(c:PoolClient,batchId:number){
  const q=await c.query(`
   select distinct on (j.job_num)
+   j.job_num,j.part_num,j.revision_num,
    coalesce(j.source_data,'{}'::jsonb) || (to_jsonb(j)-'source_data') condition_data
   from planning_batch_job bj
   join open_job_current j on j.job_num=bj.job_num
   where bj.batch_id=$1
   order by j.job_num
  `,[batchId]);
- return q.rows.map((r:any)=>(r.condition_data||{}) as Record<string,unknown>);
+ const ctx=await getCachedLiveRecipeContext(c);
+ return q.rows.map((r:any)=>mergeJobData(ctx,{
+  partNum:r.part_num,
+  revisionNum:r.revision_num,
+  sourceData:(r.condition_data||{}) as Record<string,unknown>
+ }));
 }
 
 export async function loadBatchAnchorSourceOperation(c:PoolClient,batchId:number){
@@ -166,7 +196,8 @@ export async function resolveSelectedCompatibilityConditions(
  c:PoolClient,
  args:{
   recipeKey:string;
-  jobs:{job_num:string;source_operation_code?:string|null;condition_data:Record<string,unknown>}[];
+  recipeMappingId?:number|null;
+  jobs:{job_num:string;source_operation_code?:string|null;recipe_mapping_id?:number|null;condition_data:Record<string,unknown>}[];
   anchorJobNum?:string|null;
   targetBatchId?:number|null;
   /** undefined = dùng selection đã lưu/default; [] = planner bỏ chọn mọi condition. */
@@ -176,6 +207,7 @@ export async function resolveSelectedCompatibilityConditions(
  available:BatchCompatibilityRuleCondition[];
  selected:BatchCompatibilityRuleCondition[];
  existingData:Record<string,unknown>[];
+ recipeMappingId:number|null;
 }> {
  const jobs=args.jobs||[];
  const existingData=args.targetBatchId
@@ -187,14 +219,21 @@ export async function resolveSelectedCompatibilityConditions(
  if(!sourceOperation&&args.targetBatchId){
   sourceOperation=clean(await loadBatchAnchorSourceOperation(c,Number(args.targetBatchId)));
  }
+ let recipeMappingId=Number(args.recipeMappingId||anchorJob?.recipe_mapping_id||0)||null;
+ if(args.targetBatchId){
+  const storedMappingId=await loadBatchRecipeMappingId(c,Number(args.targetBatchId));
+  if(storedMappingId)recipeMappingId=storedMappingId;
+ }
 
- const mappingConditions=await loadRecipeSelectionConditions(c,args.recipeKey,sourceOperation);
+ const mappingConditions=await loadRecipeSelectionConditions(c,args.recipeKey,sourceOperation,recipeMappingId);
  const stored=args.targetBatchId
   ?await loadStoredBatchCompatibilityConditions(c,Number(args.targetBatchId))
   :null;
  // If mapping was edited after a Batch was created, keep stored columns visible
  // so the historical Batch profile can still be understood/reused safely.
- const available=mergeConditionsByColumn(mappingConditions,stored||[]);
+ const available=args.targetBatchId
+  ?mergeConditionsByColumn(stored||[],mappingConditions)
+  :mergeConditionsByColumn(mappingConditions,[]);
 
  let selected:BatchCompatibilityRuleCondition[];
  if(args.requestedConditionColumns!==undefined){
@@ -211,7 +250,7 @@ export async function resolveSelectedCompatibilityConditions(
   selected=available;
  }
 
- return {available,selected,existingData};
+ return {available,selected,existingData,recipeMappingId};
 }
 
 /**
@@ -223,7 +262,8 @@ export async function assertSameRecipeConditionGroup(
  c:PoolClient,
  args:{
   recipeKey:string;
-  jobs:{job_num:string;source_operation_code?:string|null;condition_data:Record<string,unknown>}[];
+  recipeMappingId?:number|null;
+  jobs:{job_num:string;source_operation_code?:string|null;recipe_mapping_id?:number|null;condition_data:Record<string,unknown>}[];
   anchorJobNum?:string|null;
   targetBatchId?:number|null;
   requestedConditionColumns?:string[];

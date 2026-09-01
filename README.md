@@ -1,3 +1,8 @@
+## v352 — Multiple Recipe Rules + Batch Compatibility theo Rule ID
+- Cùng Operation Code + Recipe được phép có nhiều Recipe Rule condition độc lập.
+- `md_main_operation_recipe.mapping_id` là ID của Rule; Planning Board lưu `planning_batch.recipe_mapping_id` để Batch Compatibility dùng đúng condition của Rule đã match.
+- Bắt buộc chạy migration `064_recipe_mapping_rule_identity.sql` trước khi deploy source v352.
+
 # v342 — Fix duplicate key "uq_process_recipe_active_lookup" khi thêm Recipe cùng No khác Name
 
 - Nền code: v341.

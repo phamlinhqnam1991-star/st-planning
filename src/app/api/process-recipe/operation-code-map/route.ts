@@ -12,17 +12,18 @@ const toInt=(v:unknown,def=100)=>{
 };
 const validPrefix=(v:unknown)=>/^[A-Z0-9]{3}$/.test(upper(v));
 
-/** Runtime mapping used by live-recipe.ts and sync-planning-chains.ts:
- * md_main_operation_recipe (Operation Code → Recipe).
- * The endpoint accepts multiple recipes per source operation; conditions
- * determine eligibility, then priority → default → updated time determines
- * the exact recipe proposed by Planning Board.
+/**
+ * v352: every row in md_main_operation_recipe is an independent Recipe Rule.
+ * The same Operation Code + Recipe may therefore have MANY rows with different
+ * selection_rule values. mapping_id is the durable identity used for edit/delete
+ * and later stored on planning_batch as recipe_mapping_id.
  */
 export async function POST(req:NextRequest){
  const denied=await requireApiUser();
  if(denied)return denied;
  try{
   const b=await req.json();
+  const mappingId=Number(b.mapping_id||0);
   const operationCode=upper(b.operation_code);
   const requestedStandardOperation=upper(b.standard_operation)||null;
   const recipeKey=clean(b.recipe_key);
@@ -50,9 +51,6 @@ export async function POST(req:NextRequest){
    `,[recipeKey]);
    if(!recipe.rowCount)throw new Error("Recipe không hợp lệ hoặc đã ngưng sử dụng.");
 
-   // Mapping must belong to an active Planning Operation in the canonical ST flow.
-   // This prevents a random/raw/inactive operation code from appearing as a
-   // seemingly-valid recipe configuration that can never generate a board row.
    const sourceQ=await c.query(`
      select m.source_operation_code,m.standard_operation_rule
      from md_st_operation_mapping m
@@ -77,11 +75,20 @@ export async function POST(req:NextRequest){
       select standard_operation from md_operation_master
       where upper(trim(standard_operation))=$1 and is_active=true limit 1
     `,[standardOperation]);
-    if(!opQ.rowCount)
-     throw new Error(`Main Operation ${standardOperation} chưa có trong Operation Master.`);
+    if(!opQ.rowCount)throw new Error(`Main Operation ${standardOperation} chưa có trong Operation Master.`);
    }
 
-   // The partial unique index allows one active default per source operation.
+   if(mappingId>0){
+    const existsQ=await c.query(`
+      select mapping_id
+      from md_main_operation_recipe
+      where mapping_id=$1
+      for update
+    `,[mappingId]);
+    if(!existsQ.rowCount)throw new Error("Recipe Rule cần sửa không còn tồn tại.");
+   }
+
+   // Only one ACTIVE default rule per source operation. Exclude the row being edited.
    if(isDefault){
     await c.query(`
       update md_main_operation_recipe
@@ -89,31 +96,61 @@ export async function POST(req:NextRequest){
       where upper(trim(operation_code))=$1
         and is_active=true
         and is_default=true
-    `,[operationCode]);
+        and ($2::bigint<=0 or mapping_id<>$2)
+    `,[operationCode,mappingId]);
    }
 
-   await c.query(`
-     insert into md_main_operation_recipe(
-       operation_code,standard_operation,recipe_key,priority,selection_rule,is_default,note,is_active,
-       batch_key_template,batch_no_prefix
-     ) values($1,$2,$3,$4,$5,$6,$7,true,$8,$9)
-     on conflict(operation_code,recipe_key)
-     do update set
-       standard_operation=excluded.standard_operation,
-       priority=excluded.priority,
-       selection_rule=excluded.selection_rule,
-       is_default=excluded.is_default,
-       note=excluded.note,
-       batch_key_template=excluded.batch_key_template,
-       batch_no_prefix=excluded.batch_no_prefix,
-       is_active=true,
-       updated_at=now()
-   `,[operationCode,standardOperation,recipeKey,priority,selectionRule,isDefault,note,batchKeyTemplate,batchNoPrefix]);
+   if(mappingId<=0){
+    const duplicateQ=await c.query(`
+      select mapping_id
+      from md_main_operation_recipe
+      where upper(trim(operation_code))=$1
+        and recipe_key=$2
+        and coalesce(selection_rule,'')=coalesce($3,'')
+        and is_active=true
+      order by mapping_id
+      limit 1
+    `,[operationCode,recipeKey,selectionRule]);
+    if(duplicateQ.rowCount)
+      throw new Error(`Rule #${duplicateQ.rows[0].mapping_id} đã có cùng Operation Code + Recipe + bộ điều kiện. Hãy bấm Sửa rule đó hoặc thay đổi điều kiện trước khi thêm.`);
+   }
+
+   let saved:any;
+   if(mappingId>0){
+    const q=await c.query(`
+      update md_main_operation_recipe
+      set operation_code=$2,
+          standard_operation=$3,
+          recipe_key=$4,
+          priority=$5,
+          selection_rule=$6,
+          is_default=$7,
+          note=$8,
+          batch_key_template=$9,
+          batch_no_prefix=$10,
+          is_active=true,
+          updated_at=now()
+      where mapping_id=$1
+      returning mapping_id,operation_code,standard_operation,recipe_key
+    `,[mappingId,operationCode,standardOperation,recipeKey,priority,selectionRule,isDefault,note,batchKeyTemplate,batchNoPrefix]);
+    saved=q.rows[0];
+   }else{
+    const q=await c.query(`
+      insert into md_main_operation_recipe(
+        operation_code,standard_operation,recipe_key,priority,selection_rule,is_default,note,is_active,
+        batch_key_template,batch_no_prefix
+      ) values($1,$2,$3,$4,$5,$6,$7,true,$8,$9)
+      returning mapping_id,operation_code,standard_operation,recipe_key
+    `,[operationCode,standardOperation,recipeKey,priority,selectionRule,isDefault,note,batchKeyTemplate,batchNoPrefix]);
+    saved=q.rows[0];
+   }
 
    await c.query("commit");
    invalidateConfigHealth();
    return NextResponse.json({
     ok:true,
+    mapping_id:Number(saved.mapping_id),
+    mode:mappingId>0?"UPDATED":"CREATED",
     operation_code:operationCode,
     standard_operation:standardOperation,
     recipe:{
@@ -136,20 +173,40 @@ export async function DELETE(req:NextRequest){
  if(denied)return denied;
  try{
   const b=await req.json();
+  const mappingId=Number(b.mapping_id||0);
   const operationCode=upper(b.operation_code);
   const recipeKey=clean(b.recipe_key);
-  if(!operationCode||!recipeKey)
-   return NextResponse.json({error:"Operation Code và Recipe là bắt buộc."},{status:400});
 
   const c=await getPool().connect();
   try{
-   const q=await c.query(`
-     update md_main_operation_recipe
-     set is_active=false,is_default=false,updated_at=now()
-     where upper(trim(operation_code))=$1 and recipe_key=$2 and is_active=true
-     returning operation_code,recipe_key
-   `,[operationCode,recipeKey]);
-   if(!q.rowCount)return NextResponse.json({error:"Không tìm thấy mapping đang hoạt động."},{status:404});
+   let q;
+   if(mappingId>0){
+    q=await c.query(`
+      update md_main_operation_recipe
+      set is_active=false,is_default=false,updated_at=now()
+      where mapping_id=$1 and is_active=true
+      returning mapping_id,operation_code,recipe_key
+    `,[mappingId]);
+   }else{
+    // Legacy callers are accepted only when the pair identifies exactly one active rule.
+    if(!operationCode||!recipeKey)
+     return NextResponse.json({error:"mapping_id là bắt buộc để xóa đúng Recipe Rule."},{status:400});
+    const countQ=await c.query(`
+      select mapping_id
+      from md_main_operation_recipe
+      where upper(trim(operation_code))=$1 and recipe_key=$2 and is_active=true
+      order by mapping_id
+    `,[operationCode,recipeKey]);
+    if(countQ.rowCount!==1)
+     return NextResponse.json({error:"Có nhiều Rule dùng cùng Operation Code + Recipe. Hãy tải lại trang và xóa theo đúng Rule."},{status:409});
+    q=await c.query(`
+      update md_main_operation_recipe
+      set is_active=false,is_default=false,updated_at=now()
+      where mapping_id=$1 and is_active=true
+      returning mapping_id,operation_code,recipe_key
+    `,[countQ.rows[0].mapping_id]);
+   }
+   if(!q.rowCount)return NextResponse.json({error:"Không tìm thấy Recipe Rule đang hoạt động."},{status:404});
   }finally{c.release()}
   invalidateConfigHealth();
   return NextResponse.json({ok:true});

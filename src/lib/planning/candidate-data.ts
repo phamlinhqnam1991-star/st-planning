@@ -609,6 +609,7 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
      return {
        ...row,
        effective_recipe_key:effective,
+       effective_recipe_mapping_id:match.recipeMappingId,
        batch_key_suggest:substituteTemplate(match.batchKeyTemplate,mergeJobData(ctx,{partNum:row.part_num,revisionNum:row.revision_num,sourceData:row.source_data||null})),
        batch_prefix_suggest:match.batchNoPrefix,
        recipe_key:displayKey,

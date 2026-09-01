@@ -118,7 +118,7 @@ export default async function Page(){
     where r.is_active=true
     order by r.process_family,r.recipe_no,r.recipe_name`),
    db.query(`
-    select m.operation_code,m.standard_operation,m.recipe_key,m.priority,m.is_default,m.selection_rule
+    select m.mapping_id,m.operation_code,m.standard_operation,m.recipe_key,m.priority,m.is_default,m.selection_rule
     from md_main_operation_recipe m
     where m.is_active=true
     order by m.operation_code,m.priority,m.recipe_key`),
@@ -354,7 +354,7 @@ export default async function Page(){
     <div className="lg-subtitle">4.2 · Tầng 2 — Công thức & Rule</div>
     <details open className="erp-details">
      <summary><b>⑨ Công thức & Rule — Recipe · Công đoạn · Mã lô</b></summary>
-     <p>Đây là <b>nguồn Recipe runtime</b> của Planning Board. Mỗi mapping gắn <b>Operation Code → Recipe</b>, Priority, Default, điều kiện áp dụng cho Job, Batch Key template và Batch No Prefix.</p>
+     <p>Đây là <b>nguồn Recipe runtime</b> của Planning Board. Mỗi <b>Recipe Rule</b> có <code>mapping_id</code> riêng và gắn <b>Operation Code → Recipe</b>, Priority, Default, điều kiện áp dụng cho Job, Batch Key template và Batch No Prefix. Cùng Operation Code + cùng Recipe có thể có nhiều rule condition khác nhau.</p>
      <div className="lg-key lg-key-2">
       <Rule title="Recipe resolver">Nếu một Operation có nhiều Recipe: rule có điều kiện khớp Job được xét; sau đó Priority nhỏ hơn → Default → thứ tự ổn định. Rule không condition là fallback.</Rule>
       <Rule title="Batch Compatibility" tone="important">Các condition trong <code>selection_rule</code> của Recipe mapping là nguồn checkbox “Điều kiện Recipe dùng để gom lô”. Planner có thể bỏ tích một số condition để mở rộng Job cùng Recipe; lựa chọn được lưu trên Batch.</Rule>
@@ -508,7 +508,7 @@ export default async function Page(){
     <div className="lg-subtitle">7.5 · Batch Compatibility — chính xác lấy điều kiện từ đâu?</div>
     <div className="lg-key lg-key-2">
      <Rule title="Recipe luôn bắt buộc giống nhau" tone="important">Checkbox chỉ mở/bỏ bớt condition; không bao giờ cho phép trộn Recipe khác nhau trong cùng Batch.</Rule>
-     <Rule title="Condition nguồn Recipe mapping">Checkbox lấy từ rule “Áp dụng cho Job” của đúng <b>Operation Code + Recipe</b>. Không lấy từ Process Time Rule.</Rule>
+     <Rule title="Condition nguồn Recipe mapping">Checkbox lấy từ rule “Áp dụng cho Job” của đúng <b>recipe_mapping_id</b> mà Job đầu tiên đã match. Vì vậy cùng Operation Code + cùng Recipe vẫn có thể có nhiều bộ condition độc lập. Không lấy từ Process Time Rule.</Rule>
      <Rule title="Existing Batch">Khi chọn Target Batch có sẵn, Batch trở thành anchor; checkbox đã lưu được khôi phục. Không thể bật lại một condition nếu các member hiện tại đã không đồng nhất theo condition đó.</Rule>
      <Rule title="Server guard">UI chỉ là lớp UX. API Create/Add Batch re-resolve Recipe và revalidate selected condition để không thể bypass bằng request ngoài UI.</Rule>
     </div>
@@ -650,9 +650,9 @@ export default async function Page(){
 
     <div className="lg-subtitle">11.4 · Operation Code → Recipe Mapping runtime</div>
     <div className="table-wrap"><table className="erp-table">
-     <thead><tr><th>Operation Code</th><th>Main</th><th>Recipe Key</th><th>Priority</th><th>Default</th><th>Selection Rule</th></tr></thead>
+     <thead><tr><th>Rule ID</th><th>Operation Code</th><th>Main</th><th>Recipe Key</th><th>Priority</th><th>Default</th><th>Selection Rule</th></tr></thead>
      <tbody>{recipeMaps.map((m:any,i)=><tr key={i}>
-      <td><b>{m.operation_code}</b></td><td>{m.standard_operation||"—"}</td><td className="mono">{m.recipe_key}</td><td className="num">{m.priority??100}</td><td>{m.is_default?badge("YES","green"):"—"}</td><td>{m.selection_rule||"—"}</td>
+      <td className="mono">#{m.mapping_id}</td><td><b>{m.operation_code}</b></td><td>{m.standard_operation||"—"}</td><td className="mono">{m.recipe_key}</td><td className="num">{m.priority??100}</td><td>{m.is_default?badge("YES","green"):"—"}</td><td>{m.selection_rule||"—"}</td>
      </tr>)}{!recipeMaps.length&&<tr><td colSpan={6} className="muted">Chưa có Recipe mapping.</td></tr>}</tbody>
     </table></div>
 

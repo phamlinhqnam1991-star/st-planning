@@ -67,7 +67,7 @@ async function markOpsPlanned(c:any,ids:number[],recipeKey:string|null){
 async function loadBatchTarget(c:any,batchId:number){
  const q=await c.query(`
   select
-   b.id,b.batch_no,b.standard_operation,b.recipe_key,
+   b.id,b.batch_no,b.standard_operation,b.recipe_key,b.recipe_mapping_id,
    b.total_jobs,b.total_qty,b.total_surface_dm2,b.process_minutes,b.status,
    r.recipe_no,r.recipe_name,
    sch.schedule_id,sch.schedule_status,sch.resource_code,
@@ -153,6 +153,7 @@ export async function POST(req:NextRequest){
 
  const standardOperation=clean(body.standard_operation);
  let recipeKey=clean(body.recipe_key)||null;
+ let recipeMappingId=Number(body.recipe_mapping_id||0)>0?Number(body.recipe_mapping_id):null;
  let compatibilityConditionsToPersist:BatchCompatibilityRuleCondition[]|null=null;
  const planningDate=clean(body.planning_date);
  const plannedStart=clean(body.planned_start);
@@ -254,14 +255,14 @@ export async function POST(req:NextRequest){
 
      const batchQ=await c.query(`
        insert into planning_batch(
-         batch_no,planning_date,area_id,standard_operation,recipe_key,
+         batch_no,planning_date,area_id,standard_operation,recipe_key,recipe_mapping_id,
          total_jobs,total_qty,total_surface_dm2,process_minutes,
          priority,status,note,plan_source
        )
-       values($1,$2::date,$3,$4,$5,0,0,0,$6,$7,'PLANNED',$8,'MANUAL_GRID')
+       values($1,$2::date,$3,$4,$5,$6,0,0,0,$7,$8,'PLANNED',$9,'MANUAL_GRID')
        returning id,batch_no,planning_date
      `,[
-       batchNo,effectivePlanningDate,areaId,standardOperation,recipeKey,
+       batchNo,effectivePlanningDate,areaId,standardOperation,recipeKey,recipeMappingId,
        processMinutes,priority,note||'EMPTY PLAN-AHEAD BATCH'
      ]);
 
@@ -330,7 +331,7 @@ export async function POST(req:NextRequest){
    if(targetBatchId){
      const targetQ=await c.query(`
       select
-       b.id,b.batch_no,b.standard_operation,b.recipe_key,b.status,
+       b.id,b.batch_no,b.standard_operation,b.recipe_key,b.recipe_mapping_id,b.status,
        b.total_jobs,b.total_qty,b.total_surface_dm2,b.process_minutes,
        b.planned_start,b.planned_end,
        ps.id schedule_id,ps.status schedule_status,
@@ -368,6 +369,7 @@ export async function POST(req:NextRequest){
         throw new Error(`Recipe đang chọn khác Recipe của ${targetBatch.batch_no}.`);
        recipeKey=targetBatch.recipe_key;
      }
+     if(Number(targetBatch.recipe_mapping_id||0)>0)recipeMappingId=Number(targetBatch.recipe_mapping_id);
    }
 
    validateSamePaint(q.rows,standardOperation);
@@ -388,7 +390,17 @@ export async function POST(req:NextRequest){
        ruleSuggestion:null
      })
    }));
-   const resolved=[...new Set(matches.map(x=>x.match.recipeKey).filter((x):x is string=>Boolean(x)))];
+   const resolved:string[]=Array.from(new Set<string>(
+     matches.map(x=>x.match.recipeKey).filter((x):x is string=>typeof x==="string"&&x.length>0)
+   ));
+   const matchByOperationId=new Map<number,(typeof matches)[number]>(matches.map(x=>[Number(x.row.id),x]));
+   const anchorMatch=matchByOperationId.get(Number(ids[0]))||matches[0]||null;
+   // The Batch is anchored to the exact Recipe Rule that matched the first Job.
+   // Planner may later uncheck conditions and allow Jobs that matched another
+   // rule of the SAME Recipe, but the original rule remains the Batch profile.
+   if(!targetBatch && Number(anchorMatch?.match.recipeMappingId||0)>0){
+     recipeMappingId=Number(anchorMatch!.match.recipeMappingId);
+   }
 
    let suggestedBatchKey:string|null=null;
    let rulePrefix:string|null=null;
@@ -415,10 +427,12 @@ export async function POST(req:NextRequest){
      const anchorRow=q.rows.find((r:any)=>Number(r.id)===Number(ids[0]))||q.rows[0];
      compatibilityConditionsToPersist=await assertSameRecipeConditionGroup(c,{
       recipeKey,
+      recipeMappingId,
       jobs:q.rows.map((r:any)=>({
        job_num:String(r.job_num||""),
        source_operation_code:String(r.source_operation_code||""),
-       condition_data:(r.condition_data||{}) as Record<string,unknown>
+       recipe_mapping_id:matchByOperationId.get(Number(r.id))?.match.recipeMappingId||null,
+       condition_data:mergeJobData(recipeCtx,{partNum:r.part_num,revisionNum:r.revision_num,sourceData:(r.condition_data||{}) as Record<string,unknown>})
       })),
       anchorJobNum:String(anchorRow?.job_num||""),
       targetBatchId:targetBatch?Number(targetBatch.id):null,
@@ -429,13 +443,15 @@ export async function POST(req:NextRequest){
    // Mã lô mẫu + Prefix từ mapping của các Job dùng ĐÚNG recipe của lô.
    if(recipeKey){
      const keyMatches=matches.filter(x=>x.match.recipeKey===recipeKey);
-     const batchKeys=[...new Set(
+     const batchKeys:string[]=Array.from(new Set<string>(
        keyMatches.map(x=>substituteTemplate(
          x.match.batchKeyTemplate,
          mergeJobData(recipeCtx,{partNum:x.row.part_num,revisionNum:x.row.revision_num,sourceData:x.row.source_data||null})
-       )).filter((x):x is string=>Boolean(x))
-     )];
-     const prefixes=[...new Set(keyMatches.map(x=>x.match.batchNoPrefix).filter((x):x is string=>Boolean(x)))];
+       )).filter((x):x is string=>typeof x==="string"&&x.length>0)
+     ));
+     const prefixes:string[]=Array.from(new Set<string>(
+       keyMatches.map(x=>x.match.batchNoPrefix).filter((x):x is string=>typeof x==="string"&&x.length>0)
+     ));
 
      if(batchKeys.length>1){
        throw new Error(
@@ -537,9 +553,11 @@ export async function POST(req:NextRequest){
      if(recipeKey&&compatibilityConditionsToPersist!==null){
        await c.query(`
         update planning_batch
-        set compatibility_conditions=$2::jsonb,updated_at=now()
+        set compatibility_conditions=$2::jsonb,
+            recipe_mapping_id=coalesce(recipe_mapping_id,$3),
+            updated_at=now()
         where id=$1
-       `,[targetBatch.id,JSON.stringify(compatibilityConditionsToPersist)]);
+       `,[targetBatch.id,JSON.stringify(compatibilityConditionsToPersist),recipeMappingId]);
      }
 
      await insertBatchJobs(c,targetBatch.id,q.rows);
@@ -573,12 +591,13 @@ export async function POST(req:NextRequest){
              total_surface_dm2=$4,
              process_minutes=$5,
              recipe_key=coalesce($6,recipe_key),
-             batch_key=coalesce(batch_key,$7),
+             recipe_mapping_id=coalesce(recipe_mapping_id,$7),
+             batch_key=coalesce(batch_key,$8),
              updated_at=now()
        where id=$1
      `,[
       targetBatch.id,newTotalJobs,newTotalQty,newTotalSurface,
-      newProcessMinutes,recipeKey,suggestedBatchKey
+      newProcessMinutes,recipeKey,recipeMappingId,suggestedBatchKey
      ]);
 
      // v193: Batch đã Schedule trên Chemical Line → tự tính lại Loading/Process/
@@ -719,17 +738,17 @@ export async function POST(req:NextRequest){
 
    const batchQ=await c.query(`
      insert into planning_batch(
-       batch_no,planning_date,area_id,standard_operation,recipe_key,batch_key,
+       batch_no,planning_date,area_id,standard_operation,recipe_key,recipe_mapping_id,batch_key,
        total_jobs,total_qty,total_surface_dm2,process_minutes,
        planned_start,planned_end,priority,status,note,plan_source,compatibility_conditions
      )
      values(
-       $1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,
-       $11::timestamptz,$12::timestamptz,$13,'PLANNED',$14,'PLANNING_BOARD',$15::jsonb
+       $1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+       $12::timestamptz,$13::timestamptz,$14,'PLANNED',$15,'PLANNING_BOARD',$16::jsonb
      )
      returning id,batch_no,planning_date
    `,[
-     batchNo,effectivePlanningDate,areaId,standardOperation,recipeKey,suggestedBatchKey,
+     batchNo,effectivePlanningDate,areaId,standardOperation,recipeKey,recipeMappingId,suggestedBatchKey,
      q.rows.length,totalQty,totalSurface,processMinutes,
      startTimestamp,endTimestamp,priority,note,
      JSON.stringify(compatibilityConditionsToPersist||[])

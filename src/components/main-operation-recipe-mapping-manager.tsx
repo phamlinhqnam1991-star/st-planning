@@ -16,6 +16,7 @@ type Recipe={
  batch_key:string;
 };
 type Mapping={
+ mapping_id:number;
  operation_code:string;
  standard_operation:string|null;
  operation_name:string|null;
@@ -150,6 +151,7 @@ export function MainOperationRecipeMappingManager({
    return map;
  },[columnValues,masterValues,reqValues]);
  const [busy,setBusy]=useState(false);
+ const [editingMappingId,setEditingMappingId]=useState<number|null>(null);
  const [operationCode,setOperationCode]=useState("");
  const [standardOperation,setStandardOperation]=useState("");
  const [recipeKey,setRecipeKey]=useState(recipes[0]?.recipe_key||"");
@@ -200,7 +202,7 @@ export function MainOperationRecipeMappingManager({
      const k=m.operation_code;
      byOp.set(k,(byOp.get(k)||[]).concat(m));
    }
-   const out=new Map<string,string>();
+   const out=new Map<string,number>();
    for(const [k,list] of byOp){
      const sorted=[...list].sort((a,b)=>{
        const pa=a.priority??100,pb=b.priority??100;
@@ -211,7 +213,7 @@ export function MainOperationRecipeMappingManager({
        if(ua!==ub)return ua<ub?-1:1;
        return String(a.recipe_no||"").localeCompare(String(b.recipe_no||""));
      });
-     out.set(k,sorted[0].recipe_key);
+     out.set(k,Number(sorted[0].mapping_id));
    }
    return out;
  },[mappings]);
@@ -235,6 +237,7 @@ export function MainOperationRecipeMappingManager({
        method:"POST",
        headers:{"content-type":"application/json"},
        body:JSON.stringify({
+         mapping_id:editingMappingId,
          operation_code:operationCode.trim(),
          standard_operation:standardOperation||null,
          recipe_key:recipeKey,
@@ -264,6 +267,7 @@ export function MainOperationRecipeMappingManager({
        method:"DELETE",
        headers:{"content-type":"application/json"},
        body:JSON.stringify({
+         mapping_id:row.mapping_id,
          operation_code:row.operation_code,
          recipe_key:row.recipe_key
        })
@@ -279,6 +283,7 @@ export function MainOperationRecipeMappingManager({
  }
 
  function edit(row:Mapping){
+   setEditingMappingId(Number(row.mapping_id));
    setOperationCode(row.operation_code);
    setStandardOperation(row.standard_operation||"");
    setRecipeKey(row.recipe_key);
@@ -291,6 +296,22 @@ export function MainOperationRecipeMappingManager({
    setNote(row.note||"");
    setBatchKeyTemplate(row.batch_key_template||"");
    setBatchNoPrefix(row.batch_no_prefix||"");
+   window.scrollTo({top:0,behavior:"smooth"});
+ }
+
+ function newRule(keepCurrent=true){
+   setEditingMappingId(null);
+   if(!keepCurrent){
+     setOperationCode("");
+     setStandardOperation("");
+     setRecipeKey(recipes[0]?.recipe_key||"");
+   }
+   setPriority("100");
+   setConditions([{column:"",operator:"equals",value:""}]);
+   setIsDefault(false);
+   setNote("");
+   setBatchKeyTemplate("");
+   setBatchNoPrefix("");
    window.scrollTo({top:0,behavior:"smooth"});
  }
 
@@ -313,6 +334,10 @@ export function MainOperationRecipeMappingManager({
 
      <div className="chemical-multi-map-note">
       Hệ thống TỰ CHỌN Recipe khi chọn Job vào lô theo thứ tự: <b>điều kiện khớp Job → Priority (số nhỏ trước) → Mặc định → cập nhật trước</b>. Không có điều kiện là fallback cho mọi Job. Cột <b>✓ Tự chọn</b> thể hiện thứ tự mặc định của Operation Code; Recipe thực tế vẫn phụ thuộc điều kiện của từng Job.
+     </div>
+
+     <div className="chemical-multi-map-note">
+      <b>v352 · Nhiều Rule cùng Recipe:</b> mỗi dòng là một <b>Recipe Rule</b> độc lập có <span className="mono">mapping_id</span> riêng. Cùng Operation Code + cùng Recipe vẫn có thể thêm nhiều dòng nếu bộ điều kiện khác nhau. Bấm <b>Sửa</b> chỉ cập nhật đúng Rule đó; bấm <b>+ Rule mới cùng Recipe</b> để tạo thêm rule mà không ghi đè.
      </div>
 
      <div className="chemical-multi-map-form">
@@ -479,9 +504,14 @@ export function MainOperationRecipeMappingManager({
          Recipe mặc định
        </label>
 
-       <button className="btn primary" disabled={busy} onClick={save}>
-         Add / Save Recipe
-       </button>
+       <div className="row">
+        <button className="btn primary" disabled={busy} onClick={save}>
+         {editingMappingId?`Lưu Rule #${editingMappingId}`:"+ Thêm Recipe Rule"}
+        </button>
+        {editingMappingId&&<button className="btn" type="button" disabled={busy} onClick={()=>newRule(true)}>
+         + Rule mới cùng Recipe
+        </button>}
+       </div>
      </div>
    </div>
 
@@ -503,6 +533,7 @@ export function MainOperationRecipeMappingManager({
        <table className="erp-table">
          <thead>
            <tr>
+             <th>Rule ID</th>
              <th>Mã công đoạn</th>
              <th>Tên công đoạn</th>
              <th>Công đoạn chính</th>
@@ -523,7 +554,8 @@ export function MainOperationRecipeMappingManager({
          </thead>
          <tbody>
            {visible.map(x=>
-             <tr key={`${x.operation_code}|${x.recipe_key}`}>
+             <tr key={x.mapping_id}>
+               <td className="mono">#{x.mapping_id}</td>
                <td><b>{x.operation_code}</b></td>
                <td>{x.operation_name||"—"}</td>
                <td>{x.standard_operation||"—"}</td>
@@ -535,7 +567,7 @@ export function MainOperationRecipeMappingManager({
                <td className="mono">{timeByRecipe.get(x.recipe_key)||"—"}</td>
                <td className="num mono">{x.priority??100}</td>
                <td>{x.is_default?"Có":"—"}</td>
-               <td>{winners.get(x.operation_code)===x.recipe_key
+               <td>{winners.get(x.operation_code)===Number(x.mapping_id)
                  ? <b className="recipe-winner">✓</b>
                  : "—"}</td>
                <td className="recipe-rule-cell">{renderConditionColumns(x.selection_rule).col}</td>
@@ -556,7 +588,7 @@ export function MainOperationRecipeMappingManager({
              </tr>
            )}
            {!visible.length&&
-             <tr><td colSpan={16} className="muted">Chưa gán Recipe cho Operation Code.</td></tr>
+             <tr><td colSpan={17} className="muted">Chưa gán Recipe cho Operation Code.</td></tr>
            }
          </tbody>
        </table>
@@ -581,6 +613,7 @@ export function MainOperationRecipeMappingManager({
            <button
             className="btn small"
             onClick={()=>{
+             setEditingMappingId(null);
              setOperationCode(u.operation_code);
              setConditions([{column:"",operator:"equals",value:""}]);
              window.scrollTo({top:0,behavior:"smooth"});

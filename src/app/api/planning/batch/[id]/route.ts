@@ -8,7 +8,7 @@ const clean=(v:unknown)=>String(v??"").trim();
 
 async function getBatch(c:any,batchId:number,forUpdate=false){
  const q=await c.query(`
-   select id,batch_no,standard_operation,recipe_key,status,process_minutes,
+   select id,batch_no,standard_operation,recipe_key,recipe_mapping_id,status,process_minutes,
           total_jobs,total_qty,total_surface_dm2,planned_start
    from planning_batch
    where id=$1
@@ -122,7 +122,8 @@ export async function GET(
     id:batch.id,
     batch_no:batch.batch_no,
     standard_operation:batch.standard_operation,
-    recipe_key:batch.recipe_key
+    recipe_key:batch.recipe_key,
+    recipe_mapping_id:batch.recipe_mapping_id||null
    },
    recipes:q.rows
   });
@@ -189,14 +190,20 @@ export async function PATCH(
 
   await c.query(`
     update planning_batch
-    set recipe_key=$2,updated_at=now()
+    set recipe_key=$2,
+        recipe_mapping_id=null,
+        compatibility_conditions=null,
+        updated_at=now()
     where id=$1
   `,[batchId,recipeKey]);
 
   // Batch Recipe is the selected recipe for the same planned operation.
   await c.query(`
     update planning_job_operation p
-    set recipe_key=$2,updated_at=now()
+    set recipe_key=$2,
+        recipe_mapping_id=null,
+        compatibility_conditions=null,
+        updated_at=now()
     from planning_batch_job bj
     where bj.batch_id=$1
       and bj.planning_job_operation_id=p.id

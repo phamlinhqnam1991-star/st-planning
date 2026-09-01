@@ -44,6 +44,7 @@ export function matchCondition(cond:BatchKeyRuleCondition,sourceData:Record<stri
 // batch_no_prefix (trước đây nằm ở màn hình Batch Key / Recipe Rules).
 // =====================================================================
 export type RecipeCandidateItem={
+  mapping_id?:number|null;
   recipe_key:string;
   priority?:number|null;
   is_default?:boolean|null;
@@ -148,6 +149,7 @@ export function pickBestRecipeForJob(
 // Chuyển hàng SQL md_main_operation_recipe thành RecipeCandidateItem[].
 export function toRecipeCandidates(rows:any[]):RecipeCandidateItem[]{
   return (rows||[]).map(r=>({
+    mapping_id:r.mapping_id==null?null:Number(r.mapping_id),
     recipe_key:String(r.recipe_key),
     priority:r.priority==null?null:Number(r.priority),
     is_default:!!r.is_default,
@@ -169,6 +171,7 @@ export function groupRecipeCandidates(
     if(!k)continue;
     const arr=map.get(k)||[];
     arr.push({
+      mapping_id:r.mapping_id==null?null:Number(r.mapping_id),
       recipe_key:String(r.recipe_key),
       priority:r.priority==null?null:Number(r.priority),
       is_default:!!r.is_default,
