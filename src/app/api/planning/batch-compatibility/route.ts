@@ -103,37 +103,54 @@ export async function POST(req:NextRequest){
    standardOperation=clean(anchor.standardOperation);
   }
 
+  // v339: Compatibility is scoped to ONE Main Operation only. Other Main
+  // Operations stay untouched on the Planning Board and are not counted as
+  // "locked" by the Recipe compatibility engine.
+  const scopedCandidates=candidates.filter(
+   x=>up(x.standardOperation)===up(standardOperation)
+  );
+
+  if(!scopedCandidates.length){
+   return NextResponse.json({
+    profile:{source,batchId:source==="BATCH"?batchId:null,anchorId:anchorId>0?anchorId:null,standardOperation,recipeKey,recipeNo:null,recipeName:null,conditions:[],conditionText:"Không có Job READY cùng Main Operation"},
+    compatibleIds:[],reasons:{},total:0,compatible:0,locked:0
+   });
+  }
+
   if(!recipeKey&&source==="BATCH"){
-   const anchor=candidates.find(x=>x.id===anchorId);
-   if(anchor&&up(anchor.standardOperation)===up(standardOperation)&&anchor.recipeKey){
+   const anchor=scopedCandidates.find(x=>x.id===anchorId);
+   if(anchor?.recipeKey){
     recipeKey=clean(anchor.recipeKey);
-   }else{
-    // Empty/legacy Batch chưa có Recipe: cho chọn Job đầu tiên cùng Operation.
-    // Sau khi Job đầu tiên được chọn, client gọi lại endpoint với anchorId và
-    // Recipe/condition lock sẽ được thiết lập ngay.
-    const compatibleIds=candidates
-     .filter(x=>up(x.standardOperation)===up(standardOperation))
-     .map(x=>x.id);
-    const allowed=new Set(compatibleIds);
-    const reasons:Record<string,string[]>={};
-    for(const item of candidates){
-     if(!allowed.has(item.id))reasons[String(item.id)]=[`Khác Main Operation: ${item.standardOperation} ≠ ${standardOperation}`];
-    }
-    return NextResponse.json({
-     profile:{source,batchId,anchorId:null,standardOperation,recipeKey:"",recipeNo:null,recipeName:null,conditions:[],conditionText:"Chọn Job đầu tiên để khóa Recipe"},
-     compatibleIds,reasons,total:candidates.length,compatible:compatibleIds.length,locked:candidates.length-compatibleIds.length
-    });
    }
   }
+
+  // Main Operation không dùng Recipe (hoặc Batch legacy chưa có Recipe): chỉ
+  // khóa theo Main Operation. Không fail-closed thành chỉ 1 Job như v336.
   if(!recipeKey){
-   return NextResponse.json({error:"Job chuẩn chưa resolve được Recipe."},{status:400});
+   const compatibleIds=scopedCandidates.map(x=>x.id);
+   return NextResponse.json({
+    profile:{
+     source,
+     batchId:source==="BATCH"?batchId:null,
+     anchorId:anchorId>0?anchorId:null,
+     standardOperation,
+     recipeKey:"",recipeNo:null,recipeName:null,conditions:[],
+     conditionText:"Công đoạn không dùng Recipe · chỉ khóa theo Main Operation"
+    },
+    compatibleIds,reasons:{},
+    total:scopedCandidates.length,
+    compatible:compatibleIds.length,
+    locked:0
+   });
   }
 
   const rules=await loadProcessTimeRules(c,recipeKey);
-  const conditionColumns=[...new Set(
-   rules.flatMap(r=>(r.conditions||[]).map(x=>clean(x.source_column))).filter(Boolean)
-  )];
-  const conditionById=await loadConditionDataByOperationIds(c,candidates.map(x=>x.id),conditionColumns);
+  const conditionColumns:string[]=Array.from(new Set<string>(
+   rules
+    .flatMap(r=>(r.conditions||[]).map(x=>clean(x.source_column)))
+    .filter((x:string)=>x.length>0)
+  ));
+  const conditionById=await loadConditionDataByOperationIds(c,scopedCandidates.map(x=>x.id),conditionColumns);
 
   let anchorData:Record<string,unknown>[]=[];
   if(source==="BATCH"){
@@ -153,11 +170,8 @@ export async function POST(req:NextRequest){
 
   const compatibleIds:number[]=[];
   const reasons:Record<string,string[]|string>={};
-  for(const item of candidates){
+  for(const item of scopedCandidates){
    const why:string[]=[];
-   if(up(item.standardOperation)!==up(standardOperation)){
-    why.push(`Khác Main Operation: ${item.standardOperation||"—"} ≠ ${standardOperation||"—"}`);
-   }
    if(clean(item.recipeKey)!==recipeKey){
     why.push(`Khác Recipe`);
    }
@@ -195,9 +209,9 @@ export async function POST(req:NextRequest){
    },
    compatibleIds,
    reasons,
-   total:candidates.length,
+   total:scopedCandidates.length,
    compatible:compatibleIds.length,
-   locked:candidates.length-compatibleIds.length
+   locked:scopedCandidates.length-compatibleIds.length
   });
  }catch(e){
   return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500});

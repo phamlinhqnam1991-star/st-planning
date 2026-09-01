@@ -471,7 +471,7 @@ export function PlanningBoardClient({
  const [message,setMessage]=useState("");
  const [targetBatchId,setTargetBatchId]=useState("");
  // v336: first READY Job (or Existing Batch) establishes Recipe + Process
- // condition compatibility. Incompatible rows stay visible but are dimmed/disabled.
+ // condition compatibility. Only incompatible READY cells of that Main are dimmed/disabled; other Main columns stay untouched.
  const [compatibilityLock,setCompatibilityLock]=useState<BatchCompatibilityLock|null>(null);
  const compatibilitySeq=useRef(0);
  const compatibilityAnchorId=useRef<number|null>(null);
@@ -2043,11 +2043,78 @@ const currentPriorityMonth=useMemo(()=>{
  },[candidates]);
  const selectableTargetFor=(row:Candidate)=>selectableTargetMap.get(Number(row.id))??null;
 
+ // v339: Compatibility must follow the EXACT Main Operation being batched.
+ // A row can have multiple READY route cells; using the first READY target of the
+ // row incorrectly locks later READY columns. Resolve a target specifically for
+ // the selected/Target-Batch Main Operation instead.
+ const targetBatchForCompatibility=useMemo(
+  ()=>availableBatches.find(b=>String(b.id)===String(targetBatchId||""))||null,
+  [availableBatches,targetBatchId]
+ );
+ const compatibilityOperation=String(
+  selectedTargets[0]?.standardOperation ||
+  targetBatchForCompatibility?.standard_operation ||
+  ""
+ );
+
+ const selectableTargetForOperation=useCallback((row:Candidate,operation:string)=>{
+  const op=normalized(operation);
+  if(!op)return null;
+  const route=(row.route_status||[])
+   .filter(r=>normalized(r.standard_operation)===op)
+   .sort((a,b)=>Number(a.source_seq||0)-Number(b.source_seq||0));
+
+  const persistedReady=route.find(r=>
+   normalized(r.route_status)==="READY" &&
+   Number.isFinite(Number(r.planning_job_operation_id))
+  );
+  if(persistedReady){
+   return {
+    id:Number(persistedReady.planning_job_operation_id),
+    standardOperation:String(persistedReady.standard_operation||operation),
+    sourceOperation:String(persistedReady.source_operation||""),
+    routeItem:persistedReady
+   };
+  }
+
+  // Current Candidate itself is the persisted Planning Operation.
+  if(
+   normalized(row.standard_operation)===op &&
+   row.planning_status==="ELIGIBLE" &&
+   Number.isFinite(Number(row.id))
+  ){
+   return {
+    id:Number(row.id),
+    standardOperation:String(row.standard_operation||operation),
+    sourceOperation:String(row.source_operation_code||""),
+    routeItem:null as RouteStatusItem|null
+   };
+  }
+
+  // Same fallback rule used by the Route Matrix: a computed READY occurrence
+  // without its own ID can use row.id only when it is the Candidate's own Main.
+  const computedReady=route.find(r=>normalized(r.route_status)==="READY");
+  if(
+   computedReady &&
+   normalized(row.standard_operation)===op &&
+   Number.isFinite(Number(row.id))
+  ){
+   return {
+    id:Number(row.id),
+    standardOperation:String(row.standard_operation||operation),
+    sourceOperation:String(row.source_operation_code||computedReady.source_operation||""),
+    routeItem:computedReady
+   };
+  }
+  return null;
+ },[]);
+
  const compatibilityCandidates=useMemo(()=>{
+  if(!compatibilityOperation)return [];
   const out:{id:number;recipeKey:string|null;standardOperation:string}[]=[];
   const seen=new Set<number>();
   for(const row of candidates){
-   const target=selectableTargetMap.get(Number(row.id))??null;
+   const target=selectableTargetForOperation(row,compatibilityOperation);
    if(!target||seen.has(Number(target.id)))continue;
    seen.add(Number(target.id));
    const exactCurrent=
@@ -2058,14 +2125,14 @@ const currentPriorityMonth=useMemo(()=>{
    out.push({
     id:Number(target.id),
     recipeKey:liveRecipe,
-    standardOperation:String(target.standardOperation||"")
+    standardOperation:String(target.standardOperation||compatibilityOperation)
    });
   }
   return out;
- },[candidates,selectableTargetMap]);
+ },[candidates,compatibilityOperation,selectableTargetForOperation]);
  const compatibilityScopeKey=useMemo(
-  ()=>compatibilityCandidates.map(x=>`${x.id}:${x.recipeKey||""}:${x.standardOperation}`).join("|"),
-  [compatibilityCandidates]
+  ()=>`${normalized(compatibilityOperation)}|${compatibilityCandidates.map(x=>`${x.id}:${x.recipeKey||""}`).join("|")}`,
+  [compatibilityCandidates,compatibilityOperation]
  );
 
  const requestCompatibilityLock=useCallback(async(args:{key:string;anchorId:number;batchId:number})=>{
@@ -2143,14 +2210,20 @@ const currentPriorityMonth=useMemo(()=>{
   ()=>new Set((compatibilityLock?.compatibleIds||[]).map(Number)),
   [compatibilityLock?.compatibleIds]
  );
- const compatibilityLockedId=(id:number)=>{
+ const compatibilityLockedId=(id:number,operation?:string)=>{
   if(!compatibilityLock)return false;
+  const lockOperation=String(compatibilityLock.profile?.standardOperation||compatibilityOperation||"");
+  // v339: other Main Operations must remain visually/interaction independent.
+  // Same-operation enforcement is handled separately by operationSelectionLocked().
+  if(operation&&lockOperation&&normalized(operation)!==normalized(lockOperation))return false;
   if(selected.includes(Number(id)))return false;
   if(compatibilityLock.loading)return true;
   return !compatibilityAllowedSet.has(Number(id));
  };
- const compatibilityReasonForId=(id:number)=>{
+ const compatibilityReasonForId=(id:number,operation?:string)=>{
   if(!compatibilityLock)return "";
+  const lockOperation=String(compatibilityLock.profile?.standardOperation||compatibilityOperation||"");
+  if(operation&&lockOperation&&normalized(operation)!==normalized(lockOperation))return "";
   if(compatibilityLock.loading)return "Đang kiểm tra Recipe và điều kiện Batch…";
   if(compatibilityLock.error)return compatibilityLock.error;
   const raw=compatibilityLock.reasons[String(id)];
@@ -2158,7 +2231,7 @@ const currentPriorityMonth=useMemo(()=>{
  };
  const compatibilityLockedForTarget=(row:Candidate)=>{
   const target=selectableTargetFor(row);
-  return target?compatibilityLockedId(Number(target.id)):false;
+  return target?compatibilityLockedId(Number(target.id),target.standardOperation):false;
  };
 
  const paintSelectionLockedForTarget=(row:Candidate)=>{
@@ -2224,7 +2297,7 @@ const currentPriorityMonth=useMemo(()=>{
    const existingOperation=selectedTargets[0]?.standardOperation||"";
    if(existingOperation && normalized(existingOperation)!==normalized(target.standardOperation))return;
    if(compatibilityLockedForTarget(row)){
-    setMessage(compatibilityReasonForId(Number(target.id))||"Job không cùng Recipe / điều kiện với Batch đang chọn.");
+    setMessage(compatibilityReasonForId(Number(target.id),target.standardOperation)||"Job không cùng Recipe / điều kiện với Batch đang chọn.");
     return;
    }
    if(paintSelectionLockedForTarget(row))return;
@@ -2296,7 +2369,7 @@ const currentPriorityMonth=useMemo(()=>{
 
    if(operationSelectionLocked(row)||paintSelectionLockedForTarget(row))return;
    if(compatibilityLockedForTarget(row)){
-    setMessage(compatibilityReasonForId(Number(target.id))||"Job không cùng Recipe / điều kiện với Batch đang chọn.");
+    setMessage(compatibilityReasonForId(Number(target.id),target.standardOperation)||"Job không cùng Recipe / điều kiện với Batch đang chọn.");
     return;
    }
    setMessage("");
@@ -2451,7 +2524,7 @@ const currentPriorityMonth=useMemo(()=>{
    return <td
     key="__current_main"
     className={`candidate-current-main ${routeStatusClass(status)} ${canSelect?"candidate-current-main-selectable":""} ${compatLocked?"batch-compatibility-cell-locked":""}`}
-    title={`${view.operation} · ${display}${canSelect?" · Click để chọn Job":""}${compatLocked&&target?` · ${compatibilityReasonForId(Number(target.id))||"Khác Recipe / điều kiện Batch"}`:""}`}
+    title={`${view.operation} · ${display}${canSelect?" · Click để chọn Job":""}${compatLocked&&target?` · ${compatibilityReasonForId(Number(target.id),target.standardOperation)||"Khác Recipe / điều kiện Batch"}`:""}`}
     onClick={()=>{
      if(!canSelect)return;
      toggle(x.id);
@@ -2567,8 +2640,8 @@ const currentPriorityMonth=useMemo(()=>{
     return;
    }
 
-   if(compatibilityLockedId(id)){
-    setMessage(compatibilityReasonForId(id)||"Job không cùng Recipe / điều kiện với Batch đang chọn.");
+   if(compatibilityLockedId(id,op)){
+    setMessage(compatibilityReasonForId(id,op)||"Job không cùng Recipe / điều kiện với Batch đang chọn.");
     return;
    }
 
@@ -2675,10 +2748,13 @@ const currentPriorityMonth=useMemo(()=>{
 
      const fallbackWaiting=waitingDisplayFor(x,fallbackItem);
      const fallbackDisplay=normalized(status)==="WAITING"?fallbackWaiting.label:status;
+     const fallbackCompatLocked=
+      normalized(status)==="READY" &&
+      compatibilityLockedId(Number(x.id),mainOperation);
      return <td
       key={key}
-      className={`route-status-cell ${routeStatusClass(status)} ${normalized(status)==="WAITING"?fallbackWaiting.kind:""} route-status-current ${routeCellSelected(fallbackItem)?"route-status-selected":""} ${status==="READY"?"route-status-clickable":""}`}
-      title={`${mainOperation} · ${fallbackDisplay}${fallbackWaiting.reason?` · ${fallbackWaiting.reason}`:""}${x.batch_no?` · ${x.batch_no}`:""}`}
+      className={`route-status-cell ${routeStatusClass(status)} ${normalized(status)==="WAITING"?fallbackWaiting.kind:""} route-status-current ${routeCellSelected(fallbackItem)?"route-status-selected":""} ${status==="READY"?"route-status-clickable":""} ${fallbackCompatLocked?"batch-compatibility-cell-locked":""}`}
+      title={`${mainOperation} · ${fallbackDisplay}${fallbackWaiting.reason?` · ${fallbackWaiting.reason}`:""}${x.batch_no?` · ${x.batch_no}`:""}${fallbackCompatLocked?` · ${compatibilityReasonForId(Number(x.id),mainOperation)||"Khác Recipe / điều kiện Batch"}`:""}`}
       onClick={()=>toggleRouteCell(x,fallbackItem)}
      >
       <b>{fallbackDisplay}</b>
@@ -2808,6 +2884,18 @@ const currentPriorityMonth=useMemo(()=>{
    const clickable=
     normalized(status)==="READY" ||
     normalized(status)==="WAITING";
+   const rawSelectableId=Number(selectableItem.planning_job_operation_id);
+   const selectableOperationId=Number.isFinite(rawSelectableId)
+    ?rawSelectableId
+    :(
+      normalized(selectableItem.standard_operation)===normalized(x.standard_operation) && Number.isFinite(Number(x.id))
+       ?Number(x.id)
+       :NaN
+     );
+   const compatLocked=
+    normalized(status)==="READY" &&
+    Number.isFinite(selectableOperationId) &&
+    compatibilityLockedId(selectableOperationId,mainOperation);
 
    return <td
     key={key}
@@ -2819,8 +2907,8 @@ const currentPriorityMonth=useMemo(()=>{
       normalized(selectableItem.standard_operation)===normalized(x.standard_operation) &&
       selected.includes(Number(x.id))
      )
-    )?"route-status-selected":""} ${clickable?"route-status-clickable":""}`}
-    title={tooltip}
+    )?"route-status-selected":""} ${clickable?"route-status-clickable":""} ${compatLocked?"batch-compatibility-cell-locked":""}`}
+    title={`${tooltip}${compatLocked?`\n${compatibilityReasonForId(selectableOperationId,mainOperation)||"Khác Recipe / điều kiện Batch"}`:""}`}
     onClick={()=>clickable&&toggleRouteCell(x,selectableItem)}
    >
     <b>{displayStatus}</b>
@@ -3569,7 +3657,7 @@ const currentPriorityMonth=useMemo(()=>{
        {renderedCandidates.map((x)=>
         <tr
          key={String(x.job_num)}
-         className={`${selectableTargetFor(x)&&selected.includes(selectableTargetFor(x)!.id)?"planning-row-selected ":""}${compatibilityLockedForTarget(x)?"planning-row-compat-locked ":""}${dragCandidateId===x.id?"planning-row-dragging ":""}${priorityClass(x.priority_type)}`.trim()}
+         className={`${selectableTargetFor(x)&&selected.includes(selectableTargetFor(x)!.id)?"planning-row-selected ":""}${dragCandidateId===x.id?"planning-row-dragging ":""}${priorityClass(x.priority_type)}`.trim()}
          draggable={Boolean(selectableTargetFor(x))&&!operationSelectionLocked(x)&&!paintSelectionLockedForTarget(x)&&!compatibilityLockedForTarget(x)}
          onDragStart={e=>{
           const target=selectableTargetFor(x);
@@ -3590,7 +3678,7 @@ const currentPriorityMonth=useMemo(()=>{
               :operationSelectionLocked(x)
                ?"Khác Standard Operation với Job đã chọn"
                :compatibilityLockedForTarget(x)
-                ?(compatibilityReasonForId(Number(selectableTargetFor(x)!.id))||"Khác Recipe / điều kiện của Batch")
+                ?(compatibilityReasonForId(Number(selectableTargetFor(x)!.id),selectableTargetFor(x)!.standardOperation)||"Khác Recipe / điều kiện của Batch")
                 :paintSelectionLockedForTarget(x)
                  ?"Khác loại sơn với Job đã chọn hoặc chưa có loại sơn"
                  :`Chọn ${selectableTargetFor(x)!.standardOperation} READY`}
@@ -3658,7 +3746,8 @@ const currentPriorityMonth=useMemo(()=>{
        {compatibilityLock.error?
         <small>{compatibilityLock.error}</small>:
         compatibilityLock.profile&&<>
-         <div><span>Recipe</span><b>{compatibilityLock.profile.recipeNo||compatibilityLock.profile.recipeKey||"Chọn Job đầu tiên"}{compatibilityLock.profile.recipeName?` · ${compatibilityLock.profile.recipeName}`:""}</b></div>
+         <div><span>Main Operation</span><b>{compatibilityLock.profile.standardOperation||"—"}</b></div>
+         <div><span>Recipe</span><b>{compatibilityLock.profile.recipeNo||compatibilityLock.profile.recipeKey||"Không dùng Recipe"}{compatibilityLock.profile.recipeName?` · ${compatibilityLock.profile.recipeName}`:""}</b></div>
          <div><span>Điều kiện</span><b>{compatibilityLock.profile.conditionText||"Không có điều kiện Open Job"}</b></div>
          <small>{compatibilityLock.profile.source==="BATCH"?"Khóa theo Target Batch hiện tại":"Khóa theo Job READY đầu tiên đã chọn"}</small>
         </>}
