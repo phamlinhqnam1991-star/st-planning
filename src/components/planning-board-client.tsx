@@ -2234,6 +2234,26 @@ const currentPriorityMonth=useMemo(()=>{
   return target?compatibilityLockedId(Number(target.id),target.standardOperation):false;
  };
 
+ // v340: once a Job (or an existing Target Batch) establishes the Batch Main
+ // Operation, keep that Main fully visible and temporarily dim every other
+ // Main Planning column. This is presentation + interaction scope only; Job
+ // identity/source columns remain unchanged.
+ const batchSelectionOperation=String(
+  compatibilityLock?.profile?.standardOperation || compatibilityOperation || ""
+ );
+ const batchSelectionModeActive=Boolean(
+  batchSelectionOperation && (selected.length>0 || Number(targetBatchId||0)>0)
+ );
+ const mainOperationSelectionDimmed=(operation:string)=>
+  Boolean(
+   batchSelectionModeActive &&
+   normalized(operation)!==normalized(batchSelectionOperation)
+  );
+ const mainOperationSelectionReason=(operation:string)=>
+  mainOperationSelectionDimmed(operation)
+   ?`Batch Selection Mode đang chọn ${batchSelectionOperation}. ${operation} tạm thời bị khóa.`
+   :"";
+
  const paintSelectionLockedForTarget=(row:Candidate)=>{
    const target=selectableTargetFor(row);
    if(!target)return false;
@@ -2547,6 +2567,12 @@ const currentPriorityMonth=useMemo(()=>{
       :col.group==="route"
        ?"route-status-header"
        :"";
+   const headerMain=key.startsWith("route-main:")
+    ?normalized(key.slice("route-main:".length))
+    :"";
+   if(headerMain&&mainOperationSelectionDimmed(headerMain)){
+    cls=`${cls} batch-selection-main-dimmed`.trim();
+   }
    const active=Boolean((colFilters[key]||[]).length);
    return <th key={key} className={cls||undefined}>
     <span className="candidate-th-label">{col.label}</span>
@@ -2614,6 +2640,11 @@ const currentPriorityMonth=useMemo(()=>{
 
    if(!op){
     setMessage("Công đoạn này chưa xác định được Main Operation.");
+    return;
+   }
+
+   if(mainOperationSelectionDimmed(op)){
+    setMessage(mainOperationSelectionReason(op));
     return;
    }
 
@@ -2702,9 +2733,12 @@ const currentPriorityMonth=useMemo(()=>{
 
  const renderRouteStatusCell=(x:Candidate,key:string)=>{
    const mainOperation=normalized(key.slice("route-main:".length));
+   const mainDimmed=mainOperationSelectionDimmed(mainOperation);
+   const mainDimClass=mainDimmed?"batch-selection-main-dimmed":"";
+   const mainDimReason=mainDimmed?mainOperationSelectionReason(mainOperation):"";
 
    if(x.route_status_loaded===false){
-    return <td key={key} className="route-status-cell route-status-loading" title={`${mainOperation} · đang tải Route Matrix`}>…</td>;
+    return <td key={key} className={`route-status-cell route-status-loading ${mainDimClass}`.trim()} title={`${mainOperation} · đang tải Route Matrix${mainDimReason?` · ${mainDimReason}`:""}`}>…</td>;
    }
 
    const items=(x.route_status||[])
@@ -2753,15 +2787,18 @@ const currentPriorityMonth=useMemo(()=>{
       compatibilityLockedId(Number(x.id),mainOperation);
      return <td
       key={key}
-      className={`route-status-cell ${routeStatusClass(status)} ${normalized(status)==="WAITING"?fallbackWaiting.kind:""} route-status-current ${routeCellSelected(fallbackItem)?"route-status-selected":""} ${status==="READY"?"route-status-clickable":""} ${fallbackCompatLocked?"batch-compatibility-cell-locked":""}`}
-      title={`${mainOperation} · ${fallbackDisplay}${fallbackWaiting.reason?` · ${fallbackWaiting.reason}`:""}${x.batch_no?` · ${x.batch_no}`:""}${fallbackCompatLocked?` · ${compatibilityReasonForId(Number(x.id),mainOperation)||"Khác Recipe / điều kiện Batch"}`:""}`}
-      onClick={()=>toggleRouteCell(x,fallbackItem)}
+      className={`route-status-cell ${routeStatusClass(status)} ${normalized(status)==="WAITING"?fallbackWaiting.kind:""} route-status-current ${routeCellSelected(fallbackItem)?"route-status-selected":""} ${status==="READY"&&!mainDimmed?"route-status-clickable":""} ${fallbackCompatLocked?"batch-compatibility-cell-locked":""} ${mainDimClass}`}
+      title={`${mainOperation} · ${fallbackDisplay}${fallbackWaiting.reason?` · ${fallbackWaiting.reason}`:""}${x.batch_no?` · ${x.batch_no}`:""}${fallbackCompatLocked?` · ${compatibilityReasonForId(Number(x.id),mainOperation)||"Khác Recipe / điều kiện Batch"}`:""}${mainDimReason?` · ${mainDimReason}`:""}`}
+      onClick={()=>{
+       if(mainDimmed){setMessage(mainDimReason);return;}
+       toggleRouteCell(x,fallbackItem);
+      }}
      >
       <b>{fallbackDisplay}</b>
       {x.batch_no&&<span className="route-status-batch">{x.batch_no}</span>}
      </td>;
     }
-    return <td key={key} className="route-status-cell route-status-na">—</td>;
+    return <td key={key} className={`route-status-cell route-status-na ${mainDimClass}`.trim()} title={mainDimReason||undefined}>—</td>;
    }
 
    // v153 - occurrence-first route renderer
@@ -2882,8 +2919,10 @@ const currentPriorityMonth=useMemo(()=>{
    // What the cell displays is exactly what the user clicks/selects.
    const selectableItem=displayItem;
    const clickable=
-    normalized(status)==="READY" ||
-    normalized(status)==="WAITING";
+    !mainDimmed && (
+     normalized(status)==="READY" ||
+     normalized(status)==="WAITING"
+    );
    const rawSelectableId=Number(selectableItem.planning_job_operation_id);
    const selectableOperationId=Number.isFinite(rawSelectableId)
     ?rawSelectableId
@@ -2907,9 +2946,12 @@ const currentPriorityMonth=useMemo(()=>{
       normalized(selectableItem.standard_operation)===normalized(x.standard_operation) &&
       selected.includes(Number(x.id))
      )
-    )?"route-status-selected":""} ${clickable?"route-status-clickable":""} ${compatLocked?"batch-compatibility-cell-locked":""}`}
-    title={`${tooltip}${compatLocked?`\n${compatibilityReasonForId(selectableOperationId,mainOperation)||"Khác Recipe / điều kiện Batch"}`:""}`}
-    onClick={()=>clickable&&toggleRouteCell(x,selectableItem)}
+    )?"route-status-selected":""} ${clickable?"route-status-clickable":""} ${compatLocked?"batch-compatibility-cell-locked":""} ${mainDimClass}`}
+    title={`${tooltip}${compatLocked?`\n${compatibilityReasonForId(selectableOperationId,mainOperation)||"Khác Recipe / điều kiện Batch"}`:""}${mainDimReason?`\n${mainDimReason}`:""}`}
+    onClick={()=>{
+     if(mainDimmed){setMessage(mainDimReason);return;}
+     if(clickable)toggleRouteCell(x,selectableItem);
+    }}
    >
     <b>{displayStatus}</b>
 
@@ -3750,6 +3792,7 @@ const currentPriorityMonth=useMemo(()=>{
          <div><span>Recipe</span><b>{compatibilityLock.profile.recipeNo||compatibilityLock.profile.recipeKey||"Không dùng Recipe"}{compatibilityLock.profile.recipeName?` · ${compatibilityLock.profile.recipeName}`:""}</b></div>
          <div><span>Điều kiện</span><b>{compatibilityLock.profile.conditionText||"Không có điều kiện Open Job"}</b></div>
          <small>{compatibilityLock.profile.source==="BATCH"?"Khóa theo Target Batch hiện tại":"Khóa theo Job READY đầu tiên đã chọn"}</small>
+         <small>Batch Selection Mode: các Main Operation khác đang được làm mờ và khóa tạm thời.</small>
         </>}
       </div>}
 

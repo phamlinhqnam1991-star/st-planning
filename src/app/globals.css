@@ -6750,3 +6750,16 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
  color:#667085;
  line-height:1.35;
 }
+
+/* v340 - Batch Selection Mode: keep the active Main Planning column clear and
+   dim every unrelated Main Planning column. Job/source information remains
+   unchanged so planners can still identify the rows while building a Batch. */
+.planning-candidate-table .batch-selection-main-dimmed{
+ opacity:.30;
+ filter:grayscale(.85);
+ cursor:default!important;
+}
+.planning-candidate-table th.batch-selection-main-dimmed{
+ opacity:.42;
+ filter:grayscale(.85);
+}
