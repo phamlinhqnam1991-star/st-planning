@@ -21,10 +21,9 @@ export type SupportPlanRawRow={
   priority_type:string|null;
   standard_operation:string;
   planning_order:number|null;
-  previous_source_seq_snapshot:number|null;
-  main_source_seq:number;
+  main_route_seq:number;
+  previous_main_route_seq:number|null;
   support_seq:number;
-  support_route_pos:number;
   support_operation_code:string|null;
   operation_detail_code:string|null;
   operation_detail_name:string|null;
@@ -101,18 +100,21 @@ const clean=(v:unknown)=>String(v??"").trim();
 const displayMain=(operation:string)=>clean(operation).toUpperCase()==="PRIMER"?"PRIMER1":clean(operation);
 
 /**
- * Masking / Unmasking is a derived support plan.  The canonical Main Planning
- * occurrence is planning_job_operation itself, so PRIMER/PRIMER2/PRIMER3 and
- * TOPCOAT1/TOPCOAT2 stay exactly aligned with Planning Board occurrence logic.
+ * Masking / Unmasking is a derived support plan.
  *
- * A support step belongs to the CURRENT Main when its normalized Routing Detail
- * position is strictly between previous_source_seq_snapshot and current source_seq.
- * planning_job_operation uses 1-based AllOperation positions while Routing Detail
- * source_seq is commonly 10/20/30..., therefore raw source_seq values must never
- * be compared directly.
- * Only actual routing operations whose raw operation code contains MSKG are
- * considered.  UNMSKG* is Unmasking; every other *MSKG* operation is Masking.
- * operation_detail_code is kept for the planner-facing detail/traceability.
+ * IMPORTANT: planning_job_operation.source_seq belongs to the Job AllOperation
+ * identity. Routing Detail source_seq belongs to the full physical routing and
+ * includes Intermediate/Masking/Unmasking steps that AllOperation may omit.
+ * They must NEVER be compared, even after simple 1..N normalization.
+ *
+ * Instead this resolver rebuilds the canonical MAIN occurrences directly on
+ * md_routing_detailed using the same ST Operation Mapping + Planning Scope +
+ * PRIMER/TOPCOAT occurrence rules as Planning Chain. Each Routing Main receives
+ * the same operation_instance_key shape (for example BSAUNSLD#1, PRIMER#1,
+ * PRIMER2#1, TOPCOAT1#1). The Job Batch row is then joined to that exact Main
+ * occurrence. Every real routing operation containing MSKG strictly between the
+ * previous Routing Main and the current Routing Main belongs to the CURRENT Main.
+ * UNMSKG* is Unmasking; all other *MSKG* operations are Masking.
  */
 export async function loadMaskingUnmaskingPlan(
   c:PoolClient,
@@ -139,12 +141,100 @@ export async function loadMaskingUnmaskingPlan(
       with route_detail as (
         select
           d.*,
-          dense_rank() over(
+          lag(upper(trim(d.operation_code))) over(
             partition by upper(trim(d.part_num)),upper(trim(d.revision_num))
-            order by d.source_seq asc
-          )::int route_pos
+            order by d.source_seq
+          ) previous_raw_operation,
+          lead(upper(trim(d.operation_code))) over(
+            partition by upper(trim(d.part_num)),upper(trim(d.revision_num))
+            order by d.source_seq
+          ) next_raw_operation
         from public.md_routing_detailed d
         where d.is_active=true
+      ),
+      mapped_route as (
+        select
+          d.*,
+          m.st_group,
+          m.standard_operation_rule,
+          count(*) filter(where m.st_group='PRIMER') over(
+            partition by upper(trim(d.part_num)),upper(trim(d.revision_num))
+            order by d.source_seq rows between unbounded preceding and current row
+          )::int primer_occurrence,
+          count(*) filter(where m.st_group='TOPCOAT') over(
+            partition by upper(trim(d.part_num)),upper(trim(d.revision_num))
+            order by d.source_seq rows between unbounded preceding and current row
+          )::int topcoat_occurrence
+        from route_detail d
+        left join lateral (
+          select
+            mm.st_group,
+            mm.standard_operation_rule
+          from public.md_st_operation_mapping mm
+          join public.md_st_operation_scope sc
+            on upper(trim(sc.operation_code))=upper(trim(mm.source_operation_code))
+           and sc.is_active=true
+           and sc.operation_type='PLANNING_OPERATION'
+          where mm.is_active=true
+            and upper(trim(mm.source_operation_code))=upper(trim(d.operation_code))
+          order by
+            case
+              when mm.mapping_rule='DIRECT' then 0
+              when mm.mapping_rule='SEQUENCE/FALLBACK' then 1
+              else 2
+            end,
+            coalesce(mm.sort_order,2147483647),
+            mm.updated_at desc nulls last,
+            mm.created_at desc nulls last,
+            mm.id desc
+          limit 1
+        ) m on true
+      ),
+      standardized_route as (
+        select
+          m.*,
+          case
+            when m.st_group='PRIMER' then
+              case
+                when m.primer_occurrence=1 then 'PRIMER'
+                when m.primer_occurrence=2 then 'PRIMER2'
+                else 'PRIMER3'
+              end
+            when m.st_group='TOPCOAT' then
+              case when m.topcoat_occurrence=1 then 'TOPCOAT1' else 'TOPCOAT2' end
+            when upper(trim(m.operation_code))='HE-BAKE' then
+              case
+                when m.previous_raw_operation='PLA-ZINI' or m.next_raw_operation='PLA-CC'
+                  then 'HE-BAKE after plating'
+                when m.next_raw_operation in ('A-DBLST','M-DBLST')
+                  then 'HE-BAKE before blasting'
+                else 'HE-BAKE'
+              end
+            else m.standard_operation_rule
+          end standard_operation
+        from mapped_route m
+      ),
+      route_main_numbered as (
+        select
+          r.*,
+          row_number() over(
+            partition by
+              upper(trim(r.part_num)),
+              upper(trim(r.revision_num)),
+              upper(trim(r.standard_operation))
+            order by r.source_seq
+          )::int standard_occurrence
+        from standardized_route r
+        join public.md_planning_operation_scope ps
+          on upper(trim(ps.standard_operation))=upper(trim(r.standard_operation))
+         and ps.is_active=true
+        where nullif(trim(coalesce(r.standard_operation,'')),'') is not null
+      ),
+      route_main as (
+        select
+          r.*,
+          r.standard_operation||'#'||r.standard_occurrence::text operation_instance_key
+        from route_main_numbered r
       ),
       batch_job as (
         select
@@ -160,7 +250,7 @@ export async function loadMaskingUnmaskingPlan(
         join public.planning_batch b on b.id=bj.batch_id
         where b.status<>'CANCELLED'
       ),
-      linked as (
+      batch_main as (
         select
           po.id planning_job_operation_id,
           po.job_num,
@@ -174,21 +264,14 @@ export async function loadMaskingUnmaskingPlan(
           j.priority_type,
           po.standard_operation,
           om.planning_sort_order planning_order,
-          po.previous_source_seq_snapshot,
-          po.source_seq main_source_seq,
-          d.source_seq support_seq,
-          d.route_pos support_route_pos,
-          d.operation_code support_operation_code,
-          d.operation_detail_code,
-          d.operation_detail_name,
-          case
-            when upper(trim(coalesce(d.operation_code,''))) like '%MSKG%'
-             and upper(trim(coalesce(d.operation_code,''))) like '%UNMSKG%'
-              then 'UNMASKING'
-            when upper(trim(coalesce(d.operation_code,''))) like '%MSKG%'
-              then 'MASKING'
-            else null
-          end support_type,
+          rm.source_seq main_route_seq,
+          (
+            select max(prev.source_seq)
+            from route_main prev
+            where upper(trim(prev.part_num))=upper(trim(rm.part_num))
+              and upper(trim(prev.revision_num))=upper(trim(rm.revision_num))
+              and prev.source_seq<rm.source_seq
+          ) previous_main_route_seq,
           bj.batch_id,
           bj.batch_no,
           bj.batch_status,
@@ -202,27 +285,64 @@ export async function loadMaskingUnmaskingPlan(
         join public.open_job_current j
           on j.job_num=po.job_num
          and j.is_open=true
+        join route_main rm
+          on upper(trim(rm.part_num))=upper(trim(j.part_num))
+         and upper(trim(rm.revision_num))=upper(trim(j.revision_num))
+         and upper(trim(rm.operation_instance_key))=upper(trim(po.operation_instance_key))
         left join public.md_operation_master om
           on upper(trim(om.standard_operation))=upper(trim(po.standard_operation))
          and om.is_active=true
+      ),
+      linked as (
+        select
+          bm.planning_job_operation_id,
+          bm.job_num,
+          bm.part_num,
+          bm.revision_num,
+          bm.part_description,
+          bm.prod_qty,
+          bm.total_surface,
+          bm.last_operation,
+          bm.next_operation,
+          bm.priority_type,
+          bm.standard_operation,
+          bm.planning_order,
+          bm.main_route_seq,
+          bm.previous_main_route_seq,
+          d.source_seq support_seq,
+          d.operation_code support_operation_code,
+          d.operation_detail_code,
+          d.operation_detail_name,
+          case
+            when upper(trim(coalesce(d.operation_code,''))) like '%UNMSKG%' then 'UNMASKING'
+            when upper(trim(coalesce(d.operation_code,''))) like '%MSKG%' then 'MASKING'
+            else null
+          end support_type,
+          bm.batch_id,
+          bm.batch_no,
+          bm.batch_status,
+          bm.planning_date,
+          bm.recipe_key,
+          bm.process_minutes
+        from batch_main bm
         join route_detail d
-          on upper(trim(d.part_num))=upper(trim(j.part_num))
-         and upper(trim(d.revision_num))=upper(trim(j.revision_num))
-         -- planning_job_operation.source_seq / previous_source_seq_snapshot are
-         -- 1-based positions in AllOperation. Routing Detail uses 10/20/30...
-         -- source_seq values, so compare against normalized route_pos instead.
-         and d.route_pos>coalesce(po.previous_source_seq_snapshot,0)
-         and d.route_pos<po.source_seq
-        left join public.md_st_operation_scope support_scope
-          on upper(trim(support_scope.operation_code))=upper(trim(d.operation_code))
-         and support_scope.is_active=true
-        where coalesce(support_scope.operation_type,'INTERMEDIATE')<>'PLANNING_OPERATION'
+          on upper(trim(d.part_num))=upper(trim(bm.part_num))
+         and upper(trim(d.revision_num))=upper(trim(bm.revision_num))
+         and d.source_seq>coalesce(bm.previous_main_route_seq,0)
+         and d.source_seq<bm.main_route_seq
+        where not exists(
+          select 1
+          from route_main other_main
+          where upper(trim(other_main.part_num))=upper(trim(d.part_num))
+            and upper(trim(other_main.revision_num))=upper(trim(d.revision_num))
+            and other_main.source_seq=d.source_seq
+        )
           and ($1::text=''
-          or j.job_num ilike '%'||$1||'%'
-          or coalesce(j.part_num,'') ilike '%'||$1||'%'
-          or coalesce(j.part_description,'') ilike '%'||$1||'%'
-          or po.standard_operation ilike '%'||$1||'%'
-          or coalesce(bj.batch_no,'') ilike '%'||$1||'%'
+          or bm.job_num ilike '%'||$1||'%'
+          or coalesce(bm.part_num,'') ilike '%'||$1||'%'
+          or coalesce(bm.part_description,'') ilike '%'||$1||'%'
+          or bm.standard_operation ilike '%'||$1||'%'
+          or coalesce(bm.batch_no,'') ilike '%'||$1||'%'
           or coalesce(d.operation_detail_code,'') ilike '%'||$1||'%')
       )
       select

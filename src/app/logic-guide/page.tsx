@@ -561,7 +561,7 @@ export default async function Page(){
     <StepList items={[
      <>Tab hiển thị <b>tất cả Main Planning Operation</b> theo đúng <code>md_operation_master.planning_sort_order</code>. Main <code>PRIMER</code> được hiển thị là <b>PRIMER1</b>; PRIMER2/PRIMER3/TOPCOAT1/TOPCOAT2 giữ tách riêng.</>,
      <>Việc phân biệt <b>PRIMER1 / PRIMER2 / PRIMER3</b> và <b>TOPCOAT1 / TOPCOAT2</b> không hard-code theo một raw Operation Code. Tab dùng chính occurrence đã được Planning Chain chuẩn hóa từ <b>ST Group + thứ tự xuất hiện trong routing</b>. Vì vậy PPRSLVT rồi FULTKAPP vẫn có thể lần lượt là PRIMER1 rồi PRIMER2.</>,
-     <>Một support operation chỉ được xét khi nằm vật lý <b>sau Previous Main và trước Current Main</b> của đúng occurrence Job. Hệ thống chuẩn hóa <code>md_routing_detailed.source_seq</code> (thường 10/20/30...) thành vị trí 1/2/3... trước khi so với Planning Chain, nên Masking/Unmasking bám đúng Main phía sau.</>,
+     <>Một support operation chỉ được xét khi nằm vật lý <b>sau Previous Main và trước Current Main</b> của đúng occurrence Job. Không so <code>planning_job_operation.source_seq</code> với Routing Detail vì AllOperation có thể bỏ intermediate như MSKG. Hệ thống dựng lại Main occurrence trực tiếp trên <code>md_routing_detailed</code> bằng cùng ST Operation Mapping + PRIMER/TOPCOAT occurrence, tạo cùng <code>operation_instance_key</code>, rồi lấy MSKG nằm giữa hai Main occurrence vật lý.</>,
      <>Chỉ raw routing operation có chữ <b>MSKG</b> mới được coi là Masking/Unmasking. <b>UNMSKG*</b> = Unmasking; các code MSKG còn lại = Masking. Main Planning có chữ MSKG như FMSKG-CM được loại bằng Operation Type, không bị nhận nhầm thành support.</>,
      <>Cột planner nhìn thấy sử dụng <b>md_routing_detailed.operation_detail_code</b> để phân biệt chi tiết như <code>MSKG-TC_BEFORE_PPRSLVT</code>, <code>UNMSKG_BEFORE_MRKG-IJ</code>... Raw operation_code vẫn được giữ để trace.</>,
      <>View mặc định là <b>Theo ngày điều độ</b>: chỉ Job có Batch Main được schedule đúng ngày đang chọn mới xuất hiện. Ngày lấy từ <code>planning_schedule.schedule_date</code>.</>,
@@ -572,7 +572,7 @@ export default async function Page(){
     ]}/>
     <div className="table-wrap"><table className="erp-table"><thead><tr><th>Thông tin</th><th>Nguồn chuẩn</th><th>Logic</th></tr></thead><tbody>
      <tr><td>Main Planning / Planning Order</td><td><code>planning_job_operation</code> + <code>md_operation_master</code></td><td>Occurrence Main đã chuẩn hóa; PRIMER/TOPCOAT occurrence dùng cùng logic Planning Board.</td></tr>
-     <tr><td>Previous Main → Current Main boundary</td><td><code>previous_source_seq_snapshot</code> + <code>source_seq</code></td><td>Chỉ lấy support operation nằm giữa hai mốc vật lý này.</td></tr>
+     <tr><td>Previous Main → Current Main boundary</td><td>Routing Main occurrence + <code>operation_instance_key</code></td><td>Dựng Main occurrence trực tiếp từ Routing Detail, sau đó chỉ lấy support operation nằm giữa source_seq vật lý của hai Main.</td></tr>
      <tr><td>Masking / Unmasking</td><td><code>md_routing_detailed.operation_code</code></td><td>Có MSKG; UNMSKG* là Unmasking, còn lại là Masking; Planning Operation bị loại.</td></tr>
      <tr><td>Support Operation Detail</td><td><code>md_routing_detailed.operation_detail_code</code></td><td>Code chi tiết planner dùng để biết support trước operation nào/lần nào.</td></tr>
      <tr><td>Job / Part / Rev / Qty / Surface / Last / Next / Priority</td><td><code>open_job_current</code></td><td>Thông tin Job hiện tại giống Planning Board.</td></tr>

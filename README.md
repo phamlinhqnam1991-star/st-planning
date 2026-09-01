@@ -1,3 +1,10 @@
+## v361 — Masking / Unmasking physical Main occurrence fix
+- Masking/Unmasking no longer compares Planning Chain source positions with Routing Detail positions.
+- Main occurrences are rebuilt directly on Routing Detail with the same Mapping + occurrence rules as Planning Chain and matched by `operation_instance_key`.
+- Fixes `MSKG-AND -> BSAUNSLD`, `MSKG-TC -> PRIMER`, and equivalent support steps that could incorrectly show zero Jobs.
+- Support plan remains derived from Main Batch/Schedule date and time; no separate support schedule is stored.
+- No migration required.
+
 ## v359 — Masking / Unmasking theo ngày điều độ
 - Tab Masking / Unmasking dùng Main occurrence chuẩn từ Planning Chain; không duplicate logic PRIMER/TOPCOAT.
 - PRIMER occurrence hiển thị PRIMER1/PRIMER2/PRIMER3; TOPCOAT hiển thị TOPCOAT1/TOPCOAT2 dù raw Operation Code khác nhau.
