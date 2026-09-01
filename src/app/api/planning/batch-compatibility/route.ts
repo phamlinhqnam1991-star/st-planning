@@ -2,16 +2,14 @@ import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {requireApiUser} from "@/lib/api-auth";
 import {
- loadProcessTimeRules,
- processConditionMatches,
- selectProcessConditionGroupFromRules,
- type ProcessTimeRuleCondition
-} from "@/lib/planning/batch-utils";
-import {
+ compatibilityConditionMatches,
  describeCompatibilityConditions,
+ loadBatchAnchorSourceOperation,
+ loadRecipeSelectionConditions,
  loadStoredBatchCompatibilityConditions,
  normalizeCompatibilityColumns,
- selectCompatibilityConditionsByColumns
+ selectCompatibilityConditionsByColumns,
+ type BatchCompatibilityRuleCondition
 } from "@/lib/planning/batch-compatibility";
 
 const clean=(v:unknown)=>String(v??"").trim();
@@ -21,6 +19,7 @@ type CandidateInput={
  id:number;
  recipeKey:string|null;
  standardOperation:string;
+ sourceOperation:string;
 };
 
 async function loadConditionDataByOperationIds(c:any,ids:number[],columns:string[]){
@@ -67,17 +66,17 @@ async function loadBatchMemberConditionData(c:any,batchId:number,columns:string[
 }
 
 function mergeConditionsByColumn(
- primary:ProcessTimeRuleCondition[],
- secondary:ProcessTimeRuleCondition[]
+ primary:BatchCompatibilityRuleCondition[],
+ secondary:BatchCompatibilityRuleCondition[]
 ){
- const out:ProcessTimeRuleCondition[]=[];
+ const out:BatchCompatibilityRuleCondition[]=[];
  const seen=new Set<string>();
  for(const c of [...primary,...secondary]){
   const column=clean(c.source_column);
-  const key=column.toUpperCase();
+  const key=up(column);
   if(!column||seen.has(key))continue;
   seen.add(key);
-  out.push({source_column:column,source_value:clean(c.source_value)});
+  out.push({...c,source_column:column});
  }
  return out;
 }
@@ -91,7 +90,8 @@ export async function POST(req:NextRequest){
  const candidates:CandidateInput[]=rawCandidates.slice(0,5000).map((x:any)=>({
   id:Number(x?.id),
   recipeKey:clean(x?.recipeKey)||null,
-  standardOperation:clean(x?.standardOperation)
+  standardOperation:clean(x?.standardOperation),
+  sourceOperation:clean(x?.sourceOperation)
  })).filter((x:CandidateInput)=>Number.isFinite(x.id)&&x.id>0&&x.standardOperation);
  const anchorId=Number(body.anchorId||0);
  const batchId=Number(body.batchId||0);
@@ -102,13 +102,14 @@ export async function POST(req:NextRequest){
 
  if(!candidates.length)
   return NextResponse.json({profile:null,compatibleIds:[],reasons:{}});
- if(!batchId&&!Number.isFinite(anchorId))
+ if(!batchId&&(!Number.isFinite(anchorId)||anchorId<=0))
   return NextResponse.json({error:"Thiếu Job chuẩn hoặc Target Batch."},{status:400});
 
  const c=await getPool().connect();
  try{
   let recipeKey="";
   let standardOperation="";
+  let anchorSourceOperation="";
   let source:"JOB"|"BATCH"="JOB";
 
   if(batchId>0){
@@ -118,15 +119,18 @@ export async function POST(req:NextRequest){
     where id=$1 and status not in ('CANCELLED','COMPLETED')
     limit 1
    `,[batchId]);
-   if(!bq.rowCount)return NextResponse.json({error:"Target Batch không tồn tại hoặc đã đóng."},{status:400});
+   if(!bq.rowCount)
+    return NextResponse.json({error:"Target Batch không tồn tại hoặc đã đóng."},{status:400});
    recipeKey=clean(bq.rows[0].recipe_key);
    standardOperation=clean(bq.rows[0].standard_operation);
    source="BATCH";
   }else{
    const anchor=candidates.find(x=>x.id===anchorId);
-   if(!anchor)return NextResponse.json({error:"Job chuẩn không còn nằm trong Candidate hiện tại."},{status:400});
+   if(!anchor)
+    return NextResponse.json({error:"Job chuẩn không còn nằm trong Candidate hiện tại."},{status:400});
    recipeKey=clean(anchor.recipeKey);
    standardOperation=clean(anchor.standardOperation);
+   anchorSourceOperation=clean(anchor.sourceOperation);
   }
 
   const scopedCandidates=candidates.filter(
@@ -140,12 +144,17 @@ export async function POST(req:NextRequest){
    });
   }
 
-  if(!recipeKey&&source==="BATCH"){
-   const anchor=scopedCandidates.find(x=>x.id===anchorId);
-   if(anchor?.recipeKey)recipeKey=clean(anchor.recipeKey);
+  const anchorCandidate=scopedCandidates.find(x=>x.id===anchorId)||null;
+  if(!anchorSourceOperation)anchorSourceOperation=clean(anchorCandidate?.sourceOperation);
+  if(source==="BATCH"&&!anchorSourceOperation){
+   anchorSourceOperation=clean(await loadBatchAnchorSourceOperation(c,batchId));
   }
 
-  // Main không dùng Recipe: mọi READY cùng Main đều hợp lệ; condition checkbox trống.
+  if(!recipeKey&&source==="BATCH"&&anchorCandidate?.recipeKey){
+   recipeKey=clean(anchorCandidate.recipeKey);
+  }
+
+  // Main không dùng Recipe: mọi READY cùng Main đều hợp lệ; checkbox trống.
   if(!recipeKey){
    const compatibleIds=scopedCandidates.map(x=>x.id);
    return NextResponse.json({
@@ -160,33 +169,24 @@ export async function POST(req:NextRequest){
    });
   }
 
-  const rules=await loadProcessTimeRules(c,recipeKey);
-  const conditionColumns:string[]=Array.from(new Set<string>(
-   rules.flatMap(r=>(r.conditions||[]).map(x=>clean(x.source_column))).filter(Boolean)
-  ));
-  const conditionById=await loadConditionDataByOperationIds(c,scopedCandidates.map(x=>x.id),conditionColumns);
-
-  let batchData:Record<string,unknown>[]=[];
-  let anchorData:Record<string,unknown>|null=null;
-  if(source==="BATCH"){
-   batchData=await loadBatchMemberConditionData(c,batchId,conditionColumns);
-   anchorData=batchData[0]||null;
-   if(!anchorData&&Number.isFinite(anchorId)&&anchorId>0){
-    anchorData=conditionById.get(anchorId)||null;
-   }
-  }else{
-   anchorData=conditionById.get(anchorId)||null;
-  }
-
-  const availableFromRecipe=selectProcessConditionGroupFromRules(rules,anchorData?[anchorData]:[]);
+  // v348: lấy condition từ Operation Code -> Recipe selection_rule,
+  // KHÔNG lấy từ Process Time Rule.
+  const mappingConditions=await loadRecipeSelectionConditions(
+   c,recipeKey,anchorSourceOperation
+  );
   const storedConditions=source==="BATCH"
    ?await loadStoredBatchCompatibilityConditions(c,batchId)
    :null;
-  // Nếu Recipe master đổi sau khi Batch đã tạo, vẫn hiển thị condition đã lưu để
-  // Existing Batch không mất compatibility profile lịch sử.
-  const availableConditions=mergeConditionsByColumn(availableFromRecipe,storedConditions||[]);
+  const availableConditions=mergeConditionsByColumn(mappingConditions,storedConditions||[]);
+  const conditionColumns=availableConditions.map(x=>clean(x.source_column)).filter(Boolean);
+  const conditionById=await loadConditionDataByOperationIds(
+   c,scopedCandidates.map(x=>x.id),conditionColumns
+  );
+  const batchData=source==="BATCH"
+   ?await loadBatchMemberConditionData(c,batchId,conditionColumns)
+   :[];
 
-  let selectedConditions:ProcessTimeRuleCondition[]=[];
+  let selectedConditions:BatchCompatibilityRuleCondition[]=[];
   if(hasRequestedColumns){
    const requested=requestedColumns||[];
    const availableKeys=new Set(availableConditions.map(x=>up(x.source_column)));
@@ -198,17 +198,19 @@ export async function POST(req:NextRequest){
   }else if(source==="BATCH"&&storedConditions!==null){
    selectedConditions=storedConditions;
   }else{
-   // Mặc định an toàn: tích TẤT CẢ condition của Recipe.
+   // Mặc định an toàn: tích tất cả condition của mapping Recipe.
    selectedConditions=availableConditions;
   }
 
   const selectedConditionColumns=selectedConditions.map(x=>x.source_column);
   let invalidSelection="";
   if(source==="BATCH"&&batchData.length&&selectedConditions.length){
-   const badIndex=batchData.findIndex(row=>selectedConditions.some(cond=>!processConditionMatches(cond,row)));
+   const badIndex=batchData.findIndex(row=>
+    selectedConditions.some(cond=>!compatibilityConditionMatches(cond,row))
+   );
    if(badIndex>=0){
     invalidSelection=
-     `Không thể bật bộ condition này vì Job hiện có #${badIndex+1} trong Batch không cùng `+
+     `Không thể bật bộ condition này vì Job hiện có #${badIndex+1} trong Batch không thỏa `+
      `${describeCompatibilityConditions(selectedConditions)}.`;
    }
   }
@@ -221,8 +223,8 @@ export async function POST(req:NextRequest){
    if(!why.length&&selectedConditions.length){
     const data=conditionById.get(item.id)||{};
     for(const cond of selectedConditions){
-     if(!processConditionMatches(cond,data)){
-      why.push(`${cond.source_column}: ${clean(data?.[cond.source_column])||"—"} ≠ ${cond.source_value}`);
+     if(!compatibilityConditionMatches(cond,data)){
+      why.push(`Không thỏa ${describeCompatibilityConditions([cond])}`);
      }
     }
    }

@@ -379,7 +379,7 @@ type BatchTargetOption={
  schedule_end:string|null;
 };
 
-type BatchCompatibilityCondition={source_column:string;source_value:string};
+type BatchCompatibilityCondition={source_column:string;source_value:string|null;operator?:string};
 type BatchCompatibilityLock={
  key:string;
  loading:boolean;
@@ -2146,7 +2146,7 @@ const currentPriorityMonth=useMemo(()=>{
 
  const compatibilityCandidates=useMemo(()=>{
   if(!compatibilityOperation)return [];
-  const out:{id:number;recipeKey:string|null;standardOperation:string}[]=[];
+  const out:{id:number;recipeKey:string|null;standardOperation:string;sourceOperation:string}[]=[];
   const seen=new Set<number>();
   for(const row of candidates){
    const target=selectableTargetForOperation(row,compatibilityOperation);
@@ -2160,13 +2160,14 @@ const currentPriorityMonth=useMemo(()=>{
    out.push({
     id:Number(target.id),
     recipeKey:liveRecipe,
-    standardOperation:String(target.standardOperation||compatibilityOperation)
+    standardOperation:String(target.standardOperation||compatibilityOperation),
+    sourceOperation:String(target.sourceOperation||"")
    });
   }
   return out;
  },[candidates,compatibilityOperation,selectableTargetForOperation]);
  const compatibilityScopeKey=useMemo(
-  ()=>`${normalized(compatibilityOperation)}|${compatibilityCandidates.map(x=>`${x.id}:${x.recipeKey||""}`).join("|")}`,
+  ()=>`${normalized(compatibilityOperation)}|${compatibilityCandidates.map(x=>`${x.id}:${x.recipeKey||""}:${normalized(x.sourceOperation)}`).join("|")}`,
   [compatibilityCandidates,compatibilityOperation]
  );
 
@@ -3787,7 +3788,7 @@ const currentPriorityMonth=useMemo(()=>{
         <div><span>Recipe</span><b>{compatibilityLock.profile.recipeNo||compatibilityLock.profile.recipeKey||"Không dùng Recipe"}{compatibilityLock.profile.recipeName?` · ${compatibilityLock.profile.recipeName}`:""}</b></div>
         {compatibilityLock.profile.conditions.length>0?
          <div className="planning-compatibility-condition-picker">
-          <span>Điều kiện dùng để gom lô</span>
+          <span>Điều kiện Recipe dùng để gom lô</span>
           <div>
            {compatibilityLock.profile.conditions.map(cond=>{
             const checked=(compatibilityLock.profile?.selectedConditionColumns||[])
@@ -3800,7 +3801,7 @@ const currentPriorityMonth=useMemo(()=>{
               onChange={e=>toggleCompatibilityCondition(cond.source_column,e.target.checked)}
              />
              <b>{cond.source_column}</b>
-             <span>= {cond.source_value||"—"}</span>
+             <span>{cond.operator==="not_empty"?"không rỗng":cond.operator==="is_empty"?"rỗng":cond.operator==="contains"?`chứa ${cond.source_value||"—"}`:cond.operator==="starts_with"?`bắt đầu ${cond.source_value||"—"}`:cond.operator==="ends_with"?`kết thúc ${cond.source_value||"—"}`:`= ${cond.source_value||"—"}`}</span>
             </label>;
            })}
           </div>
@@ -3808,7 +3809,7 @@ const currentPriorityMonth=useMemo(()=>{
            ?`Đang khóa theo: ${compatibilityLock.profile.conditionText}`
            :"Không chọn condition: chỉ khóa theo cùng Recipe."}</small>
          </div>:
-         <div><span>Điều kiện</span><b>Không có điều kiện Open Job</b></div>}
+         <div><span>Điều kiện</span><b>Recipe mapping không có điều kiện Open Job</b></div>}
         <small>{compatibilityLock.profile.source==="BATCH"?"Điều kiện được lưu theo Target Batch hiện tại":"Mặc định tích tất cả; bỏ tích condition để mở thêm Job cùng Recipe"}</small>
         <small>Batch Selection Mode: các Main Operation khác đang được làm mờ và khóa tạm thời.</small>
        </>}

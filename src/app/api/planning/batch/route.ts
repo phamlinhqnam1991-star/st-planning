@@ -417,6 +417,7 @@ export async function POST(req:NextRequest){
       recipeKey,
       jobs:q.rows.map((r:any)=>({
        job_num:String(r.job_num||""),
+       source_operation_code:String(r.source_operation_code||""),
        condition_data:(r.condition_data||{}) as Record<string,unknown>
       })),
       anchorJobNum:String(anchorRow?.job_num||""),
