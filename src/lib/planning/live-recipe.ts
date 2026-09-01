@@ -7,7 +7,10 @@
 //   2) Part + Revision → Recipe (md_part_process_recipe) chỉ là fallback,
 //      chủ yếu dùng cho công đoạn sơn khi Operation Code chưa có mapping phù hợp.
 // =====================================================================
-import {matchCondition,parseSelectionRule,toRecipeCandidates,type RecipeCandidateItem} from "@/lib/batch-key-recipe";
+import {
+  matchCondition,parseSelectionRule,toRecipeCandidates,selectionRuleMatchesPaintOccurrence,
+  type RecipeCandidateItem
+} from "@/lib/batch-key-recipe";
 
 export const PAINT_STANDARD_OPS=new Set([
   "PRIMER","PRIMER2","PRIMER3","TOPCOAT1","TOPCOAT2","ANTI-ABRASION","VARNISH"
@@ -181,7 +184,7 @@ export function bestRecipeMatch(
   // nguồn điều khiển chính và không bị Master Data tự ghi đè.
   const data=mergeJobData(ctx,args);
   const list=ctx.mainOpRecipeMap.get(up(args.sourceOperationCode));
-  const best=pickBestRecipeForJobItem(list,data);
+  const best=pickBestRecipeForJobItem(list,data,args.standardOperation);
   if(best){
     return {
       recipeKey:best.recipe_key,
@@ -202,10 +205,12 @@ export function bestRecipeMatch(
 // Chọn item mapping "đang thắng" (điều kiện khớp → ưu tiên), trả về item đầy đủ.
 function pickBestRecipeForJobItem(
   items:RecipeCandidateItem[]|null|undefined,
-  sourceData:Record<string,unknown>|null
+  sourceData:Record<string,unknown>|null,
+  standardOperation?:string|null
 ):RecipeCandidateItem|null{
   if(!items||!items.length)return null;
   const eligible=items.filter(item=>{
+    if(!selectionRuleMatchesPaintOccurrence(item.selection_rule,standardOperation))return false;
     const conds=parseSelectionRule(item.selection_rule);
     if(!conds.length)return true;
     return conds.every(c=>matchCondition(c,sourceData));

@@ -1,6 +1,6 @@
 import type{PoolClient}from"pg";
 import{loadLiveRecipeContext,bestRecipeMatch,mergeJobData,type LiveRecipeContext,PAINT_STANDARD_OPS}from"@/lib/planning/live-recipe";
-import{parseSelectionRule,matchCondition}from"@/lib/batch-key-recipe";
+import{parseSelectionRule,matchCondition,selectionRuleMatchesPaintOccurrence}from"@/lib/batch-key-recipe";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const up=(v:unknown)=>clean(v).toUpperCase();
@@ -140,11 +140,13 @@ export async function diagnoseJobRecipe(
   // Có mapping nhưng không mapping nào khớp điều kiện của Job.
   const evaluated=list.map(item=>{
    const conds=parseSelectionRule(item.selection_rule);
-   if(!conds.length)return{recipe_mapping_id:item.mapping_id??null,recipe_key:item.recipe_key,priority:item.priority,is_default:item.is_default,selection_rule:item.selection_rule,matches:true,mismatchedConditions:[] as string[]};
-   const mismatched=conds.filter(c=>!matchCondition(c,data)).map(c=>{
+   const occurrenceOk=selectionRuleMatchesPaintOccurrence(item.selection_rule,args.standardOperation);
+   if(!conds.length)return{recipe_mapping_id:item.mapping_id??null,recipe_key:item.recipe_key,priority:item.priority,is_default:item.is_default,selection_rule:item.selection_rule,matches:occurrenceOk,mismatchedConditions:occurrenceOk?[]:[`Rule thuộc occurrence sơn khác với ${stdLabel}.`]};
+   const mismatched:string[]=occurrenceOk?[]:[`Rule thuộc occurrence sơn khác với ${stdLabel}.`];
+   mismatched.push(...conds.filter(c=>!matchCondition(c,data)).map(c=>{
     const actual=clean(data?.[c.source_column]);
     return `${describeCondition(c)} — job đang là "${actual||"(trống)"}"`;
-   });
+   }));
    return{recipe_mapping_id:item.mapping_id??null,recipe_key:item.recipe_key,priority:item.priority,is_default:item.is_default,selection_rule:item.selection_rule,matches:mismatched.length===0,mismatchedConditions:mismatched};
   });
   const anyMatched=evaluated.some(x=>x.matches);

@@ -126,15 +126,64 @@ export function canonicalizeSelectionRule(json:unknown):string|null{
  *              (fallback) — chọn theo priority/is_default/updated_at.
  * Mapping có điều kiện nhưng KHÔNG khớp → bỏ qua (không dùng cho Job này).
  */
+// v362: Paint recipe rules are occurrence-aware. A raw Operation Code such as
+// SIPT may serve PRIMER1, PRIMER2 and PRIMER3 in different positions of the
+// routing. A rule whose paint-specific condition points to PRIMER2 must never
+// compete while resolving the PRIMER1 target, even when the Job happens to
+// contain both PRIMER1 and PRIMER2 values. Generic conditions (Program, Group,
+// Category, ...) remain valid for every occurrence.
+export type PaintRecipeOccurrence=
+  |"PRIMER1"|"PRIMER2"|"PRIMER3"
+  |"TOPCOAT1"|"TOPCOAT2";
+
+export function paintRecipeOccurrenceForStandardOperation(value:unknown):PaintRecipeOccurrence|null{
+  const op=String(value??"").trim().toUpperCase();
+  if(op==="PRIMER"||op==="PRIMER1")return "PRIMER1";
+  if(op==="PRIMER2")return "PRIMER2";
+  if(op==="PRIMER3")return "PRIMER3";
+  if(op==="TOPCOAT1")return "TOPCOAT1";
+  if(op==="TOPCOAT2")return "TOPCOAT2";
+  return null;
+}
+
+export function paintRecipeOccurrenceForConditionColumn(value:unknown):PaintRecipeOccurrence|null{
+  const col=String(value??"").trim().toUpperCase();
+  if(!col)return null;
+  // Accept real source-column spellings such as:
+  //   Part_Masterlist.PRIMER2, Part Master PRIMER2, MD:PRIMER1_NAME.
+  // Require a numeric occurrence so generic columns containing the word
+  // "PRIMER" / "TOPCOAT" are not accidentally scoped.
+  const primer=col.match(/(?:^|[^A-Z0-9])PRIMER[^A-Z0-9]*([123])(?:[^0-9]|$)/);
+  if(primer)return `PRIMER${primer[1]}` as PaintRecipeOccurrence;
+  const topcoat=col.match(/(?:^|[^A-Z0-9])TOPCOAT[^A-Z0-9]*([12])(?:[^0-9]|$)/);
+  if(topcoat)return `TOPCOAT${topcoat[1]}` as PaintRecipeOccurrence;
+  return null;
+}
+
+export function selectionRuleMatchesPaintOccurrence(
+  selectionRule:string|null|undefined,
+  standardOperation:unknown
+):boolean{
+  const target=paintRecipeOccurrenceForStandardOperation(standardOperation);
+  if(!target)return true;
+  const scoped=parseSelectionRule(selectionRule)
+    .map(c=>paintRecipeOccurrenceForConditionColumn(c.source_column))
+    .filter((x):x is PaintRecipeOccurrence=>x!==null);
+  if(!scoped.length)return true;
+  return scoped.every(x=>x===target);
+}
+
 export function pickBestRecipeForJob(
   items:RecipeCandidateItem[]|null|undefined,
-  sourceData:Record<string,unknown>|null|undefined
+  sourceData:Record<string,unknown>|null|undefined,
+  standardOperation?:string|null
 ):string|null{
   if(!items||!items.length)return null;
   const hasConditions=(item:RecipeCandidateItem)=>
     parseSelectionRule(item.selection_rule).length>0;
 
   const eligible=items.filter(item=>{
+    if(!selectionRuleMatchesPaintOccurrence(item.selection_rule,standardOperation))return false;
     const conds=parseSelectionRule(item.selection_rule);
     if(!conds.length)return true; // không điều kiện → luôn hợp lệ (fallback)
     return conds.every(c=>matchCondition(c,sourceData));

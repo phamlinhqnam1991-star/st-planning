@@ -1029,7 +1029,7 @@ export async function syncPlanningChains(c:PoolClient){
      const md=masterByPartRev.get(mkey);
      const data=md?{...(job.source_data||{}),...md}:(job.source_data||null);
      const list=chemicalLists.get(op.sourceCode.toUpperCase())||[];
-     recipeKey=pickBestRecipeForJob(list,data);
+     recipeKey=pickBestRecipeForJob(list,data,op.standardOperation);
      if(!recipeKey && ["PRIMER","PRIMER2","PRIMER3","TOPCOAT1","TOPCOAT2","ANTI-ABRASION","VARNISH"].includes(op.standardOperation)){
        recipeKey=paintRecipes.get(
          `${clean(job.part_num)}\u0001${clean(job.revision_num)}\u0001${op.standardOperation}`

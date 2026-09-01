@@ -515,7 +515,12 @@ export default async function Page(){
     </Rule>
     <p>Ví dụ Sort Priority = ① NextOperation ASC → ② Priority DESC → ③ Job ASC. Board sẽ dùng Next Op Sort trước, sau đó mới Priority rồi Job.</p>
 
-    <div className="lg-subtitle">7.4 · Chọn READY đầu tiên → Batch Selection Mode</div>
+    <div className="lg-subtitle">7.4 · Recipe sơn phải đúng occurrence PRIMER/TOPCOAT</div>
+    <Rule title="Occurrence-aware Recipe Rule" tone="important">
+     Một raw Operation Code như <code>SIPT</code> có thể phục vụ PRIMER1, PRIMER2 hoặc PRIMER3. Khi resolve <b>PRIMER1</b>, rule có condition paint-specific trỏ tới <code>PRIMER2</code>/<code>PRIMER3</code> bị loại trước bước Priority; PRIMER2 chỉ xét condition PRIMER2; PRIMER3 chỉ xét PRIMER3; TOPCOAT1/TOPCOAT2 tương tự. Condition chung như Program, Category, Group vẫn dùng cho mọi occurrence. Nhờ vậy Job có đồng thời PRIMER1=10P4 và PRIMER2=LR-200 không thể làm PRIMER1 chọn nhầm rule LR-200 của PRIMER2.
+    </Rule>
+
+    <div className="lg-subtitle">7.5 · Chọn READY đầu tiên → Batch Selection Mode</div>
     <StepList items={[
      <>Click/checkbox/drag một cell <b>READY</b>. Main Operation của occurrence đó trở thành Main đang build Batch.</>,
      <>Board làm mờ và khóa tạm thời toàn bộ READY của <b>Main Planning khác</b>. Các cột thông tin Job bên trái vẫn đọc được.</>,
@@ -525,7 +530,7 @@ export default async function Page(){
      <>Chỉ READY compatible mới giữ sáng và được phép thêm. Select All cũng chỉ chọn tập compatible.</>
     ]}/>
 
-    <div className="lg-subtitle">7.5 · Batch Compatibility — chính xác lấy điều kiện từ đâu?</div>
+    <div className="lg-subtitle">7.6 · Batch Compatibility — chính xác lấy điều kiện từ đâu?</div>
     <div className="lg-key lg-key-2">
      <Rule title="Recipe luôn bắt buộc giống nhau" tone="important">Checkbox chỉ mở/bỏ bớt condition; không bao giờ cho phép trộn Recipe khác nhau trong cùng Batch.</Rule>
      <Rule title="Condition nguồn Recipe mapping">Checkbox lấy từ rule “Áp dụng cho Job” của đúng <b>recipe_mapping_id</b> mà Job đầu tiên đã match. Vì vậy cùng Operation Code + cùng Recipe vẫn có thể có nhiều bộ condition độc lập. Không lấy từ Process Time Rule.</Rule>
@@ -533,10 +538,10 @@ export default async function Page(){
      <Rule title="Server guard">UI chỉ là lớp UX. API Create/Add Batch re-resolve Recipe và revalidate selected condition để không thể bypass bằng request ngoài UI.</Rule>
     </div>
 
-    <div className="lg-subtitle">7.6 · Process Time hiển thị trong Batch Builder</div>
+    <div className="lg-subtitle">7.7 · Process Time hiển thị trong Batch Builder</div>
     <p>Batch Builder cộng <b>Total Qty + Total Surface</b>, resolve Recipe, sau đó gọi Process Time rule. Condition Process Time được kiểm tra trên <b>tất cả Job trong lô</b>. Nếu rule cụ thể không match do trộn value, resolver tìm fallback không condition nếu có.</p>
 
-    <div className="lg-subtitle">7.7 · Create New Batch / Add Existing Batch — flow server</div>
+    <div className="lg-subtitle">7.8 · Create New Batch / Add Existing Batch — flow server</div>
     <Chain steps={[
      {t:"READY selection",d:"Main + Recipe + selected conditions",c:"blue"},
      {t:"Server validate",d:"same Main · live Recipe · conditions · no duplicate",c:"amber"},
@@ -552,7 +557,7 @@ export default async function Page(){
      <li><b>Clear selection:</b> thoát Batch Selection Mode, tất cả Main/READY trở lại bình thường.</li>
     </ul>
 
-    <div className="lg-subtitle">7.8 · Khi nào cần Rebuild Planning Chain?</div>
+    <div className="lg-subtitle">7.9 · Khi nào cần Rebuild Planning Chain?</div>
     <p>Không cần rebuild chỉ vì tạo Batch hoặc đổi Next Op Sort. Nên rebuild sau thay đổi cấu trúc như ST Scope/Main Mapping/Bridge/Planning chain rule hoặc khi dữ liệu chain cũ được tạo trước logic mới. Rebuild là thao tác nặng và có thể tải lại Candidates.</p>
    </Section>
 
