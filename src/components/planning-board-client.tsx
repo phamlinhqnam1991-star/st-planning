@@ -2665,6 +2665,24 @@ const currentPriorityMonth=useMemo(()=>{
    });
  };
 
+ const routeEndCompact=(v:string|null|undefined)=>{
+   if(!v)return "";
+   const d=new Date(v);
+   if(Number.isNaN(d.getTime()))return "";
+   const parts=new Intl.DateTimeFormat("en-GB",{
+    timeZone:"Asia/Ho_Chi_Minh",
+    hour:"2-digit",
+    minute:"2-digit",
+    day:"2-digit",
+    hour12:false
+   }).formatToParts(d);
+   const val=(t:string)=>parts.find(x=>x.type===t)?.value||"";
+   const hh=val("hour");
+   const mm=val("minute");
+   const dd=val("day");
+   return hh&&mm&&dd?`${hh}:${mm} ${dd}`:"";
+ };
+
  const routeCellSelected=(item:RouteStatusItem)=>{
    const id=Number(item.planning_job_operation_id);
    return Number.isFinite(id)&&selected.includes(id);
@@ -2928,11 +2946,13 @@ const currentPriorityMonth=useMemo(()=>{
     ...new Set(items.map(r=>String(r.resource_code||"").trim()).filter(Boolean))
    ];
 
-   const scheduledEnds=items
-    .map(r=>r.planned_end)
-    .filter(Boolean)
-    .map(v=>routeDateTime(v))
-    .filter(Boolean);
+   const scheduledEnds=[
+    ...new Set(
+     items
+      .map(r=>routeEndCompact(r.planned_end))
+      .filter(Boolean)
+    )
+   ];
 
    const tooltip=items.map((item,index)=>[
     items.length>1?(erpMode?`${mainOperation} · lần ${index+1}`:`${mainOperation} occurrence ${index+1}`):mainOperation,
@@ -2986,16 +3006,13 @@ const currentPriorityMonth=useMemo(()=>{
    >
     <b>{displayStatus}</b>
 
-    {batchNos.length>0&&
+    {(scheduledEnds.length>0||batchNos.length>0)&&
      <span className="route-status-batch">
-      {batchNos.join(" / ")}
+      {scheduledEnds.length>0 ? scheduledEnds.join(" / ") : batchNos.join(" / ")}
      </span>}
 
     {resources.length>0&&
      <small>{resources.join(" / ")}</small>}
-
-    {scheduledEnds.length>0&&
-     <small>{erpMode?"Kết thúc":"End"} {scheduledEnds.join(" / ")}</small>}
 
     {items.length>1&&
      <small>{erpMode?`${items.length} lần trong routing`:`${items.length} route occurrences`}</small>}
