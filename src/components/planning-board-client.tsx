@@ -590,7 +590,7 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
  const [fullView,setFullView]=useState(false);
  const [candidateDomLimit,setCandidateDomLimit]=useState(CANDIDATE_INITIAL_DOM_ROWS);
  const candidateDomSentinelRef=useRef<HTMLTableRowElement|null>(null);
- const [candidateDensity,setCandidateDensity]=useState<"normal"|"compact"|"ultra">(erpMode?"normal":(initialView?.density??"compact"));
+ const [candidateDensity,setCandidateDensity]=useState<"normal"|"compact"|"ultra">(erpMode?"compact":(initialView?.density??"compact"));
  const [routeFocus,setRouteFocus]=useState(erpMode?true:Boolean(initialView?.routeFocus));
  // v282: Chẩn đoán Recipe + So sánh Cấu hình ↔ Board.
  const [recipeDiag,setRecipeDiag]=useState<any|null>(null);
@@ -2594,22 +2594,40 @@ const currentPriorityMonth=useMemo(()=>{
    const raw=String(status||"");
    if(!erpMode)return raw;
    switch(normalized(status)){
-    case "PLANNED": return "BATCH";
-    case "ELIGIBLE": return "READY";
-    case "LOCKED": return "WAIT";
-    case "NO BATCH": return "CHƯA CÓ BATCH";
+    case "PLANNED": return "P";
+    case "ELIGIBLE": return "R";
+    case "LOCKED": return "W";
+    case "NO BATCH": return "NB";
     default:return raw;
    }
  };
 
+ // ERP matrix uses 1–2 character status codes to keep Main Planning columns compact.
+ // Full status meaning remains available in the legend/tooltips and business logic is unchanged.
  const routeStatusLabel=(status:unknown)=>{
    const raw=String(status||"");
    if(!erpMode)return raw;
    switch(normalized(status)){
-    case "PLANNED-UNSCHEDULED": return "BATCH";
+    case "READY": return "R";
+    case "WAITING": return "W";
+    case "SCHEDULED": return "S";
+    case "PLANNED-UNSCHEDULED": return "U";
+    case "PLANNED": return "P";
+    case "DONE":
+    case "COMPLETED": return "D";
+    case "RUNNING": return "RN";
+    case "HOLD": return "H";
+    default: return raw;
+   }
+ };
+
+ const routeStatusLongLabel=(status:unknown)=>{
+   const raw=String(status||"");
+   switch(normalized(status)){
+    case "PLANNED-UNSCHEDULED": return "UNSCHEDULED";
     case "COMPLETED": return "DONE";
     case "WAITING": return "WAIT";
-    default: return raw;
+    default:return raw;
    }
  };
 
@@ -2735,14 +2753,14 @@ const currentPriorityMonth=useMemo(()=>{
 
    if(Number(item.source_seq)===immediate){
     return {
-     label:"WAIT",
+     label:erpMode?"W":"WAIT",
      reason:erpMode?"Main Operation trước chưa hoàn tất hoặc chưa được lập lịch.":"Previous Main Planning chưa DONE / SCHEDULED / UNSCHEDULED.",
      kind:"route-status-wait-prev"
     };
    }
 
    return {
-    label:"WAIT",
+    label:erpMode?"W":"WAIT",
     reason:erpMode?"Chưa tới lượt Main Operation này. Chỉ công đoạn kế tiếp trong chuỗi mới được READY.":"Next Main Planning chưa tới lượt. Chỉ Main ngay sau handoff mới được READY.",
     kind:"route-status-wait-future"
    };
@@ -2805,7 +2823,7 @@ const currentPriorityMonth=useMemo(()=>{
      return <td
       key={key}
       className={`route-status-cell ${routeStatusClass(status)} ${normalized(status)==="WAITING"?fallbackWaiting.kind:""} route-status-current ${routeCellSelected(fallbackItem)?"route-status-selected":""} ${status==="READY"&&!mainDimmed&&!fallbackCompatLocked?"route-status-clickable":""} ${fallbackCompatLocked?"batch-compatibility-cell-locked":""} ${mainDimClass}`}
-      title={`${mainOperation} · ${fallbackDisplay}${fallbackWaiting.reason?` · ${fallbackWaiting.reason}`:""}${x.batch_no?` · ${x.batch_no}`:""}${fallbackCompatLocked?` · ${compatibilityReasonForId(Number(x.id),mainOperation)||"Khác Recipe / điều kiện Batch"}`:""}${mainDimReason?` · ${mainDimReason}`:""}`}
+      title={`${mainOperation} · ${erpMode?(normalized(status)==="WAITING"?"WAIT":routeStatusLongLabel(status)):fallbackDisplay}${fallbackWaiting.reason?` · ${fallbackWaiting.reason}`:""}${x.batch_no?` · ${x.batch_no}`:""}${fallbackCompatLocked?` · ${compatibilityReasonForId(Number(x.id),mainOperation)||"Khác Recipe / điều kiện Batch"}`:""}${mainDimReason?` · ${mainDimReason}`:""}`}
       onClick={()=>{
        if(mainDimmed){setMessage(mainDimReason);return;}
        toggleRouteCell(x,fallbackItem);
@@ -2919,7 +2937,7 @@ const currentPriorityMonth=useMemo(()=>{
    const tooltip=items.map((item,index)=>[
     items.length>1?(erpMode?`${mainOperation} · lần ${index+1}`:`${mainOperation} occurrence ${index+1}`):mainOperation,
     `${erpMode?"Operation Code":"Source"}: ${item.source_operation}`,
-    `${erpMode?"Trạng thái":"Status"}: ${normalized(item.route_status)==="WAITING"?waitingDisplayFor(x,item).label:routeStatusLabel(item.route_status)}`,
+    `${erpMode?"Trạng thái":"Status"}: ${erpMode?(normalized(item.route_status)==="WAITING"?"WAIT":routeStatusLongLabel(item.route_status)):(normalized(item.route_status)==="WAITING"?waitingDisplayFor(x,item).label:routeStatusLabel(item.route_status))}`,
     normalized(item.route_status)==="WAITING"?waitingDisplayFor(x,item).reason:"",
     item.batch_no?`Batch: ${item.batch_no}`:"",
     item.resource_code?`${erpMode?"Resource":"Resource"}: ${item.resource_code}`:"",
@@ -3051,8 +3069,8 @@ const currentPriorityMonth=useMemo(()=>{
      case "status":
        return <td key={key}>
         {x.planning_status==="PLANNED"
-         ? <span className="job-state state-planned">{erpMode?"BATCH":"PLANNED"}</span>
-         : <span className="job-state state-eligible">{erpMode?"READY":"ELIGIBLE"}</span>}
+         ? <span className="job-state state-planned">{erpMode?"P":"PLANNED"}</span>
+         : <span className="job-state state-eligible">{erpMode?"R":"ELIGIBLE"}</span>}
        </td>;
 
      case "batch_no":
@@ -3633,8 +3651,8 @@ const currentPriorityMonth=useMemo(()=>{
      </div>}
 
     {erpMode&&<div className="erpkit-live-matrix-legend">
-     <span className="is-done"><i/>DONE</span><span className="is-ready"><i/>READY</span><span className="is-wait"><i/>WAIT</span><span className="is-batch"><i/>BATCH</span><span className="is-scheduled"><i/>SCHEDULED</span><span className="is-muted"><i/>NO CHAIN / N/A</span>
-     <small>Chọn READY để thêm Job vào Batch · thứ tự cột theo Main Planning Order</small>
+     <span className="is-done"><i/><b>D</b> Done</span><span className="is-ready"><i/><b>R</b> Ready</span><span className="is-wait"><i/><b>W</b> Wait</span><span className="is-batch"><i/><b>U</b> Unscheduled</span><span className="is-scheduled"><i/><b>S</b> Scheduled</span><span className="is-muted"><b>P</b> Planned · <b>RN</b> Running · <b>H</b> Hold · — N/A</span>
+     <small>Chọn R để thêm Job vào Batch · thứ tự cột theo Main Planning Order</small>
     </div>}
 
     <div className="table-wrap">
