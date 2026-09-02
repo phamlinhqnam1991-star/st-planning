@@ -121,7 +121,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
    </form>
 
    <div className="support-summary">
-    <div><span>Main Planning</span><b>{groups.length}</b></div><div><span>Main có Job support</span><b>{activeMain}</b></div><div><span>Masking Jobs</span><b>{masking}</b></div><div><span>Unmasking Jobs</span><b>{unmasking}</b></div>
+    <div className="support-count"><span>Main Planning</span><b>{groups.length}</b><small>Tổng Main trong phạm vi</small></div><div className="support-count"><span>Main có Job support</span><b>{activeMain}</b><small>Có Masking / Unmasking</small></div><div className="support-count"><span>Masking Jobs</span><b>{masking}</b><small>Job cần Masking</small></div><div className="support-count"><span>Unmasking Jobs</span><b>{unmasking}</b><small>Job cần Unmasking</small></div>
    </div>
    {error?<div className="notice error"><b>Lỗi tải dữ liệu:</b> {error}</div>:null}
    <div className="support-main-list">{groups.map(g=><MainSection key={g.standardOperation} group={g}/>)}</div>

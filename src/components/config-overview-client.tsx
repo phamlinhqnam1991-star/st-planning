@@ -36,7 +36,7 @@ export function ConfigOverviewClient(){
     <b>Đang kiểm tra cấu hình…</b>
     <div className="bar"><div style={{width:"12%"}}/></div>
    </div>
-   <div className="card" style={{minHeight:180}}>
+   <div className="erp-form-panel erp-editor-panel" style={{minHeight:180,padding:12}}>
     {Array.from({length:5},(_,i)=><div key={i} style={{height:34,borderRadius:5,background:"rgba(148,163,184,.12)",marginBottom:9}}/>)}
    </div>
   </>;

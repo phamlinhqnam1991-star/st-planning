@@ -65,43 +65,21 @@ npm run dev
 
 ## Database
 
-Apply Supabase migrations in numeric order through migration 066. Do not delete or rewrite already-applied historical migrations.
+Apply Supabase migrations in numeric order through migration 067. Do not delete or rewrite already-applied historical migrations.
 
-See `docs/CURRENT_ARCHITECTURE.md` for the current architecture and `AUDIT_DEEP.md` for the latest cleanup audit.
+See `docs/CURRENT_ARCHITECTURE.md` for the current architecture and `AUDIT_CLEANUP.md` for the latest cleanup audit.
 
-## ERP Template Kit
+## ERP Standard V4
 
-Trang preview UI mới: `http://localhost:3000/erp-kit`
+Toàn bộ production tabs dùng ERP Standard V4. Nguồn chuẩn UI hiện tại:
 
-Template kit nằm tại:
+- `ERP_STANDARD_V4.md`
+- `src/components/erp/erp-kit.css`
+- `src/components/erp/erp-app-header.tsx`
+- `src/lib/erp/st-navigation.ts`
 
-- `src/components/erp/*` — App Shell, Page Header, Toolbar, Data Grid, Form, Status, KPI, Tabs, Section.
-- `src/lib/erp/*` — design tokens, status config, table presets, UI config.
-- `src/components/erp/erp-kit.css` — style namespace riêng `erpkit-*`, chưa thay CSS các màn hình nghiệp vụ hiện tại.
+`/planning` là Planning Board ERP canonical; `/planning-old` đã bị loại.
 
-Giai đoạn này chỉ thêm Design System + Showcase. Planning / Batch / Schedule / Database chưa được migrate hoặc thay đổi logic.
+V4 deep thêm editor/workspace bên trong Configuration, Tracker, All Open Jobs, Masking/Unmasking, Schedule, Import và Logic Guide. Business logic/API/DB không thay đổi trong vòng UI này.
 
-### ERP All Tabs Demo
-
-Mở `/erp-kit` để duyệt mock UI cho toàn bộ tab hiện có trước khi áp style vào màn hình production. Demo gồm Master Data, Cấu hình, Part Tracker, Job Tracker, All Open Jobs, Planning Board, Masking / Unmasking, Board Điều Độ, Import Master và Logic & Hướng dẫn. Demo không đọc/ghi database.
-
-## Planning ERP canonical
-
-Planning ERP đã được chốt làm giao diện chuẩn:
-
-- `/planning` = Planning Board ERP canonical, dùng logic/runtime Planning hiện tại.
-- `/planning/batches` = Batch gần đây.
-- `/planning/batches/[id]` = Batch Detail.
-
-Route baseline cũ đã được loại bỏ.
-
-## ERP UI toàn hệ thống
-## ERP Deep UI
-Toàn bộ tab production dùng lớp ERP presentation chung. Xem `ERP_DEEP_UI_AUDIT.md` để biết phạm vi và validation.
-
-
-## ERP Standard V3
-
-Toàn bộ production tabs đã được chuẩn hóa thêm theo `ERP_STANDARD_V3.md`: masthead/navigation dùng chung, Configuration object header/readiness rail, enterprise form/data-grid density và visual hierarchy đồng nhất. Business logic/API/DB không thay đổi trong vòng UI này.
-
-> UI source of truth: `ERP_STANDARD_V3.md` + `src/components/erp/erp-kit.css`. Các tài liệu ERP Full/Deep cũ đã được loại để tránh hai nguồn thiết kế song song.
+Trang `/erp-kit` chỉ còn là showcase/reference component, không phải nguồn business logic.

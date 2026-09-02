@@ -260,8 +260,8 @@ export function ProcessTimeRuleManager({
    }finally{setBusy(false)}
  }
 
- return <div className="section">
-   <div className="erp-table-panel">
+ return <div className="section erp-config-editor-stack">
+   <div className="erp-form-panel erp-editor-panel">
     <div className="erp-panel-head">
       <b>Thời gian xử lý (Process)</b>
       <span>Main Operation → Recipe → Rule · Có thể thêm nhiều cột điều kiện All Open Job · điều kiện dùng AND · thời gian HH:MM</span>

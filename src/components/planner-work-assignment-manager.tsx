@@ -173,13 +173,13 @@ export function PlannerWorkAssignmentManager(){
    </div>
   </div>;
 
- return <>
+ return <div className="erp-config-editor-stack">
   {loading
-   ? <div className="card section">Đang tải phân chia Planner...</div>
+   ? <div className="erp-form-panel erp-editor-panel section">Đang tải phân chia Planner...</div>
    : <div className="planner-assignment-board">
       {col("Planner 1",p1,"1")}
       {col("Planner 2",p2,"2")}
       {col("Chưa phân công",un,"UNASSIGNED")}
      </div>}
- </>;
+ </div>;
 }

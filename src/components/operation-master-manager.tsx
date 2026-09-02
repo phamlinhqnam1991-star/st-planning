@@ -196,7 +196,7 @@ export function OperationMasterManager({rows,stGroups}:{rows:Row[];stGroups:StGr
   finally{setBusy(false);}
  }
 
- return <div className="erp-table-panel section">
+ return <div className="erp-table-panel section erp-config-editor-stack">
   <div className="erp-panel-head">
    <b>Operation Master</b>
    <div className="row" style={{gap:8}}>

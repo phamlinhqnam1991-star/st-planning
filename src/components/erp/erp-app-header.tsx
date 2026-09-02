@@ -10,8 +10,9 @@ export function ErpAppHeader({module}:{module:string}){
     <small>{ERP_UI_CONFIG.productArea}</small>
    </div>
   </Link>
-  <div className="erp-header-context">
-   <span className="erp-env">{module}</span>
+  <div className="erp-header-context" aria-label="Application context">
+   <div className="erp-header-module"><small>WORKSPACE</small><strong>{module}</strong></div>
+   <span className="erp-env">{ERP_UI_CONFIG.defaultEnvironment}</span>
   </div>
  </header>;
 }

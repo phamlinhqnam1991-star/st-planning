@@ -142,7 +142,7 @@ export function AutoPlanningRuleManager({
   }
  }
 
- return <div className="auto-planning-rule-manager">
+ return <div className="auto-planning-rule-manager erp-config-editor-stack">
 
   <div className="erp-table-panel">
    <div className="erp-panel-head">
@@ -201,7 +201,7 @@ export function AutoPlanningRuleManager({
   </div>
 
   {rows.map(row=>open===row.standard_operation&&
-   <section className="erp-table-panel section auto-rule-editor" key={`edit-${row.standard_operation}`}>
+   <section className="erp-form-panel erp-inline-editor-panel section auto-rule-editor" key={`edit-${row.standard_operation}`}>
     <div className="erp-panel-head">
      <b>{row.standard_operation} · Cấu hình Auto Planning</b>
      <button

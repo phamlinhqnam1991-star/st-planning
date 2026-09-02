@@ -79,7 +79,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
   }
  }
 
- return <div className="section">
+ return <div className="section erp-config-editor-stack">
   <div className="erp-panel-head" style={{marginBottom:8}}>
    <div><b>ST Scope & Operation Code Order</b></div>
    <button className="btn primary" type="button" disabled={busy} onClick={()=>router.push("/st-operation-flow")}>＋ Thêm / cấu hình công đoạn</button>

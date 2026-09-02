@@ -14,7 +14,7 @@ export function ConfigRouteLoading(){
    </aside>
    <section className="erp-content">
     <div className="erp-page-head"><div><h2>Đang tải cấu hình…</h2></div></div>
-    <div className="card" style={{minHeight:180}}>
+    <div className="erp-form-panel erp-editor-panel" style={{minHeight:180,padding:12}}>
      <div style={{height:18,width:"35%",borderRadius:6,background:"rgba(148,163,184,.18)",marginBottom:14}}/>
      {Array.from({length:5},(_,i)=><div key={i} style={{height:28,borderRadius:5,background:"rgba(148,163,184,.12)",marginBottom:8}}/>)}
     </div>

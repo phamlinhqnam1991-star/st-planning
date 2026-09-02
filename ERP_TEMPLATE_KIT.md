@@ -5,7 +5,7 @@
 ERP Kit đã được áp dụng cho production UI. `/erp-kit` vẫn được giữ như showcase/reference, nhưng không còn là nơi duy nhất dùng ERP components.
 
 Nguồn chuẩn presentation hiện tại:
-- `ERP_STANDARD_V3.md`
+- `ERP_STANDARD_V4.md`
 - `src/components/erp/erp-kit.css`
 - `src/components/erp/*`
 - `src/lib/erp/st-navigation.ts`

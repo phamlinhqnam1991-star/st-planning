@@ -114,7 +114,7 @@ export function OpenJobColumnValueManager(){
 
  const totalPages=Math.max(1,Math.ceil(total/pageSize));
 
- return <div className="section">
+ return <div className="section erp-config-editor-stack">
   <div className="erp-table-panel">
    <div className="erp-panel-head">
     <b>All Open Job Column Values</b>

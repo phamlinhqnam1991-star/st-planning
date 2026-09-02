@@ -12,6 +12,8 @@ export function MasterImporter(){
  const [status,setStatus]=useState("");
  const [busy,setBusy]=useState(false);
  const [resetBusy,setResetBusy]=useState(false);
+ const [resetOpen,setResetOpen]=useState(false);
+ const [resetText,setResetText]=useState("");
  usePopupMessage(status);
 
  async function bridgeRequest(body:Record<string,unknown>){
@@ -60,23 +62,22 @@ export function MasterImporter(){
  }
 
  async function resetAll(){
-  if(!confirm("Reset toàn bộ Master Data và Lịch sử Import? ST Operation Scope hệ thống sẽ được giữ lại."))return;
-  if(prompt('Nhập chính xác RESET để xác nhận:')!=="RESET")return;
+  if(resetText!=="RESET")return;
   setResetBusy(true);
   try{
    const r=await fetch("/api/master/reset",{method:"POST"}),d=await safeJson(r);
    if(!r.ok)throw new Error(d.error||"Reset failed");
-   setStatus("Reset hoàn tất.");setTimeout(()=>location.reload(),1000);
+   setStatus("Reset hoàn tất.");setResetOpen(false);setResetText("");setTimeout(()=>location.reload(),1000);
   }catch(e){setStatus(`Lỗi: ${e instanceof Error?e.message:String(e)}`)}finally{setResetBusy(false)}
  }
 
- return <div className="card">
-  <h2 style={{marginTop:0}}>Import Master Excel</h2>
-  <p className="muted">Lần đầu import toàn bộ. Các lần sau chỉ cập nhật dữ liệu mới hoặc thay đổi; dữ liệu không đổi được bỏ qua.</p>
-  <div className="row">
+ return <section className="erp-form-panel erp-editor-panel master-import-workspace">
+  <div className="erp-panel-head"><div><b>Import Master Excel</b><span>Incremental import · chỉ ghi NEW/CHANGED, giữ cấu hình ST.</span></div>{file&&<span className="erp-record-count">{file.name}</span>}</div>
+  <div className="erp-import-dropzone">
+   <div><b>Chọn file Master</b><small>Lần đầu import toàn bộ; các lần sau chỉ cập nhật dữ liệu mới hoặc thay đổi.</small></div>
    <input className="input" type="file" accept=".xlsx" onChange={e=>setFile(e.target.files?.[0]||null)}/>
-   <button className="btn primary" disabled={!file||busy||resetBusy} onClick={run}>{busy?"Đang xử lý...":"Import Master"}</button>
-   <button className="btn danger-btn" disabled={busy||resetBusy} onClick={resetAll}>{resetBusy?"Đang reset...":"Reset All Master Data"}</button>
   </div>
- </div>;
+  <div className="erp-sticky-action-bar"><div className="erp-action-hint">Import có thể tự cập nhật lại Auto Bridge cho routing bị ảnh hưởng.</div><div className="row"><button className="btn primary" disabled={!file||busy||resetBusy} onClick={run}>{busy?"Đang xử lý...":"Import Master"}</button><button className="btn danger-btn" disabled={busy||resetBusy} onClick={()=>{setResetOpen(true);setResetText("")}}>Reset Master</button></div></div>
+  {resetOpen&&<div className="erp-danger-confirm"><div><b>Reset toàn bộ Master Data và lịch sử Import?</b><small>ST Operation Scope hệ thống được giữ lại. Nhập chính xác <span className="mono">RESET</span> để xác nhận.</small></div><input className="input mono" value={resetText} onChange={e=>setResetText(e.target.value.toUpperCase())} placeholder="RESET" autoFocus/><div className="row"><button className="btn danger-btn" disabled={resetBusy||resetText!=="RESET"} onClick={resetAll}>{resetBusy?"Đang reset...":"Xác nhận Reset"}</button><button className="btn" disabled={resetBusy} onClick={()=>{setResetOpen(false);setResetText("")}}>Hủy</button></div></div>}
+ </section>;
 }

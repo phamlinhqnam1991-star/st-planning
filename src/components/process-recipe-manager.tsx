@@ -228,8 +228,8 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,sourceColumns,c
   return arr;
  },[suggestedNameValues,baseNameValues,edit,form.recipe_name,form.recipe_name_source_column]);
 
- return <div>
-  <div className="erp-table-panel">
+ return <div className="erp-config-editor-stack">
+  <div className="erp-form-panel erp-editor-panel">
    <div className="erp-panel-head"><b>{edit?"Sửa Process Recipe":"+ Thêm Process Recipe"}</b><span>Danh mục Recipe dùng chung; tạo xong cần gán Recipe vào Operation Code để Planning Board đề xuất.</span></div>
    <div className="recipe-form recipe-form-open-job-source">
     <label>Process Family<input className="input" value={form.process_family} disabled={!!edit} onChange={e=>setForm({...form,process_family:e.target.value.toUpperCase()})}/></label>
