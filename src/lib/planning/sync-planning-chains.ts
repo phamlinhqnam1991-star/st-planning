@@ -685,12 +685,45 @@ function planningChainFromAnchor(
  return full.filter(op=>op.sourceSeq>=minimumSourceSeq);
 }
 
-export async function syncPlanningChains(c:PoolClient){
+export type SyncPlanningChainOptions={
+ jobNums?:string[];
+ closedJobNums?:string[];
+};
+
+export async function syncPlanningChains(c:PoolClient,options:SyncPlanningChainOptions={}){
+ const targetJobNums=[...new Set((options.jobNums||[]).map(clean).filter(Boolean))];
+ const closedJobNums=[...new Set((options.closedJobNums||[]).map(clean).filter(Boolean))];
+ const incremental=options.jobNums!==undefined||options.closedJobNums!==undefined;
+
+ // Import All Open Job incremental path: if there are no NEW/CHANGED jobs, only
+ // close the affected live chains and skip all heavy resolver/master queries.
+ if(incremental&&targetJobNums.length===0){
+  if(closedJobNums.length){
+   await c.query(`
+    update planning_job_operation
+       set is_active=false,updated_at=now()
+     where is_active=true and job_num=any($1::text[])
+   `,[closedJobNums]);
+  }
+  return {
+   mode:"INCREMENTAL",targetJobs:0,closedJobs:closedJobNums.length,
+   jobs:0,operations:0,eligible:0,locked:0,preservedPlanned:0,
+   bridgePairAnchored:0,allOperationFallbackAnchored:0,directNextMainAnchored:0,noChain:0,
+   rawPairAnchored:0,sequenceCheck:0,allOperationJobs:0,
+   bridgeDiscovery:{source:"SKIPPED_NO_CHANGED_JOBS",segments:0,operationRows:0}
+  };
+ }
+
  // v298: Planning Chain consumes the last COMPLETED/ACTIVE Auto Bridge snapshot.
  // Bridge discovery is intentionally NOT executed here; Full discovery now runs
  // chunked/resumable via /api/config/intermediate-bridges/rebuild. This keeps a
  // normal Chain rebuild from reintroducing the old long-running DB request.
- const [mappingQ,scopeQ,jobsQ,paintQ,chemicalQ,existingQ,batchHistoryQ,masterPartQ,masterFinishQ]=await Promise.all([
+ const filteredJobWhere=incremental?` and job_num=any($1::text[])`:``;
+ const filteredPjoWhere=incremental?` and job_num=any($1::text[])`:``;
+ const filteredBatchWhere=incremental?` where bj.job_num=any($1::text[])`:``;
+ const targetParams=incremental?[targetJobNums]:[];
+
+ const [mappingQ,scopeQ,jobsQ,chemicalQ,existingQ,batchHistoryQ]=await Promise.all([
    c.query(`
      with ranked as (
        select
@@ -731,14 +764,9 @@ export async function syncPlanningChains(c:PoolClient){
    c.query(`
      select job_num,part_num,revision_num,last_operation,next_operation,all_operation,source_data
      from open_job_current
-     where is_open=true
+     where is_open=true${filteredJobWhere}
      order by job_num
-   `),
-   c.query(`
-     select part_num,revision_num,standard_operation,recipe_key
-     from md_part_process_recipe
-     where is_active=true
-   `),
+   `,targetParams),
    c.query(`
      select operation_code,recipe_key,priority,is_default,updated_at,selection_rule,
             batch_key_template,batch_no_prefix
@@ -749,8 +777,8 @@ export async function syncPlanningChains(c:PoolClient){
    c.query(`
      select job_num,operation_instance_key,status,recipe_key
      from planning_job_operation
-     where is_active=true
-   `),
+     where is_active=true${filteredPjoWhere}
+   `,targetParams),
    c.query(`
      select
        bj.job_num,
@@ -776,18 +804,31 @@ export async function syncPlanningChains(c:PoolClient){
       and b.status<>'CANCELLED'
      left join planning_job_operation p
        on p.id=bj.planning_job_operation_id
-   `),
-   // v269: cột Master Data theo Part+Revision (MD:...) để khớp điều kiện recipe.
+     ${filteredBatchWhere}
+   `,targetParams),
+ ]);
+
+ // Incremental import only loads master/paint data for Part Numbers belonging
+ // to NEW/CHANGED jobs. Full rebuild keeps the original all-master behavior.
+ const partNums=[...new Set(jobsQ.rows.map((r:any)=>clean(r.part_num)).filter(Boolean))];
+ const partFilter=incremental?` and part_num=any($1::text[])`:``;
+ const partParams=incremental?[partNums]:[];
+ const [paintQ,masterPartQ,masterFinishQ]=await Promise.all([
+   c.query(`
+     select part_num,revision_num,standard_operation,recipe_key
+     from md_part_process_recipe
+     where is_active=true${partFilter}
+   `,partParams),
    c.query(`
      select part_num,program,part_cluster,part_description,surface_dm2
-     from md_part where is_active=true
-   `),
+     from md_part where is_active=true${partFilter}
+   `,partParams),
    c.query(`
      select part_num,revision_num,primer1,primer2,primer3,topcoat1,topcoat2,
             antiabration,primer1_name,topcoat_name,antiabrasion_name,varinish_name,
             alloy,temper,tsa,chemicalconv_airbus
-     from md_material_finish where is_active=true
-   `),
+     from md_material_finish where is_active=true${partFilter}
+   `,partParams),
  ]);
 
  // v374: only load Process Requirement codes actually referenced by active
@@ -803,7 +844,8 @@ export async function syncPlanningChains(c:PoolClient){
      from md_process_requirement
      where is_active=true
        and upper(trim(requirement_code))=any($1::text[])
-   `,[recipeRequirementCodes])
+       ${incremental?`and part_num=any($2::text[])`:``}
+   `,incremental?[recipeRequirementCodes,partNums]:[recipeRequirementCodes])
   :{rows:[] as any[]};
 
  const planningScope=new Set<string>(
@@ -981,17 +1023,25 @@ export async function syncPlanningChains(c:PoolClient){
  // Historical Batch/Schedule records are NOT deleted; they are reconciled back
  // onto the canonical rows below. Keeping stale PLANNED rows active was one of
  // the causes of duplicate Main occurrences after a rebuild.
- await c.query(`
-   update planning_job_operation p
-   set is_active=false,updated_at=now()
-   where p.is_active=true
-     and exists(
-       select 1
-       from open_job_current j
-       where j.job_num=p.job_num
-         and j.is_open=true
-     )
- `);
+ if(incremental){
+  await c.query(`
+    update planning_job_operation
+       set is_active=false,updated_at=now()
+     where is_active=true and job_num=any($1::text[])
+  `,[targetJobNums]);
+ }else{
+  await c.query(`
+    update planning_job_operation p
+    set is_active=false,updated_at=now()
+    where p.is_active=true
+      and exists(
+        select 1
+        from open_job_current j
+        where j.job_num=p.job_num
+          and j.is_open=true
+      )
+  `);
+ }
 
  const rows:any[][]=[];
 
@@ -1174,17 +1224,30 @@ export async function syncPlanningChains(c:PoolClient){
  }
 
 
- await c.query(`
-   update planning_job_operation p
-   set is_active=false,updated_at=now()
-   where is_active=true
-     and exists(
-       select 1 from open_job_current j
-       where j.job_num=p.job_num and not j.is_open
-     )
- `);
+ if(incremental){
+  if(closedJobNums.length){
+   await c.query(`
+    update planning_job_operation
+       set is_active=false,updated_at=now()
+     where is_active=true and job_num=any($1::text[])
+   `,[closedJobNums]);
+  }
+ }else{
+  await c.query(`
+    update planning_job_operation p
+    set is_active=false,updated_at=now()
+    where is_active=true
+      and exists(
+        select 1 from open_job_current j
+        where j.job_num=p.job_num and not j.is_open
+      )
+  `);
+ }
 
  return {
+   mode:incremental?"INCREMENTAL":"FULL",
+   targetJobs:incremental?targetJobNums.length:jobs,
+   closedJobs:incremental?closedJobNums.length:0,
    jobs,operations,eligible,locked,preservedPlanned,
    bridgePairAnchored,allOperationFallbackAnchored,directNextMainAnchored,noChain,
    // Backward-compatible aliases for older clients/log parsers.

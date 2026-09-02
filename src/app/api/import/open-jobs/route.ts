@@ -50,7 +50,43 @@ export async function POST(req:Request){
      await client.query("begin");
 
      const result=await importOpenJobsXlsx(temp,client,batchId);
-     const planning=await syncPlanningChains(client);
+
+     // v377: only rebuild live Planning Chains for NEW / CHANGED Jobs.
+     // UNCHANGED Jobs are intentionally skipped; CLOSED Jobs only deactivate
+     // their live chain. Historical Batch/Schedule records remain untouched.
+     const planning=await syncPlanningChains(client,{
+       jobNums:result.affectedOpenJobNums,
+       closedJobNums:result.closedJobNums
+     });
+
+     // Detect RAW NextOperation codes introduced/reached by this import that do
+     // not yet have an active ST Scope or active Intermediate Bridge. They are
+     // not auto-classified: planner configures them once in ST Operation Flow.
+     const unconfiguredOperations=result.affectedOpenJobNums.length
+       ?(await client.query(`
+         select
+           upper(trim(j.next_operation)) operation_code,
+           count(*)::int affected_jobs
+         from open_job_current j
+         where j.is_open=true
+           and j.job_num=any($1::text[])
+           and nullif(trim(coalesce(j.next_operation,'')),'') is not null
+           and not exists(
+             select 1 from md_st_operation_scope s
+             where s.is_active=true
+               and upper(trim(s.operation_code))=upper(trim(j.next_operation))
+           )
+           and not exists(
+             select 1
+             from md_intermediate_bridge_operation bo
+             join md_intermediate_bridge_segment bs
+               on bs.id=bo.segment_id and bs.is_active=true
+             where upper(trim(bo.operation_code))=upper(trim(j.next_operation))
+           )
+         group by upper(trim(j.next_operation))
+         order by affected_jobs desc,operation_code
+       `,[result.affectedOpenJobNums])).rows
+       :[];
 
      // v188: quét lại Open Job Column Values sau mỗi lần import để bảng
      // cấu hình Batch Key / Recipe Rules luôn mới.
@@ -79,7 +115,17 @@ export async function POST(req:Request){
      invalidatePlanningStaticData();
      invalidateConfigHealth();
 
-     return NextResponse.json({...result,planning});
+     const {affectedOpenJobNums,closedJobNums,...publicResult}=result;
+     return NextResponse.json({
+       ...publicResult,
+       planning,
+       unconfiguredOperations,
+       incrementalSync:{
+         affectedOpenJobs:affectedOpenJobNums.length,
+         closedJobs:closedJobNums.length,
+         unchangedSkipped:result.unchangedJobs
+       }
+     });
    }catch(e){
      await client.query("rollback");
      throw e;

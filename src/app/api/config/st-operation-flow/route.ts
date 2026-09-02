@@ -1,6 +1,6 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {cleanCode,syncAllStDerived} from "@/lib/st-operation-flow";
+import {cleanCode,findOpenJobNumsUsingRawOperation,syncAllStDerived} from "@/lib/st-operation-flow";
 import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
 
@@ -163,6 +163,20 @@ export async function POST(req:Request){
  const c=await getPool().connect();
  try{
   await c.query("begin");
+
+  // v377: when a newly-detected raw Operation is configured for the first time,
+  // only rebuild live chains of open Jobs that actually use that raw code.
+  // Existing configured Operation edits still use FULL sync because changing a
+  // shared Main/ST Group can affect other mappings too.
+  const wasConfiguredQ=await c.query(`
+    select 1
+    from md_st_operation_scope
+    where is_active=true and upper(trim(operation_code))=$1
+    limit 1
+  `,[source]);
+  const wasConfigured=Boolean(wasConfiguredQ.rowCount);
+  const affectedJobNums=wasConfigured?[]:await findOpenJobNumsUsingRawOperation(c,source);
+
   await c.query(`
    insert into md_operation(operation_code,operation_name,planning_sort_order,is_active,updated_at)
    values($1,$2,$3,true,now())
@@ -194,7 +208,9 @@ export async function POST(req:Request){
        and is_active=true
    `,[source]);
 
-   const sync=await syncAllStDerived(c);
+   const sync=wasConfigured
+    ?await syncAllStDerived(c)
+    :await syncAllStDerived(c,{jobNums:affectedJobNums});
    await c.query("commit");
    invalidatePlanningStaticData();
    invalidateConfigHealth();
@@ -262,7 +278,9 @@ export async function POST(req:Request){
    on conflict(schedule_area_code) do update set planner_owner=excluded.planner_owner,is_active=true,updated_by=excluded.updated_by,updated_at=now()
   `,[scheduleArea,plannerOwner]);
 
-  const sync=await syncAllStDerived(c);
+  const sync=wasConfigured
+   ?await syncAllStDerived(c)
+   :await syncAllStDerived(c,{jobNums:affectedJobNums});
   await c.query("commit");
   invalidatePlanningStaticData();
   invalidateConfigHealth();

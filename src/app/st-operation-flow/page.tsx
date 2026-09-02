@@ -128,7 +128,7 @@ export default async function Page(){
    title="ST Operation Flow"
    subtitle="Cấu hình Main Planning / ST Scope Only; Intermediate dùng Auto Routing và Manual override khi cần."
    purpose="Auto Bridge tự đọc routing_code + seq + operation_code. Manual Bridge dùng cho ngoại lệ và luôn ưu tiên hơn Auto khi cùng LastLaborOp + NextOperation."
-   impact="Khi Lưu, hệ thống dựng lại toàn bộ chuỗi công đoạn (ST Routing + Planning Chain) cho các Job liên quan — có thể mất vài chục giây. Lịch sử Batch/Schedule không bị xóa."
+   impact="Khi cấu hình Operation mới lần đầu, hệ thống chỉ sync Planning Chain của Job đang dùng code đó; khi sửa Operation đã cấu hình, hệ thống giữ Full rebuild để bảo toàn dependency dùng chung. Lịch sử Batch/Schedule không bị xóa."
    prev={{label:"Health Dashboard",href:"/settings"}}
    next={{label:"ST Scope & Operation Code",href:"/operation-code-order"}}
   /><StOperationFlowManager rows={flowQ.rows as any} rawOperations={rawQ.rows as any} mainOperations={mainQ.rows as any} groups={groupQ.rows as any} areas={areaQ.rows as any} scheduleAreas={scheduleQ.rows as any} bridgeSegments={bridgeQ.rows as any}/></section></div></main>;

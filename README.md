@@ -25,6 +25,11 @@ For Candidate presentation when sorting by NextOperation:
 
 Operation Code Order (`md_operation.planning_sort_order`) is only an optional tie-breaker inside the same Main. READY/WAIT, Batch and Schedule remain controlled by their canonical models and are not changed by presentation sorting.
 
+
+## All Open Job incremental sync
+
+V377 updates `open_job_current` from every import but rebuilds `planning_job_operation` only for NEW/CHANGED Jobs; UNCHANGED Jobs are skipped and CLOSED Jobs only deactivate live chain rows. Unknown RAW `NextOperation` codes are reported after import and remain unclassified until the planner configures them in ST Operation Flow. No database migration is required for V377.
+
 ## Candidate loading
 
 The current board uses progressive Candidate requests (200 rows/page), progressive DOM rendering, lazy Route Matrix, and lazy All Open Source values. The Candidate API still supports explicit `all` mode for diagnostics/compatibility.

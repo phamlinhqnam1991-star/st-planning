@@ -55,7 +55,6 @@ const num=(o:Obj,key:string)=>numberValue(o[key]);
 type Existing={
  source_hash:string;
  is_open:boolean;
- source_data:Record<string,unknown>;
 };
 
 export async function importOpenJobsXlsx(
@@ -64,7 +63,7 @@ export async function importOpenJobsXlsx(
  batchId:string
 ){
  const existingQ=await c.query(`
-   select job_num,source_hash,is_open,source_data
+   select job_num,source_hash,is_open
    from public.open_job_current
  `);
 
@@ -72,8 +71,7 @@ export async function importOpenJobsXlsx(
  for(const r of existingQ.rows){
    existing.set(String(r.job_num),{
      source_hash:String(r.source_hash),
-     is_open:Boolean(r.is_open),
-     source_data:r.source_data||{}
+     is_open:Boolean(r.is_open)
    });
  }
 
@@ -91,8 +89,11 @@ export async function importOpenJobsXlsx(
  let closedJobs=0;
 
  const seen=new Set<string>();
+ const affectedOpenJobs=new Set<string>();
+ const closedJobNums:string[]=[];
 
  const currentRows:any[][]=[];
+ const unchangedJobNums:string[]=[];
  const historyRows:any[][]=[];
 
  const flush=async(force=false)=>{
@@ -156,6 +157,21 @@ export async function importOpenJobsXlsx(
      }
    }
 
+   if(unchangedJobNums.length>=1500||force){
+     if(unchangedJobNums.length){
+       const batch=unchangedJobNums.splice(0,unchangedJobNums.length);
+       await c.query(`
+         update public.open_job_current
+         set last_import_status='UNCHANGED',
+             last_seen_at=now(),
+             last_import_batch_id=$2,
+             updated_at=now()
+         where job_num=any($1::text[])
+           and is_open=true
+       `,[batch,batchId]);
+     }
+   }
+
    if(historyRows.length>=1000||force){
      if(historyRows.length){
        const cols=[
@@ -204,11 +220,6 @@ export async function importOpenJobsXlsx(
      sourceRows++;
      seen.add(jobNum);
 
-     const sourceData:Record<string,unknown>={};
-     headers.forEach(h=>{
-       if(h && h!=="NEWJOB")sourceData[h]=jsonValue(o[h]);
-     });
-
      const hash=stableHash(headers,o);
      const old=existing.get(jobNum);
 
@@ -216,9 +227,11 @@ export async function importOpenJobsXlsx(
      if(!old){
        status="NEW";
        newJobs++;
+       affectedOpenJobs.add(jobNum);
      }else if(!old.is_open || old.source_hash!==hash){
        status="CHANGED";
        changedJobs++;
+       affectedOpenJobs.add(jobNum);
      }else{
        status="UNCHANGED";
        unchangedJobs++;
@@ -227,7 +240,22 @@ export async function importOpenJobsXlsx(
      const now=new Date();
      const firstSeen=old ? null : now;
 
-     currentRows.push([
+     // Build the 140+ column JSON payload only for NEW/CHANGED Jobs.
+     // UNCHANGED Jobs already have the exact same source_hash and keep their
+     // existing source_data untouched.
+     const sourceData:Record<string,unknown>|null=status==="UNCHANGED"?null:{};
+     if(sourceData){
+       headers.forEach(h=>{
+         if(h && h!=="NEWJOB")sourceData[h]=jsonValue(o[h]);
+       });
+     }
+
+     if(status==="UNCHANGED"){
+       // v377: hash-identical rows keep their existing normalized/source_data
+       // payload. Only lightweight import metadata is refreshed in bulk.
+       unchangedJobNums.push(jobNum);
+     }else{
+       currentRows.push([
        jobNum,
        val(o,"EpicorPart"),
        val(o,"RevisionNum"),
@@ -271,7 +299,8 @@ export async function importOpenJobsXlsx(
        null,
        batchId,
        now
-     ]);
+       ]);
+     }
 
      if(status!=="UNCHANGED"){
        historyRows.push([
@@ -326,6 +355,7 @@ export async function importOpenJobsXlsx(
        r.source_hash,JSON.stringify(r.source_data||{}),false,now
      ]);
      closedJobs++;
+     closedJobNums.push(String(r.job_num));
    }
 
    await c.query(`
@@ -349,6 +379,8 @@ export async function importOpenJobsXlsx(
    newJobs,
    changedJobs,
    unchangedJobs,
-   closedJobs
+   closedJobs,
+   affectedOpenJobNums:[...affectedOpenJobs],
+   closedJobNums
  };
 }

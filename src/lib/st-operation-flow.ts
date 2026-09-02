@@ -252,7 +252,29 @@ export async function rebuildAllStRoutingDerived(c:PoolClient){
   `);
 }
 
-export async function syncAllStDerived(c:PoolClient){
+export async function findOpenJobNumsUsingRawOperation(c:PoolClient,operationCode:string){
+  const source=cleanCode(operationCode);
+  if(!source)return [] as string[];
+
+  const q=await c.query(`
+    select job_num
+    from open_job_current j
+    where j.is_open=true
+      and (
+        upper(trim(coalesce(j.next_operation,'')))=$1
+        or upper(trim(coalesce(j.last_operation,'')))=$1
+        or exists(
+          select 1
+          from unnest(string_to_array(coalesce(j.all_operation,''),'|')) raw(operation_code)
+          where upper(trim(both ' []' from raw.operation_code))=$1
+        )
+      )
+    order by job_num
+  `,[source]);
+  return q.rows.map((r:any)=>String(r.job_num||'').trim()).filter(Boolean);
+}
+
+export async function syncAllStDerived(c:PoolClient,options:{jobNums?:string[];closedJobNums?:string[]}={}){
   await rebuildAllStRoutingDerived(c);
-  return await syncPlanningChains(c);
+  return await syncPlanningChains(c,options);
 }

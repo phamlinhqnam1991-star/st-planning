@@ -13,6 +13,20 @@
 9. Operations Dashboard reads deterministic KPI/risks from operational data; AI uses Groq as primary and OpenRouter as automatic fallback, with the same structured snapshot and controlled read-only database tools for evidence-backed analysis.
 10. Job Tracker and Part Tracker are read-only trace views.
 
+
+## All Open Job incremental planning sync
+
+`Import All Open Job -> NEW/CHANGED only -> targeted Planning Chain sync`
+
+- `open_job_current.NextOperation` remains the RAW source of truth from the imported Excel.
+- NEW and CHANGED Jobs are the only open Jobs rebuilt in `planning_job_operation` after a normal All Open Job import.
+- UNCHANGED Jobs do not re-run Planning Chain / Recipe resolution.
+- CLOSED Jobs only deactivate their live Planning Chain rows; historical Batch/Schedule records are preserved.
+- Incremental sync also limits Part/Revision master, paint recipe, Process Requirement and Batch-history reads to the affected Jobs/Parts.
+- A RAW `NextOperation` reached by NEW/CHANGED Jobs that has neither active ST Scope nor active Intermediate Bridge is returned as **Operation mới / chưa cấu hình**. It is never auto-classified into a Main Operation.
+- The ST Operation Flow page already exposes raw NextOperation codes from `open_job_current`. When a newly detected code is configured for the first time, its live Planning Chain rebuild is targeted to open Jobs using that raw code; edits to an already-configured code keep the full rebuild for safety because shared Main/ST Group changes may affect other mappings.
+- Explicit Rebuild Chain, Master changes and existing-operation architecture changes still support FULL rebuild.
+
 ## Candidate presentation order
 
 When Sort Priority contains `NextOperation`:

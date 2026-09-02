@@ -495,6 +495,8 @@ export default async function Page(){
      <>Chọn file XLSX và bấm <b>Import All Open Job</b>.</>,
      <>File được upload vào Storage; API so sánh snapshot theo <b>JobNum</b>.</>,
      <>Kết quả phân loại: <b>NEW / CHANGED / UNCHANGED / CLOSED</b>.</>,
+     <>V377 chỉ sync <code>planning_job_operation</code> cho <b>NEW / CHANGED</b>; <b>UNCHANGED</b> bỏ qua rebuild, còn <b>CLOSED</b> chỉ deactivate live chain. Batch/Schedule history không bị xóa.</>,
+     <>Nếu NEW/CHANGED Job đi tới RAW <code>NextOperation</code> chưa có ST Scope/Intermediate Bridge, Import sẽ báo <b>Operation mới / chưa cấu hình</b>. Hệ thống không tự đoán Main Operation; planner cấu hình một lần tại ST Operation Flow.</>,
      <>Current snapshot lưu ở <code>open_job_current</code>; lịch sử chỉ lưu snapshot NEW/CHANGED/CLOSED quan trọng ở Change History.</>,
      <>Sau import có cột/value mới, sang Cấu hình → Cột All Open Job → <b>Scan / Rebuild</b> nếu cần dùng chúng trong rule.</>
     ]}/>

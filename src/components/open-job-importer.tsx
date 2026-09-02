@@ -5,8 +5,11 @@ import {useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 import {uploadFileToSignedUrl} from "@/lib/storage/signed-upload-client";
 
+type UnconfiguredOperation={operation_code:string;affected_jobs:number};
+
 export function OpenJobImporter(){
  const [file,setFile]=useState<File|null>(null);
+ const [unconfigured,setUnconfigured]=useState<UnconfiguredOperation[]>([]);
  const [status,setStatus]=useState("");
  usePopupMessage(status);
  const [busy,setBusy]=useState(false);
@@ -15,6 +18,7 @@ export function OpenJobImporter(){
    if(!file)return;
 
    setBusy(true);
+   setUnconfigured([]);
    setStatus("Đang upload All Open Job...");
 
    try{
@@ -42,15 +46,22 @@ export function OpenJobImporter(){
      const d=await safeJson(r);
      if(!r.ok)throw new Error(d.error||"Import failed");
 
+     const detected=Array.isArray(d.unconfiguredOperations)
+       ?d.unconfiguredOperations.map((x:any)=>({operation_code:String(x.operation_code||""),affected_jobs:Number(x.affected_jobs||0)})).filter((x:UnconfiguredOperation)=>x.operation_code)
+       :[];
+     setUnconfigured(detected);
+
      setStatus(
        `Hoàn tất ${d.sourceRows.toLocaleString()} Jobs · `+
        `NEW ${d.newJobs.toLocaleString()} · `+
        `CHANGED ${d.changedJobs.toLocaleString()} · `+
-       `UNCHANGED ${d.unchangedJobs.toLocaleString()} · `+
-       `CLOSED ${d.closedJobs.toLocaleString()}`
+       `UNCHANGED ${d.unchangedJobs.toLocaleString()} bỏ qua rebuild · `+
+       `CLOSED ${d.closedJobs.toLocaleString()} · `+
+       `Planning sync ${Number(d.incrementalSync?.affectedOpenJobs||0).toLocaleString()} Job`+
+       (detected.length?` · ${detected.length} Operation mới cần cấu hình`:``)
      );
 
-     setTimeout(()=>location.reload(),1600);
+     if(!detected.length)setTimeout(()=>location.reload(),1600);
    }catch(e){
      setStatus(`Lỗi: ${e instanceof Error?e.message:String(e)}`);
    }finally{
@@ -78,6 +89,19 @@ export function OpenJobImporter(){
        {busy?"Đang xử lý...":"Import All Open Job"}
      </button>
    </div>
+
+   {unconfigured.length>0&&<div style={{marginTop:10,padding:"10px 12px",border:"1px solid #f0ddb6",background:"#fff7e8",borderRadius:8}}>
+     <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+       <div>
+         <b>Operation mới / chưa cấu hình</b>
+         <div style={{fontSize:12,marginTop:3}}>All Open Job đã cập nhật RAW NextOperation, nhưng các code dưới đây chưa được phân loại ST. Hệ thống không tự đoán Main Operation.</div>
+       </div>
+       <a className="btn" href="/st-operation-flow">Mở ST Operation Flow</a>
+     </div>
+     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
+       {unconfigured.map(x=><span key={x.operation_code} className="erpkit-status erpkit-status-warning">{x.operation_code} · {x.affected_jobs.toLocaleString()} Job</span>)}
+     </div>
+   </div>}
 
  </div>
 }

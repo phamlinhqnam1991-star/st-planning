@@ -7835,6 +7835,41 @@
       "en": "After changing a Gate, Recipe Rule or Keep setting, use Requirement-only Rebuild for the lightest synchronization. It rebuilds only md_process_requirement and does not run Routing, Recipe, Auto Bridge or Planning Chain.",
       "vi": "Sau khi đổi Gate, Recipe Rule hoặc Keep, dùng Rebuild riêng Requirement để đồng bộ nhẹ nhất. Chức năng này chỉ dựng lại md_process_requirement, không chạy Routing, Recipe, Auto Bridge hoặc Planning Chain.",
       "mode": "exact"
+    },
+    {
+      "en": "New / unconfigured Operation",
+      "vi": "Operation mới / chưa cấu hình",
+      "mode": "exact"
+    },
+    {
+      "en": "All Open Job has updated the RAW NextOperation, but the codes below have not been classified for ST. The system does not guess the Main Operation automatically.",
+      "vi": "All Open Job đã cập nhật RAW NextOperation, nhưng các code dưới đây chưa được phân loại ST. Hệ thống không tự đoán Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Open ST Operation Flow",
+      "vi": "Mở ST Operation Flow",
+      "mode": "exact"
+    },
+    {
+      "en": "skip rebuild",
+      "vi": "bỏ qua rebuild",
+      "mode": "phrase"
+    },
+    {
+      "en": "new Operations need configuration",
+      "vi": "Operation mới cần cấu hình",
+      "mode": "phrase"
+    },
+    {
+      "en": "Planning sync",
+      "vi": "Planning sync",
+      "mode": "phrase"
+    },
+    {
+      "en": "When configuring a new Operation for the first time, the system only syncs the Planning Chain for Jobs using that code; when editing an already-configured Operation, the system keeps a Full rebuild to protect shared dependencies. Batch/Schedule history is not deleted.",
+      "vi": "Khi cấu hình Operation mới lần đầu, hệ thống chỉ sync Planning Chain của Job đang dùng code đó; khi sửa Operation đã cấu hình, hệ thống giữ Full rebuild để bảo toàn dependency dùng chung. Lịch sử Batch/Schedule không bị xóa.",
+      "mode": "exact"
     }
   ]
 }
