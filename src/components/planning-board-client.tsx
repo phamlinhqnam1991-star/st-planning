@@ -2343,8 +2343,38 @@ const currentPriorityMonth=useMemo(()=>{
    ?`Đang tạo lô cho ${batchSelectionOperation}; ${operation} tạm thời bị khóa.`
    :"";
 
+ // ERP focus mode: once a Batch Main Operation is established, hide rows whose
+ // current selectable READY belongs to another Main Operation. Rows in the same
+ // Main remain visible; Recipe/condition incompatibility is still shown by the
+ // existing dim/lock presentation so the planner can see why they cannot join.
+ const batchScopedDisplayCandidates=useMemo(()=>{
+  if(!erpMode||!batchSelectionModeActive||!batchSelectionOperation)return displayCandidates;
+  const operationKey=normalized(batchSelectionOperation);
+  return displayCandidates.filter(row=>{
+   const target=selectableTargetForOperation(row,batchSelectionOperation);
+   if(target&&normalized(target.standardOperation)===operationKey)return true;
+   return selectedTargets.some(targetRow=>
+    Number(targetRow.candidate.id)===Number(row.id) &&
+    normalized(targetRow.standardOperation)===operationKey
+   );
+  });
+ },[erpMode,batchSelectionModeActive,batchSelectionOperation,displayCandidates,selectableTargetForOperation,selectedTargets]);
 
+ const batchScopedRenderedCandidates=useMemo(
+  ()=>batchScopedDisplayCandidates.slice(0,candidateDomLimit),
+  [batchScopedDisplayCandidates,candidateDomLimit]
+ );
 
+ // While batching in ERP, keep the Job identity columns and only the active
+ // Main Operation matrix column. Clearing the selection restores the full matrix.
+ const batchScopedActiveColumns=useMemo(()=>{
+  if(!erpMode||!batchSelectionModeActive||!batchSelectionOperation)return activeColumns;
+  const operationKey=normalized(batchSelectionOperation);
+  return activeColumns.filter(key=>
+   !key.startsWith("route-main:") ||
+   normalized(key.slice("route-main:".length))===operationKey
+  );
+ },[erpMode,batchSelectionModeActive,batchSelectionOperation,activeColumns]);
 
 
  const totalQty=selectedTargets.reduce((a,x)=>a+Number(x.candidate.plan_qty||0),0);
@@ -2470,7 +2500,7 @@ const currentPriorityMonth=useMemo(()=>{
  }
 
  function toggleAll(){
-   const selectableRows=displayCandidates
+   const selectableRows=batchScopedDisplayCandidates
     .map(row=>({row,target:selectableTargetFor(row)}))
     .filter(x=>x.target)
     .filter(x=>!operationSelectionLocked(x.row)&&!compatibilityLockedForTarget(x.row));
@@ -3147,12 +3177,12 @@ const currentPriorityMonth=useMemo(()=>{
 
  const freezeColumnLabels=useMemo(()=>{
    const labels:string[]=["Chọn"];
-   for(const key of activeColumns){
+   for(const key of batchScopedActiveColumns){
     const col=allColumns.find(c=>c.key===key);
     labels.push(col?planningColumnLabel(col):key);
    }
    return labels;
- },[activeColumns,allColumns]);
+ },[batchScopedActiveColumns,allColumns]);
 
  const freezeActive=freeze.mode!=="off";
  const effectiveFreeze=freezeDraft??freeze;
@@ -3193,7 +3223,7 @@ const currentPriorityMonth=useMemo(()=>{
   ro=new ResizeObserver(apply);
   ro.observe(t);
   return ()=>{if(ro)ro.disconnect();};
- },[freezeCol,activeColumns,candidateDensity,routeFocus,displayCandidates.length,fullView]);
+ },[freezeCol,batchScopedActiveColumns,candidateDensity,routeFocus,batchScopedDisplayCandidates.length,fullView]);
 
  
  return <div className={`planning-board-grid ${erpMode?"planning-board-grid-erp":""}`}>
@@ -3692,7 +3722,7 @@ const currentPriorityMonth=useMemo(()=>{
          <input
           type="checkbox"
           checked={(()=>{
-           const rows=displayCandidates
+           const rows=batchScopedDisplayCandidates
             .map(row=>({row,target:selectableTargetFor(row)}))
             .filter(x=>x.target)
             .filter(x=>!operationSelectionLocked(x.row)&&!compatibilityLockedForTarget(x.row));
@@ -3701,11 +3731,11 @@ const currentPriorityMonth=useMemo(()=>{
           onChange={toggleAll}
          />
         </th>
-        {activeColumns.map(key=>renderCandidateHeader(key))}
+        {batchScopedActiveColumns.map(key=>renderCandidateHeader(key))}
        </tr>
       </thead>
       <tbody>
-       {renderedCandidates.map((x)=>
+       {batchScopedRenderedCandidates.map((x)=>
         <tr
          key={String(x.job_num)}
          className={`${selectableTargetFor(x)&&selected.includes(selectableTargetFor(x)!.id)?"planning-row-selected ":""}${dragCandidateId===x.id?"planning-row-dragging ":""}${priorityClass(x.priority_type)}`.trim()}
@@ -3734,15 +3764,15 @@ const currentPriorityMonth=useMemo(()=>{
            onChange={()=>toggle(x.id)}
           />
          </td>
-         {activeColumns.map(key=>renderCandidateCell(x,key))}
+         {batchScopedActiveColumns.map(key=>renderCandidateCell(x,key))}
         </tr>
        )}
-       {renderedCandidates.length<displayCandidates.length&&
-        <tr ref={candidateDomSentinelRef} className="candidate-dom-sentinel"><td colSpan={1+activeColumns.length}>
-         {erpMode?<>Đang hiển thị {renderedCandidates.length}/{displayCandidates.length} dòng · cuộn xuống để tải thêm.</>:<>Đang hiển thị {renderedCandidates.length}/{displayCandidates.length} dòng — cuộn xuống để tải thêm.</>}
+       {batchScopedRenderedCandidates.length<batchScopedDisplayCandidates.length&&
+        <tr ref={candidateDomSentinelRef} className="candidate-dom-sentinel"><td colSpan={1+batchScopedActiveColumns.length}>
+         {erpMode?<>Đang hiển thị {batchScopedRenderedCandidates.length}/{batchScopedDisplayCandidates.length} dòng · cuộn xuống để tải thêm.</>:<>Đang hiển thị {batchScopedRenderedCandidates.length}/{batchScopedDisplayCandidates.length} dòng — cuộn xuống để tải thêm.</>}
         </td></tr>}
-       {!displayCandidates.length&&
-        <tr><td colSpan={1+activeColumns.length} className="muted">
+       {!batchScopedDisplayCandidates.length&&
+        <tr><td colSpan={1+batchScopedActiveColumns.length} className="muted">
          {erpMode?"Không có Job phù hợp với bộ lọc hiện tại.":"Không có Candidate phù hợp với filter hiện tại."}
         </td></tr>}
       </tbody>
