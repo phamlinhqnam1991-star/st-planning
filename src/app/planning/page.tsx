@@ -7,7 +7,7 @@ import {getRecentPlanningBatches} from "@/lib/planning/recent-batches";
 import {getPlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {resolvePlanningView} from "@/lib/planning/planning-view-server";
 import {loadPlanningCandidateMetadata} from "@/lib/planning/candidate-data";
-import {ST_ERP_MODULES} from "@/lib/erp/st-navigation";
+import {ST_ERP_MODULES,getStErpModuleItems} from "@/lib/erp/st-navigation";
 
 export const dynamic="force-dynamic";
 
@@ -38,7 +38,10 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
 
   return <ErpAppShell
    moduleItems={ST_ERP_MODULES}
-   activeModule="planning"
+   activeModule="operations"
+   secondaryItems={getStErpModuleItems("operations")}
+   activeSecondary="planning"
+   secondaryLabel="VẬN HÀNH"
    environment="ST PLANNING"
    userArea={<LogoutButton presentation="erp"/>}
    breadcrumb={<><Link href="/planning">Planning Board</Link><span>/</span><b>Ma trận kế hoạch</b></>}

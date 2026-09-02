@@ -1,15 +1,7 @@
 import { ErpAppShell, type ErpNavItem } from "@/components/erp";
+import {ST_ERP_MODULES,getStErpModuleItems} from "@/lib/erp/st-navigation";
 import { ErpAllTabsDemo } from "@/components/erp/erp-all-tabs-demo";
 
-const modules: ErpNavItem[] = [
-  { key: "master", label: "Master Data", href: "/master-data", shortLabel: "MD" },
-  { key: "config", label: "Cấu hình", href: "/settings", shortLabel: "CF" },
-  { key: "tracker", label: "Tracker", href: "/job-tracker", shortLabel: "TR" },
-  { key: "jobs", label: "Open Jobs", href: "/all-open-jobs", shortLabel: "OJ" },
-  { key: "planning", label: "Planning", href: "/planning", shortLabel: "PL" },
-  { key: "schedule", label: "Điều độ", href: "/schedule", shortLabel: "SC" },
-  { key: "kit", label: "ERP Demo", href: "/erp-kit", shortLabel: "UI" },
-];
 
 const sidebar: ErpNavItem[] = [
   { key: "all-tabs", label: "Demo tất cả tab", href: "/erp-kit" },
@@ -18,8 +10,11 @@ const sidebar: ErpNavItem[] = [
 export default function ErpKitPage() {
   return (
     <ErpAppShell
-      moduleItems={modules}
-      activeModule="kit"
+      moduleItems={ST_ERP_MODULES}
+      activeModule="administration"
+      secondaryItems={[...getStErpModuleItems("administration"),{key:"kit",label:"ERP UI Demo",href:"/erp-kit"}]}
+      activeSecondary="kit"
+      secondaryLabel="QUẢN TRỊ"
       sidebarTitle="ERP TEMPLATE KIT"
       sidebarItems={sidebar}
       activeSidebar="all-tabs"

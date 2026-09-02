@@ -69,17 +69,17 @@ Apply Supabase migrations in numeric order through migration 067. Do not delete 
 
 See `docs/CURRENT_ARCHITECTURE.md` for the current architecture and `AUDIT_CLEANUP.md` for the latest cleanup audit.
 
-## ERP Standard V5
+## ERP Standard V6
 
-Toàn bộ production tabs dùng ERP Standard V5. Nguồn chuẩn UI hiện tại:
+Toàn bộ production UI dùng ERP Standard V6. Nguồn chuẩn hiện tại:
 
-- `ERP_STANDARD_V5.md`
-- `src/components/erp/erp-kit.css`
-- `src/components/erp/erp-app-header.tsx`
+- `ERP_STANDARD_V6.md`
 - `src/lib/erp/st-navigation.ts`
+- `src/components/app-tabs.tsx`
+- `src/components/erp/erp-kit.css`
 
-`/planning` là Planning Board ERP canonical; `/planning-old` đã bị loại.
+Navigation đã chuyển từ 10 tab ngang hàng sang kiến trúc ERP 2 tầng: **Business Module → Workspace**. Bốn Work Center chuẩn là **Vận hành / Theo dõi / Master Data / Quản trị**. Planning và các page dùng shell cũ đều đọc cùng một nguồn navigation. Master Data sidebar tiếp tục chia theo domain Sản phẩm / Operation & Routing / ST Model.
 
-V5 deep thêm interaction/workspace bên trong toàn bộ production UI: Configuration split editor + data grid, sticky action column, ERP confirm dialog, ERP toast trực tiếp, field-state/focus chuẩn, Schedule command row, Tracker fact-sheet và responsive interaction. Source production không còn `alert()`, `confirm()` hoặc `prompt()` native. Business logic/API/DB không thay đổi trong vòng UI này.
+V6 kế thừa toàn bộ interaction V5: Configuration split workspace, sticky action, ERP dialog/toast, field states, schedule workspace, tracker fact-sheet. Business logic/API/DB không đổi trong vòng UI này.
 
-Trang `/erp-kit` chỉ còn là showcase/reference component, không phải nguồn business logic.
+Trang `/erp-kit` là showcase/reference component, không phải nguồn business logic.

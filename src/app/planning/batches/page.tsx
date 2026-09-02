@@ -5,7 +5,7 @@ import {LogoutButton} from "@/components/logout-button";
 import {ErpAppShell,ErpPageHeader,ErpTabs} from "@/components/erp";
 import {getPool} from "@/lib/db";
 import {getRecentPlanningBatches} from "@/lib/planning/recent-batches";
-import {ST_ERP_MODULES} from "@/lib/erp/st-navigation";
+import {ST_ERP_MODULES,getStErpModuleItems} from "@/lib/erp/st-navigation";
 
 export const dynamic="force-dynamic";
 
@@ -59,7 +59,10 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
   const batchesQ=await getRecentPlanningBatches(c,100);
   return <ErpAppShell
    moduleItems={ST_ERP_MODULES}
-   activeModule="planning"
+   activeModule="operations"
+   secondaryItems={getStErpModuleItems("operations")}
+   activeSecondary="planning"
+   secondaryLabel="VẬN HÀNH"
    environment="ST PLANNING"
    userArea={<LogoutButton presentation="erp"/>}
    breadcrumb={<><Link href="/planning">Planning Board</Link><span>/</span><b>Batch gần đây</b></>}

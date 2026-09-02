@@ -5,15 +5,15 @@ import {AppTabs,SubTabs} from "@/components/app-tabs";
 import {errorMessage} from "@/lib/error-message";
 export const dynamic="force-dynamic";
 const sub=[
- {key:"part",label:"Part",href:"/master/part"},
- {key:"revision",label:"Part Revision",href:"/master/revision"},
- {key:"sourceoperation",label:"Source Operation",href:"/master/sourceoperation"},
- {key:"routing",label:"Routing Detail",href:"/master/routing"},
- {key:"finish",label:"Material Finish",href:"/master/finish"},
- {key:"requirement",label:"Process Requirement",href:"/master/requirement"},
- {key:"strouting",label:"ST Routing Master",href:"/master/strouting"},
- {key:"stroutingchain",label:"ST Routing Chain",href:"/master/stroutingchain"},
- {key:"partrouting",label:"Part → Routing",href:"/master/partrouting"},
+ {key:"part",label:"Part",href:"/master/part",group:"Sản phẩm"},
+ {key:"revision",label:"Part Revision",href:"/master/revision",group:"Sản phẩm"},
+ {key:"finish",label:"Material Finish",href:"/master/finish",group:"Sản phẩm"},
+ {key:"requirement",label:"Process Requirement",href:"/master/requirement",group:"Sản phẩm"},
+ {key:"sourceoperation",label:"Source Operation",href:"/master/sourceoperation",group:"Operation & Routing"},
+ {key:"routing",label:"Routing Detail",href:"/master/routing",group:"Operation & Routing"},
+ {key:"strouting",label:"ST Routing Master",href:"/master/strouting",group:"ST Model"},
+ {key:"stroutingchain",label:"ST Routing Chain",href:"/master/stroutingchain",group:"ST Model"},
+ {key:"partrouting",label:"Part → Routing",href:"/master/partrouting",group:"ST Model"},
 ];
 export default async function Page(){
  let data:any=null,err="";

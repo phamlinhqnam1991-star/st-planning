@@ -13,6 +13,9 @@ type Props = {
   children: ReactNode;
   moduleItems?: ErpNavItem[];
   activeModule?: string;
+  secondaryItems?: ErpNavItem[];
+  activeSecondary?: string;
+  secondaryLabel?: string;
   sidebarTitle?: string;
   sidebarItems?: ErpNavItem[];
   activeSidebar?: string;
@@ -34,6 +37,9 @@ export function ErpAppShell({
   children,
   moduleItems = defaultModules,
   activeModule,
+  secondaryItems = [],
+  activeSecondary,
+  secondaryLabel = "Workspace",
   sidebarTitle,
   sidebarItems = [],
   activeSidebar,
@@ -57,14 +63,28 @@ export function ErpAppShell({
         </div>
       </header>
 
-      <nav className="erpkit-module-nav" aria-label="Modules">
-        {moduleItems.map((item) => (
-          <Link key={item.key} href={item.href} className={`erpkit-module-link ${activeModule === item.key ? "is-active" : ""}`}>
-            <span className="erpkit-module-short">{item.shortLabel ?? item.label.slice(0, 2).toUpperCase()}</span>
-            <span>{item.label}</span>
-          </Link>
-        ))}
-      </nav>
+      <div className="erpkit-navigation-stack">
+        <nav className="erpkit-module-nav" aria-label="Modules">
+          {moduleItems.map((item) => (
+            <Link key={item.key} href={item.href} className={`erpkit-module-link ${activeModule === item.key ? "is-active" : ""}`}>
+              <span className="erpkit-module-short">{item.shortLabel ?? item.label.slice(0, 2).toUpperCase()}</span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+        {secondaryItems.length > 0 ? (
+          <nav className="erpkit-context-nav" aria-label={`${secondaryLabel} functions`}>
+            <span className="erpkit-context-title">{secondaryLabel}</span>
+            <div className="erpkit-context-items">
+              {secondaryItems.map((item) => (
+                <Link key={item.key} href={item.href} className={`erpkit-context-link ${activeSecondary === item.key ? "is-active" : ""}`}>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </nav>
+        ) : null}
+      </div>
 
       <div className={`erpkit-workspace ${sidebarItems.length === 0 ? "without-sidebar" : ""}`}>
         {sidebarItems.length > 0 ? (
