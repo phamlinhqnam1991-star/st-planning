@@ -583,11 +583,12 @@ export default async function Page(){
     <div className="lg-subtitle">7.5 · Chọn READY đầu tiên → Batch Selection Mode</div>
     <StepList items={[
      <>Click/checkbox/drag một cell <b>READY</b>. Main Operation của occurrence đó trở thành Main đang build Batch.</>,
-     <>Board làm mờ và khóa tạm thời toàn bộ READY của <b>Main Planning khác</b>. Các cột thông tin Job bên trái vẫn đọc được.</>,
+     <>Board thu gọn ma trận về <b>Main đang build Batch + Previous Main Planning trực tiếp</b> của các Job trong scope. Previous Main là read-only và hiện Batch + giờ bắt đầu điều độ để biết Job vừa được handoff từ lô nào; các Main không liên quan vẫn ẩn.</>,
      <>Trong Main active, server resolve Recipe thật của từng Job. READY khác Recipe bị làm mờ/disable.</>,
      <>Nếu Recipe mapping có condition, panel <b>Batch Compatibility</b> hiện checkbox theo condition của <code>md_main_operation_recipe.selection_rule</code>.</>,
      <>Mặc định tích tất cả condition. Bỏ tích condition nào → condition đó không còn dùng để khóa membership. Bỏ hết → chỉ cần cùng Main + cùng Recipe.</>,
-     <>Chỉ READY compatible mới giữ sáng và được phép thêm. Select All cũng chỉ chọn tập compatible.</>
+     <>Chỉ READY compatible mới giữ sáng và được phép thêm. Select All cũng chỉ chọn tập compatible.</>,
+     <>Chế độ <b>Gọn</b> dùng row thấp hơn để thấy nhiều Job hơn. Nút <b>− / % / +</b> zoom riêng Ma trận kế hoạch từ 70% đến 130% và không zoom toàn trang.</>
     ]}/>
 
     <div className="lg-subtitle">7.6 · Batch Compatibility — chính xác lấy điều kiện từ đâu?</div>

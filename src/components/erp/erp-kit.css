@@ -2476,3 +2476,66 @@
 @media(max-width:1300px){.erpkit-migrated-page .dashboard-kpi-grid{grid-template-columns:repeat(4,minmax(115px,1fr))}.erpkit-migrated-page .dashboard-main-grid{grid-template-columns:1fr}.erpkit-migrated-page .dashboard-ai-panel{order:-1}}
 @media(max-width:980px){.erpkit-migrated-page .dashboard-kpi-grid{grid-template-columns:repeat(3,minmax(110px,1fr))}.erpkit-migrated-page .dashboard-two-column{grid-template-columns:1fr}.erpkit-migrated-page .dashboard-status-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:720px){.erpkit-migrated-page .dashboard-page-head{align-items:flex-start!important}.erpkit-migrated-page .dashboard-date-nav{width:100%;justify-content:flex-start}.erpkit-migrated-page .dashboard-kpi-grid{grid-template-columns:repeat(2,minmax(100px,1fr))}.erpkit-migrated-page .dashboard-status-strip{grid-template-columns:1fr}.erpkit-migrated-page .dashboard-ai-head{align-items:flex-start;flex-direction:column}.erpkit-migrated-page .dashboard-ai-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}.erpkit-migrated-page .dashboard-ai-scope-grid{grid-template-columns:1fr}.erpkit-migrated-page .dashboard-ai-access-grid{grid-template-columns:1fr}.erpkit-migrated-page .dashboard-ai-chat-turn{max-width:96%}.erpkit-migrated-page .dashboard-ai-ask{grid-template-columns:1fr}.erpkit-migrated-page .dashboard-trend{gap:4px;padding-left:8px;padding-right:8px}}
+
+/* ============================================================
+   v380 Planning Matrix — Previous Main context + compact rows + table zoom
+   ============================================================ */
+.planning-erp-version .planning-erp-matrix-table{
+  zoom:var(--planning-matrix-zoom,1);
+}
+.planning-erp-version .erpkit-matrix-zoom{
+  display:inline-flex;align-items:center;height:31px;border:1px solid #d7dee8;border-radius:6px;background:#fff;overflow:hidden
+}
+.planning-erp-version .erpkit-matrix-zoom>button{
+  min-width:29px;height:29px;padding:0 7px;border:0;border-right:1px solid #e3e8ef;background:#fff;color:#344054;font-size:12px;font-weight:800;cursor:pointer
+}
+.planning-erp-version .erpkit-matrix-zoom>button:last-child{border-right:0}
+.planning-erp-version .erpkit-matrix-zoom>button:hover:not(:disabled){background:#f3f7fb}
+.planning-erp-version .erpkit-matrix-zoom>button:disabled{opacity:.35;cursor:not-allowed}
+.planning-erp-version .erpkit-matrix-zoom .erpkit-matrix-zoom-value{min-width:46px;font-size:8px;color:#536176}
+
+/* Previous Main Planning columns stay visible during READY/Batch focus mode. */
+.planning-erp-version .planning-erp-matrix-table th.route-status-previous-header,
+.planning-erp-version .planning-erp-matrix-table td.route-status-previous-cell{
+  width:106px!important;min-width:106px!important;max-width:106px!important;
+}
+.planning-erp-version .planning-erp-matrix-table th.route-status-previous-header{
+  background:#f4f7fb!important;color:#526074!important;box-shadow:inset 0 -2px 0 #aebccc!important;
+}
+.planning-erp-version .planning-erp-matrix-table .route-prev-tag{
+  display:inline-flex!important;margin-left:4px;padding:1px 3px;border-radius:3px;background:#e5ebf2;color:#607086;font-size:5.5px!important;font-weight:900;line-height:1;vertical-align:middle
+}
+.planning-erp-version .planning-erp-matrix-table td.route-status-previous-cell{
+  text-align:left!important;padding:2px 4px!important;box-shadow:inset -1px 0 0 #d6dde6!important;
+}
+.planning-erp-version .planning-erp-matrix-table td.route-status-previous-cell>b{
+  min-height:13px!important;line-height:12px!important;padding:0 3px!important;margin:0!important;font-size:6.5px!important;
+}
+.planning-erp-version .planning-erp-matrix-table td.route-status-previous-cell .route-prev-batch,
+.planning-erp-version .planning-erp-matrix-table td.route-status-previous-cell .route-prev-time{
+  display:block!important;max-width:98px!important;margin:1px 0 0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;text-align:left!important;
+}
+.planning-erp-version .planning-erp-matrix-table td.route-status-previous-cell .route-prev-batch{
+  color:#344054!important;font:750 6.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace!important;
+}
+.planning-erp-version .planning-erp-matrix-table td.route-status-previous-cell .route-prev-time{
+  color:#667085!important;font:700 6.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace!important;
+}
+
+/* Compact is now denser: more jobs on screen without changing data/logic. */
+.planning-erp-version .candidate-density-compact .planning-erp-matrix-table tbody td{
+  height:30px!important;min-height:30px!important;padding:2px 5px!important;font-size:9px!important;line-height:1.05!important;
+}
+.planning-erp-version .candidate-density-compact .planning-erp-matrix-table td.route-status-cell{
+  height:30px!important;min-height:30px!important;padding:2px 3px!important;
+}
+.planning-erp-version .candidate-density-compact .planning-erp-matrix-table td.route-status-cell>b{
+  min-height:13px!important;line-height:12px!important;font-size:6.5px!important;padding:0 3px!important;
+}
+.planning-erp-version .candidate-density-compact .planning-erp-matrix-table td.route-status-cell .route-status-batch,
+.planning-erp-version .candidate-density-compact .planning-erp-matrix-table td.route-status-cell>small{
+  margin-top:1px!important;font-size:6px!important;line-height:1.05!important;
+}
+.planning-erp-version .candidate-density-compact .planning-erp-matrix-table td.route-status-previous-cell>small{
+  display:block!important;
+}

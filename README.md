@@ -106,3 +106,9 @@ Added `/production-execution` for Production department work reporting. Data com
 ## Process Requirement storage
 
 `md_process_requirement` uses the V375 two-level filter: Part/Revision Gate first (default `ST = NO`), then Active `MD:REQ:*` Recipe Rules + Manual Keep with blank values skipped. V376 adds a lightweight Requirement-only rebuild from the Master Excel. It truncates and reconstructs only `md_process_requirement` in small chunks and does not rebuild Routing, Recipe, Auto Bridge or Planning Chain. Use this path when reducing database size; use full Master Import only when other Master data also changed.
+
+## V380 · Planning Matrix Previous Main + Zoom
+- READY Batch focus keeps the selected Main plus each visible Job's immediate Previous Main Planning column.
+- PREV cells are read-only and show prior Batch No + scheduled start when available.
+- Compact rows are denser; matrix-only zoom supports 70%..130% and persists locally.
+- No change to Planning Chain, Batch, Recipe, Schedule, or Production Execution logic.

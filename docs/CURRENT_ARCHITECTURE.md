@@ -27,6 +27,16 @@
 - The ST Operation Flow page already exposes raw NextOperation codes from `open_job_current`. When a newly detected code is configured for the first time, its live Planning Chain rebuild is targeted to open Jobs using that raw code; edits to an already-configured code keep the full rebuild for safety because shared Main/ST Group changes may affect other mappings.
 - Explicit Rebuild Chain, Master changes and existing-operation architecture changes still support FULL rebuild.
 
+## Planning Board READY focus context
+
+`READY Main selection -> Current Main + immediate Previous Main union -> read-only Batch/Schedule context`
+
+- When the first READY cell establishes Batch Selection Mode, the matrix still narrows to Jobs compatible with that Main Operation.
+- Main Planning columns no longer collapse to only the selected Main. The board keeps the selected Main plus the union of each visible Job's **immediate Previous Main Planning**. Example: ten PRIMER READY Jobs may expose both BSASLD and BSAUNSLD Previous Main columns when five Jobs came from each handoff.
+- Previous Main columns are context-only/read-only. They show the historical route status plus Batch No and scheduled start (`HH:MM DD-MMM`) when available. They cannot be clicked to alter Batch selection.
+- All unrelated Main Planning columns remain hidden during Batch Selection Mode and return after Clear Selection.
+- Compact density uses smaller rows. Matrix zoom is a presentation-only control (70%..130%, persisted locally) and does not change data, filters, Planning Chain, Batch, or Schedule.
+
 ## Candidate presentation order
 
 When Sort Priority contains `NextOperation`:

@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V371";
+export const ST_AI_KNOWLEDGE_VERSION="V380";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -37,6 +37,11 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
   key:"batch-schedule",
   title:"Batch vs Scheduling",
   content:`Planning Board creates and owns Batch membership. Scheduling Board never recreates the Batch; it assigns an existing unscheduled Batch to a Schedule Area/Resource/Date/Start/Duration. Manual and future Auto Plan/Auto Batch/Auto Schedule share the same Batch/Schedule data model.`
+ },
+ {
+  key:"planning-ready-focus",
+  title:"Planning Board READY focus context",
+  content:`When a READY Main establishes Batch Selection Mode, the board narrows Jobs to that Main but keeps the selected Main plus the union of each visible Job's immediate Previous Main Planning. Previous Main columns are read-only context showing prior Batch No and scheduled start when available; unrelated Main columns stay hidden. Compact row density and 70%-130% table zoom are presentation-only and never change Planning Chain, Batch, Recipe, or Schedule.`
  },
  {
   key:"chemical-line",
