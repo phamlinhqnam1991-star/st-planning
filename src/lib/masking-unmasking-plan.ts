@@ -15,6 +15,7 @@ export type SupportPlanRawRow={
   revision_num:string|null;
   part_description:string|null;
   prod_qty:number|null;
+  current_good_wip_qty:number|null;
   total_surface:number|null;
   last_operation:string|null;
   next_operation:string|null;
@@ -58,6 +59,7 @@ export type SupportPlanJob={
   revisionNum:string;
   partDescription:string;
   qty:number|null;
+  currentGoodWipQty:number|null;
   surface:number|null;
   lastOperation:string;
   nextOperation:string;
@@ -258,6 +260,7 @@ export async function loadMaskingUnmaskingPlan(
           j.revision_num,
           j.part_description,
           j.prod_qty,
+          j.current_good_wip_qty,
           j.total_surface,
           j.last_operation,
           j.next_operation,
@@ -301,6 +304,7 @@ export async function loadMaskingUnmaskingPlan(
           bm.revision_num,
           bm.part_description,
           bm.prod_qty,
+          bm.current_good_wip_qty,
           bm.total_surface,
           bm.last_operation,
           bm.next_operation,
@@ -397,6 +401,7 @@ export async function loadMaskingUnmaskingPlan(
         revisionNum:clean(row.revision_num),
         partDescription:clean(row.part_description),
         qty:row.prod_qty==null?null:Number(row.prod_qty),
+        currentGoodWipQty:row.current_good_wip_qty==null?null:Number(row.current_good_wip_qty),
         surface:row.total_surface==null?null:Number(row.total_surface),
         lastOperation:clean(row.last_operation),
         nextOperation:clean(row.next_operation),

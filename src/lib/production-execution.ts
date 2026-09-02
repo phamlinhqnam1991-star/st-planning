@@ -4,6 +4,16 @@ import {loadMaskingUnmaskingPlan,type SupportPlanJob,type SupportType} from "@/l
 export type ProductionExecutionStatus="WAITING"|"ON-GOING"|"DONE";
 export type ProductionExecutionSource="BATCH"|"MASKING"|"UNMASKING";
 
+export type ProductionJobDetail={
+ jobNum:string;
+ partDescription:string;
+ currentGoodWipQty:number|null;
+ totalSurface:number|null;
+ lastLaborOp:string;
+ nextOperation:string;
+ priority:string;
+};
+
 export type ProductionWorkItem={
  sourceType:ProductionExecutionSource;
  sourceKey:string;
@@ -28,6 +38,7 @@ export type ProductionWorkItem={
  qty:number;
  surface:number;
  jobNumbers:string[];
+ jobDetails:ProductionJobDetail[];
  supportOperations:string[];
  sequence:number;
  scheduleStatus:string;
@@ -42,11 +53,31 @@ type ExecutionRow={
  remark:string|null;
 };
 
+type BatchJobDetailRow={
+ batch_id:number;
+ job_num:string;
+ part_description:string|null;
+ current_good_wip_qty:number|null;
+ total_surface:number|null;
+ last_operation:string|null;
+ next_operation:string|null;
+ priority_type:string|null;
+};
+
 const clean=(v:unknown)=>String(v??"").trim();
 const num=(v:unknown)=>Number.isFinite(Number(v))?Number(v):0;
 const iso=(v:unknown)=>{if(!v)return null;const d=v instanceof Date?v:new Date(String(v));return Number.isNaN(d.getTime())?null:d.toISOString();};
 const keyForBatch=(batchId:number)=>`BATCH:${batchId}`;
 const keyForSupport=(type:SupportType,batchId:number,main:string)=>`${type}:${batchId}:${clean(main).toUpperCase()}`;
+const makeJobDetail=(data:{jobNum:string;partDescription:string;currentGoodWipQty:number|null;totalSurface:number|null;lastLaborOp:string;nextOperation:string;priority:string;}):ProductionJobDetail=>({
+ jobNum:clean(data.jobNum),
+ partDescription:clean(data.partDescription),
+ currentGoodWipQty:data.currentGoodWipQty==null?null:Number(data.currentGoodWipQty),
+ totalSurface:data.totalSurface==null?null:Number(data.totalSurface),
+ lastLaborOp:clean(data.lastLaborOp),
+ nextOperation:clean(data.nextOperation),
+ priority:clean(data.priority),
+});
 
 async function loadExecutionRows(c:PoolClient,batchIds:number[]){
  if(!batchIds.length)return new Map<string,ExecutionRow>();
@@ -63,6 +94,42 @@ async function loadExecutionRows(c:PoolClient,batchIds:number[]){
   if(e?.code==="42P01")return new Map<string,ExecutionRow>();
   throw e;
  }
+}
+
+async function loadBatchJobDetails(c:PoolClient,batchIds:number[]){
+ if(!batchIds.length)return new Map<number,ProductionJobDetail[]>();
+ const q=await c.query(`
+  select
+   bj.batch_id,
+   bj.job_num,
+   oj.part_description,
+   oj.current_good_wip_qty,
+   coalesce(bj.surface_dm2,oj.total_surface) total_surface,
+   oj.last_operation,
+   oj.next_operation,
+   oj.priority_type
+  from public.planning_batch_job bj
+  join public.planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
+  left join public.open_job_current oj on oj.job_num=bj.job_num and oj.is_open=true
+  where bj.batch_id=any($1::bigint[])
+  order by bj.batch_id,bj.created_at,bj.job_num
+ `,[batchIds]);
+ const map=new Map<number,ProductionJobDetail[]>();
+ for(const row of q.rows as BatchJobDetailRow[]){
+  const batchId=Number(row.batch_id);
+  const list=map.get(batchId)||[];
+  list.push(makeJobDetail({
+   jobNum:clean(row.job_num),
+   partDescription:clean(row.part_description),
+   currentGoodWipQty:row.current_good_wip_qty==null?null:Number(row.current_good_wip_qty),
+   totalSurface:row.total_surface==null?null:Number(row.total_surface),
+   lastLaborOp:clean(row.last_operation),
+   nextOperation:clean(row.next_operation),
+   priority:clean(row.priority_type),
+  }));
+  map.set(batchId,list);
+ }
+ return map;
 }
 
 function applyExecution(
@@ -92,7 +159,19 @@ function aggregateSupportRows(type:SupportType,rows:SupportPlanJob[]){
   const jobs=[...new Set(list.map(x=>x.jobNum).filter(Boolean))];
   const qty=list.reduce((sum,x)=>sum+num(x.qty),0);
   const surface=list.reduce((sum,x)=>sum+num(x.surface),0);
-  return {first,list,supportOps,jobs,qty,surface};
+  const jobDetails=[...new Map(list.map(x=>[
+   `${x.planningJobOperationId}|${x.jobNum}`,
+   makeJobDetail({
+    jobNum:x.jobNum,
+    partDescription:x.partDescription,
+    currentGoodWipQty:x.currentGoodWipQty,
+    totalSurface:x.surface,
+    lastLaborOp:x.lastOperation,
+    nextOperation:x.nextOperation,
+    priority:x.priority,
+   })
+  ])).values()];
+  return {first,list,supportOps,jobs,qty,surface,jobDetails};
  });
 }
 
@@ -159,7 +238,10 @@ export async function loadProductionExecution(
   ...batchQ.rows.map((x:any)=>Number(x.batch_id)),
   ...supportAggregates.flatMap(([,groups])=>groups.map(g=>Number(g.first.batchId)))
  ].filter(Number.isFinite))];
- const execution=await loadExecutionRows(c,batchIds);
+ const [execution,batchJobDetails]=await Promise.all([
+  loadExecutionRows(c,batchIds),
+  loadBatchJobDetails(c,batchIds),
+ ]);
 
  const work:ProductionWorkItem[]=[];
  for(const row of batchQ.rows){
@@ -185,6 +267,7 @@ export async function loadProductionExecution(
    qty:num(row.total_qty),
    surface:num(row.total_surface_dm2),
    jobNumbers:Array.isArray(row.job_numbers)?row.job_numbers.map(clean).filter(Boolean):[],
+   jobDetails:batchJobDetails.get(batchId)||[],
    supportOperations:[],
    sequence:num(row.planning_order),
    scheduleStatus:clean(row.schedule_status),
@@ -217,6 +300,7 @@ export async function loadProductionExecution(
     qty:group.qty,
     surface:group.surface,
     jobNumbers:group.jobs,
+    jobDetails:group.jobDetails,
     supportOperations:group.supportOps,
     sequence:(first.planningOrder??999999)+(type==="MASKING"?-0.2:0.2),
     scheduleStatus:clean(first.scheduleStatus),

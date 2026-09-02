@@ -4,10 +4,15 @@ import {useMemo,useState} from "react";
 import {useUiLanguage} from "@/components/i18n/ui-language-provider";
 import {safeJson} from "@/lib/fetch-json";
 import {pushAppToast} from "@/components/app-toast-provider";
-import type {ProductionExecutionStatus,ProductionWorkItem} from "@/lib/production-execution";
+import type {ProductionExecutionStatus,ProductionWorkItem,ProductionJobDetail} from "@/lib/production-execution";
+
 
 const statusOrder:ProductionExecutionStatus[]=["WAITING","ON-GOING","DONE"];
 const statusClass=(status:ProductionExecutionStatus)=>status==="DONE"?"done":status==="ON-GOING"?"ongoing":"waiting";
+const hideDetailByArea=(area:string)=>{
+ const x=String(area||"").trim().toLowerCase();
+ return x.includes("chemical")||x.includes("paint");
+};
 
 export function ProductionExecutionClient({initialItems}:{initialItems:ProductionWorkItem[]}){
  const {locale,text}=useUiLanguage();
@@ -38,7 +43,11 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
    if(status!=="ALL"&&x.status!==status)return false;
    if(area!=="ALL"&&x.area!==area)return false;
    if(!q)return true;
-   return [x.batchNo,x.operation,x.linkedMainOperation,x.resource,x.area,x.recipeNo,x.recipeName,...x.jobNumbers,...x.supportOperations].join(" ").toLowerCase().includes(q);
+   return [
+    x.batchNo,x.operation,x.linkedMainOperation,x.resource,x.area,x.recipeNo,x.recipeName,
+    ...x.jobNumbers,...x.supportOperations,
+    ...x.jobDetails.flatMap(d=>[d.jobNum,d.partDescription,d.lastLaborOp,d.nextOperation,d.priority])
+   ].join(" ").toLowerCase().includes(q);
   });
  },[items,search,status,area]);
 
@@ -66,16 +75,43 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
   finally{setBusy("");}
  }
 
+ function DetailTable({rows,status}:{rows:ProductionJobDetail[];status:ProductionExecutionStatus}){
+  if(!rows.length)return null;
+  return <div className="production-job-detail-wrap"><table className="production-job-detail-table">
+   <thead><tr>
+    <th>{text("Job","Job")}</th>
+    <th>{text("Part Description","Mô tả Part")}</th>
+    <th>{text("Current Good WIP Qty","SL WIP tốt hiện tại")}</th>
+    <th>{text("Total Surface","Tổng diện tích")}</th>
+    <th>{text("Last Labor Op","Công đoạn trước")}</th>
+    <th>{text("Next Operation","Công đoạn kế tiếp")}</th>
+    <th>{text("Priority","Ưu tiên")}</th>
+    <th>{text("Status","Trạng thái")}</th>
+   </tr></thead>
+   <tbody>{rows.map((detail,index)=><tr key={`${detail.jobNum}-${index}`}>
+    <td className="mono"><b>{detail.jobNum||"—"}</b></td>
+    <td>{detail.partDescription||"—"}</td>
+    <td className="num">{detail.currentGoodWipQty==null?"—":fmt(detail.currentGoodWipQty,0)}</td>
+    <td className="num">{detail.totalSurface==null?"—":fmt(detail.totalSurface)}</td>
+    <td>{detail.lastLaborOp||"—"}</td>
+    <td>{detail.nextOperation||"—"}</td>
+    <td>{detail.priority||"—"}</td>
+    <td><span className={`production-status ${statusClass(status)}`}>{statusLabel(status)}</span></td>
+   </tr>)}</tbody>
+  </table></div>;
+ }
+
  function WorkTable({rows}:{rows:ProductionWorkItem[]}){
   if(!rows.length)return <div className="production-empty"><b>{text("No production work matches the current filter.","Không có công việc sản xuất phù hợp bộ lọc hiện tại.")}</b></div>;
   return <div className="table-wrap production-table-wrap"><table className="erp-table production-table">
    <thead><tr>
     <th>{text("Status","Trạng thái")}</th><th>{text("Target","Mốc kế hoạch")}</th><th>{text("Type","Loại việc")}</th><th>{text("Area","Khu vực")}</th><th>{text("Resource","Resource")}</th><th>{text("Operation","Công đoạn")}</th><th>Batch No.</th><th>Recipe</th><th>{text("Jobs","Số Job")}</th><th>Qty</th><th>dm²</th><th>{text("Actual Start","Bắt đầu thực tế")}</th><th>{text("Actual End","Kết thúc thực tế")}</th><th>{text("Report","Báo cáo")}</th>
    </tr></thead>
-   <tbody>{rows.map(item=>{
+   <tbody>{rows.flatMap(item=>{
     const k=`${item.sourceType}|${item.sourceKey}`;const isBusy=busy===k;
     const recipe=[item.recipeNo,item.recipeName].filter(Boolean).join(" · ")||item.recipeKey||"—";
-    return <tr key={k} className={`production-row production-row-${statusClass(item.status)}`}>
+    const showDetail=!hideDetailByArea(item.area)&&item.jobDetails.length>0;
+    const mainRow=<tr key={k} className={`production-row production-row-${statusClass(item.status)}`}>
      <td><span className={`production-status ${statusClass(item.status)}`}>{statusLabel(item.status)}</span></td>
      <td><b className="mono">{tm(item.targetTime)}</b>{item.sourceType==="BATCH"&&item.plannedEnd?<small className="planning-sub">→ {tm(item.plannedEnd)}</small>:null}</td>
      <td><span className={`production-source source-${item.sourceType.toLowerCase()}`}>{sourceLabel(item.sourceType)}</span>{item.sourceType!=="BATCH"?<small className="planning-sub">{item.linkedMainOperation}</small>:null}</td>
@@ -83,31 +119,26 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
      <td><b>{item.operation||"—"}</b>{item.supportOperations.length?<small className="planning-sub" title={item.supportOperations.join(" / ")}>{item.supportOperations.join(" / ")}</small>:null}</td>
      <td><b className="mono">{item.batchNo||`#${item.batchId}`}</b></td>
      <td><span title={recipe}>{recipe}</span></td>
-     <td className="num"><b>{item.jobs}</b>{item.jobNumbers.length?<small className="planning-sub" title={item.jobNumbers.join(" / ")}>{item.jobNumbers.slice(0,2).join(" / ")}{item.jobNumbers.length>2?` +${item.jobNumbers.length-2}`:""}</small>:null}</td>
+     <td className="num"><b>{item.jobs}</b></td>
      <td className="num">{fmt(item.qty,0)}</td><td className="num">{fmt(item.surface)}</td>
      <td className="mono">{dt(item.actualStart)}</td><td className="mono">{dt(item.actualEnd)}</td>
      <td className="production-report-cell"><select className={`input production-status-select ${statusClass(item.status)}`} disabled={isBusy} value={item.status} onChange={e=>setExecution(item,e.target.value as ProductionExecutionStatus)} aria-label={text("Production status","Trạng thái sản xuất")}>
       {statusOrder.map(s=><option key={s} value={s}>{statusLabel(s)}</option>)}
      </select>{isBusy?<small>{text("Saving...","Đang lưu...")}</small>:null}</td>
     </tr>;
+    if(!showDetail)return [mainRow];
+    const detailRow=<tr key={`${k}__detail`} className="production-detail-row"><td colSpan={14}><DetailTable rows={item.jobDetails} status={item.status}/></td></tr>;
+    return [mainRow,detailRow];
    })}</tbody>
   </table></div>;
  }
 
  const grouped=useMemo(()=>{
   const sourceAreas=area==="ALL"?areas:[area];
-  return sourceAreas.map(name=>{
-   const rows=filtered.filter(item=>item.area===name);
-   const summary={
-    waiting:rows.filter(x=>x.status==="WAITING").length,
-    ongoing:rows.filter(x=>x.status==="ON-GOING").length,
-    done:rows.filter(x=>x.status==="DONE").length,
-    jobs:rows.reduce((n,x)=>n+x.jobs,0),
-    qty:rows.reduce((n,x)=>n+x.qty,0),
-    surface:rows.reduce((n,x)=>n+x.surface,0),
-   };
-   return {name,rows,summary};
-  });
+  return sourceAreas.map(name=>({
+   name,
+   rows:filtered.filter(item=>item.area===name),
+  }));
  },[area,areas,filtered]);
 
  return <div className="production-execution-workspace">
@@ -133,13 +164,6 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
   <div className="production-area-stack">{grouped.map(group=><section className="erp-table-panel production-area-panel" key={group.name}>
    <div className="erp-panel-head">
     <div><b>{group.name||"—"}</b><small>{group.rows.length} {text("work items","công việc")}</small></div>
-    <div className="production-area-summary">
-     <span><b>{group.summary.waiting}</b> {text("Waiting","Chờ thực hiện")}</span>
-     <span><b>{group.summary.ongoing}</b> {text("On-going","Đang thực hiện")}</span>
-     <span><b>{group.summary.done}</b> {text("Done","Hoàn thành")}</span>
-     <span><b>{fmt(group.summary.qty,0)}</b> Qty</span>
-     <span><b>{fmt(group.summary.surface,0)}</b> dm²</span>
-    </div>
    </div>
    <WorkTable rows={group.rows}/>
   </section>)}</div>
