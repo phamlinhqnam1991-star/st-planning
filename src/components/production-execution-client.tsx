@@ -6,8 +6,6 @@ import {safeJson} from "@/lib/fetch-json";
 import {pushAppToast} from "@/components/app-toast-provider";
 import type {ProductionExecutionStatus,ProductionWorkItem} from "@/lib/production-execution";
 
-type ViewMode="LIST"|"AREA";
-
 const statusOrder:ProductionExecutionStatus[]=["WAITING","ON-GOING","DONE"];
 const statusClass=(status:ProductionExecutionStatus)=>status==="DONE"?"done":status==="ON-GOING"?"ongoing":"waiting";
 
@@ -17,7 +15,6 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
  const [search,setSearch]=useState("");
  const [status,setStatus]=useState<"ALL"|ProductionExecutionStatus>("ALL");
  const [area,setArea]=useState("ALL");
- const [view,setView]=useState<ViewMode>("LIST");
  const [busy,setBusy]=useState("");
 
  const fmt=(v:number,max=2)=>new Intl.NumberFormat(locale==="vi"?"vi-VN":"en-US",{maximumFractionDigits:max}).format(Number(v||0));
@@ -98,10 +95,20 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
  }
 
  const grouped=useMemo(()=>{
-  const map=new Map<string,ProductionWorkItem[]>();
-  for(const item of filtered){const list=map.get(item.area)||[];list.push(item);map.set(item.area,list);}
-  return [...map.entries()].sort(([a],[b])=>a.localeCompare(b));
- },[filtered]);
+  const sourceAreas=area==="ALL"?areas:[area];
+  return sourceAreas.map(name=>{
+   const rows=filtered.filter(item=>item.area===name);
+   const summary={
+    waiting:rows.filter(x=>x.status==="WAITING").length,
+    ongoing:rows.filter(x=>x.status==="ON-GOING").length,
+    done:rows.filter(x=>x.status==="DONE").length,
+    jobs:rows.reduce((n,x)=>n+x.jobs,0),
+    qty:rows.reduce((n,x)=>n+x.qty,0),
+    surface:rows.reduce((n,x)=>n+x.surface,0),
+   };
+   return {name,rows,summary};
+  });
+ },[area,areas,filtered]);
 
  return <div className="production-execution-workspace">
   <div className="production-kpis">
@@ -119,11 +126,22 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
     <select className="input" value={area} onChange={e=>setArea(e.target.value)}><option value="ALL">{text("All Areas","Tất cả khu vực")}</option>{areas.map(x=><option key={x} value={x}>{x}</option>)}</select>
     <select className="input" value={status} onChange={e=>setStatus(e.target.value as typeof status)}><option value="ALL">{text("All Statuses","Tất cả trạng thái")}</option>{statusOrder.map(s=><option key={s} value={s}>{statusLabel(s)}</option>)}</select>
    </div>
-   <div className="production-view-switch"><button type="button" className={`btn ${view==="LIST"?"primary":""}`} onClick={()=>setView("LIST")}>{text("List","Danh sách")}</button><button type="button" className={`btn ${view==="AREA"?"primary":""}`} onClick={()=>setView("AREA")}>{text("By Area","Theo khu vực")}</button></div>
   </div>
 
-  <div className="production-result-meta"><b>{filtered.length}</b> {text("work items","công việc")}<span>·</span><span>{text("Execution status is independent from Scheduling status.","Trạng thái thực hiện độc lập với trạng thái Điều độ.")}</span></div>
+  <div className="production-result-meta"><b>{filtered.length}</b> {text("work items","công việc")}<span>·</span><span>{text("Execution status is independent from Scheduling status.","Trạng thái thực hiện độc lập với trạng thái Điều độ.")}</span><span>·</span><span>{text("Displayed separately by area.","Hiển thị tách riêng theo từng khu vực.")}</span></div>
 
-  {view==="LIST"?<section className="erp-table-panel production-list-panel"><WorkTable rows={filtered}/></section>:<div className="production-area-stack">{grouped.map(([name,rows])=><section className="erp-table-panel production-area-panel" key={name}><div className="erp-panel-head"><div><b>{name||"—"}</b><small>{rows.length} {text("work items","công việc")}</small></div></div><WorkTable rows={rows}/></section>)}</div>}
+  <div className="production-area-stack">{grouped.map(group=><section className="erp-table-panel production-area-panel" key={group.name}>
+   <div className="erp-panel-head">
+    <div><b>{group.name||"—"}</b><small>{group.rows.length} {text("work items","công việc")}</small></div>
+    <div className="production-area-summary">
+     <span><b>{group.summary.waiting}</b> {text("Waiting","Chờ thực hiện")}</span>
+     <span><b>{group.summary.ongoing}</b> {text("On-going","Đang thực hiện")}</span>
+     <span><b>{group.summary.done}</b> {text("Done","Hoàn thành")}</span>
+     <span><b>{fmt(group.summary.qty,0)}</b> Qty</span>
+     <span><b>{fmt(group.summary.surface,0)}</b> dm²</span>
+    </div>
+   </div>
+   <WorkTable rows={group.rows}/>
+  </section>)}</div>
  </div>;
 }
