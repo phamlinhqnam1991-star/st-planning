@@ -592,6 +592,7 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
  const [fullView,setFullView]=useState(false);
  const [candidateDomLimit,setCandidateDomLimit]=useState(CANDIDATE_INITIAL_DOM_ROWS);
  const candidateDomSentinelRef=useRef<HTMLTableRowElement|null>(null);
+ const candidateTableWrapRef=useRef<HTMLDivElement|null>(null);
  const [candidateDensity,setCandidateDensity]=useState<"normal"|"compact"|"ultra">(erpMode?"compact":(initialView?.density??"compact"));
  const [routeFocus,setRouteFocus]=useState(erpMode?true:Boolean(initialView?.routeFocus));
  // v282: Chẩn đoán Recipe + So sánh Cấu hình ↔ Board.
@@ -1814,29 +1815,6 @@ const currentPriorityMonth=useMemo(()=>{
  useEffect(()=>{
   setCandidateDomLimit(CANDIDATE_INITIAL_DOM_ROWS);
  },[candidateIdentityKey,displayRuleKey]);
- useEffect(()=>{
-  const node=candidateDomSentinelRef.current;
-  if(!node||candidateDomLimit>=displayCandidates.length)return;
-  const observer=new IntersectionObserver(entries=>{
-   if(entries.some(x=>x.isIntersecting)){
-    setCandidateDomLimit(v=>Math.min(displayCandidates.length,v+CANDIDATE_DOM_ROW_STEP));
-   }
-  },{rootMargin:"600px 0px"});
-  observer.observe(node);
-  return ()=>observer.disconnect();
- },[candidateDomLimit,displayCandidates.length]);
- const renderedCandidates=useMemo(
-  ()=>displayCandidates.slice(0,candidateDomLimit),
-  [displayCandidates,candidateDomLimit]
- );
- const visibleCandidateIdsKey=useMemo(
-  ()=>renderedCandidates.map(x=>String(x.id)).join(","),
-  [renderedCandidates]
- );
- useEffect(()=>{
-  if(!onVisibleCandidateIds||!visibleCandidateIdsKey)return;
-  onVisibleCandidateIds(visibleCandidateIdsKey.split(",").map(Number).filter(Number.isFinite));
- },[visibleCandidateIdsKey,onVisibleCandidateIds]);
 
  const eligibleCandidates=useMemo(
    ()=>displayCandidates.filter(x=>x.planning_status==="ELIGIBLE"),
@@ -2367,6 +2345,46 @@ const currentPriorityMonth=useMemo(()=>{
   [batchScopedDisplayCandidates,candidateDomLimit]
  );
 
+ // v379: progressive DOM rendering must follow the ACTUAL rendered scope.
+ // During ERP Batch Selection Mode the table temporarily narrows to one Main
+ // Operation. Previously the observer watched displayCandidates.length instead
+ // of batchScopedDisplayCandidates.length. When the selected READY cell was
+ // cleared, the sentinel re-appeared but the observer effect did not re-run, so
+ // the table stopped after the current DOM chunk (typically 100 rows).
+ const batchRenderScopeKey=erpMode&&batchSelectionModeActive
+  ?`MAIN:${normalized(batchSelectionOperation)}`
+  :"ALL";
+ useEffect(()=>{
+  const node=candidateDomSentinelRef.current;
+  const total=batchScopedDisplayCandidates.length;
+  if(!node||candidateDomLimit>=total)return;
+  const observer=new IntersectionObserver(entries=>{
+   if(entries.some(x=>x.isIntersecting)){
+    setCandidateDomLimit(v=>Math.min(total,v+CANDIDATE_DOM_ROW_STEP));
+   }
+  },{
+   // The Candidate table scrolls inside .table-wrap, not the window.
+   // Using that scroll container as the observer root makes progressive loading
+   // deterministic in normal and Full View modes.
+   root:candidateTableWrapRef.current,
+   rootMargin:"600px 0px"
+  });
+  observer.observe(node);
+  return ()=>observer.disconnect();
+ },[candidateDomLimit,batchScopedDisplayCandidates.length,batchRenderScopeKey]);
+
+ // Route Matrix lazy-load must follow rows that are really painted. When Batch
+ // Selection is cleared this immediately requests statuses for the restored
+ // rows instead of keeping the old narrowed scope.
+ const visibleCandidateIdsKey=useMemo(
+  ()=>batchScopedRenderedCandidates.map(x=>String(x.id)).join(","),
+  [batchScopedRenderedCandidates]
+ );
+ useEffect(()=>{
+  if(!onVisibleCandidateIds||!visibleCandidateIdsKey)return;
+  onVisibleCandidateIds(visibleCandidateIdsKey.split(",").map(Number).filter(Number.isFinite));
+ },[visibleCandidateIdsKey,onVisibleCandidateIds]);
+
  // While batching in ERP, keep the Job identity columns and only the active
  // Main Operation matrix column. Clearing the selection restores the full matrix.
  const batchScopedActiveColumns=useMemo(()=>{
@@ -2706,13 +2724,15 @@ const currentPriorityMonth=useMemo(()=>{
     hour:"2-digit",
     minute:"2-digit",
     day:"2-digit",
+    month:"short",
     hour12:false
    }).formatToParts(d);
    const val=(t:string)=>parts.find(x=>x.type===t)?.value||"";
    const hh=val("hour");
    const mm=val("minute");
    const dd=val("day");
-   return hh&&mm&&dd?`${hh}:${mm} ${dd}`:"";
+   const mon=val("month").toUpperCase();
+   return hh&&mm&&dd&&mon?`${hh}:${mm} ${dd}-${mon}`:"";
  };
 
  const routeCellSelected=(item:RouteStatusItem)=>{
@@ -3704,7 +3724,7 @@ const currentPriorityMonth=useMemo(()=>{
      <small>Chọn R để thêm Job vào Batch · thứ tự cột theo Main Planning Order</small>
     </div>}
 
-    <div className="table-wrap">
+    <div ref={candidateTableWrapRef} className="table-wrap">
      <table
       ref={freezeTableRef}
       className={`erp-table planning-candidate-table${erpMode?" planning-erp-matrix-table":""}${freezeActive||freezeDraft?" candidate-freeze-on":""}`}
