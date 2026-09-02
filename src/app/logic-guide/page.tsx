@@ -49,9 +49,10 @@ export default async function Page(){
  const db=await getPool().connect();
  let mappings:any[]=[],areas:any[]=[],scheduleAreas:any[]=[],mainOps:any[]=[],nextOps:any[]=[];
  let recipes:any[]=[],recipeMaps:any[]=[],timeRules:any[]=[],handlingRules:any[]=[],resources:any[]=[];
+ let mainLinks:any[]=[],groupLinks:any[]=[];
  let error="";
  try{
-  const [mappingQ,areaQ,scheduleQ,mainQ,nextQ,recipeQ,recipeMapQ,timeQ,handlingQ,resourceQ]=await Promise.all([
+  const [mappingQ,areaQ,scheduleQ,mainQ,nextQ,recipeQ,recipeMapQ,timeQ,handlingQ,resourceQ,mainLinkQ,groupLinkQ]=await Promise.all([
    db.query(`
     select m.sort_order,m.source_operation_code,m.st_group,m.standard_operation_rule,m.mapping_rule
     from md_st_operation_mapping m
@@ -138,7 +139,44 @@ export default async function Page(){
     select r.resource_code,r.resource_name,r.resource_group,r.sort_order,r.max_concurrent
     from md_schedule_resource r
     where r.is_active=true
-    order by r.sort_order,r.resource_code`)
+    order by r.sort_order,r.resource_code`),
+   db.query(`
+    select o.standard_operation,o.st_group,o.batch_prefix,o.planning_sort_order,
+           count(distinct m.source_operation_code) source_count,
+           count(distinct mr.mapping_id) recipe_count,
+           coalesce(string_agg(distinct sa.schedule_area_code, ', ' order by sa.schedule_area_code) filter(where sa.schedule_area_code is not null),'—') schedule_areas,
+           coalesce(string_agg(distinct sa.planner_owner, ', ' order by sa.planner_owner) filter(where sa.planner_owner is not null and btrim(sa.planner_owner)<>''),'—') planners
+    from md_operation_master o
+    left join md_st_operation_mapping m
+      on m.is_active=true
+     and upper(trim(m.standard_operation_rule))=upper(trim(o.standard_operation))
+    left join md_main_operation_recipe mr
+      on mr.is_active=true
+     and upper(trim(coalesce(mr.standard_operation,'')))=upper(trim(o.standard_operation))
+    left join md_schedule_area_operation sao
+      on sao.is_active=true
+     and upper(trim(sao.standard_operation))=upper(trim(o.standard_operation))
+    left join md_schedule_area sa
+      on sa.is_active=true
+     and sa.schedule_area_code=sao.schedule_area_code
+    where o.is_active=true
+    group by o.standard_operation,o.st_group,o.batch_prefix,o.planning_sort_order
+    order by o.planning_sort_order nulls last,o.standard_operation`),
+   db.query(`
+    select g.st_group,g.group_name,
+           coalesce(string_agg(distinct a.area_name, ', ' order by a.area_name) filter(where a.area_name is not null),'—') areas,
+           coalesce(string_agg(distinct s.schedule_area_name, ', ' order by s.schedule_area_name) filter(where s.schedule_area_name is not null),'—') schedule_areas,
+           coalesce(string_agg(distinct s.planner_owner, ', ' order by s.planner_owner) filter(where s.planner_owner is not null and btrim(s.planner_owner)<>''),'—') planners,
+           coalesce(string_agg(distinct om.standard_operation, ', ' order by om.standard_operation) filter(where om.standard_operation is not null),'—') main_operations
+    from md_st_group g
+    left join md_area_operation_group ag on ag.is_active=true and ag.st_group=g.st_group
+    left join md_area a on a.is_active=true and a.id=ag.area_id
+    left join md_operation_master om on om.is_active=true and om.st_group=g.st_group
+    left join md_schedule_area_operation sao on sao.is_active=true and upper(trim(sao.standard_operation))=upper(trim(om.standard_operation))
+    left join md_schedule_area s on s.is_active=true and s.schedule_area_code=sao.schedule_area_code
+    where g.is_active=true
+    group by g.st_group,g.group_name
+    order by g.st_group`)
   ]);
   mappings=mappingQ.rows;
   areas=areaQ.rows;
@@ -150,6 +188,8 @@ export default async function Page(){
   timeRules=timeQ.rows;
   handlingRules=handlingQ.rows;
   resources=resourceQ.rows;
+  mainLinks=mainLinkQ.rows;
+  groupLinks=groupLinkQ.rows;
  }catch(e){
   error=e instanceof Error?e.message:String(e);
  }finally{
@@ -679,7 +719,23 @@ export default async function Page(){
    <Section id="live" title="12 · Mapping đang chạy — đọc trực tiếp database"
     sub="Dùng để đối chiếu tài liệu với cấu hình production hiện tại; bảng này không phải dữ liệu mẫu">
 
-    <div className="lg-subtitle">11.1 · Main Operation — Planning Order nội bộ + Batch Prefix</div>
+    <div className="lg-subtitle">12.0 · Bảng kết nối tổng hợp — Main Operation → Recipe → Schedule → Planner</div>
+    <div className="table-wrap"><table className="erp-table">
+     <thead><tr><th>Main Operation</th><th>ST Group</th><th>Batch Prefix</th><th>Planning Order</th><th>Source Ops</th><th>Recipe Rules</th><th>Schedule Area</th><th>Planner</th></tr></thead>
+     <tbody>{mainLinks.map((x:any,i)=><tr key={`main-link-${i}`}>
+      <td><b>{x.standard_operation}</b></td><td>{x.st_group||"—"}</td><td className="mono">{x.batch_prefix||"—"}</td><td className="num">{x.planning_sort_order??"—"}</td><td className="num">{x.source_count??0}</td><td className="num">{x.recipe_count??0}</td><td>{x.schedule_areas||"—"}</td><td>{x.planners||"—"}</td>
+     </tr>)}{!mainLinks.length&&<tr><td colSpan={8} className="muted">Chưa đọc được bảng kết nối Main Operation.</td></tr>}</tbody>
+    </table></div>
+
+    <div className="lg-subtitle">12.0.1 · Bảng kết nối tổng hợp — ST Group → Area → Schedule Area → Planner</div>
+    <div className="table-wrap"><table className="erp-table">
+     <thead><tr><th>ST Group</th><th>Tên nhóm</th><th>Main Operations</th><th>Physical Area</th><th>Schedule Area</th><th>Planner</th></tr></thead>
+     <tbody>{groupLinks.map((x:any,i)=><tr key={`group-link-${i}`}>
+      <td className="mono"><b>{x.st_group}</b></td><td>{x.group_name||"—"}</td><td>{x.main_operations||"—"}</td><td>{x.areas||"—"}</td><td>{x.schedule_areas||"—"}</td><td>{x.planners||"—"}</td>
+     </tr>)}{!groupLinks.length&&<tr><td colSpan={6} className="muted">Chưa đọc được bảng kết nối ST Group.</td></tr>}</tbody>
+    </table></div>
+
+    <div className="lg-subtitle">12.1 · Main Operation — Planning Order nội bộ + Batch Prefix</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Main Operation</th><th>ST Group</th><th>Batch Prefix</th><th>Main Planning Order</th><th>Active</th></tr></thead>
      <tbody>{mainOps.map((x:any,i)=><tr key={`${x.standard_operation}-${i}`}>
@@ -687,7 +743,7 @@ export default async function Page(){
      </tr>)}{!mainOps.length&&<tr><td colSpan={5} className="muted">Không đọc được Main Operation.</td></tr>}</tbody>
     </table></div>
 
-    <div className="lg-subtitle">11.2 · Operation Code Order — tie-breaker trong cùng Main</div>
+    <div className="lg-subtitle">12.2 · Operation Code Order — tie-breaker trong cùng Main</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Operation Code</th><th>Loại</th><th>Operation Name</th><th>Operation Code Order</th></tr></thead>
      <tbody>{nextOps.map((x:any,i)=><tr key={`${x.operation_code}-${i}`}>
@@ -695,7 +751,7 @@ export default async function Page(){
      </tr>)}{!nextOps.length&&<tr><td colSpan={4} className="muted">Không đọc được Operation Code Order.</td></tr>}</tbody>
     </table></div>
 
-    <div className="lg-subtitle">11.3 · Source → Main Mapping</div>
+    <div className="lg-subtitle">12.3 · Source → Main Mapping</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>ST Group</th><th>Source Operation</th><th>Main/Rule</th><th>Mapping Rule</th></tr></thead>
      <tbody>{mappings.map((m:any,i)=><tr key={i}><td>{m.st_group}</td><td className="mono">{m.source_operation_code}</td><td>{m.standard_operation_rule||"—"}</td><td>{m.mapping_rule||"—"}</td></tr>)}
@@ -703,7 +759,7 @@ export default async function Page(){
      </tbody>
     </table></div>
 
-    <div className="lg-subtitle">11.4 · Operation Code → Recipe Mapping runtime</div>
+    <div className="lg-subtitle">12.4 · Operation Code → Recipe Mapping runtime</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Rule ID</th><th>Operation Code</th><th>Main</th><th>Recipe Key</th><th>Priority</th><th>Default</th><th>Selection Rule</th></tr></thead>
      <tbody>{recipeMaps.map((m:any,i)=><tr key={i}>
@@ -711,7 +767,7 @@ export default async function Page(){
      </tr>)}{!recipeMaps.length&&<tr><td colSpan={6} className="muted">Chưa có Recipe mapping.</td></tr>}</tbody>
     </table></div>
 
-    <div className="lg-subtitle">11.5 · Recipe Catalog</div>
+    <div className="lg-subtitle">12.5 · Recipe Catalog</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Recipe No</th><th>Recipe Name</th><th>Family</th><th>Operation mapping đầu tiên</th></tr></thead>
      <tbody>{recipes.map((r:any,i)=><tr key={i}><td className="mono"><b>{r.recipe_no||"—"}</b></td><td>{r.recipe_name||"—"}</td><td>{r.process_family||"—"}</td><td>{r.default_operation?badge(String(r.default_operation),"green"):badge("Chưa map","warning")}</td></tr>)}
@@ -719,7 +775,7 @@ export default async function Page(){
      </tbody>
     </table></div>
 
-    <div className="lg-subtitle">11.6 · Process Time Rules</div>
+    <div className="lg-subtitle">12.6 · Process Time Rules</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Recipe</th><th>Mode</th><th>Priority</th><th>Qty</th><th>Surface dm²</th><th>Fixed</th><th>Standard</th></tr></thead>
      <tbody>{timeRules.map((r:any,i)=><tr key={i}>
@@ -727,7 +783,7 @@ export default async function Page(){
      </tr>)}{!timeRules.length&&<tr><td colSpan={7} className="muted">Chưa có Process Time.</td></tr>}</tbody>
     </table></div>
 
-    <div className="lg-subtitle">11.7 · Loading / Unloading Rules</div>
+    <div className="lg-subtitle">12.7 · Loading / Unloading Rules</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Phase</th><th>Priority</th><th>Qty</th><th>Surface dm²</th><th>Minutes</th></tr></thead>
      <tbody>{handlingRules.map((r:any,i)=><tr key={i}><td>{r.phase}</td><td className="num">{r.priority}</td><td>{r.qty_min??"—"} – {r.qty_max??"—"}</td><td>{r.surface_min_dm2??"—"} – {r.surface_max_dm2??"—"}</td><td className="num"><b>{r.duration_minutes}</b></td></tr>)}
@@ -735,7 +791,7 @@ export default async function Page(){
      </tbody>
     </table></div>
 
-    <div className="lg-subtitle">11.8 · Physical Area / ST Group</div>
+    <div className="lg-subtitle">12.8 · Physical Area / ST Group</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Area</th><th>ST Groups</th></tr></thead>
      <tbody>{areas.map((a:any,i)=><tr key={i}><td><b>{a.area_name}</b><small className="planning-sub"> {a.area_code}</small></td><td>{a.st_groups}</td></tr>)}
@@ -743,7 +799,7 @@ export default async function Page(){
      </tbody>
     </table></div>
 
-    <div className="lg-subtitle">11.9 · Schedule Area → Planner → Main Operation</div>
+    <div className="lg-subtitle">12.9 · Schedule Area → Planner → Main Operation</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Schedule Area</th><th>Resource Group</th><th>Resource</th><th>Rows</th><th>Planner</th><th>Main Operations</th></tr></thead>
      <tbody>{scheduleAreas.map((s:any,i)=><tr key={i}><td><b>{s.schedule_area_name}</b><small className="planning-sub"> {s.schedule_area_code}</small></td><td>{s.resource_group||"—"}</td><td>{s.resource_code||"—"}</td><td className="num">{s.default_rows}</td><td>{s.planner_owner||"—"}</td><td>{String(s.operations||"").split(", ").map((o:string)=><span key={o}>{badge(o,"blue")} </span>)}</td></tr>)}
@@ -751,7 +807,7 @@ export default async function Page(){
      </tbody>
     </table></div>
 
-    <div className="lg-subtitle">11.10 · Schedule Resources</div>
+    <div className="lg-subtitle">12.10 · Schedule Resources</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Resource</th><th>Group</th><th>Sort</th><th>Max Concurrent</th></tr></thead>
      <tbody>{resources.map((r:any,i)=><tr key={i}><td><b>{r.resource_code}</b><small className="planning-sub"> {r.resource_name||""}</small></td><td>{r.resource_group||"—"}</td><td className="num">{r.sort_order}</td><td className="num">{r.max_concurrent||"—"}</td></tr>)}
