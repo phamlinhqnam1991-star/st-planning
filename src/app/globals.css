@@ -2207,12 +2207,52 @@ button,a,input,select,textarea{touch-action:manipulation}
 .schedule-area-group-block>.schedule-area-grid-title small{color:#cfe3f5}
 .schedule-area-group-block>.schedule-area-grid-title .schedule-area-row-actions span{color:#cfe3f5}
 .schedule-area-group-children{display:flex;flex-direction:column;gap:10px;padding:10px}
-.schedule-area-grid-title{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;background:#dbe9f7;border-bottom:1px solid #9fb6cf}
-.schedule-area-grid-title>div:first-child{display:flex;flex-direction:column;min-width:0}
-.schedule-area-grid-title b{font-size:12px;color:#123f6b}
-.schedule-area-grid-title small{font-size:9px;color:#536b82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:900px}
-.schedule-area-row-actions{display:flex;align-items:center;gap:6px;white-space:nowrap}
-.schedule-area-row-actions span{font-size:9px;color:#536b82}
+.schedule-area-grid-title{
+ display:flex;
+ align-items:flex-start;
+ justify-content:space-between;
+ gap:12px;
+ padding:10px 12px 8px;
+ min-height:54px;
+ background:#dbe9f7;
+ border-bottom:1px solid #9fb6cf;
+}
+.schedule-area-grid-title>div:first-child{
+ display:flex;
+ flex-direction:column;
+ align-items:flex-start;
+ justify-content:flex-start;
+ gap:2px;
+ min-width:0;
+ flex:1 1 auto;
+}
+.schedule-area-grid-title b{
+ display:block;
+ margin:0;
+ font-size:12px;
+ line-height:1.2;
+ color:#123f6b;
+}
+.schedule-area-grid-title small{
+ display:block;
+ margin:0;
+ font-size:9px;
+ line-height:1.2;
+ color:#536b82;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+ max-width:900px;
+}
+.schedule-area-row-actions{
+ display:flex;
+ align-items:center;
+ align-self:flex-start;
+ gap:6px;
+ min-height:28px;
+ white-space:nowrap;
+}
+.schedule-area-row-actions span{font-size:9px;line-height:1.2;color:#536b82}
 .schedule-area-unmapped{padding:7px 10px;background:#fff4d6;color:#805b00;font-size:10px;font-weight:700}
 .schedule-area-entry-table{font-size:9px}
 .schedule-area-entry-table th{white-space:nowrap;background:#f2f6fa}
@@ -2677,6 +2717,11 @@ button,a,input,select,textarea{touch-action:manipulation}
 @media(max-width:900px){
  .candidate-full-view .candidate-sticky-toolbar{align-items:flex-start}
  .candidate-full-view .candidate-sticky-toolbar>.row{flex-wrap:wrap}
+}
+
+@media(max-width:1100px){
+ .schedule-area-grid-title{flex-wrap:wrap}
+ .schedule-area-row-actions{width:100%;justify-content:flex-end;flex-wrap:wrap}
 }
 
 /* v131 - click Main Operation cell */

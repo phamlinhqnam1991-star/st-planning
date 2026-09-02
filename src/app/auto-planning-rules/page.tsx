@@ -126,7 +126,7 @@ export default async function Page(){
       subtitle="Cấu hình quy tắc tự động riêng cho từng Main Operation."
       purpose="Cấu hình quy tắc tự động gom lô cho từng công đoạn chính: job nào được gom, gom theo tiêu chí nào, giới hạn lô ra sao, ưu tiên xếp lô thế nào."
       impact="Các rule này chỉ tác động khi Auto Planning được sử dụng; Planning thủ công hiện tại không thay đổi."
-      prev={{label:"Batch Key / Recipe Rules",href:"/recipe-operation-map"}}
+      prev={{label:"Process Time",href:"/recipe-time-process"}}
      />
 
      <AutoPlanningRuleManager

@@ -15,8 +15,8 @@ export default async function Page(){
      subtitle="Tổng hợp mọi giá trị unique theo từng cột trong All Open Job — nguồn dữ liệu để cấu hình Batch Key / Recipe Rules."
      purpose="Là 'từ điển' giá trị của các cột Job (vd cột PRIMER1 có các giá trị nào) — giúp tạo điều kiện rule chính xác, đặt tên hiển thị dễ đọc và lọc nhanh trên Planning Board."
      impact="Dữ liệu này không tự đổi: bấm Scan / Rebuild để quét lại sau mỗi lần Import Master mới. Giá trị bị ngưng dùng (Inactive) sẽ không xuất hiện khi chọn điều kiện rule."
-     prev={{label:"Thời gian xử lý (Process)",href:"/recipe-time-process"}}
-     next={undefined}
+     prev={{label:"Recipe & Batch Rules",href:"/recipe-operation-map"}}
+     next={{label:"Loading / Unloading Time",href:"/recipe-time-loading"}}
     />
     <OpenJobColumnValueManager/>
    </section>

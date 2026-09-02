@@ -57,7 +57,7 @@ export default async function Page(){
       subtitle="Đặt Operation Code Order tùy chọn để tie-break các RAW NextOperation trong cùng Main. Thứ tự chính kế thừa Main Planning Order."
       purpose="Đặt thứ tự hiển thị/sort của RAW NextOperation (vd CMSA = 10 · INSPLM = 25 · CHEMMILL = 30). Field này độc lập với Main Planning Order."
       impact="Đổi Operation Code Order không thay đổi READY/WAIT hay Planning Chain; nó chỉ đổi tie-break trong cùng Main. Chỉ Add/Remove ST Scope mới ảnh hưởng chuỗi công đoạn."
-      prev={{label:"Tổng quan Cấu hình",href:"/settings"}}
+      prev={{label:"ST Operation Flow",href:"/st-operation-flow"}}
       next={{label:"Source → Main Mapping",href:"/master/operationmapping"}}
      />
 

@@ -83,7 +83,7 @@ export default async function Page(){
       purpose="Định nghĩa thời gian xử lý của từng Recipe: Cố định hoặc theo khoảng Số lượng + Diện tích; mỗi rule có thể thêm nhiều điều kiện từ các cột All Open Job. Thời gian nhập theo HH:MM."
       impact="Khi tạo/thêm/bớt Job hoặc đổi Recipe, Process Time của Batch được tính lại. Duration trên Board Điều Độ vẫn có thể được planner chỉnh riêng mà không sửa rule chuẩn."
       prev={{label:"Thời gian Loading / Unloading",href:"/recipe-time-loading"}}
-      next={{label:"Cột All Open Job (từ điển)",href:"/open-job-column-values"}}
+      next={{label:"Auto Planning Rules",href:"/auto-planning-rules"}}
      />
      <ProcessTimeRuleManager recipes={recipesQ.rows as any} rules={timeRulesQ.rows as any} columns={columnsQ.rows as any}/>
     </section>

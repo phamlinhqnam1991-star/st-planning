@@ -75,29 +75,51 @@ export const CONFIG_FLOW: {
   items: ConfigFlowItem[];
 }[] = [
   {
-    tier: "Tầng 1 · Định nghĩa công đoạn",
-    tag: "làm 1 lần",
+    tier: "01 · Operation Architecture",
+    tag: "nền tảng",
+    hint: "Xác định Operation nào thuộc ST, map Source → Main và thứ tự Planning.",
     items: [
-      { key: "overview", label: "🏠 Tổng quan Cấu hình", href: "/settings" },
-      { key: "flow", label: "Trợ lý Operation (ST Operation Flow)", href: "/st-operation-flow", no: 1, statusKey: "chain_ok" },
-      { key: "operationcodeorder", label: "ST Scope", href: "/operation-code-order", no: 2, statusKey: "scope_total" },
+      { key: "flow", label: "ST Operation Flow", href: "/st-operation-flow", no: 1, statusKey: "chain_ok" },
+      { key: "operationcodeorder", label: "ST Scope & Operation Code", href: "/operation-code-order", no: 2, statusKey: "scope_total" },
       { key: "operationmapping", label: "Source → Main Mapping", href: "/master/operationmapping", no: 3, statusKey: "mapping_missing" },
-      { key: "operation", label: "Công đoạn chính (Main Operation)", href: "/master/operation", no: 4, statusKey: "master_total" },
-      { key: "stgroup", label: "ST Group (nhóm công đoạn)", href: "/st-groups", no: 5, statusKey: "group_total" },
-      { key: "area", label: "Khu vực vật lý", href: "/area", no: 6, statusKey: "area_total" },
-      { key: "schedulearea", label: "Khu vực điều độ (lane)", href: "/schedule-areas", no: 7, statusKey: "schedule_total" },
-      { key: "plannerassignment", label: "Phân chia Planner", href: "/planner-work-assignment", no: 8, statusKey: "planner_assigned" },
+      { key: "operation", label: "Main Operation", href: "/master/operation", no: 4, statusKey: "master_total" },
     ],
   },
   {
-    tier: "Tầng 2 · Công thức & Rule",
-    tag: "điều khiển tạo lô",
-    hint: "Chỉ cần 9–11 cho nhu cầu cơ bản (chọn Job vào lô là ra Recipe đúng). 12 tùy chọn (từ điển cột).",
+    tier: "02 · Organization & Resource",
+    tag: "ownership",
+    hint: "Gắn Main Operation vào nhóm, khu vực vật lý, lane điều độ và Planner phụ trách.",
     items: [
-      { key: "recipeoperationmap", label: "Công thức & Rule (Recipe · Công đoạn · Mã lô)", href: "/recipe-operation-map", no: 9, statusKey: "recipe_op_total" },
-      { key: "recipetimeloading", label: "Thời gian Loading / Unloading", href: "/recipe-time-loading", no: 10, statusKey: "handling_total" },
-      { key: "recipetimeprocess", label: "Thời gian xử lý (Process)", href: "/recipe-time-process", no: 11, statusKey: "time_total" },
-      { key: "openjobcolumnvalues", label: "Cột All Open Job (từ điển)", href: "/open-job-column-values", no: 12, statusKey: "colval_total" },
+      { key: "stgroup", label: "ST Group", href: "/st-groups", no: 5, statusKey: "group_total" },
+      { key: "area", label: "Physical Area", href: "/area", no: 6, statusKey: "area_total" },
+      { key: "schedulearea", label: "Schedule Area", href: "/schedule-areas", no: 7, statusKey: "schedule_total" },
+      { key: "plannerassignment", label: "Planner Assignment", href: "/planner-work-assignment", no: 8, statusKey: "planner_assigned" },
+    ],
+  },
+  {
+    tier: "03 · Recipe & Batch",
+    tag: "batch rules",
+    hint: "Cấu hình Recipe proposal, Batch Key, điều kiện tương thích và nguồn giá trị từ All Open Job.",
+    items: [
+      { key: "recipeoperationmap", label: "Recipe & Batch Rules", href: "/recipe-operation-map", no: 9, statusKey: "recipe_op_total" },
+      { key: "openjobcolumnvalues", label: "Open Job Column Values", href: "/open-job-column-values", no: 10, statusKey: "colval_total" },
+    ],
+  },
+  {
+    tier: "04 · Time & Scheduling",
+    tag: "duration",
+    hint: "Định nghĩa thời gian chuẩn dùng khi tạo Batch và điều độ.",
+    items: [
+      { key: "recipetimeloading", label: "Loading / Unloading Time", href: "/recipe-time-loading", no: 11, statusKey: "handling_total" },
+      { key: "recipetimeprocess", label: "Process Time", href: "/recipe-time-process", no: 12, statusKey: "time_total" },
+    ],
+  },
+  {
+    tier: "05 · Automation",
+    tag: "future ready",
+    hint: "Quy tắc Auto Planning dùng chung data model với Planning thủ công.",
+    items: [
+      { key: "autoplanning", label: "Auto Planning Rules", href: "/auto-planning-rules", no: 13 },
     ],
   },
 ];

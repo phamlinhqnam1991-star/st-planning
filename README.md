@@ -83,3 +83,7 @@ Navigation đã chuyển từ 10 tab ngang hàng sang kiến trúc ERP 2 tầng:
 V6 kế thừa toàn bộ interaction V5: Configuration split workspace, sticky action, ERP dialog/toast, field states, schedule workspace, tracker fact-sheet. Business logic/API/DB không đổi trong vòng UI này.
 
 Trang `/erp-kit` là showcase/reference component, không phải nguồn business logic.
+
+## Configuration ERP Work Center V1
+
+Tab Cấu hình đã được tổ chức lại theo ERP Work Center: Health Dashboard + 5 domain (Operation Architecture, Organization & Resource, Recipe & Batch, Time & Scheduling, Automation). Xem `CONFIGURATION_ERP_WORK_CENTER_V1.md`.

@@ -13,8 +13,7 @@ export default function Page(){
   <AppTabs active="config"/>
   <div className="erp-workspace">
    <ConfigSidebar active="overview"/>
-   <section className="erp-content">
-    <div className="erp-page-head"><div><h2>Tổng quan Cấu hình</h2><p>Luồng chuẩn: từ Operation Code → mapping hoàn chỉnh → sẵn sàng lập kế hoạch</p></div></div>
+   <section className="erp-content erp-config-workcenter-content">
     <ConfigOverviewClient/>
    </section>
   </div>
