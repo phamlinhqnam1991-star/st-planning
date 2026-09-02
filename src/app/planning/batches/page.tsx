@@ -70,7 +70,6 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
      title="Batch gần đây"
      description="Theo dõi các Batch đã tạo từ Planning Board và mở nhanh chi tiết khi cần."
      status={<span className="erpkit-status erpkit-status-success"><span className="erpkit-status-dot"/>LIVE</span>}
-     actions={<Link className="erpkit-btn" href={scoped("/planning-old/batches")}>So sánh giao diện cũ</Link>}
     />
     <ErpTabs active="batches" items={[
      {key:"matrix",label:"Ma trận kế hoạch",href:scoped("/planning")},

@@ -85,15 +85,14 @@ Giai đoạn này chỉ thêm Design System + Showcase. Planning / Batch / Sched
 
 Mở `/erp-kit` để duyệt mock UI cho toàn bộ tab hiện có trước khi áp style vào màn hình production. Demo gồm Master Data, Cấu hình, Part Tracker, Job Tracker, All Open Jobs, Planning Board, Masking / Unmasking, Board Điều Độ, Import Master và Logic & Hướng dẫn. Demo không đọc/ghi database.
 
-## Planning ERP dual route
+## Planning ERP canonical
 
-Trong giai đoạn migrate giao diện Planning:
+Planning ERP đã được chốt làm giao diện chuẩn:
 
-- `/planning` = ERP version mới, dùng logic/runtime Planning hiện tại.
-- `/planning-old` = baseline UI cũ để regression và đối chiếu.
+- `/planning` = Planning Board ERP canonical, dùng logic/runtime Planning hiện tại.
+- `/planning/batches` = Batch gần đây.
+- `/planning/batches/[id]` = Batch Detail.
 
-Xem `PLANNING_ERP_DUAL_ROUTE.md` trước khi xóa baseline.
+Route baseline cũ đã được loại bỏ.
 
 ## ERP UI toàn hệ thống
-
-Bản hiện tại đã áp ERP Template Kit cho toàn bộ các tab production còn lại. Planning Board ERP giữ nguyên logic đã chốt; `/planning-old` tiếp tục là baseline cũ để so sánh. Xem `ERP_FULL_UI.md` để biết phạm vi và nguyên tắc migration.

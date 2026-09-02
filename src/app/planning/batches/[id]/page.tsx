@@ -434,7 +434,6 @@ export default async function Page({
       description={`Chi tiết Batch · ${batch.area_name||"—"} · ${batch.standard_operation}`}
       status={<span className={`erpkit-status ${batchStatusTone(batch.status)}`}><span className="erpkit-status-dot"/>{batchStatusLabel(batch.status)}</span>}
       actions={<div className="erpkit-page-actions">
-       <Link className="erpkit-btn" href={`/planning-old/batches/${batchId}`}>So sánh giao diện cũ</Link>
        <Link
         className="erpkit-btn"
         href={sp.returnTo==="schedule"

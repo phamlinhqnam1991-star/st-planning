@@ -104,7 +104,7 @@
 
 /* ============================================================
    Live Planning Matrix — true ERP presentation
-   Scoped to /planning only. /planning-old keeps baseline CSS.
+   Scoped to the ERP Planning presentation.
    Business logic remains in PlanningCandidateShell/PlanningBoardClient.
    ============================================================ */
 .erpkit-live-planning{min-width:0;display:flex;flex-direction:column;gap:10px}
@@ -181,7 +181,7 @@
 /* ============================================================
    Planning Board ERP polish — production presentation layer
    Scoped strictly to /planning (.planning-erp-version).
-   /planning-old remains on the baseline presentation.
+   Planning now uses the ERP presentation as the canonical UI.
    ============================================================ */
 .planning-erp-version{
   --pln-font:"Segoe UI Variable","Segoe UI",Inter,system-ui,-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
@@ -571,7 +571,7 @@
    - Main Planning columns are intentionally narrow.
    - Status is shown as 1–2 character codes; legend/tooltips keep meaning.
    - Selection remains functional but removes scale/check/animation/hover effects.
-   Scoped to /planning only; /planning-old is unchanged.
+   Scoped to the ERP Planning presentation.
    ============================================================ */
 .planning-erp-version .planning-erp-matrix-table th.route-status-header,
 .planning-erp-version .planning-erp-matrix-table td.route-status-cell{
@@ -764,7 +764,7 @@
 
 /* ========================================================================
    ERP KIT · FULL APPLICATION MIGRATION
-   Shared presentation layer for every production tab except /planning-old.
+   Shared presentation layer for all production tabs.
    Business logic/API/schema remain unchanged.
    ======================================================================== */
 .erpkit-migrated-page{

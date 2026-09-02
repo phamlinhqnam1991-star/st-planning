@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 const root = process.cwd();
 const stale = [
+  "src/app/planning-old",
   "src/app/api/config/batch-key-recipe-rules/route.ts",
   "src/app/api/config/st-operation-flow/bulk/route.ts",
   "src/app/api/config/st-operation-flow/impact/route.ts",

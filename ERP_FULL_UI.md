@@ -18,7 +18,6 @@ Bản này chuyển lớp presentation của toàn bộ ST Planning sang ERP Tem
 
 ## Baseline giữ lại
 
-- `/planning-old` và các route con của nó giữ presentation cũ để regression.
 - `PlanningCandidateShell` và `planning-board-client.tsx` không bị thay đổi trong vòng migrate toàn app này.
 
 ## Kiến trúc

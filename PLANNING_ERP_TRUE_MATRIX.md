@@ -2,15 +2,13 @@
 
 ## Routes
 - `/planning`: ERP Matrix presentation.
-- `/planning-old`: baseline presentation for regression comparison.
 
 ## Architecture
-The two routes keep the same Candidate loading, Route Matrix status calculation,
+The ERP Planning route keeps the existing Candidate loading, Route Matrix status calculation,
 Recipe/Batch Compatibility, selection and Batch mutation logic.
 
 `/planning` passes `presentation="erp"` to the shared PlanningCandidateShell and
-PlanningBoardClient. The ERP presentation has its own column preferences and CSS,
-so changing the new Matrix layout does not overwrite the baseline UI settings.
+PlanningBoardClient. The ERP presentation has its own column preferences and CSS while reusing the canonical Planning business logic.
 
 ## ERP default view
 The ERP Matrix starts with only:
@@ -23,5 +21,3 @@ The ERP Matrix starts with only:
 
 All advanced columns, filters, sort rules, Recipe check, freeze, rebuild and Batch
 functions remain available from the ERP toolbar.
-
-Do not remove `/planning-old` until functional regression has been approved.

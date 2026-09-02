@@ -49,7 +49,6 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
      title="Planning Board"
      description="Ma trận Job × Main Operation · chọn READY để tạo mới hoặc bổ sung Job vào Batch."
      status={<span className="erpkit-status erpkit-status-success"><span className="erpkit-status-dot"/>LIVE</span>}
-     actions={<Link className="erpkit-btn" href={scoped("/planning-old")}>So sánh giao diện cũ</Link>}
     />
 
     <ErpTabs
