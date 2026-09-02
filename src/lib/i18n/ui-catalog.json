@@ -1,0 +1,4045 @@
+{
+  "version": 1,
+  "defaultLocale": "en",
+  "locales": [
+    "en",
+    "vi"
+  ],
+  "pairs": [
+    {
+      "en": "Operations",
+      "vi": "Vận hành",
+      "mode": "phrase"
+    },
+    {
+      "en": "Tracking",
+      "vi": "Theo dõi",
+      "mode": "phrase"
+    },
+    {
+      "en": "Administration",
+      "vi": "Quản trị",
+      "mode": "phrase"
+    },
+    {
+      "en": "Configuration",
+      "vi": "Cấu hình",
+      "mode": "phrase"
+    },
+    {
+      "en": "Logic & Guide",
+      "vi": "Logic & Hướng dẫn",
+      "mode": "phrase"
+    },
+    {
+      "en": "Scheduling Board",
+      "vi": "Board Điều Độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "Scheduling",
+      "vi": "Điều độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "Quick Start",
+      "vi": "Bắt đầu nhanh",
+      "mode": "phrase"
+    },
+    {
+      "en": "Overall Flow",
+      "vi": "Flow tổng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Live Mapping",
+      "vi": "Mapping đang chạy",
+      "mode": "phrase"
+    },
+    {
+      "en": "Purpose",
+      "vi": "Mục đích",
+      "mode": "phrase"
+    },
+    {
+      "en": "Downstream Impact",
+      "vi": "Ảnh hưởng phía sau",
+      "mode": "phrase"
+    },
+    {
+      "en": "Impact",
+      "vi": "Ảnh hưởng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Actions",
+      "vi": "Thao tác",
+      "mode": "phrase"
+    },
+    {
+      "en": "Status",
+      "vi": "Trạng thái",
+      "mode": "phrase"
+    },
+    {
+      "en": "Priority",
+      "vi": "Ưu tiên",
+      "mode": "phrase"
+    },
+    {
+      "en": "Area",
+      "vi": "Khu vực",
+      "mode": "phrase"
+    },
+    {
+      "en": "Physical Area",
+      "vi": "Khu vực vật lý",
+      "mode": "phrase"
+    },
+    {
+      "en": "Schedule Area",
+      "vi": "Khu vực điều độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "Process Time",
+      "vi": "Thời gian Process",
+      "mode": "phrase"
+    },
+    {
+      "en": "Loading / Unloading Time",
+      "vi": "Thời gian Loading / Unloading",
+      "mode": "phrase"
+    },
+    {
+      "en": "Open Job Column Values",
+      "vi": "Cột All Open Job",
+      "mode": "phrase"
+    },
+    {
+      "en": "Planner Assignment",
+      "vi": "Phân chia Planner",
+      "mode": "phrase"
+    },
+    {
+      "en": "Planning",
+      "vi": "Kế hoạch",
+      "mode": "phrase"
+    },
+    {
+      "en": "Operation",
+      "vi": "Công đoạn",
+      "mode": "phrase"
+    },
+    {
+      "en": "Operations",
+      "vi": "Công đoạn",
+      "mode": "phrase"
+    },
+    {
+      "en": "Search",
+      "vi": "Tìm",
+      "mode": "phrase"
+    },
+    {
+      "en": "Search...",
+      "vi": "Tìm...",
+      "mode": "phrase"
+    },
+    {
+      "en": "Search value...",
+      "vi": "Tìm giá trị...",
+      "mode": "phrase"
+    },
+    {
+      "en": "Search column...",
+      "vi": "Tìm cột...",
+      "mode": "phrase"
+    },
+    {
+      "en": "Select",
+      "vi": "Chọn",
+      "mode": "phrase"
+    },
+    {
+      "en": "Select all",
+      "vi": "Chọn hết",
+      "mode": "phrase"
+    },
+    {
+      "en": "Select all",
+      "vi": "Chọn tất cả",
+      "mode": "phrase"
+    },
+    {
+      "en": "Clear",
+      "vi": "Bỏ hết",
+      "mode": "phrase"
+    },
+    {
+      "en": "Clear selection",
+      "vi": "Bỏ chọn",
+      "mode": "phrase"
+    },
+    {
+      "en": "Cancel",
+      "vi": "Hủy",
+      "mode": "phrase"
+    },
+    {
+      "en": "Save",
+      "vi": "Lưu",
+      "mode": "phrase"
+    },
+    {
+      "en": "Save changes",
+      "vi": "Lưu thay đổi",
+      "mode": "phrase"
+    },
+    {
+      "en": "Save all",
+      "vi": "Lưu tất cả",
+      "mode": "phrase"
+    },
+    {
+      "en": "Continue",
+      "vi": "Tiếp tục",
+      "mode": "phrase"
+    },
+    {
+      "en": "Complete",
+      "vi": "Hoàn tất",
+      "mode": "phrase"
+    },
+    {
+      "en": "Add",
+      "vi": "Thêm",
+      "mode": "phrase"
+    },
+    {
+      "en": "Add group",
+      "vi": "Thêm nhóm",
+      "mode": "phrase"
+    },
+    {
+      "en": "Edit",
+      "vi": "Sửa",
+      "mode": "phrase"
+    },
+    {
+      "en": "Delete",
+      "vi": "Xóa",
+      "mode": "phrase"
+    },
+    {
+      "en": "Deactivate",
+      "vi": "Ngưng dùng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Permanent delete",
+      "vi": "Xóa vĩnh viễn",
+      "mode": "phrase"
+    },
+    {
+      "en": "Reset",
+      "vi": "Đặt lại",
+      "mode": "phrase"
+    },
+    {
+      "en": "Confirm",
+      "vi": "Xác nhận",
+      "mode": "phrase"
+    },
+    {
+      "en": "Current configuration",
+      "vi": "CURRENT CONFIGURATION",
+      "mode": "phrase"
+    },
+    {
+      "en": "Configuration Workspace",
+      "vi": "CONFIGURATION WORKSPACE",
+      "mode": "phrase"
+    },
+    {
+      "en": "Work Centers",
+      "vi": "WORK CENTERS",
+      "mode": "phrase"
+    },
+    {
+      "en": "Workspace",
+      "vi": "WORKSPACE",
+      "mode": "phrase"
+    },
+    {
+      "en": "All system",
+      "vi": "Toàn hệ thống",
+      "mode": "phrase"
+    },
+    {
+      "en": "All areas",
+      "vi": "Tất cả khu vực",
+      "mode": "phrase"
+    },
+    {
+      "en": "All operations",
+      "vi": "Tất cả công đoạn",
+      "mode": "phrase"
+    },
+    {
+      "en": "All recipes",
+      "vi": "Tất cả Recipe",
+      "mode": "phrase"
+    },
+    {
+      "en": "All records",
+      "vi": "Tất cả bản ghi",
+      "mode": "phrase"
+    },
+    {
+      "en": "All status",
+      "vi": "Tất cả trạng thái",
+      "mode": "phrase"
+    },
+    {
+      "en": "No filter",
+      "vi": "Không lọc",
+      "mode": "phrase"
+    },
+    {
+      "en": "No data",
+      "vi": "Không có dữ liệu",
+      "mode": "phrase"
+    },
+    {
+      "en": "No description",
+      "vi": "Không có mô tả",
+      "mode": "phrase"
+    },
+    {
+      "en": "Not assigned",
+      "vi": "Chưa gán",
+      "mode": "phrase"
+    },
+    {
+      "en": "Not mapped",
+      "vi": "Chưa map",
+      "mode": "phrase"
+    },
+    {
+      "en": "Not configured",
+      "vi": "CHƯA KHAI BÁO",
+      "mode": "phrase"
+    },
+    {
+      "en": "Ready",
+      "vi": "Sẵn sàng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Check",
+      "vi": "Cần kiểm tra",
+      "mode": "phrase"
+    },
+    {
+      "en": "Active",
+      "vi": "Hoạt động",
+      "mode": "phrase"
+    },
+    {
+      "en": "Inactive",
+      "vi": "Ngưng dùng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Running",
+      "vi": "Đang chạy",
+      "mode": "phrase"
+    },
+    {
+      "en": "Saving...",
+      "vi": "Đang lưu...",
+      "mode": "phrase"
+    },
+    {
+      "en": "Processing...",
+      "vi": "Đang xử lý...",
+      "mode": "phrase"
+    },
+    {
+      "en": "Calculating...",
+      "vi": "Đang tính...",
+      "mode": "phrase"
+    },
+    {
+      "en": "Error",
+      "vi": "Lỗi",
+      "mode": "phrase"
+    },
+    {
+      "en": "Server error.",
+      "vi": "Lỗi máy chủ.",
+      "mode": "phrase"
+    },
+    {
+      "en": "An error occurred.",
+      "vi": "Có lỗi xảy ra.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Invalid data.",
+      "vi": "Dữ liệu không hợp lệ.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Previous",
+      "vi": "Trước",
+      "mode": "phrase"
+    },
+    {
+      "en": "Back",
+      "vi": "Quay lại",
+      "mode": "phrase"
+    },
+    {
+      "en": "Next",
+      "vi": "Tiếp theo",
+      "mode": "phrase"
+    },
+    {
+      "en": "First time",
+      "vi": "Lần đầu",
+      "mode": "phrase"
+    },
+    {
+      "en": "From next time",
+      "vi": "Từ lần sau",
+      "mode": "phrase"
+    },
+    {
+      "en": "Example",
+      "vi": "Ví dụ",
+      "mode": "phrase"
+    },
+    {
+      "en": "Examples",
+      "vi": "Ví dụ",
+      "mode": "phrase"
+    },
+    {
+      "en": "Total",
+      "vi": "Tổng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Quantity",
+      "vi": "Số lượng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Surface",
+      "vi": "Diện tích",
+      "mode": "phrase"
+    },
+    {
+      "en": "Description",
+      "vi": "Mô tả",
+      "mode": "phrase"
+    },
+    {
+      "en": "Name",
+      "vi": "Tên",
+      "mode": "phrase"
+    },
+    {
+      "en": "Code",
+      "vi": "Mã",
+      "mode": "phrase"
+    },
+    {
+      "en": "Value",
+      "vi": "Giá trị",
+      "mode": "phrase"
+    },
+    {
+      "en": "Column",
+      "vi": "Cột",
+      "mode": "phrase"
+    },
+    {
+      "en": "Columns",
+      "vi": "Cột",
+      "mode": "phrase"
+    },
+    {
+      "en": "Result",
+      "vi": "Kết quả",
+      "mode": "phrase"
+    },
+    {
+      "en": "History",
+      "vi": "Lịch sử",
+      "mode": "phrase"
+    },
+    {
+      "en": "Import History",
+      "vi": "Lịch sử Import",
+      "mode": "phrase"
+    },
+    {
+      "en": "Recent Batches",
+      "vi": "Batch gần đây",
+      "mode": "phrase"
+    },
+    {
+      "en": "Previous Batch",
+      "vi": "Batch trước",
+      "mode": "phrase"
+    },
+    {
+      "en": "Suggested Recipe",
+      "vi": "Recipe đề xuất",
+      "mode": "phrase"
+    },
+    {
+      "en": "Propose Recipe",
+      "vi": "Đề xuất Recipe",
+      "mode": "phrase"
+    },
+    {
+      "en": "Recipe Check",
+      "vi": "Kiểm tra Recipe",
+      "mode": "phrase"
+    },
+    {
+      "en": "Compatibility Check",
+      "vi": "Kiểm tra Compatibility",
+      "mode": "phrase"
+    },
+    {
+      "en": "Batch Compatibility",
+      "vi": "Batch Compatibility",
+      "mode": "phrase"
+    },
+    {
+      "en": "Create new Batch",
+      "vi": "Tạo Batch mới",
+      "mode": "phrase"
+    },
+    {
+      "en": "Add Job to Batch",
+      "vi": "Thêm Job vào Batch",
+      "mode": "phrase"
+    },
+    {
+      "en": "Remove Job",
+      "vi": "Bỏ Job",
+      "mode": "phrase"
+    },
+    {
+      "en": "Select Candidate",
+      "vi": "Chọn Candidate",
+      "mode": "phrase"
+    },
+    {
+      "en": "Select UNSCHEDULED Batch",
+      "vi": "Chọn UNSCHEDULED Batch",
+      "mode": "phrase"
+    },
+    {
+      "en": "No Recipe",
+      "vi": "Chưa có Recipe",
+      "mode": "phrase"
+    },
+    {
+      "en": "NO RECIPE",
+      "vi": "CHƯA CÓ RECIPE",
+      "mode": "phrase"
+    },
+    {
+      "en": "No planning chain",
+      "vi": "Chưa có Planning Chain",
+      "mode": "phrase"
+    },
+    {
+      "en": "No operation mapping",
+      "vi": "CHƯA MAP OPERATION",
+      "mode": "phrase"
+    },
+    {
+      "en": "Unscheduled",
+      "vi": "Chưa điều độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "Scheduled",
+      "vi": "Đã điều độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "Put into UNSCHEDULED",
+      "vi": "Đưa vào UNSCHEDULED",
+      "mode": "phrase"
+    },
+    {
+      "en": "Save Schedule",
+      "vi": "Lưu Schedule",
+      "mode": "phrase"
+    },
+    {
+      "en": "Select Resource",
+      "vi": "Chọn Resource",
+      "mode": "phrase"
+    },
+    {
+      "en": "Enter Start",
+      "vi": "Nhập Start",
+      "mode": "phrase"
+    },
+    {
+      "en": "Calculate Duration",
+      "vi": "Tính Duration",
+      "mode": "phrase"
+    },
+    {
+      "en": "Check overlap",
+      "vi": "Kiểm tra overlap",
+      "mode": "phrase"
+    },
+    {
+      "en": "Actual progress",
+      "vi": "Tiến độ thực tế",
+      "mode": "phrase"
+    },
+    {
+      "en": "Previous planning status",
+      "vi": "Trạng thái kế hoạch trước",
+      "mode": "phrase"
+    },
+    {
+      "en": "Planning Matrix",
+      "vi": "Ma trận kế hoạch",
+      "mode": "phrase"
+    },
+    {
+      "en": "Column layout",
+      "vi": "Bố cục cột",
+      "mode": "phrase"
+    },
+    {
+      "en": "Column layout order",
+      "vi": "Thứ tự bố cục",
+      "mode": "phrase"
+    },
+    {
+      "en": "Freeze",
+      "vi": "Cố định",
+      "mode": "phrase"
+    },
+    {
+      "en": "All columns",
+      "vi": "Xem tất cả cột",
+      "mode": "phrase"
+    },
+    {
+      "en": "Planning columns only",
+      "vi": "Chỉ cột kế hoạch",
+      "mode": "phrase"
+    },
+    {
+      "en": "Configuration Overview",
+      "vi": "Tổng quan Cấu hình",
+      "mode": "phrase"
+    },
+    {
+      "en": "Configuration Mapping",
+      "vi": "Mapping cấu hình",
+      "mode": "phrase"
+    },
+    {
+      "en": "Operation Assistant",
+      "vi": "Trợ lý Operation",
+      "mode": "phrase"
+    },
+    {
+      "en": "Operation Architecture",
+      "vi": "Operation Architecture",
+      "mode": "phrase"
+    },
+    {
+      "en": "Organization & Resource",
+      "vi": "Organization & Resource",
+      "mode": "phrase"
+    },
+    {
+      "en": "Recipe & Batch",
+      "vi": "Recipe & Batch",
+      "mode": "phrase"
+    },
+    {
+      "en": "Time & Scheduling",
+      "vi": "Time & Scheduling",
+      "mode": "phrase"
+    },
+    {
+      "en": "Automation",
+      "vi": "Automation",
+      "mode": "phrase"
+    },
+    {
+      "en": "System Health",
+      "vi": "System Health",
+      "mode": "phrase"
+    },
+    {
+      "en": "Configuration Health",
+      "vi": "Configuration Health",
+      "mode": "phrase"
+    },
+    {
+      "en": "System Configuration Readiness",
+      "vi": "System Configuration Readiness",
+      "mode": "phrase"
+    },
+    {
+      "en": "Issues to resolve",
+      "vi": "Issues cần xử lý",
+      "mode": "phrase"
+    },
+    {
+      "en": "Configuration Workspaces",
+      "vi": "Configuration Workspaces",
+      "mode": "phrase"
+    },
+    {
+      "en": "Dependency Architecture",
+      "vi": "Dependency Architecture",
+      "mode": "phrase"
+    },
+    {
+      "en": "Batch & Time Controls",
+      "vi": "Batch & Time Controls",
+      "mode": "phrase"
+    },
+    {
+      "en": "Open Job Issues",
+      "vi": "Open Job Issues",
+      "mode": "phrase"
+    },
+    {
+      "en": "Main Mapping",
+      "vi": "Main Mapping",
+      "mode": "phrase"
+    },
+    {
+      "en": "Recipe Rules",
+      "vi": "Recipe Rules",
+      "mode": "phrase"
+    },
+    {
+      "en": "Planning Chain",
+      "vi": "Planning Chain",
+      "mode": "phrase"
+    },
+    {
+      "en": "ST Group Master",
+      "vi": "ST Group Master",
+      "mode": "phrase"
+    },
+    {
+      "en": "Add ST Group",
+      "vi": "Thêm ST Group",
+      "mode": "phrase"
+    },
+    {
+      "en": "Edit ST Group",
+      "vi": "Sửa ST Group",
+      "mode": "phrase"
+    },
+    {
+      "en": "ST Group code",
+      "vi": "Mã nhóm ST",
+      "mode": "phrase"
+    },
+    {
+      "en": "Group name",
+      "vi": "Tên nhóm",
+      "mode": "phrase"
+    },
+    {
+      "en": "ST Group list",
+      "vi": "Danh sách ST Group",
+      "mode": "phrase"
+    },
+    {
+      "en": "Create a new group without changing existing groups.",
+      "vi": "Tạo nhóm mới mà không thay đổi các nhóm hiện có.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Group used to link Main Operation with physical and scheduling areas.",
+      "vi": "Nhóm dùng để liên kết Main Operation với khu vực vật lý và điều độ.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Active groups in ST Planning configuration.",
+      "vi": "Nhóm đang hoạt động trong cấu hình ST Planning.",
+      "mode": "phrase"
+    },
+    {
+      "en": "groups",
+      "vi": "nhóm",
+      "mode": "phrase"
+    },
+    {
+      "en": "records",
+      "vi": "bản ghi",
+      "mode": "phrase"
+    },
+    {
+      "en": "record",
+      "vi": "bản ghi",
+      "mode": "phrase"
+    },
+    {
+      "en": "Main Operation Master",
+      "vi": "Main Operation Master",
+      "mode": "phrase"
+    },
+    {
+      "en": "Physical Area Master",
+      "vi": "Physical Area Master",
+      "mode": "phrase"
+    },
+    {
+      "en": "Schedule Area Master",
+      "vi": "Schedule Area Master",
+      "mode": "phrase"
+    },
+    {
+      "en": "Planner",
+      "vi": "Planner",
+      "mode": "phrase"
+    },
+    {
+      "en": "Source → Main Mapping",
+      "vi": "Source → Main Mapping",
+      "mode": "phrase"
+    },
+    {
+      "en": "ST Scope & Operation Code",
+      "vi": "ST Scope & Operation Code",
+      "mode": "phrase"
+    },
+    {
+      "en": "Recipe & Batch Rules",
+      "vi": "Recipe & Batch Rules",
+      "mode": "phrase"
+    },
+    {
+      "en": "Auto Planning Rules",
+      "vi": "Auto Planning Rules",
+      "mode": "phrase"
+    },
+    {
+      "en": "Operation Code Order",
+      "vi": "Operation Code Order",
+      "mode": "phrase"
+    },
+    {
+      "en": "Main Planning Order",
+      "vi": "Main Planning Order",
+      "mode": "phrase"
+    },
+    {
+      "en": "Batch Prefix",
+      "vi": "Batch Prefix",
+      "mode": "phrase"
+    },
+    {
+      "en": "Recipe Catalog",
+      "vi": "Recipe Catalog",
+      "mode": "phrase"
+    },
+    {
+      "en": "Schedule Resources",
+      "vi": "Schedule Resources",
+      "mode": "phrase"
+    },
+    {
+      "en": "Apply to Job",
+      "vi": "Áp dụng cho Job",
+      "mode": "phrase"
+    },
+    {
+      "en": "Condition column",
+      "vi": "Cột điều kiện",
+      "mode": "phrase"
+    },
+    {
+      "en": "Condition value",
+      "vi": "Giá trị điều kiện",
+      "mode": "phrase"
+    },
+    {
+      "en": "Add condition",
+      "vi": "Thêm điều kiện",
+      "mode": "phrase"
+    },
+    {
+      "en": "Add condition column",
+      "vi": "Thêm cột điều kiện",
+      "mode": "phrase"
+    },
+    {
+      "en": "Default / No condition",
+      "vi": "Mặc định / Không điều kiện",
+      "mode": "phrase"
+    },
+    {
+      "en": "Same Recipe only",
+      "vi": "Chỉ khóa theo Recipe",
+      "mode": "phrase"
+    },
+    {
+      "en": "Different Recipe",
+      "vi": "Khác Recipe",
+      "mode": "phrase"
+    },
+    {
+      "en": "Recipe is required.",
+      "vi": "Recipe là bắt buộc.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Process Time Rule",
+      "vi": "Process Time Rule",
+      "mode": "phrase"
+    },
+    {
+      "en": "Missing Process Time Rule",
+      "vi": "Thiếu Process Time Rule",
+      "mode": "phrase"
+    },
+    {
+      "en": "Loading / Unloading Rules",
+      "vi": "Loading / Unloading Rules",
+      "mode": "phrase"
+    },
+    {
+      "en": "Process Time Rules",
+      "vi": "Process Time Rules",
+      "mode": "phrase"
+    },
+    {
+      "en": "Batch Key",
+      "vi": "Batch Key",
+      "mode": "phrase"
+    },
+    {
+      "en": "Generate / enter Batch Key",
+      "vi": "Sinh / nhập Batch Key",
+      "mode": "phrase"
+    },
+    {
+      "en": "Recipe family",
+      "vi": "Recipe Family",
+      "mode": "phrase"
+    },
+    {
+      "en": "Recipe Name",
+      "vi": "Recipe Name",
+      "mode": "phrase"
+    },
+    {
+      "en": "Recipe No",
+      "vi": "Recipe No",
+      "mode": "phrase"
+    },
+    {
+      "en": "Import Master",
+      "vi": "Import Master",
+      "mode": "phrase"
+    },
+    {
+      "en": "Import All Open Job",
+      "vi": "Import All Open Job",
+      "mode": "phrase"
+    },
+    {
+      "en": "Current Snapshot",
+      "vi": "Current Snapshot",
+      "mode": "phrase"
+    },
+    {
+      "en": "Change History",
+      "vi": "Change History",
+      "mode": "phrase"
+    },
+    {
+      "en": "Current Jobs",
+      "vi": "Current Jobs",
+      "mode": "phrase"
+    },
+    {
+      "en": "Part Tracker",
+      "vi": "Part Tracker",
+      "mode": "phrase"
+    },
+    {
+      "en": "Job Tracker",
+      "vi": "Job Tracker",
+      "mode": "phrase"
+    },
+    {
+      "en": "Search Job / Part",
+      "vi": "Tìm Job / Part",
+      "mode": "phrase"
+    },
+    {
+      "en": "Search Batch...",
+      "vi": "Tìm Batch...",
+      "mode": "phrase"
+    },
+    {
+      "en": "Search Candidate...",
+      "vi": "Tìm Candidate...",
+      "mode": "phrase"
+    },
+    {
+      "en": "All Open Jobs",
+      "vi": "All Open Jobs",
+      "mode": "phrase"
+    },
+    {
+      "en": "Planning Board",
+      "vi": "Planning Board",
+      "mode": "phrase"
+    },
+    {
+      "en": "Masking / Unmasking",
+      "vi": "Masking / Unmasking",
+      "mode": "phrase"
+    },
+    {
+      "en": "Master Data",
+      "vi": "Master Data",
+      "mode": "phrase"
+    },
+    {
+      "en": "Data source",
+      "vi": "Nguồn dữ liệu",
+      "mode": "phrase"
+    },
+    {
+      "en": "Source of truth",
+      "vi": "Source of truth",
+      "mode": "phrase"
+    },
+    {
+      "en": "Rules & Formula",
+      "vi": "Công thức & Rule",
+      "mode": "phrase"
+    },
+    {
+      "en": "Impact Matrix",
+      "vi": "Impact Matrix",
+      "mode": "phrase"
+    },
+    {
+      "en": "FAQ / Quick Diagnosis",
+      "vi": "FAQ / Chẩn đoán nhanh",
+      "mode": "phrase"
+    },
+    {
+      "en": "Current live mapping — read directly from database",
+      "vi": "Mapping đang chạy — đọc trực tiếp database",
+      "mode": "phrase"
+    },
+    {
+      "en": "Overall data flow & dependencies",
+      "vi": "Flow dữ liệu & dependency tổng thể",
+      "mode": "phrase"
+    },
+    {
+      "en": "Standard operating order",
+      "vi": "thứ tự vận hành chuẩn",
+      "mode": "phrase"
+    },
+    {
+      "en": "Data flows from engineering → planning definition → job snapshot → batch → schedule",
+      "vi": "Dữ liệu đi từ kỹ thuật → định nghĩa planning → snapshot job → batch → schedule",
+      "mode": "phrase"
+    },
+    {
+      "en": "Data source is production configuration, not sample data.",
+      "vi": "bảng này không phải dữ liệu mẫu",
+      "mode": "phrase"
+    },
+    {
+      "en": "A Job is brought into Planning as follows",
+      "vi": "Một Job được đưa vào Planning như thế nào?",
+      "mode": "phrase"
+    },
+    {
+      "en": "Key source of truth",
+      "vi": "Source of truth cần nhớ",
+      "mode": "phrase"
+    },
+    {
+      "en": "Technical master data",
+      "vi": "dữ liệu kỹ thuật nền",
+      "mode": "phrase"
+    },
+    {
+      "en": "Configuration sequence and downstream impact",
+      "vi": "trình tự 1 → 12 và ảnh hưởng downstream",
+      "mode": "phrase"
+    },
+    {
+      "en": "Check a Part end-to-end",
+      "vi": "kiểm tra một Part từ đầu đến cuối",
+      "mode": "phrase"
+    },
+    {
+      "en": "Work snapshot",
+      "vi": "snapshot công việc thực tế",
+      "mode": "phrase"
+    },
+    {
+      "en": "From READY Job to Production Batch",
+      "vi": "từ READY Job đến Production Batch",
+      "mode": "phrase"
+    },
+    {
+      "en": "Support planning by scheduled date",
+      "vi": "kế hoạch support theo ngày điều độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "Place Batch on resource and time",
+      "vi": "xếp Batch vào resource và thời gian",
+      "mode": "phrase"
+    },
+    {
+      "en": "Synchronize engineering master data",
+      "vi": "đồng bộ dữ liệu kỹ thuật",
+      "mode": "phrase"
+    },
+    {
+      "en": "Direct impact",
+      "vi": "Ảnh hưởng trực tiếp",
+      "mode": "phrase"
+    },
+    {
+      "en": "Downstream impact",
+      "vi": "Ảnh hưởng phía sau",
+      "mode": "phrase"
+    },
+    {
+      "en": "Required action after change",
+      "vi": "Cần làm sau đó",
+      "mode": "phrase"
+    },
+    {
+      "en": "Change",
+      "vi": "Thay đổi",
+      "mode": "phrase"
+    },
+    {
+      "en": "Current data",
+      "vi": "Dữ liệu hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "Live configuration",
+      "vi": "Cấu hình production hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "Not sample data",
+      "vi": "không phải dữ liệu mẫu",
+      "mode": "phrase"
+    },
+    {
+      "en": "Configuration is the plant planning decision.",
+      "vi": "Cấu hình là quyết định planning của nhà máy.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Master Data is engineering source data.",
+      "vi": "Master Data là dữ liệu kỹ thuật từ file nguồn;",
+      "mode": "phrase"
+    },
+    {
+      "en": "Do not change Master Data to fix a Mapping issue when the issue belongs to Configuration.",
+      "vi": "Không sửa Master để chữa một lỗi Mapping nếu lỗi nằm ở Configuration.",
+      "mode": "phrase"
+    },
+    {
+      "en": "READY → select Job → Batch",
+      "vi": "READY → chọn Job → Batch",
+      "mode": "phrase"
+    },
+    {
+      "en": "Batch opens the next Main",
+      "vi": "Batch mở Main kế tiếp",
+      "mode": "phrase"
+    },
+    {
+      "en": "Scheduling does not open READY",
+      "vi": "Scheduling không mở READY",
+      "mode": "phrase"
+    },
+    {
+      "en": "All fields",
+      "vi": "Tất cả trường",
+      "mode": "phrase"
+    },
+    {
+      "en": "Required",
+      "vi": "Bắt buộc",
+      "mode": "phrase"
+    },
+    {
+      "en": "Optional",
+      "vi": "tùy chọn",
+      "mode": "phrase"
+    },
+    {
+      "en": "Empty",
+      "vi": "trống",
+      "mode": "phrase"
+    },
+    {
+      "en": "Not empty",
+      "vi": "không trống",
+      "mode": "phrase"
+    },
+    {
+      "en": "Contains",
+      "vi": "chứa",
+      "mode": "phrase"
+    },
+    {
+      "en": "Starts with",
+      "vi": "bắt đầu bằng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Ends with",
+      "vi": "kết thúc bằng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Fixed",
+      "vi": "Cố định",
+      "mode": "phrase"
+    },
+    {
+      "en": "Manual",
+      "vi": "Thủ công",
+      "mode": "phrase"
+    },
+    {
+      "en": "Auto",
+      "vi": "Tự động",
+      "mode": "phrase"
+    },
+    {
+      "en": "Proposal",
+      "vi": "Đề xuất",
+      "mode": "phrase"
+    },
+    {
+      "en": "Rule",
+      "vi": "Quy tắc",
+      "mode": "phrase"
+    },
+    {
+      "en": "Principle",
+      "vi": "Nguyên tắc",
+      "mode": "phrase"
+    },
+    {
+      "en": "Current",
+      "vi": "Hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "Open",
+      "vi": "Mở",
+      "mode": "phrase"
+    },
+    {
+      "en": "Close",
+      "vi": "Đóng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Load",
+      "vi": "Tải",
+      "mode": "phrase"
+    },
+    {
+      "en": "Refresh",
+      "vi": "Làm mới",
+      "mode": "phrase"
+    },
+    {
+      "en": "Apply",
+      "vi": "Áp dụng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Reset all Batches",
+      "vi": "Đặt lại tất cả Batch",
+      "mode": "phrase"
+    },
+    {
+      "en": "Delete proposal",
+      "vi": "Xóa đề xuất",
+      "mode": "phrase"
+    },
+    {
+      "en": "Start Time",
+      "vi": "Giờ bắt đầu",
+      "mode": "phrase"
+    },
+    {
+      "en": "End Time",
+      "vi": "Giờ kết thúc",
+      "mode": "phrase"
+    },
+    {
+      "en": "Duration",
+      "vi": "Thời lượng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Date",
+      "vi": "Ngày",
+      "mode": "phrase"
+    },
+    {
+      "en": "Resource",
+      "vi": "Resource",
+      "mode": "phrase"
+    },
+    {
+      "en": "Lane",
+      "vi": "Lane",
+      "mode": "phrase"
+    },
+    {
+      "en": "Owner",
+      "vi": "Người phụ trách",
+      "mode": "phrase"
+    },
+    {
+      "en": "Job available",
+      "vi": "Job khả dụng",
+      "mode": "phrase"
+    },
+    {
+      "en": "No available Job",
+      "vi": "Không có Job khả dụng",
+      "mode": "phrase"
+    },
+    {
+      "en": "No Batch found.",
+      "vi": "Không tìm thấy Batch.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Batch not found.",
+      "vi": "Không tìm thấy Batch.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Recipe not found.",
+      "vi": "Không tìm thấy Recipe.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Invalid Batch.",
+      "vi": "Batch không hợp lệ.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Invalid Resource.",
+      "vi": "Resource không hợp lệ.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Invalid Area ID.",
+      "vi": "Area ID không hợp lệ.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Invalid ID.",
+      "vi": "ID không hợp lệ.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Select at least one READY Job.",
+      "vi": "Chọn ít nhất một Job READY.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Select at least 1 Job to add.",
+      "vi": "Chọn ít nhất 1 Job để thêm.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Please select Start Time.",
+      "vi": "Hãy chọn Start Time.",
+      "mode": "phrase"
+    },
+    {
+      "en": "No Job selected",
+      "vi": "Chưa chọn Job",
+      "mode": "phrase"
+    },
+    {
+      "en": "No Job in Batch.",
+      "vi": "Batch chưa có Job.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Batch has no Job.",
+      "vi": "Lô chưa có Job.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Not in Batch yet",
+      "vi": "Chưa vào lô",
+      "mode": "phrase"
+    },
+    {
+      "en": "Manual entry",
+      "vi": "Nhập tay",
+      "mode": "phrase"
+    },
+    {
+      "en": "Quick add",
+      "vi": "Thêm nhanh",
+      "mode": "phrase"
+    },
+    {
+      "en": "Sort level",
+      "vi": "mức sắp xếp",
+      "mode": "phrase"
+    },
+    {
+      "en": "Priority order",
+      "vi": "Thứ tự ưu tiên",
+      "mode": "phrase"
+    },
+    {
+      "en": "Maximum 10 levels",
+      "vi": "tối đa 10 cấp",
+      "mode": "phrase"
+    },
+    {
+      "en": "Affected Batch",
+      "vi": "Affected Batch",
+      "mode": "phrase"
+    },
+    {
+      "en": "Affected Jobs",
+      "vi": "Job bị ảnh hưởng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Affected route",
+      "vi": "Route bị ảnh hưởng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Impact when changed",
+      "vi": "Ảnh hưởng khi thay đổi",
+      "mode": "phrase"
+    },
+    {
+      "en": "When changed",
+      "vi": "Khi thay đổi",
+      "mode": "phrase"
+    },
+    {
+      "en": "Production",
+      "vi": "PRODUCTION",
+      "mode": "phrase"
+    },
+    {
+      "en": "Environment",
+      "vi": "Môi trường",
+      "mode": "phrase"
+    },
+    {
+      "en": "Application context",
+      "vi": "Application context",
+      "mode": "phrase"
+    },
+    {
+      "en": "Logic & Operating Guide",
+      "vi": "Logic & Hướng dẫn vận hành",
+      "mode": "exact"
+    },
+    {
+      "en": "Flow · Mapping · How to operate · Downstream impact based on current logic.",
+      "vi": "Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau theo logic hiện tại.",
+      "mode": "exact"
+    },
+    {
+      "en": "If the system is already configured, daily users mainly follow All Open Jobs → Planning Board → Scheduling Board",
+      "vi": "Nếu hệ thống đã cấu hình xong, người dùng hằng ngày chủ yếu đi từ All Open Jobs → Planning Board → Board Điều Độ",
+      "mode": "exact"
+    },
+    {
+      "en": "Master ≠ Config",
+      "vi": "Master ≠ Config",
+      "mode": "exact"
+    },
+    {
+      "en": "NextOperation inherits Main Planning Order",
+      "vi": "NextOperation kế thừa Main Planning Order",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe condition ≠ Process Time condition",
+      "vi": "Recipe condition ≠ Process Time condition",
+      "mode": "exact"
+    },
+    {
+      "en": "Creating a Batch is already a handoff",
+      "vi": "Tạo Batch đã là handoff",
+      "mode": "exact"
+    },
+    {
+      "en": "Configuration Health Dashboard",
+      "vi": "Configuration Health Dashboard",
+      "mode": "exact"
+    },
+    {
+      "en": "Check dependencies from Operation Architecture to Recipe, time and Automation before data enters Planning.",
+      "vi": "Kiểm tra dependency từ Operation Architecture đến Recipe, thời gian và Automation trước khi dữ liệu đi vào Planning.",
+      "mode": "exact"
+    },
+    {
+      "en": "Flow used by Planning to understand an Operation.",
+      "vi": "Luồng chuẩn mà Planning dùng để hiểu một Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Prioritize dependencies that directly affect Planning/Batch.",
+      "vi": "Ưu tiên các dependency ảnh hưởng trực tiếp Planning/Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Rules that determine Recipe and processing time when creating a Batch.",
+      "vi": "Các rule quyết định Recipe và thời gian khi tạo Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Follow business domains; you do not need to open each page in order when editing an independent rule.",
+      "vi": "Đi theo domain nghiệp vụ; không cần mở từng trang theo thứ tự nếu chỉ chỉnh một rule độc lập.",
+      "mode": "exact"
+    },
+    {
+      "en": "No major configuration issues.",
+      "vi": "Không có issue cấu hình chính.",
+      "mode": "exact"
+    },
+    {
+      "en": "Architecture, Recipe and Time Rule all have basic data.",
+      "vi": "Architecture, Recipe và Time Rule đều có dữ liệu cơ bản.",
+      "mode": "exact"
+    },
+    {
+      "en": "ST Group is the link from Source → Main Mapping down to Physical Area and Schedule Area. Removing a group prevents its Operations from being configured into an area.",
+      "vi": "Nhóm ST là đầu mối nối từ Source → Main Mapping xuống Khu vực vật lý và Schedule Area. Bỏ nhóm sẽ khiến các Operation thuộc nhóm đó không cấu hình được khu vực.",
+      "mode": "exact"
+    },
+    {
+      "en": "ST operation group catalog — groups similar Operations into one group.",
+      "vi": "Danh mục nhóm công đoạn ST — gom các Operation tương tự thành 1 nhóm.",
+      "mode": "exact"
+    },
+    {
+      "en": "Add / Edit / Deactivate",
+      "vi": "Thêm / Sửa / Ngưng dùng",
+      "mode": "exact"
+    },
+    {
+      "en": "No Main Operation data could be read.",
+      "vi": "Không đọc được Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "No Operation Code Order data could be read.",
+      "vi": "Không đọc được Operation Code Order.",
+      "mode": "exact"
+    },
+    {
+      "en": "No Mapping configured.",
+      "vi": "Chưa có Mapping.",
+      "mode": "exact"
+    },
+    {
+      "en": "No Recipe mapping configured.",
+      "vi": "Chưa có Recipe mapping.",
+      "mode": "exact"
+    },
+    {
+      "en": "No Recipe configured.",
+      "vi": "Chưa có Recipe.",
+      "mode": "exact"
+    },
+    {
+      "en": "No Process Time configured.",
+      "vi": "Chưa có Process Time.",
+      "mode": "exact"
+    },
+    {
+      "en": "No Handling Time configured.",
+      "vi": "Chưa có Handling Time.",
+      "mode": "exact"
+    },
+    {
+      "en": "No Area configured.",
+      "vi": "Chưa có Area.",
+      "mode": "exact"
+    },
+    {
+      "en": "No Schedule Area configured.",
+      "vi": "Chưa có Schedule Area.",
+      "mode": "exact"
+    },
+    {
+      "en": "No Resource configured.",
+      "vi": "Chưa có Resource.",
+      "mode": "exact"
+    },
+    {
+      "en": "Connected overview — Main Operation → Recipe → Schedule → Planner",
+      "vi": "Bảng kết nối tổng hợp — Main Operation → Recipe → Schedule → Planner",
+      "mode": "exact"
+    },
+    {
+      "en": "Connected overview — ST Group → Area → Schedule Area → Planner",
+      "vi": "Bảng kết nối tổng hợp — ST Group → Area → Schedule Area → Planner",
+      "mode": "exact"
+    },
+    {
+      "en": "Main Operation — Internal Planning Order + Batch Prefix",
+      "vi": "Main Operation — Planning Order nội bộ + Batch Prefix",
+      "mode": "exact"
+    },
+    {
+      "en": "Operation Code Order — tie-breaker within the same Main",
+      "vi": "Operation Code Order — tie-breaker trong cùng Main",
+      "mode": "exact"
+    },
+    {
+      "en": "Operation Code → Recipe Mapping runtime",
+      "vi": "Operation Code → Recipe Mapping runtime",
+      "mode": "exact"
+    },
+    {
+      "en": "Physical Area / ST Group",
+      "vi": "Physical Area / ST Group",
+      "mode": "exact"
+    },
+    {
+      "en": "Schedule Area → Planner → Main Operation",
+      "vi": "Schedule Area → Planner → Main Operation",
+      "mode": "exact"
+    },
+    {
+      "en": "Mapping currently running — read directly from database",
+      "vi": "Mapping đang chạy — đọc trực tiếp database",
+      "mode": "exact"
+    },
+    {
+      "en": "Use this to compare the guide with the current production configuration; these tables are not sample data.",
+      "vi": "Dùng để đối chiếu tài liệu với cấu hình production hiện tại; bảng này không phải dữ liệu mẫu",
+      "mode": "exact"
+    },
+    {
+      "en": "only appears",
+      "vi": "chỉ xuất hiện",
+      "mode": "phrase"
+    },
+    {
+      "en": "does not participate",
+      "vi": "không tham gia",
+      "mode": "phrase"
+    },
+    {
+      "en": "does not change",
+      "vi": "không thay đổi",
+      "mode": "phrase"
+    },
+    {
+      "en": "does not rebuild",
+      "vi": "không rebuild",
+      "mode": "phrase"
+    },
+    {
+      "en": "does not reload",
+      "vi": "không reload",
+      "mode": "phrase"
+    },
+    {
+      "en": "must",
+      "vi": "phải",
+      "mode": "phrase"
+    },
+    {
+      "en": "should",
+      "vi": "nên",
+      "mode": "phrase"
+    },
+    {
+      "en": "can",
+      "vi": "có thể",
+      "mode": "phrase"
+    },
+    {
+      "en": "cannot",
+      "vi": "không thể",
+      "mode": "phrase"
+    },
+    {
+      "en": "when",
+      "vi": "khi",
+      "mode": "phrase"
+    },
+    {
+      "en": "before",
+      "vi": "trước",
+      "mode": "phrase"
+    },
+    {
+      "en": "after",
+      "vi": "sau",
+      "mode": "phrase"
+    },
+    {
+      "en": "if",
+      "vi": "nếu",
+      "mode": "phrase"
+    },
+    {
+      "en": "because",
+      "vi": "vì",
+      "mode": "phrase"
+    },
+    {
+      "en": "therefore",
+      "vi": "vì vậy",
+      "mode": "phrase"
+    },
+    {
+      "en": "is used to",
+      "vi": "dùng để",
+      "mode": "phrase"
+    },
+    {
+      "en": "used for",
+      "vi": "dùng cho",
+      "mode": "phrase"
+    },
+    {
+      "en": "used by",
+      "vi": "được dùng bởi",
+      "mode": "phrase"
+    },
+    {
+      "en": "is the source",
+      "vi": "là nguồn",
+      "mode": "phrase"
+    },
+    {
+      "en": "source column",
+      "vi": "cột nguồn",
+      "mode": "phrase"
+    },
+    {
+      "en": "source value",
+      "vi": "giá trị nguồn",
+      "mode": "phrase"
+    },
+    {
+      "en": "configuration",
+      "vi": "cấu hình",
+      "mode": "phrase"
+    },
+    {
+      "en": "data",
+      "vi": "dữ liệu",
+      "mode": "phrase"
+    },
+    {
+      "en": "system",
+      "vi": "hệ thống",
+      "mode": "phrase"
+    },
+    {
+      "en": "user",
+      "vi": "người dùng",
+      "mode": "phrase"
+    },
+    {
+      "en": "plant",
+      "vi": "nhà máy",
+      "mode": "phrase"
+    },
+    {
+      "en": "current logic",
+      "vi": "logic hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "current configuration",
+      "vi": "cấu hình hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "same Main",
+      "vi": "cùng Main",
+      "mode": "phrase"
+    },
+    {
+      "en": "same Recipe",
+      "vi": "cùng Recipe",
+      "mode": "phrase"
+    },
+    {
+      "en": "different Recipe",
+      "vi": "khác Recipe",
+      "mode": "phrase"
+    },
+    {
+      "en": "previous Main",
+      "vi": "Main trước",
+      "mode": "phrase"
+    },
+    {
+      "en": "next Main",
+      "vi": "Main kế tiếp",
+      "mode": "phrase"
+    },
+    {
+      "en": "current Main",
+      "vi": "Main hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "new Batch",
+      "vi": "Batch mới",
+      "mode": "phrase"
+    },
+    {
+      "en": "existing Batch",
+      "vi": "Batch hiện có",
+      "mode": "phrase"
+    },
+    {
+      "en": "Batch history",
+      "vi": "lịch sử Batch",
+      "mode": "phrase"
+    },
+    {
+      "en": "Job history",
+      "vi": "lịch sử Job",
+      "mode": "phrase"
+    },
+    {
+      "en": "planning chain",
+      "vi": "Planning Chain",
+      "mode": "phrase"
+    },
+    {
+      "en": "physical progress",
+      "vi": "tiến độ vật lý",
+      "mode": "phrase"
+    },
+    {
+      "en": "processing time",
+      "vi": "thời gian xử lý",
+      "mode": "phrase"
+    },
+    {
+      "en": "loading time",
+      "vi": "thời gian Loading",
+      "mode": "phrase"
+    },
+    {
+      "en": "unloading time",
+      "vi": "thời gian Unloading",
+      "mode": "phrase"
+    },
+    {
+      "en": "scheduled date",
+      "vi": "ngày điều độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "resource/time",
+      "vi": "resource/time",
+      "mode": "phrase"
+    },
+    {
+      "en": "directly affects",
+      "vi": "ảnh hưởng trực tiếp",
+      "mode": "phrase"
+    },
+    {
+      "en": "downstream",
+      "vi": "phía sau",
+      "mode": "phrase"
+    },
+    {
+      "en": "dependency",
+      "vi": "dependency",
+      "mode": "phrase"
+    },
+    {
+      "en": "dependencies",
+      "vi": "dependency",
+      "mode": "phrase"
+    },
+    {
+      "en": "missing",
+      "vi": "thiếu",
+      "mode": "phrase"
+    },
+    {
+      "en": "not configured",
+      "vi": "chưa cấu hình",
+      "mode": "phrase"
+    },
+    {
+      "en": "not found",
+      "vi": "không tìm thấy",
+      "mode": "phrase"
+    },
+    {
+      "en": "successful",
+      "vi": "thành công",
+      "mode": "phrase"
+    },
+    {
+      "en": "failed",
+      "vi": "thất bại",
+      "mode": "phrase"
+    },
+    {
+      "en": "completed",
+      "vi": "hoàn tất",
+      "mode": "phrase"
+    },
+    {
+      "en": "selected",
+      "vi": "đã chọn",
+      "mode": "phrase"
+    },
+    {
+      "en": "created",
+      "vi": "đã tạo",
+      "mode": "phrase"
+    },
+    {
+      "en": "updated",
+      "vi": "đã cập nhật",
+      "mode": "phrase"
+    },
+    {
+      "en": "deleted",
+      "vi": "đã xóa",
+      "mode": "phrase"
+    },
+    {
+      "en": "all",
+      "vi": "tất cả",
+      "mode": "phrase"
+    },
+    {
+      "en": "none",
+      "vi": "không có",
+      "mode": "phrase"
+    },
+    {
+      "en": "only",
+      "vi": "chỉ",
+      "mode": "phrase"
+    },
+    {
+      "en": "first",
+      "vi": "đầu tiên",
+      "mode": "phrase"
+    },
+    {
+      "en": "last",
+      "vi": "cuối",
+      "mode": "phrase"
+    },
+    {
+      "en": "next",
+      "vi": "tiếp theo",
+      "mode": "phrase"
+    },
+    {
+      "en": "previous",
+      "vi": "trước",
+      "mode": "phrase"
+    },
+    {
+      "en": "current",
+      "vi": "hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "new",
+      "vi": "mới",
+      "mode": "phrase"
+    },
+    {
+      "en": "no",
+      "vi": "không có",
+      "mode": "phrase"
+    },
+    {
+      "en": "not",
+      "vi": "không",
+      "mode": "phrase"
+    },
+    {
+      "en": "and",
+      "vi": "và",
+      "mode": "phrase"
+    },
+    {
+      "en": "or",
+      "vi": "hoặc",
+      "mode": "phrase"
+    },
+    {
+      "en": "has",
+      "vi": "có",
+      "mode": "phrase"
+    },
+    {
+      "en": "is",
+      "vi": "là",
+      "mode": "phrase"
+    },
+    {
+      "en": "is used",
+      "vi": "được dùng",
+      "mode": "phrase"
+    },
+    {
+      "en": "is used to",
+      "vi": "được dùng để",
+      "mode": "phrase"
+    },
+    {
+      "en": "is assigned",
+      "vi": "được gán",
+      "mode": "phrase"
+    },
+    {
+      "en": "is displayed",
+      "vi": "được hiển thị",
+      "mode": "phrase"
+    },
+    {
+      "en": "to",
+      "vi": "để",
+      "mode": "phrase"
+    },
+    {
+      "en": "use",
+      "vi": "dùng",
+      "mode": "phrase"
+    },
+    {
+      "en": "used",
+      "vi": "đã dùng",
+      "mode": "phrase"
+    },
+    {
+      "en": "not yet",
+      "vi": "chưa",
+      "mode": "phrase"
+    },
+    {
+      "en": "already",
+      "vi": "đã",
+      "mode": "phrase"
+    },
+    {
+      "en": "the",
+      "vi": "các",
+      "mode": "phrase"
+    },
+    {
+      "en": "of",
+      "vi": "của",
+      "mode": "phrase"
+    },
+    {
+      "en": "from",
+      "vi": "từ",
+      "mode": "phrase"
+    },
+    {
+      "en": "currently",
+      "vi": "đang",
+      "mode": "phrase"
+    },
+    {
+      "en": "one",
+      "vi": "một",
+      "mode": "phrase"
+    },
+    {
+      "en": "into",
+      "vi": "vào",
+      "mode": "phrase"
+    },
+    {
+      "en": "again",
+      "vi": "lại",
+      "mode": "phrase"
+    },
+    {
+      "en": "automatic",
+      "vi": "tự động",
+      "mode": "phrase"
+    },
+    {
+      "en": "this",
+      "vi": "này",
+      "mode": "phrase"
+    },
+    {
+      "en": "create",
+      "vi": "tạo",
+      "mode": "phrase"
+    },
+    {
+      "en": "change",
+      "vi": "đổi",
+      "mode": "phrase"
+    },
+    {
+      "en": "condition",
+      "vi": "điều kiện",
+      "mode": "phrase"
+    },
+    {
+      "en": "different",
+      "vi": "khác",
+      "mode": "phrase"
+    },
+    {
+      "en": "display",
+      "vi": "hiển thị",
+      "mode": "phrase"
+    },
+    {
+      "en": "Batch",
+      "vi": "lô",
+      "mode": "phrase"
+    },
+    {
+      "en": "at",
+      "vi": "ở",
+      "mode": "phrase"
+    },
+    {
+      "en": "same",
+      "vi": "cùng",
+      "mode": "phrase"
+    },
+    {
+      "en": "need",
+      "vi": "cần",
+      "mode": "phrase"
+    },
+    {
+      "en": "still",
+      "vi": "vẫn",
+      "mode": "phrase"
+    },
+    {
+      "en": "check",
+      "vi": "kiểm tra",
+      "mode": "phrase"
+    },
+    {
+      "en": "set",
+      "vi": "bộ",
+      "mode": "phrase"
+    },
+    {
+      "en": "is affected",
+      "vi": "bị",
+      "mode": "phrase"
+    },
+    {
+      "en": "enter",
+      "vi": "nhập",
+      "mode": "phrase"
+    },
+    {
+      "en": "that",
+      "vi": "đó",
+      "mode": "phrase"
+    },
+    {
+      "en": "correct",
+      "vi": "đúng",
+      "mode": "phrase"
+    },
+    {
+      "en": "will",
+      "vi": "sẽ",
+      "mode": "phrase"
+    },
+    {
+      "en": "which",
+      "vi": "nào",
+      "mode": "phrase"
+    },
+    {
+      "en": "multiple",
+      "vi": "nhiều",
+      "mode": "phrase"
+    },
+    {
+      "en": "update",
+      "vi": "cập nhật",
+      "mode": "phrase"
+    },
+    {
+      "en": "order",
+      "vi": "thứ tự",
+      "mode": "phrase"
+    },
+    {
+      "en": "match",
+      "vi": "khớp",
+      "mode": "phrase"
+    },
+    {
+      "en": "row",
+      "vi": "dòng",
+      "mode": "phrase"
+    },
+    {
+      "en": "above",
+      "vi": "trên",
+      "mode": "phrase"
+    },
+    {
+      "en": "time",
+      "vi": "thời gian",
+      "mode": "phrase"
+    },
+    {
+      "en": "occurrence",
+      "vi": "lần",
+      "mode": "phrase"
+    },
+    {
+      "en": "main",
+      "vi": "chính",
+      "mode": "phrase"
+    },
+    {
+      "en": "get",
+      "vi": "lấy",
+      "mode": "phrase"
+    },
+    {
+      "en": "keep",
+      "vi": "giữ",
+      "mode": "phrase"
+    },
+    {
+      "en": "standard",
+      "vi": "chuẩn",
+      "mode": "phrase"
+    },
+    {
+      "en": "default",
+      "vi": "mặc định",
+      "mode": "phrase"
+    },
+    {
+      "en": "assign",
+      "vi": "gán",
+      "mode": "phrase"
+    },
+    {
+      "en": "source",
+      "vi": "nguồn",
+      "mode": "phrase"
+    },
+    {
+      "en": "but",
+      "vi": "nhưng",
+      "mode": "phrase"
+    },
+    {
+      "en": "remaining",
+      "vi": "còn",
+      "mode": "phrase"
+    },
+    {
+      "en": "number",
+      "vi": "số",
+      "mode": "phrase"
+    },
+    {
+      "en": "complete",
+      "vi": "toàn bộ",
+      "mode": "phrase"
+    },
+    {
+      "en": "link",
+      "vi": "liên kết",
+      "mode": "phrase"
+    },
+    {
+      "en": "output",
+      "vi": "xuất",
+      "mode": "phrase"
+    },
+    {
+      "en": "belongs to",
+      "vi": "thuộc",
+      "mode": "phrase"
+    },
+    {
+      "en": "each",
+      "vi": "từng",
+      "mode": "phrase"
+    },
+    {
+      "en": "management",
+      "vi": "quản lý",
+      "mode": "phrase"
+    },
+    {
+      "en": "put",
+      "vi": "đưa",
+      "mode": "phrase"
+    },
+    {
+      "en": "allow",
+      "vi": "cho phép",
+      "mode": "phrase"
+    },
+    {
+      "en": "make",
+      "vi": "làm",
+      "mode": "phrase"
+    },
+    {
+      "en": "hour",
+      "vi": "giờ",
+      "mode": "phrase"
+    },
+    {
+      "en": "located",
+      "vi": "nằm",
+      "mode": "phrase"
+    },
+    {
+      "en": "type",
+      "vi": "loại",
+      "mode": "phrase"
+    },
+    {
+      "en": "separate",
+      "vi": "riêng",
+      "mode": "phrase"
+    },
+    {
+      "en": "remove",
+      "vi": "bỏ",
+      "mode": "phrase"
+    },
+    {
+      "en": "filter",
+      "vi": "lọc",
+      "mode": "phrase"
+    },
+    {
+      "en": "become",
+      "vi": "thành",
+      "mode": "phrase"
+    },
+    {
+      "en": "more",
+      "vi": "hơn",
+      "mode": "phrase"
+    },
+    {
+      "en": "chain",
+      "vi": "chuỗi",
+      "mode": "phrase"
+    },
+    {
+      "en": "list",
+      "vi": "danh sách",
+      "mode": "phrase"
+    },
+    {
+      "en": "split",
+      "vi": "tách",
+      "mode": "phrase"
+    },
+    {
+      "en": "deactivated",
+      "vi": "ngưng",
+      "mode": "phrase"
+    },
+    {
+      "en": "here",
+      "vi": "đây",
+      "mode": "phrase"
+    },
+    {
+      "en": "read",
+      "vi": "đọc",
+      "mode": "phrase"
+    },
+    {
+      "en": "most",
+      "vi": "nhất",
+      "mode": "phrase"
+    },
+    {
+      "en": "connect",
+      "vi": "nối",
+      "mode": "phrase"
+    },
+    {
+      "en": "continue",
+      "vi": "tiếp",
+      "mode": "phrase"
+    },
+    {
+      "en": "click",
+      "vi": "bấm",
+      "mode": "phrase"
+    },
+    {
+      "en": "verify",
+      "vi": "xác định",
+      "mode": "phrase"
+    },
+    {
+      "en": "table",
+      "vi": "bảng",
+      "mode": "phrase"
+    },
+    {
+      "en": "appropriate",
+      "vi": "phù hợp",
+      "mode": "phrase"
+    },
+    {
+      "en": "every",
+      "vi": "mỗi",
+      "mode": "phrase"
+    },
+    {
+      "en": "between",
+      "vi": "giữa",
+      "mode": "phrase"
+    },
+    {
+      "en": "schedule",
+      "vi": "xếp lịch",
+      "mode": "phrase"
+    },
+    {
+      "en": "information",
+      "vi": "thông tin",
+      "mode": "phrase"
+    },
+    {
+      "en": "left",
+      "vi": "bên trái",
+      "mode": "phrase"
+    },
+    {
+      "en": "first",
+      "vi": "đầu",
+      "mode": "phrase"
+    },
+    {
+      "en": "rate",
+      "vi": "tỷ lệ",
+      "mode": "phrase"
+    },
+    {
+      "en": "decide",
+      "vi": "quyết định",
+      "mode": "phrase"
+    },
+    {
+      "en": "scope",
+      "vi": "phạm vi",
+      "mode": "phrase"
+    },
+    {
+      "en": "position",
+      "vi": "vị trí",
+      "mode": "phrase"
+    },
+    {
+      "en": "plan",
+      "vi": "lập kế hoạch",
+      "mode": "phrase"
+    },
+    {
+      "en": "with",
+      "vi": "với",
+      "mode": "phrase"
+    },
+    {
+      "en": "physical",
+      "vi": "vật lý",
+      "mode": "phrase"
+    },
+    {
+      "en": "like",
+      "vi": "như",
+      "mode": "phrase"
+    },
+    {
+      "en": "near",
+      "vi": "gần",
+      "mode": "phrase"
+    },
+    {
+      "en": "all",
+      "vi": "mọi",
+      "mode": "phrase"
+    },
+    {
+      "en": "means",
+      "vi": "nghĩa là",
+      "mode": "phrase"
+    },
+    {
+      "en": "application",
+      "vi": "ứng dụng",
+      "mode": "phrase"
+    },
+    {
+      "en": "go",
+      "vi": "đi",
+      "mode": "phrase"
+    },
+    {
+      "en": "require",
+      "vi": "yêu cầu",
+      "mode": "phrase"
+    },
+    {
+      "en": "move",
+      "vi": "chuyển",
+      "mode": "phrase"
+    },
+    {
+      "en": "build",
+      "vi": "xây dựng",
+      "mode": "phrase"
+    },
+    {
+      "en": "maximum",
+      "vi": "tối đa",
+      "mode": "phrase"
+    },
+    {
+      "en": "return",
+      "vi": "trở lại",
+      "mode": "phrase"
+    },
+    {
+      "en": "drag",
+      "vi": "kéo",
+      "mode": "phrase"
+    },
+    {
+      "en": "limit",
+      "vi": "giới hạn",
+      "mode": "phrase"
+    },
+    {
+      "en": "flow",
+      "vi": "luồng",
+      "mode": "phrase"
+    },
+    {
+      "en": "calculate",
+      "vi": "tính",
+      "mode": "phrase"
+    },
+    {
+      "en": "calendar",
+      "vi": "lịch",
+      "mode": "phrase"
+    },
+    {
+      "en": "detail",
+      "vi": "chi tiết",
+      "mode": "phrase"
+    },
+    {
+      "en": "actual",
+      "vi": "thực tế",
+      "mode": "phrase"
+    },
+    {
+      "en": "enough",
+      "vi": "đủ",
+      "mode": "phrase"
+    },
+    {
+      "en": "item",
+      "vi": "mục",
+      "mode": "phrase"
+    },
+    {
+      "en": "down",
+      "vi": "xuống",
+      "mode": "phrase"
+    },
+    {
+      "en": "see",
+      "vi": "thấy",
+      "mode": "phrase"
+    },
+    {
+      "en": "then",
+      "vi": "rồi",
+      "mode": "phrase"
+    },
+    {
+      "en": "wait",
+      "vi": "chờ",
+      "mode": "phrase"
+    },
+    {
+      "en": "important",
+      "vi": "quan trọng",
+      "mode": "phrase"
+    },
+    {
+      "en": "where",
+      "vi": "đâu",
+      "mode": "phrase"
+    },
+    {
+      "en": "selected conditions",
+      "vi": "điều kiện đã chọn",
+      "mode": "phrase"
+    },
+    {
+      "en": "block",
+      "vi": "chặn",
+      "mode": "phrase"
+    },
+    {
+      "en": "lock",
+      "vi": "khóa",
+      "mode": "phrase"
+    },
+    {
+      "en": "usage",
+      "vi": "sử dụng",
+      "mode": "phrase"
+    },
+    {
+      "en": "out of",
+      "vi": "khỏi",
+      "mode": "phrase"
+    },
+    {
+      "en": "assignment",
+      "vi": "phân công",
+      "mode": "phrase"
+    },
+    {
+      "en": "title",
+      "vi": "tiêu đề",
+      "mode": "phrase"
+    },
+    {
+      "en": "method",
+      "vi": "cách",
+      "mode": "phrase"
+    },
+    {
+      "en": "independent",
+      "vi": "độc lập",
+      "mode": "phrase"
+    },
+    {
+      "en": "up",
+      "vi": "lên",
+      "mode": "phrase"
+    },
+    {
+      "en": "direct",
+      "vi": "trực tiếp",
+      "mode": "phrase"
+    },
+    {
+      "en": "scan",
+      "vi": "quét",
+      "mode": "phrase"
+    },
+    {
+      "en": "compare",
+      "vi": "đối chiếu",
+      "mode": "phrase"
+    },
+    {
+      "en": "search",
+      "vi": "tìm kiếm",
+      "mode": "phrase"
+    },
+    {
+      "en": "want",
+      "vi": "muốn",
+      "mode": "phrase"
+    },
+    {
+      "en": "inherit",
+      "vi": "kế thừa",
+      "mode": "phrase"
+    },
+    {
+      "en": "both",
+      "vi": "cả hai",
+      "mode": "phrase"
+    },
+    {
+      "en": "duplicate",
+      "vi": "lặp lại",
+      "mode": "phrase"
+    },
+    {
+      "en": "also",
+      "vi": "cũng",
+      "mode": "phrase"
+    },
+    {
+      "en": "character",
+      "vi": "ký tự",
+      "mode": "phrase"
+    },
+    {
+      "en": "internal",
+      "vi": "nội bộ",
+      "mode": "phrase"
+    },
+    {
+      "en": "mix",
+      "vi": "trộn",
+      "mode": "phrase"
+    },
+    {
+      "en": "attach",
+      "vi": "gắn",
+      "mode": "phrase"
+    },
+    {
+      "en": "by",
+      "vi": "bằng",
+      "mode": "phrase"
+    },
+    {
+      "en": "confuse",
+      "vi": "nhầm",
+      "mode": "phrase"
+    },
+    {
+      "en": "special",
+      "vi": "đặc biệt",
+      "mode": "phrase"
+    },
+    {
+      "en": "dynamic",
+      "vi": "động",
+      "mode": "phrase"
+    },
+    {
+      "en": "note",
+      "vi": "ghi chú",
+      "mode": "phrase"
+    },
+    {
+      "en": "exception",
+      "vi": "ngoại lệ",
+      "mode": "phrase"
+    },
+    {
+      "en": "enable",
+      "vi": "bật",
+      "mode": "phrase"
+    },
+    {
+      "en": "step",
+      "vi": "bước",
+      "mode": "phrase"
+    },
+    {
+      "en": "handle",
+      "vi": "xử lý",
+      "mode": "phrase"
+    },
+    {
+      "en": "run",
+      "vi": "chạy",
+      "mode": "phrase"
+    },
+    {
+      "en": "compact",
+      "vi": "gọn",
+      "mode": "phrase"
+    },
+    {
+      "en": "function",
+      "vi": "chức năng",
+      "mode": "phrase"
+    },
+    {
+      "en": "notification",
+      "vi": "thông báo",
+      "mode": "phrase"
+    },
+    {
+      "en": "task",
+      "vi": "tác vụ",
+      "mode": "phrase"
+    },
+    {
+      "en": "old",
+      "vi": "cũ",
+      "mode": "phrase"
+    },
+    {
+      "en": "valid",
+      "vi": "hợp lệ",
+      "mode": "phrase"
+    },
+    {
+      "en": "invalid",
+      "vi": "không hợp lệ",
+      "mode": "phrase"
+    },
+    {
+      "en": "available",
+      "vi": "khả dụng",
+      "mode": "phrase"
+    },
+    {
+      "en": "manual",
+      "vi": "thủ công",
+      "mode": "phrase"
+    },
+    {
+      "en": "only when",
+      "vi": "chỉ khi",
+      "mode": "phrase"
+    },
+    {
+      "en": "only if",
+      "vi": "chỉ nếu",
+      "mode": "phrase"
+    },
+    {
+      "en": "only the",
+      "vi": "chỉ",
+      "mode": "phrase"
+    },
+    {
+      "en": "not required",
+      "vi": "không bắt buộc",
+      "mode": "phrase"
+    },
+    {
+      "en": "not used",
+      "vi": "không dùng",
+      "mode": "phrase"
+    },
+    {
+      "en": "not change",
+      "vi": "không đổi",
+      "mode": "phrase"
+    },
+    {
+      "en": "not delete",
+      "vi": "không xóa",
+      "mode": "phrase"
+    },
+    {
+      "en": "do not delete",
+      "vi": "không xóa",
+      "mode": "phrase"
+    },
+    {
+      "en": "do not use",
+      "vi": "không dùng",
+      "mode": "phrase"
+    },
+    {
+      "en": "not available",
+      "vi": "không có",
+      "mode": "phrase"
+    },
+    {
+      "en": "not assigned",
+      "vi": "chưa gán",
+      "mode": "phrase"
+    },
+    {
+      "en": "not mapped",
+      "vi": "chưa map",
+      "mode": "phrase"
+    },
+    {
+      "en": "not match",
+      "vi": "không khớp",
+      "mode": "phrase"
+    },
+    {
+      "en": "does not match",
+      "vi": "không khớp",
+      "mode": "phrase"
+    },
+    {
+      "en": "can be",
+      "vi": "có thể được",
+      "mode": "phrase"
+    },
+    {
+      "en": "can select",
+      "vi": "có thể chọn",
+      "mode": "phrase"
+    },
+    {
+      "en": "can create",
+      "vi": "có thể tạo",
+      "mode": "phrase"
+    },
+    {
+      "en": "must be",
+      "vi": "phải",
+      "mode": "phrase"
+    },
+    {
+      "en": "must select",
+      "vi": "phải chọn",
+      "mode": "phrase"
+    },
+    {
+      "en": "need to",
+      "vi": "cần",
+      "mode": "phrase"
+    },
+    {
+      "en": "should check",
+      "vi": "nên kiểm tra",
+      "mode": "phrase"
+    },
+    {
+      "en": "after saving",
+      "vi": "sau khi lưu",
+      "mode": "phrase"
+    },
+    {
+      "en": "when selected",
+      "vi": "khi chọn",
+      "mode": "phrase"
+    },
+    {
+      "en": "when creating",
+      "vi": "khi tạo",
+      "mode": "phrase"
+    },
+    {
+      "en": "when changing",
+      "vi": "khi thay đổi",
+      "mode": "phrase"
+    },
+    {
+      "en": "when saved",
+      "vi": "khi lưu",
+      "mode": "phrase"
+    },
+    {
+      "en": "when running",
+      "vi": "khi chạy",
+      "mode": "phrase"
+    },
+    {
+      "en": "however",
+      "vi": "tuy nhiên",
+      "mode": "phrase"
+    },
+    {
+      "en": "if there is",
+      "vi": "nếu có",
+      "mode": "phrase"
+    },
+    {
+      "en": "if not",
+      "vi": "nếu không",
+      "mode": "phrase"
+    },
+    {
+      "en": "in the same",
+      "vi": "trong cùng",
+      "mode": "phrase"
+    },
+    {
+      "en": "in this",
+      "vi": "trong này",
+      "mode": "phrase"
+    },
+    {
+      "en": "in current",
+      "vi": "trong hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "for each",
+      "vi": "cho từng",
+      "mode": "phrase"
+    },
+    {
+      "en": "for all",
+      "vi": "cho tất cả",
+      "mode": "phrase"
+    },
+    {
+      "en": "for planning",
+      "vi": "cho Planning",
+      "mode": "phrase"
+    },
+    {
+      "en": "for scheduling",
+      "vi": "cho điều độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "according to",
+      "vi": "theo",
+      "mode": "phrase"
+    },
+    {
+      "en": "based on",
+      "vi": "dựa trên",
+      "mode": "phrase"
+    },
+    {
+      "en": "directly",
+      "vi": "trực tiếp",
+      "mode": "phrase"
+    },
+    {
+      "en": "value",
+      "vi": "giá trị",
+      "mode": "phrase"
+    },
+    {
+      "en": "field",
+      "vi": "trường",
+      "mode": "phrase"
+    },
+    {
+      "en": "group",
+      "vi": "nhóm",
+      "mode": "phrase"
+    },
+    {
+      "en": "configuration rule",
+      "vi": "quy tắc cấu hình",
+      "mode": "phrase"
+    },
+    {
+      "en": "mapping rule",
+      "vi": "quy tắc mapping",
+      "mode": "phrase"
+    },
+    {
+      "en": "time rule",
+      "vi": "quy tắc thời gian",
+      "mode": "phrase"
+    },
+    {
+      "en": "business rule",
+      "vi": "quy tắc nghiệp vụ",
+      "mode": "phrase"
+    },
+    {
+      "en": "active records",
+      "vi": "bản ghi đang dùng",
+      "mode": "phrase"
+    },
+    {
+      "en": "active group",
+      "vi": "nhóm đang hoạt động",
+      "mode": "phrase"
+    },
+    {
+      "en": "current view",
+      "vi": "giao diện hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "current data",
+      "vi": "dữ liệu hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "current Job",
+      "vi": "Job hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "current Batch",
+      "vi": "Batch hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "current operation",
+      "vi": "công đoạn hiện tại",
+      "mode": "phrase"
+    },
+    {
+      "en": "main operation",
+      "vi": "công đoạn chính",
+      "mode": "phrase"
+    },
+    {
+      "en": "previous operation",
+      "vi": "công đoạn trước",
+      "mode": "phrase"
+    },
+    {
+      "en": "next operation",
+      "vi": "công đoạn tiếp theo",
+      "mode": "phrase"
+    },
+    {
+      "en": "source operation",
+      "vi": "công đoạn nguồn",
+      "mode": "phrase"
+    },
+    {
+      "en": "operation code",
+      "vi": "mã công đoạn",
+      "mode": "phrase"
+    },
+    {
+      "en": "operation name",
+      "vi": "tên công đoạn",
+      "mode": "phrase"
+    },
+    {
+      "en": "configuration issue",
+      "vi": "lỗi cấu hình",
+      "mode": "phrase"
+    },
+    {
+      "en": "configuration issues",
+      "vi": "các lỗi cấu hình",
+      "mode": "phrase"
+    },
+    {
+      "en": "missing configuration",
+      "vi": "thiếu cấu hình",
+      "mode": "phrase"
+    },
+    {
+      "en": "data source",
+      "vi": "nguồn dữ liệu",
+      "mode": "phrase"
+    },
+    {
+      "en": "data value",
+      "vi": "giá trị dữ liệu",
+      "mode": "phrase"
+    },
+    {
+      "en": "source data",
+      "vi": "dữ liệu nguồn",
+      "mode": "phrase"
+    },
+    {
+      "en": "processing",
+      "vi": "xử lý",
+      "mode": "phrase"
+    },
+    {
+      "en": "start time",
+      "vi": "giờ bắt đầu",
+      "mode": "phrase"
+    },
+    {
+      "en": "end time",
+      "vi": "giờ kết thúc",
+      "mode": "phrase"
+    },
+    {
+      "en": "scheduled",
+      "vi": "đã điều độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "unscheduled",
+      "vi": "chưa điều độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "planned",
+      "vi": "đã lên kế hoạch",
+      "mode": "phrase"
+    },
+    {
+      "en": "Physical area catalog in the plant + assign ST Groups to areas.",
+      "vi": "Danh mục khu vực vật lý trong nhà máy + gán ST Group vào khu.",
+      "mode": "exact"
+    },
+    {
+      "en": "Define physical areas (e.g. Chemical Line) and which ST Groups run in each area.",
+      "vi": "Khai báo khu vực (vd khu Chemical Line) và xác định ST Group nào chạy ở khu nào.",
+      "mode": "exact"
+    },
+    {
+      "en": "Each ST Group belongs to one physical area. This bridges ST Group to Schedule Area.",
+      "vi": "Một ST Group chỉ thuộc 1 khu vật lý. Đây là cầu nối từ Nhóm ST sang Khu vực điều độ (Schedule Area).",
+      "mode": "exact"
+    },
+    {
+      "en": "Configure automation rules separately for each Main Operation.",
+      "vi": "Cấu hình quy tắc tự động riêng cho từng Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Configure automatic batching rules for each Main Operation: which Jobs can be grouped, grouping criteria, Batch limits and priority.",
+      "vi": "Cấu hình quy tắc tự động gom lô cho từng công đoạn chính: job nào được gom, gom theo tiêu chí nào, giới hạn lô ra sao, ưu tiên xếp lô thế nào.",
+      "mode": "exact"
+    },
+    {
+      "en": "These rules only apply when Auto Planning is used; current manual Planning is unchanged.",
+      "vi": "Các rule này chỉ tác động khi Auto Planning được sử dụng; Planning thủ công hiện tại không thay đổi.",
+      "mode": "exact"
+    },
+    {
+      "en": "Main Operation catalog: add new operations, rename, set order, Batch prefix and usage status.",
+      "vi": "Danh mục công đoạn chính (Main Operation): thêm công đoạn mới, đổi tên, đặt thứ tự, tiền tố số lô và quản lý trạng thái sử dụng.",
+      "mode": "exact"
+    },
+    {
+      "en": "Deactivation preserves history. Permanent deletion is allowed only when the operation is inactive and no Mapping/Recipe/Planning/Batch references remain.",
+      "vi": "Ngưng sử dụng giữ nguyên lịch sử. Xóa vĩnh viễn chỉ được phép khi công đoạn đã ngưng và không còn Mapping/Recipe/Planning/Batch tham chiếu.",
+      "mode": "exact"
+    },
+    {
+      "en": "Assign each Operation Code to an ST Group + Main Operation + mapping rule.",
+      "vi": "Gán mỗi Operation Code vào ST Group + Công đoạn chính (Main Operation) + quy tắc.",
+      "mode": "exact"
+    },
+    {
+      "en": "Decide which Main Operation a source Operation Code becomes during Planning, including the mapping rule (DIRECT / OCCURRENCE / SEQUENCE / SEQUENCE/FALLBACK).",
+      "vi": "Quyết định Operation Code nguồn 'thành' công đoạn chính nào khi lập kế hoạch, kèm quy tắc ánh xạ (DIRECT / OCCURRENCE / SEQUENCE / SEQUENCE/FALLBACK).",
+      "mode": "exact"
+    },
+    {
+      "en": "Incorrect mapping sends Jobs to the wrong Planning Board operation. Only Planning Operations appear here; ST_SCOPE_ONLY does not participate in Planning/Batch/Scheduling.",
+      "vi": "Mapping sai sẽ khiến Job đi vào sai công đoạn trên Planning Board. Chỉ Operation loại Planning Operation mới xuất hiện ở đây; ST_SCOPE_ONLY không tham gia Planning/Batch/Điều độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Collect unique values from every All Open Job column — source data for Batch Key / Recipe Rules.",
+      "vi": "Tổng hợp mọi giá trị unique theo từng cột trong All Open Job — nguồn dữ liệu để cấu hình Batch Key / Recipe Rules.",
+      "mode": "exact"
+    },
+    {
+      "en": "A value dictionary for Job columns (e.g. which values exist in PRIMER1) — helps create accurate rule conditions, readable display names and fast Planning Board filters.",
+      "vi": "Là 'từ điển' giá trị của các cột Job (vd cột PRIMER1 có các giá trị nào) — giúp tạo điều kiện rule chính xác, đặt tên hiển thị dễ đọc và lọc nhanh trên Planning Board.",
+      "mode": "exact"
+    },
+    {
+      "en": "This data is not refreshed automatically: use Scan / Rebuild after each new Master import. Inactive values are excluded from rule condition selection.",
+      "vi": "Dữ liệu này không tự đổi: bấm Scan / Rebuild để quét lại sau mỗi lần Import Master mới. Giá trị bị ngưng dùng (Inactive) sẽ không xuất hiện khi chọn điều kiện rule.",
+      "mode": "exact"
+    },
+    {
+      "en": "Set optional Operation Code Order to tie-break RAW NextOperation values within the same Main. Primary order is inherited from Main Planning Order.",
+      "vi": "Đặt Operation Code Order tùy chọn để tie-break các RAW NextOperation trong cùng Main. Thứ tự chính kế thừa Main Planning Order.",
+      "mode": "exact"
+    },
+    {
+      "en": "Set display/sort order for RAW NextOperation (e.g. CMSA = 10 · INSPLM = 25 · CHEMMILL = 30). This field is independent of Main Planning Order.",
+      "vi": "Đặt thứ tự hiển thị/sort của RAW NextOperation (vd CMSA = 10 · INSPLM = 25 · CHEMMILL = 30). Field này độc lập với Main Planning Order.",
+      "mode": "exact"
+    },
+    {
+      "en": "Changing Operation Code Order does not change READY/WAIT or Planning Chain; it only changes tie-break within the same Main. Only Add/Remove ST Scope affects the operation chain.",
+      "vi": "Đổi Operation Code Order không thay đổi READY/WAIT hay Planning Chain; nó chỉ đổi tie-break trong cùng Main. Chỉ Add/Remove ST Scope mới ảnh hưởng chuỗi công đoạn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Planner Work Assignment",
+      "vi": "Phân chia công việc Planner",
+      "mode": "exact"
+    },
+    {
+      "en": "Add/remove or move Schedule Areas between Planner 1 and Planner 2.",
+      "vi": "Thêm/bớt hoặc chuyển Schedule Area giữa Planner 1 và Planner 2.",
+      "mode": "exact"
+    },
+    {
+      "en": "Define who owns scheduling for each area (Planner 1 / Planner 2) — who sees which work on the Scheduling Board.",
+      "vi": "Xác định người phụ trách điều độ từng khu vực (Planner 1 / Planner 2) — ai thấy việc gì trên Board Điều Độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Moving assignment changes only scheduling ownership; it does not change Standard Operation, Routing, Batch or operation logic.",
+      "vi": "Việc chuyển chỉ đổi người phụ trách điều độ, không đổi Standard Operation, Routing, Batch hoặc logic công đoạn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe & Rules",
+      "vi": "Công thức & Rule",
+      "mode": "exact"
+    },
+    {
+      "en": "Manage the Recipe catalog and Operation Code → Recipe rules used on Planning Board.",
+      "vi": "Quản lý Danh mục Recipe và quy tắc Operation Code → Recipe dùng trên Planning Board.",
+      "mode": "exact"
+    },
+    {
+      "en": "Define which Recipe an Operation Code uses, application conditions, priority, Batch Key template and Batch No. prefix.",
+      "vi": "Xác định Operation Code dùng Recipe nào, điều kiện áp dụng, độ ưu tiên, Mã lô mẫu và Prefix số lô.",
+      "mode": "exact"
+    },
+    {
+      "en": "A Job without a resolved Recipe cannot be batched. Changes here immediately affect Recipe proposals on Planning Board.",
+      "vi": "Job chưa xác định được Recipe sẽ không tạo lô được. Thay đổi ở đây ảnh hưởng ngay tới Recipe đề xuất trên Planning Board.",
+      "mode": "exact"
+    },
+    {
+      "en": "Chemical Line: Batch loading and unloading time by Quantity + Surface.",
+      "vi": "Chemical Line: thời gian nạp (Loading) và dỡ (Unloading) lô theo Số lượng + Diện tích.",
+      "mode": "exact"
+    },
+    {
+      "en": "Define Loading/Unloading time for a Chemical Batch: the system selects a rule by Priority, Qty and Surface dm² (blank Min/Max = unlimited).",
+      "vi": "Định nghĩa thời gian Loading/Unloading cho 1 lô Chemical: hệ thống chọn rule theo Priority, Qty và Surface dm² của lô (Min/Max để trống = không giới hạn).",
+      "mode": "exact"
+    },
+    {
+      "en": "This time forms the start and end of each Batch timeline on Scheduling Board. Incorrect rules can calculate wrong times, overlap Loading stations or leave gaps.",
+      "vi": "Thời gian này là đầu và cuối chuỗi thời gian mỗi lô trên Board Điều Độ. Sai rule → lô bị tính sai giờ, trạm Loading bị chồng chéo hoặc bỏ trống.",
+      "mode": "exact"
+    },
+    {
+      "en": "Processing Time",
+      "vi": "Thời gian xử lý (Process)",
+      "mode": "exact"
+    },
+    {
+      "en": "Main Operation → Recipe → Process Time — standard time source used by Planning and Scheduling Board.",
+      "vi": "Main Operation → Recipe → Process Time — nguồn thời gian chuẩn dùng cho Planning và Board Điều Độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Define processing time per Recipe: Fixed or Quantity + Surface ranges; each rule can add conditions from All Open Job columns. Enter time as HH:MM.",
+      "vi": "Định nghĩa thời gian xử lý của từng Recipe: Cố định hoặc theo khoảng Số lượng + Diện tích; mỗi rule có thể thêm nhiều điều kiện từ các cột All Open Job. Thời gian nhập theo HH:MM.",
+      "mode": "exact"
+    },
+    {
+      "en": "When Jobs are added/removed or Recipe changes, Batch Process Time is recalculated. Scheduling Board Duration can still be overridden by the planner without changing the standard rule.",
+      "vi": "Khi tạo/thêm/bớt Job hoặc đổi Recipe, Process Time của Batch được tính lại. Duration trên Board Điều Độ vẫn có thể được planner chỉnh riêng mà không sửa rule chuẩn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Configure scheduling areas, default rows and Standard Operations assigned to each area.",
+      "vi": "Cấu hình khu vực điều độ, số dòng mặc định và Standard Operation thuộc từng khu vực.",
+      "mode": "exact"
+    },
+    {
+      "en": "Create Scheduling Board lanes: each area has a name, order, row count, resource and allowed Main Operations.",
+      "vi": "Tạo 'lane' trên Board Điều Độ: mỗi khu vực điều độ có tên, thứ tự, số dòng, resource và danh sách công đoạn chính được phép điều độ tại đó.",
+      "mode": "exact"
+    },
+    {
+      "en": "A Main Operation not assigned to any Schedule Area will not appear on Scheduling Board. Only areas with manual scheduling enabled participate in the manual scheduling flow.",
+      "vi": "Công đoạn chính chưa gán vào Schedule Area nào sẽ không xuất hiện trên Board Điều Độ. Chỉ khu vực bật Điều độ tay mới xuất hiện trong luồng điều độ thủ công.",
+      "mode": "exact"
+    },
+    {
+      "en": "ST operation group catalog — groups similar Operations into one group (e.g. all masking operations belong to MSKG).",
+      "vi": "Danh mục nhóm công đoạn ST — gom các Operation tương tự thành 1 nhóm (vd tất cả công đoạn che chắn thuộc nhóm MSKG).",
+      "mode": "exact"
+    },
+    {
+      "en": "Configure Main Planning / ST Scope Only; Intermediate uses Auto Routing and Manual override when needed.",
+      "vi": "Cấu hình Main Planning / ST Scope Only; Intermediate dùng Auto Routing và Manual override khi cần.",
+      "mode": "exact"
+    },
+    {
+      "en": "Auto Bridge reads routing_code + seq + operation_code automatically. Manual Bridge is for exceptions and always has priority over Auto for the same LastLaborOp + NextOperation.",
+      "vi": "Auto Bridge tự đọc routing_code + seq + operation_code. Manual Bridge dùng cho ngoại lệ và luôn ưu tiên hơn Auto khi cùng LastLaborOp + NextOperation.",
+      "mode": "exact"
+    },
+    {
+      "en": "On Save, the system rebuilds the full operation chain (ST Routing + Planning Chain) for related Jobs — this may take several seconds. Batch/Schedule history is not deleted.",
+      "vi": "Khi Lưu, hệ thống dựng lại toàn bộ chuỗi công đoạn (ST Routing + Planning Chain) cho các Job liên quan — có thể mất vài chục giây. Lịch sử Batch/Schedule không bị xóa.",
+      "mode": "exact"
+    },
+    {
+      "en": "Operations",
+      "vi": "Vận hành",
+      "mode": "exact"
+    },
+    {
+      "en": "Tracking",
+      "vi": "Theo dõi",
+      "mode": "exact"
+    },
+    {
+      "en": "Administration",
+      "vi": "Quản trị",
+      "mode": "exact"
+    },
+    {
+      "en": "Configuration",
+      "vi": "Cấu hình",
+      "mode": "exact"
+    },
+    {
+      "en": "Logic & Guide",
+      "vi": "Logic & Hướng dẫn",
+      "mode": "exact"
+    },
+    {
+      "en": "Scheduling Board",
+      "vi": "Board Điều Độ",
+      "mode": "exact"
+    },
+    {
+      "en": "Scheduling",
+      "vi": "Điều độ",
+      "mode": "exact"
+    },
+    {
+      "en": "Operation",
+      "vi": "Công đoạn",
+      "mode": "exact"
+    },
+    {
+      "en": "Purpose",
+      "vi": "Mục đích",
+      "mode": "exact"
+    },
+    {
+      "en": "Downstream Impact",
+      "vi": "Ảnh hưởng phía sau",
+      "mode": "exact"
+    },
+    {
+      "en": "Actions",
+      "vi": "Thao tác",
+      "mode": "exact"
+    },
+    {
+      "en": "Status",
+      "vi": "Trạng thái",
+      "mode": "exact"
+    },
+    {
+      "en": "Priority",
+      "vi": "Ưu tiên",
+      "mode": "exact"
+    },
+    {
+      "en": "Area",
+      "vi": "Khu vực",
+      "mode": "exact"
+    },
+    {
+      "en": "Physical Area",
+      "vi": "Khu vực vật lý",
+      "mode": "exact"
+    },
+    {
+      "en": "Schedule Area",
+      "vi": "Khu vực điều độ",
+      "mode": "exact"
+    },
+    {
+      "en": "Process Time",
+      "vi": "Thời gian Process",
+      "mode": "exact"
+    },
+    {
+      "en": "Search",
+      "vi": "Tìm",
+      "mode": "exact"
+    },
+    {
+      "en": "Select",
+      "vi": "Chọn",
+      "mode": "exact"
+    },
+    {
+      "en": "Cancel",
+      "vi": "Hủy",
+      "mode": "exact"
+    },
+    {
+      "en": "Save",
+      "vi": "Lưu",
+      "mode": "exact"
+    },
+    {
+      "en": "Delete",
+      "vi": "Xóa",
+      "mode": "exact"
+    },
+    {
+      "en": "Edit",
+      "vi": "Sửa",
+      "mode": "exact"
+    },
+    {
+      "en": "Add",
+      "vi": "Thêm",
+      "mode": "exact"
+    },
+    {
+      "en": "Ready",
+      "vi": "Sẵn sàng",
+      "mode": "exact"
+    },
+    {
+      "en": "Active",
+      "vi": "Hoạt động",
+      "mode": "exact"
+    },
+    {
+      "en": "Inactive",
+      "vi": "Ngưng dùng",
+      "mode": "exact"
+    },
+    {
+      "en": "Running",
+      "vi": "Đang chạy",
+      "mode": "exact"
+    },
+    {
+      "en": "Operations",
+      "vi": "Vận hành",
+      "mode": "exact"
+    },
+    {
+      "en": "Look up the full Job lifecycle: All Open Job → Routing → Planning → Recipe → Batch → Scheduling → Handover.",
+      "vi": "Tra cứu toàn bộ vòng đời Job: All Open Job → Routing → Planning → Recipe → Batch → Điều độ → Handover.",
+      "mode": "exact"
+    },
+    {
+      "en": "Content",
+      "vi": "Nội dung",
+      "mode": "exact"
+    },
+    {
+      "en": "Do not use as replacement",
+      "vi": "Không nên dùng thay thế",
+      "mode": "exact"
+    },
+    {
+      "en": "Screen",
+      "vi": "Màn hình",
+      "mode": "exact"
+    },
+    {
+      "en": "Meaning",
+      "vi": "Ý nghĩa",
+      "mode": "exact"
+    },
+    {
+      "en": "Start",
+      "vi": "Bắt đầu",
+      "mode": "exact"
+    },
+    {
+      "en": "End",
+      "vi": "Kết thúc",
+      "mode": "exact"
+    },
+    {
+      "en": "Main Operations without Main Planning Order are placed at the end. Within the same Main, Operation Code Order is used as a tie-breaker; if unset, sorting is stable by RAW NextOperation. Sort Priority remains the planner presentation order source.",
+      "vi": "Main chưa có Main Planning Order được đưa xuống cuối. Trong cùng Main, Operation Code có Order được dùng làm tie-breaker; nếu chưa đặt thì sort ổn định theo RAW NextOperation. Sort Priority vẫn là nguồn thứ tự trình bày của planner.",
+      "mode": "exact"
+    },
+    {
+      "en": "appears here; ST_SCOPE_ONLY is not mapped into a Main.",
+      "vi": "xuất hiện ở đây; ST_SCOPE_ONLY không được map vào Main.",
+      "mode": "exact"
+    },
+    {
+      "en": "Group Main/Source Operations by technology. ST Group is the bridge from Mapping to Physical Area.",
+      "vi": "Gom các Main/Source Operation cùng nhóm công nghệ. ST Group là cầu nối từ Mapping xuống Physical Area.",
+      "mode": "exact"
+    },
+    {
+      "en": "Assign ST Groups to plant areas. One ST Group belongs to one active physical area at a time.",
+      "vi": "Gắn ST Group vào khu vực nhà máy. Một ST Group thuộc một khu vật lý active tại một thời điểm.",
+      "mode": "exact"
+    },
+    {
+      "en": "Define Scheduling Board lanes: name, order, resource group/resource, default rows, allowed Main Operations and manual scheduling status.",
+      "vi": "Định nghĩa lane trên Board Điều Độ: tên, thứ tự, resource group/resource, số dòng mặc định, các Main Operation được phép vào lane và trạng thái Điều độ tay.",
+      "mode": "exact"
+    },
+    {
+      "en": "Used for Chemical Line. Rules are selected by Priority + Qty range + Surface dm²; blank Min/Max = unlimited.",
+      "vi": "Dùng cho Chemical Line. Rule chọn theo Priority + khoảng Qty + Surface dm²; Min/Max trống = không giới hạn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Scan unique key/value pairs in All Open Job so the condition builder can select exact columns and values without manual typing.",
+      "vi": "Scan các key/value unique trong All Open Job để condition builder chọn cột và giá trị chính xác, tránh gõ tay.",
+      "mode": "exact"
+    },
+    {
+      "en": "5 · Part Tracker — inspect a Part end-to-end",
+      "vi": "5 · Tab Part Tracker — kiểm tra một Part từ đầu đến cuối",
+      "mode": "exact"
+    },
+    {
+      "en": "5B · Job Tracker — inspect the full lifecycle of a Job",
+      "vi": "5B · Tab Job Tracker — tra toàn bộ vòng đời một Job",
+      "mode": "exact"
+    },
+    {
+      "en": "Status source must be consistent",
+      "vi": "Nguồn trạng thái phải thống nhất",
+      "mode": "exact"
+    },
+    {
+      "en": "7 · Planning Board — from READY Job to Production Batch",
+      "vi": "7 · Tab Planning Board — từ READY Job đến Production Batch",
+      "mode": "exact"
+    },
+    {
+      "en": "No hidden hard-sort remains",
+      "vi": "Không còn hard-sort ẩn",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe must always be identical",
+      "vi": "Recipe luôn bắt buộc giống nhau",
+      "mode": "exact"
+    },
+    {
+      "en": "Batch Builder adds",
+      "vi": "Batch Builder cộng",
+      "mode": "exact"
+    },
+    {
+      "en": ", resolve Recipe, then call the Process Time rule. Process Time conditions are checked on",
+      "vi": ", resolve Recipe, sau đó gọi Process Time rule. Condition Process Time được kiểm tra trên",
+      "mode": "exact"
+    },
+    {
+      "en": ". If a specific rule does not match because values are mixed, the resolver uses an unconditional fallback when available.",
+      "vi": ". Nếu rule cụ thể không match do trộn value, resolver tìm fallback không condition nếu có.",
+      "mode": "exact"
+    },
+    {
+      "en": "Example 1 · Standard Main",
+      "vi": "Ví dụ 1 · Main thường",
+      "mode": "exact"
+    },
+    {
+      "en": "9 · Scheduling Board — place Batch on resource and time",
+      "vi": "9 · Tab Board Điều Độ — xếp Batch vào resource và thời gian",
+      "mode": "exact"
+    },
+    {
+      "en": ". Painting supports the configured CAB resources (currently CAB1–CAB4 on the Board). An operation can only be dragged into an area mapped to that Main.",
+      "vi": ". Painting hiện hỗ trợ các CAB được cấu hình (hệ thống hiện có CAB1–CAB4 theo Board). Công đoạn chỉ được kéo vào vùng đã map cho Main đó.",
+      "mode": "exact"
+    },
+    {
+      "en": "11 · Impact Matrix — what changes downstream when you edit each configuration?",
+      "vi": "11 · Impact Matrix — sửa ở đâu thì phía sau thay đổi gì?",
+      "mode": "exact"
+    },
+    {
+      "en": "Core data used by ST Planning",
+      "vi": "Dữ liệu nền dùng cho ST Planning",
+      "mode": "exact"
+    },
+    {
+      "en": "Look up all related information by Part Number",
+      "vi": "Tra cứu toàn bộ thông tin liên quan theo Part Number",
+      "mode": "exact"
+    },
+    {
+      "en": "Schedule Batches by Resource, production date and processing time.",
+      "vi": "Điều độ Batch theo Resource, ngày sản xuất và thời gian xử lý.",
+      "mode": "exact"
+    },
+    {
+      "en": "ERP navigation",
+      "vi": "Điều hướng ERP",
+      "mode": "exact"
+    },
+    {
+      "en": "Mode",
+      "vi": "Chế độ",
+      "mode": "exact"
+    },
+    {
+      "en": "1. Enable & Mode",
+      "vi": "1. Kích hoạt & chế độ",
+      "mode": "exact"
+    },
+    {
+      "en": "Enable/disable Auto Planning for this Standard Operation only.",
+      "vi": "Bật/tắt Auto Planning cho riêng Standard Operation này.",
+      "mode": "exact"
+    },
+    {
+      "en": "Off",
+      "vi": "Tắt",
+      "mode": "exact"
+    },
+    {
+      "en": "2. Auto Planning Job Conditions",
+      "vi": "2. Điều kiện Job được Auto Plan",
+      "mode": "exact"
+    },
+    {
+      "en": "Example: when NextOperation/Next Main Plan Op is BSAUNSLD, allow creating a BSAUNSLD Batch even without a previous Batch.",
+      "vi": "Ví dụ NextOperation/Next Main Plan Op đang là BSAUNSLD: cho phép tạo lô BSAUNSLD dù chưa có Batch trước.",
+      "mode": "exact"
+    },
+    {
+      "en": "Allow planning when the previous Batch has been planned; actual completion is not required.",
+      "vi": "Cho phép lập kế hoạch khi Batch trước đã được lên kế hoạch, chưa cần hoàn thành thực tế.",
+      "mode": "exact"
+    },
+    {
+      "en": "Only auto-plan after the previous Main Operation is actually completed.",
+      "vi": "Chỉ lập kế hoạch tự động khi công đoạn chính trước đã hoàn thành.",
+      "mode": "exact"
+    },
+    {
+      "en": "Do not include a Job in Auto Planning until its Recipe is resolved.",
+      "vi": "Không đưa Job vào Auto Planning nếu chưa xác định được Recipe.",
+      "mode": "exact"
+    },
+    {
+      "en": "Minimum Jobs",
+      "vi": "Jobs tối thiểu",
+      "mode": "exact"
+    },
+    {
+      "en": "Minimum Qty",
+      "vi": "Qty tối thiểu",
+      "mode": "exact"
+    },
+    {
+      "en": "Minimum Surface (dm²)",
+      "vi": "Surface tối thiểu (dm²)",
+      "mode": "exact"
+    },
+    {
+      "en": "When the Jobs / Qty / Surface limit is reached, the system closes the current Batch and opens the next Batch.",
+      "vi": "Khi đạt giới hạn Jobs / Qty / Surface, hệ thống đóng Batch hiện tại và mở Batch kế tiếp.",
+      "mode": "exact"
+    },
+    {
+      "en": "+ Add priority level",
+      "vi": "+ Thêm mức ưu tiên",
+      "mode": "exact"
+    },
+    {
+      "en": "Ascending",
+      "vi": "Tăng dần",
+      "mode": "exact"
+    },
+    {
+      "en": "Descending",
+      "vi": "Giảm dần",
+      "mode": "exact"
+    },
+    {
+      "en": "Phase",
+      "vi": "Giai đoạn",
+      "mode": "exact"
+    },
+    {
+      "en": "Jobs requiring configuration",
+      "vi": "Job cần bổ sung cấu hình",
+      "mode": "exact"
+    },
+    {
+      "en": "Sign in to use the system.",
+      "vi": "Đăng nhập để sử dụng hệ thống.",
+      "mode": "exact"
+    },
+    {
+      "en": "Sign out",
+      "vi": "Đăng xuất",
+      "mode": "exact"
+    },
+    {
+      "en": "Batch Key template (optional)",
+      "vi": "Mã lô mẫu (tùy chọn)",
+      "mode": "exact"
+    },
+    {
+      "en": "Auto-select",
+      "vi": "✓ Tự chọn",
+      "mode": "exact"
+    },
+    {
+      "en": "Batch Key template / Prefix",
+      "vi": "Mã lô mẫu / Prefix",
+      "mode": "exact"
+    },
+    {
+      "en": "This time is after 00:00 — it belongs to the next calendar day (00:00–05:59, still within the current production day)",
+      "vi": "Giờ này QUA 0:00 — thuộc ngày tiếp theo (00:00–05:59, vẫn trong ngày sản xuất hiện tại)",
+      "mode": "exact"
+    },
+    {
+      "en": "This time belongs to the NEXT PRODUCTION DAY (+1 day, from 06:00 onward)",
+      "vi": "Giờ này thuộc NGÀY SẢN XUẤT KẾ TIẾP (+1 ngày, từ 06:00 trở đi)",
+      "mode": "exact"
+    },
+    {
+      "en": "Save ALL proposed rows at once (each row creates 1 Batch + Schedule). Source Batches are saved before chained Batches.",
+      "vi": "Lưu TẤT CẢ các dòng đề xuất cùng lúc (mỗi dòng tạo 1 Batch + Schedule). Lô nguồn lưu trước lô nối tiếp.",
+      "mode": "exact"
+    },
+    {
+      "en": "Clear all proposed time/FB values and return to the unproposed state",
+      "vi": "Xóa hết giờ/FB đề xuất, quay lại như chưa đề xuất",
+      "mode": "exact"
+    },
+    {
+      "en": "Edit Process Start (24-hour time)",
+      "vi": "Chỉnh Process Start (giờ 24h)",
+      "mode": "exact"
+    },
+    {
+      "en": "Edit NDT Start (24-hour time)",
+      "vi": "Chỉnh NDT Start (giờ 24h)",
+      "mode": "exact"
+    },
+    {
+      "en": "Edit Unloading Start (24-hour time)",
+      "vi": "Chỉnh Unloading Start (giờ 24h)",
+      "mode": "exact"
+    },
+    {
+      "en": "· grouped area",
+      "vi": "· khu gộp",
+      "mode": "exact"
+    },
+    {
+      "en": "— every lane shares the Unscheduled Batch pool for the area; choose any lane",
+      "vi": "— mỗi lane dùng chung lô Unscheduled của cả khu, chọn vào lane nào tùy ý",
+      "mode": "exact"
+    },
+    {
+      "en": "System ST Operation Scope is preserved. Enter exactly",
+      "vi": "ST Operation Scope hệ thống được giữ lại. Nhập chính xác",
+      "mode": "exact"
+    },
+    {
+      "en": "Occurrences",
+      "vi": "Số lần gặp",
+      "mode": "exact"
+    },
+    {
+      "en": "Last occurrence",
+      "vi": "Gặp lần cuối",
+      "mode": "exact"
+    },
+    {
+      "en": "Set order",
+      "vi": "Đặt thứ tự",
+      "mode": "exact"
+    },
+    {
+      "en": "Batch prefix",
+      "vi": "Tiền tố lô",
+      "mode": "exact"
+    },
+    {
+      "en": "Time calculation type",
+      "vi": "Kiểu tính giờ",
+      "mode": "exact"
+    },
+    {
+      "en": "Job × Main Operation · select READY to add Jobs to a Batch",
+      "vi": "Job × Main Operation · chọn READY để gom Job vào Batch",
+      "mode": "exact"
+    },
+    {
+      "en": "Rebuild chain",
+      "vi": "Dựng lại chuỗi",
+      "mode": "exact"
+    },
+    {
+      "en": "Filter: show only READY Candidates (not yet in Batch)",
+      "vi": "Lọc: chỉ hiện Candidate READY (chưa vào Batch)",
+      "mode": "exact"
+    },
+    {
+      "en": "Filter: show only Candidates already in Batch",
+      "vi": "Lọc: chỉ hiện Candidate đã vào Batch",
+      "mode": "exact"
+    },
+    {
+      "en": "Filter: show only waiting Candidates (LOCKED, has chain)",
+      "vi": "Lọc: chỉ hiện Candidate đang chờ (LOCKED, có chain)",
+      "mode": "exact"
+    },
+    {
+      "en": "Filter: show only Jobs WITHOUT Planning Chain (NO CHAIN)",
+      "vi": "Lọc: chỉ hiện Job KHÔNG có Planning Chain (NO CHAIN)",
+      "mode": "exact"
+    },
+    {
+      "en": "Clear status filter — show all",
+      "vi": "Bỏ lọc trạng thái — hiện tất cả",
+      "mode": "exact"
+    },
+    {
+      "en": "Sort / Filter",
+      "vi": "Sắp xếp / Lọc",
+      "mode": "exact"
+    },
+    {
+      "en": "ESC to exit Full View",
+      "vi": "ESC để thoát Full View",
+      "mode": "exact"
+    },
+    {
+      "en": "Compare Recipe configuration (Recipe & Rules) with actual Board demand — find missing or unused mappings",
+      "vi": "So sánh cấu hình Recipe (Công thức & Rule) với nhu cầu thực tế trên board — tìm mapping thiếu / mapping không được dùng",
+      "mode": "exact"
+    },
+    {
+      "en": "Clear all (",
+      "vi": "Xóa hết (",
+      "mode": "exact"
+    },
+    {
+      "en": "Retry",
+      "vi": "Thử lại",
+      "mode": "exact"
+    },
+    {
+      "en": "Major Group",
+      "vi": "Nhóm lớn",
+      "mode": "exact"
+    },
+    {
+      "en": "Drawing",
+      "vi": "Bản vẽ",
+      "mode": "exact"
+    },
+    {
+      "en": "Calculation Type",
+      "vi": "Kiểu tính",
+      "mode": "exact"
+    },
+    {
+      "en": "Machine / Group",
+      "vi": "Máy / Nhóm",
+      "mode": "exact"
+    },
+    {
+      "en": "Another Planner changed a Job that affects your operation · auto-refresh every 15 seconds.",
+      "vi": "Planner khác thay đổi Job có ảnh hưởng tới công đoạn của bạn · tự cập nhật mỗi 15 giây.",
+      "mode": "exact"
+    },
+    {
+      "en": "Select a Batch to load into the scheduling form above. Unscheduled Batches are grouped by Schedule Area and Standard Operation mapping.",
+      "vi": "Chọn Batch để đưa lên form điều độ phía trên. Unscheduled được gom theo Schedule Area và mapping Standard Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "No need to select INTERMEDIATE. The system derives it automatically from Routing between Main Planning operations.",
+      "vi": "Không cần chọn INTERMEDIATE. Hệ thống tự suy ra từ Routing giữa các Main Planning.",
+      "mode": "exact"
+    },
+    {
+      "en": "Batch No. prefix",
+      "vi": "Tiền tố số lô",
+      "mode": "exact"
+    },
+    {
+      "en": "RAW NextOperation inherits Main Planning Order; Operation Code Order is only an extra sort within the same Main.",
+      "vi": "RAW NextOperation kế thừa Main Planning Order; Operation Code Order chỉ dùng để sắp xếp thêm trong cùng Main.",
+      "mode": "exact"
+    },
+    {
+      "en": "Secondary order of Operation Code within the same Main; Main Planning Order remains primary",
+      "vi": "Thứ tự phụ của Operation Code trong cùng Main; Main Planning Order vẫn là thứ tự chính",
+      "mode": "exact"
+    },
+    {
+      "en": "AUTO is derived from ST Routing Chain. MANUAL is for exceptions and has priority over AUTO when both match.",
+      "vi": "AUTO được suy ra từ ST Routing Chain. MANUAL dùng cho ngoại lệ và được ưu tiên hơn AUTO khi cùng điều kiện.",
+      "mode": "exact"
+    },
+    {
+      "en": "Previous run stopped:",
+      "vi": "Lần chạy trước dừng:",
+      "mode": "exact"
+    },
+    {
+      "en": "Used for exceptions where the Previous Main → Intermediate → Next Main chain must be specified explicitly.",
+      "vi": "Dùng cho ngoại lệ cần chỉ định rõ chuỗi Previous Main → Intermediate → Next Main.",
+      "mode": "exact"
+    },
+    {
+      "en": "Higher-priority MANUAL wins when multiple rules match.",
+      "vi": "MANUAL cao hơn thắng khi nhiều rule cùng match.",
+      "mode": "exact"
+    },
+    {
+      "en": "Routing sample / Note",
+      "vi": "Routing mẫu / Note",
+      "mode": "exact"
+    }
+  ]
+}

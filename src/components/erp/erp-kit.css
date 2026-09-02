@@ -2306,3 +2306,45 @@
 .erpkit-migrated-page .erp-editor-panel .erp-field-grid,.erpkit-migrated-page .erp-inline-editor-panel .erp-field-grid{min-width:0!important}
 .erpkit-migrated-page .erp-editor-panel .input,.erpkit-migrated-page .erp-inline-editor-panel .input,.erpkit-migrated-page .erp-editor-panel select.input,.erpkit-migrated-page .erp-inline-editor-panel select.input{min-width:0!important}
 .erpkit-migrated-page .erp-editor-panel .table-wrap,.erpkit-migrated-page .erp-editor-panel .row{min-width:0!important}
+
+/* ============================================================
+   UI LANGUAGE · EN / VI
+   Single presentation tree; language changes only UI copy.
+   ============================================================ */
+.erp-language-switch{
+ display:inline-flex;
+ align-items:center;
+ gap:2px;
+ padding:2px;
+ border:1px solid #cfd8e3;
+ border-radius:6px;
+ background:#f5f8fb;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.65);
+}
+.erp-language-switch button{
+ min-width:30px;
+ height:24px;
+ padding:0 7px;
+ border:0;
+ border-radius:4px;
+ background:transparent;
+ color:#607086;
+ font-family:"Segoe UI Variable","Segoe UI",Arial,sans-serif;
+ font-size:8px;
+ font-weight:800;
+ letter-spacing:.05em;
+ cursor:pointer;
+ transition:background .12s ease,color .12s ease,box-shadow .12s ease;
+}
+.erp-language-switch button:hover{background:#eaf0f6;color:#2f536f}
+.erp-language-switch button.active{
+ background:#fff;
+ color:#0f5f9d;
+ box-shadow:0 1px 2px rgba(15,23,42,.12),inset 0 0 0 1px #aec7da;
+}
+.erp-language-switch button:focus-visible{outline:2px solid #5b9bc8;outline-offset:1px}
+.erp-header-context .erp-language-switch{margin-left:auto}
+.erpkit-header-tools .erp-language-switch{margin-right:2px}
+@media(max-width:720px){
+ .erp-language-switch button{min-width:27px;height:22px;padding:0 5px;font-size:7.5px}
+}

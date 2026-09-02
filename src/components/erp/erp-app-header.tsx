@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {ERP_UI_CONFIG} from "@/lib/erp/ui-config";
+import {LanguageSwitch} from "@/components/i18n";
 
 export function ErpAppHeader({module}:{module:string}){
  return <header className="erp-header erp-app-header">
@@ -12,6 +13,7 @@ export function ErpAppHeader({module}:{module:string}){
   </Link>
   <div className="erp-header-context" aria-label="Application context">
    <div className="erp-header-module"><small>WORKSPACE</small><strong>{module}</strong></div>
+   <LanguageSwitch/>
    <span className="erp-env">{ERP_UI_CONFIG.defaultEnvironment}</span>
   </div>
  </header>;

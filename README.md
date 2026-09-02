@@ -87,3 +87,9 @@ Trang `/erp-kit` là showcase/reference component, không phải nguồn busines
 ## Configuration ERP Work Center V1
 
 Tab Cấu hình đã được tổ chức lại theo ERP Work Center: Health Dashboard + 5 domain (Operation Architecture, Organization & Resource, Recipe & Batch, Time & Scheduling, Automation). Xem `CONFIGURATION_ERP_WORK_CENTER_V1.md`.
+
+## UI languages · EN / VI
+
+The application now has one shared bilingual UI architecture. **EN is the default**; users can switch EN / VI from the ERP header. This changes presentation text only and does not translate or mutate database/business data. See `UI_I18N_ARCHITECTURE.md`.
+
+For every future UI text change, update EN and VI together and run `npm run i18n:check`.

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ERP_UI_CONFIG } from "@/lib/erp/ui-config";
+import { LanguageSwitch } from "@/components/i18n";
 
 export type ErpNavItem = {
   key: string;
@@ -58,6 +59,7 @@ export function ErpAppShell({
           </span>
         </Link>
         <div className="erpkit-header-tools">
+          <LanguageSwitch/>
           <span className="erpkit-environment">{environment}</span>
           {userArea ?? <span className="erpkit-user-chip">Planner</span>}
         </div>

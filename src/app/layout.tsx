@@ -3,6 +3,7 @@ import "@/components/erp/erp-kit.css";
 import type { Viewport } from "next";
 import {AppToastProvider} from "@/components/app-toast-provider";
 import {AppDialogProvider} from "@/components/app-dialog-provider";
+import {UiLanguageProvider} from "@/components/i18n";
 
 export const metadata = {
   title: "ST Planning",
@@ -15,5 +16,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}) {
-  return <html lang="vi"><body><AppDialogProvider>{children}<AppToastProvider/></AppDialogProvider></body></html>;
+  return <html lang="en" suppressHydrationWarning><body><UiLanguageProvider><AppDialogProvider>{children}<AppToastProvider/></AppDialogProvider></UiLanguageProvider></body></html>;
 }
