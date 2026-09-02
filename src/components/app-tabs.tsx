@@ -17,7 +17,8 @@ export function AppTabs({active}:{active:AppTab}){
  const activeModule=getStErpModuleKey(active);
  const functions=getStErpModuleItems(activeModule);
  const moduleLabel=ST_ERP_MODULE_GROUPS.find(x=>x.key===activeModule)?.label||"Workspace";
- return <div className="erp-navigation-stack">
+ return <aside className="erp-navigation-stack erp-navigation-vertical" aria-label="Điều hướng ERP">
+  <div className="erp-navigation-caption">WORK CENTERS</div>
   <nav className="erp-modules erp-modules-primary" aria-label="ST Planning modules">
    {ST_ERP_MODULE_GROUPS.map(module=><Link
     key={module.key}
@@ -40,7 +41,7 @@ export function AppTabs({active}:{active:AppTab}){
     >{item.label}</Link>)}
    </div>
   </nav>
- </div>;
+ </aside>;
 }
 
 export function SubTabs({items,active}:{items:{label:string;href:string;key:string;group?:string}[];active?:string}){

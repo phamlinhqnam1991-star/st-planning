@@ -69,11 +69,11 @@ Apply Supabase migrations in numeric order through migration 067. Do not delete 
 
 See `docs/CURRENT_ARCHITECTURE.md` for the current architecture and `AUDIT_CLEANUP.md` for the latest cleanup audit.
 
-## ERP Standard V6
+## ERP Standard V7
 
-Toàn bộ production UI dùng ERP Standard V6. Nguồn chuẩn hiện tại:
+Toàn bộ production UI dùng ERP Standard V7. Nguồn chuẩn hiện tại:
 
-- `ERP_STANDARD_V6.md`
+- `ERP_STANDARD_V7.md`
 - `src/lib/erp/st-navigation.ts`
 - `src/components/app-tabs.tsx`
 - `src/components/erp/erp-kit.css`
