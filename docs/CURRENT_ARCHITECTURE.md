@@ -37,7 +37,7 @@ This presentation order does not change READY / WAIT, Batch, Schedule, or Auto P
 
 ## Process Requirement storage
 
-`Part/Revision Gate -> Active MD:REQ Recipe Rules + Manual Keep -> Filtered Master Import -> md_process_requirement`
+`Part/Revision Gate -> Active MD:REQ Recipe Rules + Manual Keep -> Requirement-only streaming rebuild -> md_process_requirement`
 
 - V375 adds configurable **Part/Revision Gate Rules** before Requirement-row import. Default migration 070 seeds `ST = NO`.
 - If any active Gate Rule matches a Master row, that Part/Revision stores **zero** `md_process_requirement` rows. For example `ST = NO` removes/skips all 38 Process Requirements for that Part/Revision, including the ST row itself.
@@ -46,6 +46,9 @@ This presentation order does not change READY / WAIT, Batch, Schedule, or Auto P
 - Requirement extraction runs even for UNCHANGED source hashes so a one-time TRUNCATE followed by re-import of the same Master Excel rebuilds only the small required subset.
 - Planning Chain derives the active MD:REQ code set first and queries only those Requirement codes; it no longer scans all active Process Requirement rows.
 - Recipe & Batch Rules still expose all 38 supported Master Requirement fields for configuration even when the filtered table currently contains no rows for a code.
+- V376 adds a dedicated **Requirement-only Rebuild** path for oversized databases. It reads only `PartNum`, `RevisionNum`, active Gate columns, and effective Requirement columns from the Master workbook. It does **not** run Part/Material/Routing/Recipe rebuild, Auto Bridge, or Planning Chain.
+- The V376 rebuild validates a usable Master row before clearing data, then commits `TRUNCATE md_process_requirement` immediately so the old large table/index files can be released before small chunk inserts begin. If a later insert fails, rerun the same rebuild; no other Master dataset is modified.
+- Requirement-only rebuild uploads are removed from Storage after processing to avoid accumulating temporary files.
 
 ## Database cleanup
 

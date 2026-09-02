@@ -305,7 +305,7 @@ export default async function Page(){
       <tr><td><b>Source Operation</b></td><td>Danh mục Operation Code gốc từ Master; có <b>Operation Code Order</b> tùy chọn.</td><td>ST Scope, Bridge, tie-break Planning Board.</td><td>Đổi Operation Code Order chỉ đổi tie-break trong cùng Main, không đổi READY/WAIT.</td></tr>
       <tr><td><b>Routing Detail</b></td><td>Chuỗi operation đầy đủ theo Part + Revision, có seq và Next Operation.</td><td>Dựng ST Routing standardized, Bridge Intermediate, Part Tracker.</td><td>Routing thay đổi sẽ làm thay đổi physical sequence và có thể cần rebuild derived routing/bridge.</td></tr>
       <tr><td><b>Material Finish</b></td><td>Primer1/2/3, Topcoat1/2, Anti-abrasion, finish name...</td><td>Paint Recipe resolver/condition, Part Tracker.</td><td>Có thể làm Job resolve sang Recipe sơn khác.</td></tr>
-      <tr><td><b>Process Requirement</b></td><td>Chỉ lưu Requirement code/value được active MD:REQ Recipe Rule dùng hoặc planner đánh dấu Manual Keep; value rỗng không lưu.</td><td>Recipe condition builder, Part Tracker/Job Tracker khi cần Requirement.</td><td>Thêm/bỏ MD:REQ hoặc Keep cần Import Master lại; không cần giữ 38 Requirement cho mọi Part/Revision.</td></tr>
+      <tr><td><b>Process Requirement</b></td><td>Chỉ lưu Requirement code/value được active MD:REQ Recipe Rule dùng hoặc planner đánh dấu Manual Keep; value rỗng không lưu.</td><td>Recipe condition builder, Part Tracker/Job Tracker khi cần Requirement.</td><td>Thêm/bỏ MD:REQ hoặc Keep chỉ cần Rebuild riêng Requirement; không cần Import Master đầy đủ nếu Routing/Material/Recipe không đổi.</td></tr>
       <tr><td><b>ST Routing Master</b></td><td>Routing ST chuẩn hóa theo signature.</td><td>Canonical route, Part → Routing.</td><td>Ảnh hưởng route nào được Part dùng.</td></tr>
       <tr><td><b>ST Routing Chain</b></td><td>Chuỗi ST theo routing_code + seq + raw operation + standard operation.</td><td>Auto Intermediate Bridge, Planning Chain, Part Tracker.</td><td>Đây là nguồn quan trọng để suy ra operation trung gian giữa hai Main.</td></tr>
       <tr><td><b>Part → Routing</b></td><td>Map Part + Revision → routing_code.</td><td>Part Tracker và chain resolver.</td><td>Map sai sẽ làm Part chạy nhầm routing.</td></tr>
@@ -414,13 +414,13 @@ export default async function Page(){
 
     <details className="erp-details">
      <summary><b>⑩ Process Requirement Import Filter</b></summary>
-     <p>Giảm dung lượng <code>md_process_requirement</code> theo 2 tầng: <b>Part/Revision Gate → Active MD:REQ Recipe Rule + Manual Keep</b>. Gate mặc định V375 là <b>ST = NO</b>.</p>
+     <p>Giảm dung lượng <code>md_process_requirement</code> theo 2 tầng: <b>Part/Revision Gate → Active MD:REQ Recipe Rule + Manual Keep</b>. Gate mặc định V376 tiếp tục là <b>ST = NO</b>.</p>
      <div className="lg-key lg-key-2">
       <Rule title="Part-level Gate" tone="important">Nếu một Gate active khớp, ví dụ <code>ST = NO</code>, Part/Revision đó lưu <b>0 Process Requirement row</b>; toàn bộ 38 Requirement đều bị bỏ, kể cả dòng ST. Gate có thể cấu hình thêm Requirement/blocked value khác.</Rule>
       <Rule title="Không hard-code code đang dùng">Nếu Part vượt Gate, Recipe Rule active tự động quyết định Requirement bắt buộc. Manual Keep chỉ dùng khi planner muốn giữ thêm Requirement để tra cứu dù chưa có rule; value rỗng vẫn bỏ.</Rule>
-      <Rule title="Re-import cả khi UNCHANGED" tone="important">V375 đánh giá Gate và đọc Requirement cần thiết trên mọi Part/Revision, kể cả source hash UNCHANGED. Nếu Gate mới chặn một Part/Revision, Import Master lại sẽ xóa Requirement cũ của Part đó.</Rule>
+      <Rule title="Rebuild Requirement nhẹ" tone="important">V376 có luồng riêng chỉ đọc PartNum, RevisionNum, Gate đang active và Requirement sẽ import. Nó không hash/rebuild Part, Material Finish, Routing, Recipe, Auto Bridge hay Planning Chain.</Rule>
      </div>
-     <div className="notice"><b>Cleanup:</b> chạy migration 069 + 070, kiểm tra Gate, TRUNCATE chỉ <code>md_process_requirement</code> rồi Import Master lại. Không xóa Part, Routing, Planning Chain, Batch, Schedule hay Production Execution.</div>
+     <div className="notice"><b>Luồng khuyến nghị V376:</b> chạy migration 069 + 070, kiểm tra Gate/Manual Keep, chọn file Master rồi dùng <b>Rebuild Requirement only</b>. Route này tự kiểm tra file, TRUNCATE riêng <code>md_process_requirement</code>, stream + insert theo chunk nhỏ và ANALYZE; không chạy các rebuild phía sau.</div>
     </details>
 
     <details className="erp-details">

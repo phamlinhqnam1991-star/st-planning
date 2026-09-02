@@ -16,7 +16,7 @@ export default function Page(){
      title="Process Requirement Import Filter"
      subtitle="Part-level Gate first, then store only Process Requirements required by Recipe Rules or explicitly marked Keep."
      purpose="Reduce md_process_requirement size in two levels: a Part/Revision Gate can skip all 38 Requirements (default ST = NO), then active MD:REQ Recipe Rules + Manual Keep decide which non-blank values remain."
-     impact="After changing a Gate, Recipe Rule or Keep setting, re-import Master to synchronize Requirements. Blocked Part/Revision rows are removed even when source hash is unchanged. Cleanup truncates only md_process_requirement."
+     impact="After changing a Gate, Recipe Rule or Keep setting, use Requirement-only Rebuild for the lightest synchronization. It rebuilds only md_process_requirement and does not run Routing, Recipe, Auto Bridge or Planning Chain."
      prev={{label:"Recipe & Batch Rules",href:"/recipe-operation-map"}}
      next={{label:"Open Job Column Values",href:"/open-job-column-values"}}
     />

@@ -7820,6 +7820,21 @@
       "en": "Part/Routing/Finish remain incremental NEW/CHANGED. Required Process Requirements are also read for UNCHANGED rows to support filtered rebuild after cleanup.",
       "vi": "Part/Routing/Finish vẫn incremental NEW/CHANGED. Riêng Process Requirement cần thiết vẫn được đọc ở cả UNCHANGED để hỗ trợ filtered rebuild sau cleanup.",
       "mode": "exact"
+    },
+    {
+      "en": "Part-level Gate first, then store only Process Requirements required by Recipe Rules or explicitly marked Keep.",
+      "vi": "Chạy Gate theo Part/Revision trước, sau đó chỉ lưu Process Requirement được Recipe Rule cần hoặc được đánh dấu Giữ thủ công.",
+      "mode": "exact"
+    },
+    {
+      "en": "Reduce md_process_requirement size in two levels: a Part/Revision Gate can skip all 38 Requirements (default ST = NO), then active MD:REQ Recipe Rules + Manual Keep decide which non-blank values remain.",
+      "vi": "Giảm dung lượng md_process_requirement theo 2 tầng: Gate theo Part/Revision có thể bỏ toàn bộ 38 Requirement (mặc định ST = NO), sau đó Active MD:REQ Recipe Rule + Manual Keep quyết định các value không rỗng cần giữ.",
+      "mode": "exact"
+    },
+    {
+      "en": "After changing a Gate, Recipe Rule or Keep setting, use Requirement-only Rebuild for the lightest synchronization. It rebuilds only md_process_requirement and does not run Routing, Recipe, Auto Bridge or Planning Chain.",
+      "vi": "Sau khi đổi Gate, Recipe Rule hoặc Keep, dùng Rebuild riêng Requirement để đồng bộ nhẹ nhất. Chức năng này chỉ dựng lại md_process_requirement, không chạy Routing, Recipe, Auto Bridge hoặc Planning Chain.",
+      "mode": "exact"
     }
   ]
 }

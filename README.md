@@ -65,7 +65,7 @@ npm run dev
 
 ## Database
 
-Apply Supabase migrations in numeric order through migration 067. Do not delete or rewrite already-applied historical migrations.
+Apply Supabase migrations in numeric order through migration 070. Do not delete or rewrite already-applied historical migrations.
 
 See `docs/CURRENT_ARCHITECTURE.md` for the current architecture and `AUDIT_CLEANUP.md` for the latest cleanup audit.
 
@@ -97,3 +97,7 @@ For every future UI text change, update EN and VI together and run `npm run i18n
 ## Production Execution
 
 Added `/production-execution` for Production department work reporting. Data comes from Scheduling + Masking/Unmasking; execution status is stored separately in migration `068_production_execution.sql`. Status flow: `WAITING → ON-GOING → DONE`. See `PRODUCTION_EXECUTION.md`.
+
+## Process Requirement storage
+
+`md_process_requirement` uses the V375 two-level filter: Part/Revision Gate first (default `ST = NO`), then Active `MD:REQ:*` Recipe Rules + Manual Keep with blank values skipped. V376 adds a lightweight Requirement-only rebuild from the Master Excel. It truncates and reconstructs only `md_process_requirement` in small chunks and does not rebuild Routing, Recipe, Auto Bridge or Planning Chain. Use this path when reducing database size; use full Master Import only when other Master data also changed.

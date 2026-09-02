@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {useEffect,useMemo,useState} from "react";
 import {safeJson} from "@/lib/fetch-json";
+import {uploadFileToSignedUrl} from "@/lib/storage/signed-upload-client";
 import {pushAppToast} from "@/components/app-toast-provider";
 import {useUiLanguage} from "@/components/i18n/ui-language-provider";
 
@@ -51,6 +52,10 @@ export function ProcessRequirementFilterManager(){
  const [gateEnabled,setGateEnabled]=useState(true);
  const [gateNote,setGateNote]=useState("");
  const [gateBusy,setGateBusy]=useState(false);
+ const [rebuildFile,setRebuildFile]=useState<File|null>(null);
+ const [rebuildConfirm,setRebuildConfirm]=useState("");
+ const [rebuildBusy,setRebuildBusy]=useState(false);
+ const [rebuildStatus,setRebuildStatus]=useState("");
 
  async function load(){
   setLoading(true);
@@ -96,9 +101,35 @@ export function ProcessRequirementFilterManager(){
    })});
    const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Unable to update Part-level Gate Rule.");
    setState(d as State);
-   pushAppToast(text("Gate Rule saved. Re-import Master to apply it.","Đã lưu Gate Rule. Import Master lại để áp dụng."));
+   pushAppToast(text("Gate Rule saved. Run Requirement-only Rebuild or full Master Import to apply it.","Đã lưu Gate Rule. Chạy Rebuild riêng Requirement hoặc Import Master đầy đủ để áp dụng."));
   }catch(error){pushAppToast(error instanceof Error?error.message:String(error));}
   finally{setGateBusy(false);}
+ }
+
+ async function rebuildRequirementsOnly(){
+  if(!rebuildFile||rebuildConfirm.trim().toUpperCase()!=="REBUILD")return;
+  setRebuildBusy(true);
+  setRebuildStatus(text("Uploading Master Excel...","Đang upload Master Excel..."));
+  try{
+   const safe=rebuildFile.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+   const path=`master/requirement-rebuild/${new Date().toISOString().replace(/[:.]/g,"-")}_${safe}`;
+   const prepResponse=await fetch("/api/import/upload-url",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({path,fileName:rebuildFile.name})});
+   const prep=await safeJson(prepResponse);if(!prepResponse.ok)throw new Error(prep.error||"Unable to prepare Storage upload.");
+   await uploadFileToSignedUrl(String(prep.signedUrl||""),rebuildFile);
+   setRebuildStatus(text("Streaming only Process Requirement data. Routing / Recipe / Planning are not being rebuilt...","Đang đọc riêng Process Requirement. Không rebuild Routing / Recipe / Planning..."));
+   const r=await fetch("/api/import/process-requirement-rebuild",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({path,fileName:rebuildFile.name,confirmation:"REBUILD"})});
+   const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Process Requirement rebuild failed.");
+   const duration=Math.max(0,Number(d.durationMs||0))/1000;
+   const summary=`${text("Complete","Hoàn tất")}: ${Number(d.sourceRows||0).toLocaleString()} Part/Rev · ${text("Gate skipped","Gate bỏ")} ${Number(d.gateSkippedParts||0).toLocaleString()} · ${text("saved","đã lưu")} ${Number(d.requirementRows||0).toLocaleString()} ${text("Requirement rows","dòng Requirement")} · ${fmtBytes(d.beforeBytes)} → ${fmtBytes(d.afterBytes)} · ${duration.toFixed(1)}s`;
+   setRebuildStatus(summary);
+   setRebuildConfirm("");
+   pushAppToast(summary);
+   await load();
+  }catch(error){
+   const message=error instanceof Error?error.message:String(error);
+   setRebuildStatus(`${text("Error","Lỗi")}: ${message}`);
+   pushAppToast(message);
+  }finally{setRebuildBusy(false);}
  }
 
  async function cleanup(){
@@ -108,7 +139,7 @@ export function ProcessRequirementFilterManager(){
    const r=await fetch("/api/config/process-requirement-filter/cleanup",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({confirmation:cleanupText})});
    const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Unable to clear Process Requirement data.");
    setCleanupText("");
-   pushAppToast(`${text("Process Requirement cleared.","Đã xóa dữ liệu Process Requirement.")} ${fmtBytes(d.beforeBytes)} → ${fmtBytes(d.afterBytes)}. ${text("Re-import Master now.","Hãy Import Master lại ngay.")}`);
+   pushAppToast(`${text("Process Requirement cleared.","Đã xóa dữ liệu Process Requirement.")} ${fmtBytes(d.beforeBytes)} → ${fmtBytes(d.afterBytes)}. ${text("Run Requirement-only Rebuild now.","Hãy chạy Rebuild riêng Requirement ngay.")}`);
    await load();
   }catch(error){pushAppToast(error instanceof Error?error.message:String(error));}
   finally{setCleanupBusy(false);}
@@ -135,7 +166,7 @@ export function ProcessRequirementFilterManager(){
   <section className="erp-panel">
    <div className="erp-panel-head"><div><b>{text("Part / Revision Gate Rules","Gate Rule theo Part / Revision")}</b><small>{text("A matching Gate skips ALL 38 Process Requirement rows for that Part/Revision before the normal Requirement filter runs.","Nếu Gate khớp, bỏ TOÀN BỘ 38 Process Requirement của Part/Revision đó trước khi chạy bộ lọc Requirement thông thường.")}</small></div></div>
    <div className="erp-context-note">
-    {text("Default V375 rule: ST = NO. Therefore a Part/Revision whose Master Requirement ST is NO stores zero md_process_requirement rows. Re-import also removes old Requirement rows for that blocked Part/Revision, even when the source hash is unchanged.","Rule mặc định V375: ST = NO. Vì vậy Part/Revision có Requirement ST = NO sẽ không lưu dòng nào trong md_process_requirement. Import lại cũng tự xóa Requirement cũ của Part/Revision bị chặn, kể cả khi source hash không đổi.")}
+    {text("Default gate rule: ST = NO. Therefore a Part/Revision whose Master Requirement ST is NO stores zero md_process_requirement rows. Requirement-only Rebuild removes old rows automatically because it reconstructs the table from the filtered Master source.","Gate mặc định: ST = NO. Vì vậy Part/Revision có Requirement ST = NO sẽ không lưu dòng nào trong md_process_requirement. Rebuild riêng Requirement tự loại dữ liệu cũ vì bảng được dựng lại từ Master đã lọc.")}
    </div>
    <div className="erp-form-grid" style={{padding:"10px"}}>
     <label>{text("Gate Requirement","Requirement làm Gate")}
@@ -159,7 +190,7 @@ export function ProcessRequirementFilterManager(){
   <section className="erp-panel">
    <div className="erp-panel-head"><div><b>{text("Second-level filtered import","Bộ lọc import tầng 2")}</b><small>{text("For Parts that pass the Gate: Will Import = active MD:REQ Recipe Rule OR Manual Keep. Blank values are skipped.","Với Part vượt qua Gate: Sẽ Import = Recipe Rule MD:REQ đang dùng HOẶC Manual Keep. Value rỗng được bỏ qua.")}</small></div></div>
    <div className="erp-context-note">
-    {text("Changing a Recipe Rule, Manual Keep or Gate Rule does not require a full Master reset. Re-import the same Master Excel to synchronize Process Requirements.","Đổi Recipe Rule, Manual Keep hoặc Gate Rule không cần Reset Master. Import lại đúng file Master để đồng bộ Process Requirement.")}
+    {text("Changing a Recipe Rule, Manual Keep or Gate Rule does not require a full Master reset. Use Requirement-only Rebuild for the lightest synchronization, or full Master Import when other Master data also changed.","Đổi Recipe Rule, Manual Keep hoặc Gate Rule không cần Reset Master. Dùng Rebuild riêng Requirement để đồng bộ nhẹ nhất; chỉ dùng Import Master đầy đủ khi Master khác cũng thay đổi.")}
    </div>
    <div className="erp-command-bar"><input className="input" value={search} onChange={e=>setSearch(e.target.value)} placeholder={text("Search Requirement / Operation...","Tìm Requirement / Operation...")}/><span className="erp-record-count">{shown.length}/38</span></div>
    <div className="table-wrap"><table className="erp-table"><thead><tr>
@@ -174,11 +205,28 @@ export function ProcessRequirementFilterManager(){
   </section>
 
   <section className="erp-panel">
-   <div className="erp-panel-head"><div><b>{text("One-time database cleanup","Dọn database một lần")}</b><small>{text("Use this before rebuilding the smaller dataset. It clears only md_process_requirement so PostgreSQL can release the large table/index files immediately.","Dùng trước khi dựng lại dataset nhỏ hơn. Chỉ xóa md_process_requirement để PostgreSQL giải phóng ngay file bảng/index lớn.")}</small></div></div>
+   <div className="erp-panel-head"><div><b>{text("Lightweight Process Requirement rebuild","Rebuild Process Requirement nhẹ")}</b><small>{text("Recommended when the full Master Import is too heavy. It streams only PartNum, RevisionNum, active Gate columns and effective Requirement columns.","Khuyến nghị khi Import Master đầy đủ quá nặng. Chỉ đọc PartNum, RevisionNum, cột Gate đang bật và các Requirement thực sự cần.")}</small></div></div>
+   <div className="erp-context-note">
+    <b>{text("This action does NOT run Routing, Material Finish, Recipe rebuild, Auto Bridge or Planning Chain.","Chức năng này KHÔNG chạy Routing, Material Finish, Recipe rebuild, Auto Bridge hoặc Planning Chain.")}</b> {text("After the first valid Part/Revision row is verified, it truncates md_process_requirement and rebuilds only the filtered dataset in small chunks.","Sau khi xác nhận file có dòng Part/Revision hợp lệ, hệ thống TRUNCATE md_process_requirement rồi dựng lại riêng dataset đã lọc theo từng chunk nhỏ.")}
+   </div>
+   <div className="erp-import-dropzone">
+    <div><b>{text("Choose the same Master Excel","Chọn đúng file Master hiện tại")}</b><small>{text("ST = NO Gate is applied first; Parts that pass the Gate keep only Active MD:REQ Recipe Rule + Manual Keep values, and blank values are skipped.","Gate ST = NO chạy trước; Part vượt Gate chỉ giữ Active MD:REQ Recipe Rule + Manual Keep, value rỗng được bỏ qua.")}</small></div>
+    <input className="input" type="file" accept=".xlsx" disabled={rebuildBusy} onChange={e=>setRebuildFile(e.target.files?.[0]||null)}/>
+   </div>
    <div className="erp-danger-confirm">
-    <div><b>{text("Recommended test flow: run migrations 069 + 070 → review ST = NO Gate → TRUNCATE → re-import the same Master Excel.","Luồng thử khuyến nghị: chạy migration 069 + 070 → kiểm tra Gate ST = NO → TRUNCATE → Import lại đúng file Master.")}</b><small>{text("This does NOT delete Part, Routing, Planning Chain, Batch, Schedule or Production Execution.","Không xóa Part, Routing, Planning Chain, Batch, Schedule hay Production Execution.")}</small></div>
+    <div><b>{text("Type REBUILD to confirm the Requirement-only rebuild.","Nhập REBUILD để xác nhận rebuild riêng Requirement.")}</b><small>{text("The old Process Requirement table is cleared automatically; you do not need to run the full Master Import first.","Bảng Process Requirement cũ sẽ được xóa tự động; không cần chạy Import Master đầy đủ trước.")}</small></div>
+    <input className="input mono" value={rebuildConfirm} disabled={rebuildBusy} onChange={e=>setRebuildConfirm(e.target.value.toUpperCase())} placeholder="REBUILD"/>
+    <div className="row"><button type="button" className="btn primary" disabled={!state.migrationInstalled||!state.gateMigrationInstalled||!rebuildFile||rebuildBusy||rebuildConfirm!=="REBUILD"} onClick={rebuildRequirementsOnly}>{rebuildBusy?text("Rebuilding...","Đang rebuild..."):text("Rebuild Requirement only","Rebuild riêng Requirement")}</button>{rebuildFile&&<span className="erp-record-count">{rebuildFile.name}</span>}</div>
+    {rebuildStatus&&<div className="notice" style={{marginTop:8}}>{rebuildStatus}</div>}
+   </div>
+  </section>
+
+  <section className="erp-panel">
+   <div className="erp-panel-head"><div><b>{text("Emergency clear only","Chỉ xóa khẩn cấp")}</b><small>{text("Use only if you intentionally want md_process_requirement empty. The lightweight rebuild above already performs its own TRUNCATE.","Chỉ dùng khi bạn chủ động muốn md_process_requirement trống. Rebuild nhẹ phía trên đã tự TRUNCATE nên bình thường không cần bấm mục này.")}</small></div></div>
+   <div className="erp-danger-confirm">
+    <div><b>{text("Emergency only: this leaves Process Requirement empty until you rebuild it.","Chỉ dùng khẩn cấp: thao tác này để Process Requirement trống cho tới khi bạn rebuild lại.")}</b><small>{text("This does NOT delete Part, Routing, Planning Chain, Batch, Schedule or Production Execution.","Không xóa Part, Routing, Planning Chain, Batch, Schedule hay Production Execution.")}</small></div>
     <input className="input mono" value={cleanupText} onChange={e=>setCleanupText(e.target.value.toUpperCase())} placeholder="TRUNCATE"/>
-    <div className="row"><button type="button" className="btn danger-btn" disabled={!state.migrationInstalled||!state.gateMigrationInstalled||cleanupBusy||cleanupText!=="TRUNCATE"} onClick={cleanup}>{cleanupBusy?text("Cleaning...","Đang dọn..."):text("Clear Process Requirement only","Xóa riêng Process Requirement")}</button><Link href="/import-master" className="btn primary">{text("Open Import Master","Mở Import Master")}</Link></div>
+    <div className="row"><button type="button" className="btn danger-btn" disabled={!state.migrationInstalled||!state.gateMigrationInstalled||cleanupBusy||cleanupText!=="TRUNCATE"} onClick={cleanup}>{cleanupBusy?text("Cleaning...","Đang dọn..."):text("Clear Process Requirement only","Xóa riêng Process Requirement")}</button><Link href="/import-master" className="btn">{text("Open full Master Import","Mở Import Master đầy đủ")}</Link></div>
    </div>
   </section>
  </div>;
