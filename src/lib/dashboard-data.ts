@@ -56,6 +56,21 @@ export type DashboardTrendDay={
  plannedHours:number;
 };
 
+
+export type DashboardAiScopeSection={
+ key:string;
+ label:string;
+ rows:number;
+ limit:number|null;
+ fields:string[];
+ description:string;
+};
+
+export type DashboardAiScope={
+ sections:DashboardAiScopeSection[];
+ notIncluded:string[];
+};
+
 export type DashboardData={
  scheduleDate:string;
  generatedAt:string;
@@ -330,9 +345,77 @@ export function dashboardAiPayload(data:DashboardData){
   kpis:data.kpis,
   areas:data.areas.slice(0,20),
   resources:data.resources.slice(0,30),
+  executionWorkItems:data.workItems.slice(0,25).map(item=>({
+   area:item.area,
+   resource:item.resource,
+   batchNo:item.batchNo,
+   operation:item.operation,
+   status:item.status,
+   plannedStart:item.plannedStart,
+   plannedEnd:item.plannedEnd,
+   targetTime:item.targetTime,
+   jobs:item.jobs,
+   qty:item.qty,
+   surface:item.surface,
+   priorityJobs:priorityJobLabels(item),
+  })),
   delayedRisks:data.risks.slice(0,12),
   readyJobs:data.readyJobs.slice(0,15),
   priorityWaitingJobs:data.priorityWaitingJobs.slice(0,15),
   sevenDayTrend:data.trend,
+ };
+}
+
+export function dashboardAiScope(data:DashboardData):DashboardAiScope{
+ return {
+  sections:[
+   {
+    key:"kpis",label:"Dashboard KPI",rows:1,limit:null,
+    fields:["Open Jobs","Current Good WIP Qty","Open Surface","READY Jobs","Unscheduled Batches","Scheduled Batches / Hours","Execution Waiting / On-going / Done","Completion %","Delayed","Schedule Conflicts"],
+    description:"High-level production and planning health for the selected day."
+   },
+   {
+    key:"areas",label:"Area Summary",rows:Math.min(data.areas.length,20),limit:20,
+    fields:["Area","Work Items","Waiting","On-going","Done","Delayed","Jobs","Qty","Surface","Planned Hours"],
+    description:"Area workload and bottleneck summary."
+   },
+   {
+    key:"resources",label:"Resource Workload",rows:Math.min(data.resources.length,30),limit:30,
+    fields:["Resource","Area","Batches","Jobs","Qty","Surface","Planned Hours","First Start","Last End"],
+    description:"Scheduled resource load for the selected production day."
+   },
+   {
+    key:"execution",label:"Execution Work Items",rows:Math.min(data.workItems.length,25),limit:25,
+    fields:["Area","Resource","Batch No.","Operation","Status","Planned Start / End","Target Time","Jobs","Qty","Surface","Priority Jobs"],
+    description:"Compact batch/work-item context used to explain current production status."
+   },
+   {
+    key:"risks",label:"Delayed / At-Risk Work",rows:Math.min(data.risks.length,12),limit:12,
+    fields:["Area","Resource","Batch","Operation","Status","Planned Start / End","Jobs","Priority Jobs"],
+    description:"Oldest delayed work items that are not DONE."
+   },
+   {
+    key:"ready",label:"READY Work Queue",rows:Math.min(data.readyJobs.length,15),limit:15,
+    fields:["Job","Main Operation","NextOperation","Priority","Qty","Surface"],
+    description:"First READY jobs available for the next planning action."
+   },
+   {
+    key:"priority",label:"Priority Waiting Jobs",rows:Math.min(data.priorityWaitingJobs.length,15),limit:15,
+    fields:["Job","Priority","Area","Batch","Operation"],
+    description:"Priority-tagged jobs that are not DONE."
+   },
+   {
+    key:"trend",label:"7-Day Trend",rows:data.trend.length,limit:7,
+    fields:["Date","Scheduled Batches","Done Batches","Planned Hours"],
+    description:"Recent schedule and completion trend."
+   },
+  ],
+  notIncluded:[
+   "Full raw database tables or unrestricted SQL access",
+   "All Open Job source_data JSON fields that are not summarized above",
+   "Full routing / recipe-rule configuration unless it appears in the dashboard snapshot",
+   "More rows than each scope limit shown above",
+   "Any ability to create, edit or delete Planning / Batch / Schedule / Execution data",
+  ],
  };
 }

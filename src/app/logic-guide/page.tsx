@@ -723,15 +723,19 @@ export default async function Page(){
     <div className="lg-key lg-key-2">
      <Rule title="Dashboard remains deterministic" tone="important">Open Jobs, READY, Unscheduled Backlog, Scheduled Today, Execution WAITING / ON-GOING / DONE, delayed work, resource load and schedule conflicts are calculated by application / SQL logic. AI does not calculate or replace these source-of-truth values.</Rule>
      <Rule title="Groq is read-only">Groq receives only the structured Dashboard snapshot. It may summarize bottlenecks, risks, priority workload and recommendations, but it cannot create/delete Batch, change Recipe, move Schedule, change READY/WAIT or update Production Execution.</Rule>
-     <Rule title="AI failure does not block operations">If GROQ_API_KEY is missing, Groq times out, or the provider is unavailable, the normal Dashboard still loads and all deterministic KPI remain usable.</Rule>
+     <Rule title="AI connection is explicit">Dashboard shows Groq connection state and provides <b>Test connection</b>. The test checks provider access and configured model availability without exposing GROQ_API_KEY to the browser.</Rule>
+     <Rule title="AI data scope is visible">The AI panel lists exactly which Dashboard snapshot sections/fields are sent to Groq and the row limits. Groq does not receive unrestricted database access; if a requested fact is outside the snapshot, the answer must say that more source data is required.</Rule>
+     <Rule title="Conversation keeps context, not new facts">Ask AI keeps recent user/assistant turns for follow-up questions. Previous AI answers are conversation context only; the current Dashboard snapshot remains the only factual source.</Rule>
+     <Rule title="AI failure does not block operations">If GROQ_API_KEY is missing, Groq times out, rate-limits, or the provider is unavailable, the normal Dashboard still loads and all deterministic KPI remain usable. If Groq responds in non-JSON text, the panel shows the text fallback instead of incorrectly reporting a connection failure.</Rule>
      <Rule title="Server-side provider configuration">GROQ_API_KEY stays server-side in Vercel Environment Variables. The default production model is configured by GROQ_MODEL and can be changed later without changing Dashboard business logic.</Rule>
     </div>
     <StepList items={[
      <>Open <b>Operations → Dashboard</b> and select the production date.</>,
      <>Review Operations Health, KPI, Area Execution, Resource Workload, delayed risk, READY queue and 7-day trend.</>,
      <>The Groq panel automatically analyzes the same date snapshot after the Dashboard loads.</>,
-     <>Use <b>Refresh AI</b> when operational data changes, or type a question in <b>Ask AI</b> to analyze the current snapshot.</>,
-     <>Treat AI recommendations as decision support. Confirm the affected Batch / Resource / Job in the source screen before making an operational change.</>
+     <>Use <b>Test connection</b> to verify Groq/provider/model status and open <b>AI data scope</b> to see exactly what the model can read.</>,
+     <>Use a suggested question or type a question in <b>Ask AI</b>. The input clears immediately after Enter/Ask and the answer is appended to the visible conversation history.</>,
+     <>Use <b>Refresh AI</b> when operational data changes. Treat AI recommendations as decision support and confirm the affected Batch / Resource / Job in the source screen before making an operational change.</>
     ]}/>
    </Section>
 

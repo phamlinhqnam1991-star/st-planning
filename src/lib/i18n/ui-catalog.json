@@ -7555,6 +7555,56 @@
       "en": "Resource concurrency exceeds configured capacity",
       "vi": "Số công việc đồng thời vượt capacity đã cấu hình của resource",
       "mode": "exact"
+    },
+    {
+      "en": "AI connection is explicit",
+      "vi": "Kết nối AI được hiển thị rõ ràng",
+      "mode": "exact"
+    },
+    {
+      "en": "Dashboard shows Groq connection state and provides Test connection. The test checks provider access and configured model availability without exposing GROQ_API_KEY to the browser.",
+      "vi": "Dashboard hiển thị trạng thái kết nối Groq và có nút Kiểm tra kết nối. Bài test kiểm tra truy cập provider và model cấu hình mà không đưa GROQ_API_KEY xuống trình duyệt.",
+      "mode": "exact"
+    },
+    {
+      "en": "AI data scope is visible",
+      "vi": "Phạm vi dữ liệu AI được hiển thị",
+      "mode": "exact"
+    },
+    {
+      "en": "The AI panel lists exactly which Dashboard snapshot sections/fields are sent to Groq and the row limits. Groq does not receive unrestricted database access; if a requested fact is outside the snapshot, the answer must say that more source data is required.",
+      "vi": "Panel AI liệt kê chính xác các nhóm/trường snapshot Dashboard được gửi cho Groq và giới hạn số dòng. Groq không có quyền truy cập database không giới hạn; nếu nội dung được hỏi nằm ngoài snapshot, câu trả lời phải nói rõ cần thêm dữ liệu nguồn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Conversation keeps context, not new facts",
+      "vi": "Hội thoại giữ ngữ cảnh, không tạo thêm dữ kiện",
+      "mode": "exact"
+    },
+    {
+      "en": "Ask AI keeps recent user/assistant turns for follow-up questions. Previous AI answers are conversation context only; the current Dashboard snapshot remains the only factual source.",
+      "vi": "Ask AI giữ các lượt hỏi/đáp gần đây để hỏi tiếp. Câu trả lời AI trước chỉ là ngữ cảnh hội thoại; snapshot Dashboard hiện tại vẫn là nguồn dữ kiện duy nhất.",
+      "mode": "exact"
+    },
+    {
+      "en": "If GROQ_API_KEY is missing, Groq times out, rate-limits, or the provider is unavailable, the normal Dashboard still loads and all deterministic KPI remain usable. If Groq responds in non-JSON text, the panel shows the text fallback instead of incorrectly reporting a connection failure.",
+      "vi": "Nếu thiếu GROQ_API_KEY, Groq timeout, bị rate-limit hoặc provider không khả dụng, Dashboard thường vẫn tải và toàn bộ KPI deterministic vẫn dùng được. Nếu Groq trả text không phải JSON, panel hiển thị text fallback thay vì báo nhầm là lỗi kết nối.",
+      "mode": "exact"
+    },
+    {
+      "en": "Use Test connection to verify Groq/provider/model status and open AI data scope to see exactly what the model can read.",
+      "vi": "Dùng Kiểm tra kết nối để xác minh trạng thái Groq/provider/model và mở Phạm vi dữ liệu AI để xem chính xác model có thể đọc gì.",
+      "mode": "exact"
+    },
+    {
+      "en": "Use a suggested question or type a question in Ask AI. The input clears immediately after Enter/Ask and the answer is appended to the visible conversation history.",
+      "vi": "Dùng câu hỏi gợi ý hoặc nhập câu hỏi trong Ask AI. Ô nhập sẽ được xóa ngay sau Enter/Ask và câu trả lời được thêm vào lịch sử hội thoại đang hiển thị.",
+      "mode": "exact"
+    },
+    {
+      "en": "Use Refresh AI when operational data changes. Treat AI recommendations as decision support and confirm the affected Batch / Resource / Job in the source screen before making an operational change.",
+      "vi": "Dùng Refresh AI khi dữ liệu vận hành thay đổi. Xem khuyến nghị AI như hỗ trợ quyết định và xác nhận Batch / Resource / Job bị ảnh hưởng tại màn hình nguồn trước khi thay đổi vận hành.",
+      "mode": "exact"
     }
   ]
 }

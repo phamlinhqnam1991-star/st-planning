@@ -3,7 +3,7 @@ import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
 import {DashboardAiPanel} from "@/components/dashboard-ai-panel";
 import {getPool} from "@/lib/db";
-import {loadDashboardData} from "@/lib/dashboard-data";
+import {dashboardAiScope,loadDashboardData} from "@/lib/dashboard-data";
 import {getProductionDay} from "@/lib/schedule-time";
 
 export const dynamic="force-dynamic";
@@ -82,7 +82,7 @@ export default async function DashboardPage({searchParams}:{searchParams:Promise
       </table></div>
      </section>
 
-     <DashboardAiPanel scheduleDate={date}/>
+     <DashboardAiPanel scheduleDate={date} scope={dashboardAiScope(data)}/>
     </div>
 
     <div className="dashboard-two-column">

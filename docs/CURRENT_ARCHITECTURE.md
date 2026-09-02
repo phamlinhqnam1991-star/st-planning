@@ -47,3 +47,7 @@ Migrations are append-only. Historical migrations 058/059 are preserved. Migrati
 - Provider secret is server-side only: `GROQ_API_KEY` in Vercel Environment Variables.
 - Default model is configured by `GROQ_MODEL` (current default: `openai/gpt-oss-20b`) and can be changed without changing Dashboard business logic.
 - If Groq is unavailable or not configured, the Dashboard still renders normal KPI, workload, risk, resource, READY queue, and trend data.
+- Dashboard exposes a read-only Groq connection test (`GET /api/dashboard/ai`) and shows configured/connected/model-available state without exposing the API key.
+- AI data scope is explicit: KPI, Area Summary, Resource Workload, compact Execution Work Items, delayed risks, READY queue, priority waiting jobs, and 7-day trend are sent with bounded row limits; Groq has no unrestricted SQL/database access.
+- Ask AI supports recent multi-turn conversation. Conversation history is intent context only; the current structured Dashboard snapshot remains the factual source on every request.
+- If Groq returns valid text but not the expected JSON structure, the API uses a text fallback and reports a format warning rather than treating the provider as disconnected.
