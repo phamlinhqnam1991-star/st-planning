@@ -27,6 +27,17 @@
 - The ST Operation Flow page already exposes raw NextOperation codes from `open_job_current`. When a newly detected code is configured for the first time, its live Planning Chain rebuild is targeted to open Jobs using that raw code; edits to an already-configured code keep the full rebuild for safety because shared Main/ST Group changes may affect other mappings.
 - Explicit Rebuild Chain, Master changes and existing-operation architecture changes still support FULL rebuild.
 
+## Planning Board Area focus context
+
+`Selected Area -> Previous Main + all Main Operations mapped to that Area`
+
+- This behavior applies to every configured Area; Painting is only an example.
+- When the planner loads Candidates with an Area selected and no single Main Operation filter, Candidate rows remain scoped by the server to that Area.
+- The physical Route Matrix shows **all configured Main Operations belonging to the selected Area** in Main Planning Order. Upstream/downstream Main columns from other Areas are not rendered in Area focus.
+- One virtual **Previous Main** column is inserted before the Area Main columns. For each Candidate row it resolves the immediate Main occurrence before that exact Candidate (`standard_operation + source_seq`) and shows status, Batch No, schedule time, and Resource when available.
+- Repeated Main occurrences remain occurrence-safe because Previous Main is anchored by `source_seq`, not by Main name alone.
+- Selecting a READY cell still switches to the narrower Batch Selection context (`Previous Main + Selected Main + Next Main Planning`) and keeps Recipe Compatibility Lock unchanged.
+
 ## Planning Board READY focus context
 
 `READY Main selection -> Previous Main + Selected Main + Next Main Planning`

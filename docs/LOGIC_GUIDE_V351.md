@@ -35,3 +35,12 @@ Cập nhật toàn bộ tab `/logic-guide` theo hệ thống hiện tại.
 - Planner có thể chọn subset condition; selection lưu theo Batch.
 - Process Time condition là hệ rule độc lập.
 - Create/Add Batch dùng Delta Refresh, không full reload Candidate Board.
+
+## V386 — Candidate theo Area
+
+- Áp dụng cho **tất cả Area**, không hard-code Painting.
+- Khi chọn một Area và bấm tải Candidate mà không chọn riêng Main Operation, bảng chỉ hiện các Main Operation được cấu hình thuộc Area đó.
+- Thêm một cột ảo **Previous Main** trước nhóm Main Operation của Area. Previous Main được xác định theo đúng occurrence của Candidate hiện tại (`standard_operation + source_seq`), sau đó hiển thị status + Batch + giờ điều độ + Resource nếu có.
+- Ví dụ Painting có PRIMER/TOPCOAT/ANTI-ABRASION/... thì chỉ các Main thuộc Painting được mở thành cột; Job có Previous Main là BSASLD hay BSAUNSLD vẫn gộp trong cùng một cột Previous Main theo từng dòng.
+- Khi planner bấm một READY cell, Batch Selection Mode vẫn chuyển sang `Previous Main | Selected Main | Next Main Planning` như V385; Recipe Lock không đổi.
+

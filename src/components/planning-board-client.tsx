@@ -661,6 +661,17 @@ useEffect(()=>{
    [stViewOverride,defaultStView]
   );
 
+ const selectedAreaMainOperationSet=useMemo(()=>{
+   const set=new Set<string>();
+   if(!selectedAreaId)return set;
+   for(const op of mainOperations){
+    if(String(op.area_id||"")!==String(selectedAreaId))continue;
+    const main=normalized(op.standard_operation);
+    if(main)set.add(main);
+   }
+   return set;
+ },[mainOperations,selectedAreaId]);
+
  const routeColumns=useMemo<CandidateColumn[]>(()=>{
    // v291 canonical UI rule:
    // VIEW ST filters rows by RAW NextOperation; Main columns come from the
@@ -684,6 +695,15 @@ useEffect(()=>{
     for(const main of deriveMainOperationsFromAllOperation(row.all_operation,mappingBySource,scopeCanonical)){
      needed.add(normalized(main));
     }
+   }
+
+   // v386 Area focus: when the planner loads Candidates for one Area, the
+   // matrix must show every configured Main Operation of that Area, not every
+   // upstream/downstream Main found in the Jobs' AllOperation. Previous handoff
+   // information is represented by the virtual Previous Main column instead.
+   if(erpMode&&areaMode&&selectedAreaId){
+    needed.clear();
+    for(const main of selectedAreaMainOperationSet)needed.add(main);
    }
 
    const ordered=[...mainOperations].sort((a,b)=>{
@@ -712,7 +732,7 @@ useEffect(()=>{
     columns.push({key:`route-main:${mainOperation}`,label:mainOperation,group:"route"});
    }
    return columns;
- },[mainOperations,operationMappings,candidates,effectiveStView]);
+ },[mainOperations,operationMappings,candidates,effectiveStView,erpMode,areaMode,selectedAreaId,selectedAreaMainOperationSet]);
 
  const configurableColumns=useMemo<CandidateColumn[]>(()=>[
    ...PLANNING_COLUMNS,
@@ -2364,16 +2384,40 @@ const currentPriorityMonth=useMemo(()=>{
  // resolves its own immediate Previous Main occurrence, so mixed handoff paths
  // (for example BSASLD and BSAUNSLD feeding PRIMER) remain compact in one column.
  const previousMainContextForCandidate=(row:Candidate)=>{
-  if(!erpMode||!batchSelectionModeActive||!batchSelectionOperation)return null;
-  const currentMain=normalized(batchSelectionOperation);
-  const target=selectableTargetForOperation(row,batchSelectionOperation);
-  const targetSeqRaw=target?.routeItem?.source_seq ?? (
-   normalized(row.standard_operation)===currentMain ? row.source_seq : null
-  );
-  const targetSeq=Number(targetSeqRaw);
+  if(!erpMode)return null;
+
   const route=(row.route_status||[])
    .filter(r=>r.standard_operation&&normalized(r.standard_operation)!=="PIONBL")
    .sort((a,b)=>Number(a.source_seq||0)-Number(b.source_seq||0));
+
+  let currentMain="";
+  let targetSeq=Number.NaN;
+
+  if(batchSelectionModeActive&&batchSelectionOperation){
+   currentMain=normalized(batchSelectionOperation);
+   const target=selectableTargetForOperation(row,batchSelectionOperation);
+   const targetSeqRaw=target?.routeItem?.source_seq ?? (
+    normalized(row.standard_operation)===currentMain ? row.source_seq : null
+   );
+   targetSeq=Number(targetSeqRaw);
+  }else if(areaMode&&selectedAreaId){
+   // v386 Area focus: Candidate rows are already scoped by the Area at the
+   // server. Therefore Previous Main is anchored to THIS Candidate occurrence
+   // (row.standard_operation + row.source_seq), not to a global/first READY
+   // occurrence in the Area. This remains correct when the same Job has several
+   // Painting/Plating/etc. Main Operations or repeated Main occurrences.
+   const rowMain=normalized(row.standard_operation);
+   const rowMainInArea=selectedAreaMainOperationSet.has(rowMain);
+   const anchor=rowMainInArea
+    ? route.find(r=>normalized(r.standard_operation)===rowMain&&Number(r.source_seq)===Number(row.source_seq)) ||
+      route.find(r=>normalized(r.standard_operation)===rowMain)
+    : null;
+
+   currentMain=normalized(anchor?.standard_operation)||(rowMainInArea?rowMain:"");
+   targetSeq=Number(anchor?.source_seq ?? (rowMainInArea?row.source_seq:null));
+  }else{
+   return null;
+  }
 
   let previousItem:RouteStatusItem|null=null;
   if(Number.isFinite(targetSeq)){
@@ -2489,24 +2533,53 @@ const currentPriorityMonth=useMemo(()=>{
  // current Main (for READY/status only) + ONE virtual Next Main Planning
  // context. Recipe belongs to Next Main Planning, never to the selected Main.
  const batchScopedActiveColumns=useMemo(()=>{
-  if(!erpMode||!batchSelectionModeActive||!batchSelectionOperation)return activeColumns;
-  const operationKey=normalized(batchSelectionOperation);
-  const currentKey=`route-main:${operationKey}`;
-  const out:string[]=[];
-  let matrixInserted=false;
-  for(const key of activeColumns){
-   if(key.startsWith("route-main:")){
-    if(!matrixInserted){
-     out.push(ERP_BATCH_PREVIOUS_CONTEXT_KEY,currentKey,ERP_BATCH_NEXT_CONTEXT_KEY);
-     matrixInserted=true;
+  if(!erpMode)return activeColumns;
+
+  if(batchSelectionModeActive&&batchSelectionOperation){
+   const operationKey=normalized(batchSelectionOperation);
+   const currentKey=`route-main:${operationKey}`;
+   const out:string[]=[];
+   let matrixInserted=false;
+   for(const key of activeColumns){
+    if(key.startsWith("route-main:")){
+     if(!matrixInserted){
+      out.push(ERP_BATCH_PREVIOUS_CONTEXT_KEY,currentKey,ERP_BATCH_NEXT_CONTEXT_KEY);
+      matrixInserted=true;
+     }
+     continue;
     }
-    continue;
+    out.push(key);
    }
-   out.push(key);
+   if(!matrixInserted)out.push(ERP_BATCH_PREVIOUS_CONTEXT_KEY,currentKey,ERP_BATCH_NEXT_CONTEXT_KEY);
+   return out;
   }
-  if(!matrixInserted)out.push(ERP_BATCH_PREVIOUS_CONTEXT_KEY,currentKey,ERP_BATCH_NEXT_CONTEXT_KEY);
-  return out;
- },[erpMode,batchSelectionModeActive,batchSelectionOperation,activeColumns]);
+
+  // v386 Area focus: keep normal Candidate rows and planning/info columns, but
+  // replace the cross-area route matrix with ONE virtual Previous Main column
+  // plus all configured Main Operations belonging to the selected Area.
+  if(areaMode&&selectedAreaId){
+   const areaRouteKeys=activeColumns.filter(key=>
+    key.startsWith("route-main:") &&
+    selectedAreaMainOperationSet.has(normalized(key.slice("route-main:".length)))
+   );
+   const out:string[]=[];
+   let matrixInserted=false;
+   for(const key of activeColumns){
+    if(key.startsWith("route-main:")){
+     if(!matrixInserted){
+      out.push(ERP_BATCH_PREVIOUS_CONTEXT_KEY,...areaRouteKeys);
+      matrixInserted=true;
+     }
+     continue;
+    }
+    out.push(key);
+   }
+   if(!matrixInserted)out.push(ERP_BATCH_PREVIOUS_CONTEXT_KEY,...areaRouteKeys);
+   return out;
+  }
+
+  return activeColumns;
+ },[erpMode,batchSelectionModeActive,batchSelectionOperation,activeColumns,areaMode,selectedAreaId,selectedAreaMainOperationSet]);
 
  const totalQty=selectedTargets.reduce((a,x)=>a+Number(x.candidate.plan_qty||0),0);
  const totalSurface=selectedTargets.reduce((a,x)=>a+Number(x.candidate.plan_surface||0),0);
