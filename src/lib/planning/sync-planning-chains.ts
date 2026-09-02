@@ -1,5 +1,6 @@
 import type {PoolClient} from "pg";
 import {pickBestRecipeForJob,type RecipeCandidateItem} from "@/lib/batch-key-recipe";
+import {extractRequirementCodesFromSelectionRule,normalizeRequirementCode} from "@/lib/process-requirement-filter";
 import {loadIntermediateBridgeRules,type IntermediateBridgeRule} from "@/lib/planning/intermediate-bridge-segments";
 
 type Mapping={
@@ -689,7 +690,7 @@ export async function syncPlanningChains(c:PoolClient){
  // Bridge discovery is intentionally NOT executed here; Full discovery now runs
  // chunked/resumable via /api/config/intermediate-bridges/rebuild. This keeps a
  // normal Chain rebuild from reintroducing the old long-running DB request.
- const [mappingQ,scopeQ,jobsQ,paintQ,chemicalQ,existingQ,batchHistoryQ,masterPartQ,masterFinishQ,masterReqQ]=await Promise.all([
+ const [mappingQ,scopeQ,jobsQ,paintQ,chemicalQ,existingQ,batchHistoryQ,masterPartQ,masterFinishQ]=await Promise.all([
    c.query(`
      with ranked as (
        select
@@ -787,11 +788,23 @@ export async function syncPlanningChains(c:PoolClient){
             alloy,temper,tsa,chemicalconv_airbus
      from md_material_finish where is_active=true
    `),
-   c.query(`
-     select part_num,revision_num,requirement_code,requirement_value
-     from md_process_requirement where is_active=true
-   `),
  ]);
+
+ // v374: only load Process Requirement codes actually referenced by active
+ // Recipe Rules. Never scan the whole md_process_requirement table here.
+ const recipeRequirementCodes=[...new Set(
+  chemicalQ.rows.flatMap((row:any)=>extractRequirementCodesFromSelectionRule(row.selection_rule))
+    .map(normalizeRequirementCode)
+    .filter(Boolean)
+ )];
+ const masterReqQ=recipeRequirementCodes.length
+  ?await c.query(`
+     select part_num,revision_num,requirement_code,requirement_value
+     from md_process_requirement
+     where is_active=true
+       and upper(trim(requirement_code))=any($1::text[])
+   `,[recipeRequirementCodes])
+  :{rows:[] as any[]};
 
  const planningScope=new Set<string>(
    scopeQ.rows.map((r:any)=>clean(r.standard_operation)).filter(Boolean)

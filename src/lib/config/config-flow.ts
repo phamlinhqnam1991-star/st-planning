@@ -102,7 +102,8 @@ export const CONFIG_FLOW: {
     hint: "Cấu hình Recipe proposal, Batch Key, điều kiện tương thích và nguồn giá trị từ All Open Job.",
     items: [
       { key: "recipeoperationmap", label: "Recipe & Batch Rules", href: "/recipe-operation-map", no: 9, statusKey: "recipe_op_total" },
-      { key: "openjobcolumnvalues", label: "Open Job Column Values", href: "/open-job-column-values", no: 10, statusKey: "colval_total" },
+      { key: "processrequirementfilter", label: "Process Requirement Import Filter", href: "/process-requirement-filter", no: 10 },
+      { key: "openjobcolumnvalues", label: "Open Job Column Values", href: "/open-job-column-values", no: 11, statusKey: "colval_total" },
     ],
   },
   {
@@ -110,8 +111,8 @@ export const CONFIG_FLOW: {
     tag: "duration",
     hint: "Định nghĩa thời gian chuẩn dùng khi tạo Batch và điều độ.",
     items: [
-      { key: "recipetimeloading", label: "Loading / Unloading Time", href: "/recipe-time-loading", no: 11, statusKey: "handling_total" },
-      { key: "recipetimeprocess", label: "Process Time", href: "/recipe-time-process", no: 12, statusKey: "time_total" },
+      { key: "recipetimeloading", label: "Loading / Unloading Time", href: "/recipe-time-loading", no: 12, statusKey: "handling_total" },
+      { key: "recipetimeprocess", label: "Process Time", href: "/recipe-time-process", no: 13, statusKey: "time_total" },
     ],
   },
   {
@@ -119,7 +120,7 @@ export const CONFIG_FLOW: {
     tag: "future ready",
     hint: "Quy tắc Auto Planning dùng chung data model với Planning thủ công.",
     items: [
-      { key: "autoplanning", label: "Auto Planning Rules", href: "/auto-planning-rules", no: 13 },
+      { key: "autoplanning", label: "Auto Planning Rules", href: "/auto-planning-rules", no: 14 },
     ],
   },
 ];

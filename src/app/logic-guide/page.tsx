@@ -305,7 +305,7 @@ export default async function Page(){
       <tr><td><b>Source Operation</b></td><td>Danh mục Operation Code gốc từ Master; có <b>Operation Code Order</b> tùy chọn.</td><td>ST Scope, Bridge, tie-break Planning Board.</td><td>Đổi Operation Code Order chỉ đổi tie-break trong cùng Main, không đổi READY/WAIT.</td></tr>
       <tr><td><b>Routing Detail</b></td><td>Chuỗi operation đầy đủ theo Part + Revision, có seq và Next Operation.</td><td>Dựng ST Routing standardized, Bridge Intermediate, Part Tracker.</td><td>Routing thay đổi sẽ làm thay đổi physical sequence và có thể cần rebuild derived routing/bridge.</td></tr>
       <tr><td><b>Material Finish</b></td><td>Primer1/2/3, Topcoat1/2, Anti-abrasion, finish name...</td><td>Paint Recipe resolver/condition, Part Tracker.</td><td>Có thể làm Job resolve sang Recipe sơn khác.</td></tr>
-      <tr><td><b>Process Requirement</b></td><td>Requirement code/value theo Part + Revision.</td><td>Recipe condition builder (các condition Master), Part Tracker.</td><td>Có thể thay kết quả Recipe nếu mapping dùng requirement.</td></tr>
+      <tr><td><b>Process Requirement</b></td><td>Chỉ lưu Requirement code/value được active MD:REQ Recipe Rule dùng hoặc planner đánh dấu Manual Keep; value rỗng không lưu.</td><td>Recipe condition builder, Part Tracker/Job Tracker khi cần Requirement.</td><td>Thêm/bỏ MD:REQ hoặc Keep cần Import Master lại; không cần giữ 38 Requirement cho mọi Part/Revision.</td></tr>
       <tr><td><b>ST Routing Master</b></td><td>Routing ST chuẩn hóa theo signature.</td><td>Canonical route, Part → Routing.</td><td>Ảnh hưởng route nào được Part dùng.</td></tr>
       <tr><td><b>ST Routing Chain</b></td><td>Chuỗi ST theo routing_code + seq + raw operation + standard operation.</td><td>Auto Intermediate Bridge, Planning Chain, Part Tracker.</td><td>Đây là nguồn quan trọng để suy ra operation trung gian giữa hai Main.</td></tr>
       <tr><td><b>Part → Routing</b></td><td>Map Part + Revision → routing_code.</td><td>Part Tracker và chain resolver.</td><td>Map sai sẽ làm Part chạy nhầm routing.</td></tr>
@@ -316,7 +316,7 @@ export default async function Page(){
     </Rule>
    </Section>
 
-   <Section id="config" title="4 · Tab Cấu hình — trình tự 1 → 12 và ảnh hưởng downstream"
+   <Section id="config" title="4 · Tab Cấu hình — trình tự và ảnh hưởng downstream"
     sub="Tầng 1 định nghĩa công đoạn/ownership; Tầng 2 định nghĩa Recipe và thời gian. Nên cấu hình theo đúng thứ tự bên trái">
 
     <div className="lg-subtitle">4.1 · Tầng 1 — Định nghĩa công đoạn</div>
@@ -413,13 +413,34 @@ export default async function Page(){
     </details>
 
     <details className="erp-details">
-     <summary><b>⑩ Thời gian Loading / Unloading</b></summary>
+     <summary><b>⑩ Process Requirement Import Filter</b></summary>
+     <p>Giảm dung lượng <code>md_process_requirement</code> theo logic: <b>Active MD:REQ Recipe Rule + Manual Keep</b>. Chỉ những code trong tập này và có value không rỗng mới được ghi khi Import Master.</p>
+     <div className="lg-key lg-key-2">
+      <Rule title="Không hard-code code đang dùng">Recipe Rule active tự động quyết định Requirement bắt buộc. Manual Keep chỉ dùng khi planner muốn giữ thêm Requirement để tra cứu dù chưa có rule.</Rule>
+      <Rule title="Re-import cả khi UNCHANGED" tone="important">V374 vẫn đọc các cột Requirement cần thiết trên mọi Part/Revision, kể cả source hash UNCHANGED. Vì vậy có thể TRUNCATE riêng bảng Requirement rồi import lại cùng file Master để dựng lại tập dữ liệu nhỏ.</Rule>
+     </div>
+     <div className="notice"><b>Cleanup:</b> TRUNCATE chỉ <code>md_process_requirement</code> rồi Import Master lại. Không xóa Part, Routing, Planning Chain, Batch, Schedule hay Production Execution.</div>
+    </details>
+
+    <details className="erp-details">
+     <summary><b>⑪ Cột All Open Job (từ điển)</b></summary>
+     <p>Scan các key/value unique trong All Open Job để condition builder chọn cột và giá trị chính xác, tránh gõ tay.</p>
+     <StepList items={[
+      <>Sau khi import All Open Job có cấu trúc/giá trị mới, bấm <b>Scan / Rebuild</b>.</>,
+      <>Dùng danh sách này khi tạo Process Time condition và các rule cần cột Open Job.</>,
+      <>Inactive value không hiện trong dropdown condition.</>
+     ]}/>
+     <div className="notice"><b>Impact:</b> đây là từ điển hỗ trợ cấu hình; scan không tự đổi Job/Batch. Nhưng không scan sau khi nguồn có cột mới sẽ khiến dropdown rule chưa thấy giá trị mới.</div>
+    </details>
+
+    <details className="erp-details">
+     <summary><b>⑫ Thời gian Loading / Unloading</b></summary>
      <p>Dùng cho Chemical Line. Rule chọn theo Priority + khoảng Qty + Surface dm²; Min/Max trống = không giới hạn.</p>
      <div className="notice"><b>Impact:</b> ảnh hưởng Loading End/Unloading End, chiếm dụng Flybar và xung đột trạm Loading. Không thay Process Time chuẩn.</div>
     </details>
 
     <details className="erp-details">
-     <summary><b>⑪ Thời gian xử lý (Process)</b></summary>
+     <summary><b>⑬ Thời gian xử lý (Process)</b></summary>
      <p>Source of truth cho <code>planning_batch.process_minutes</code>. Hai mode:</p>
      <ul className="lg-list">
       <li><b>FIXED_HOURS</b>: thời gian cố định HH:MM.</li>
@@ -431,16 +452,6 @@ export default async function Page(){
      <div className="notice"><b>Impact:</b> Create/Add/Remove Job hoặc đổi Recipe sẽ tính lại Process Time. Batch chưa schedule có thể cập nhật duration chuẩn. Duration planner override trên Schedule là thời gian điều độ thực tế và không ghi ngược vào rule chuẩn.</div>
     </details>
 
-    <details className="erp-details">
-     <summary><b>⑫ Cột All Open Job (từ điển)</b></summary>
-     <p>Scan các key/value unique trong All Open Job để condition builder chọn cột và giá trị chính xác, tránh gõ tay.</p>
-     <StepList items={[
-      <>Sau khi import All Open Job có cấu trúc/giá trị mới, bấm <b>Scan / Rebuild</b>.</>,
-      <>Dùng danh sách này khi tạo Process Time condition và các rule cần cột Open Job.</>,
-      <>Inactive value không hiện trong dropdown condition.</>
-     ]}/>
-     <div className="notice"><b>Impact:</b> đây là từ điển hỗ trợ cấu hình; scan không tự đổi Job/Batch. Nhưng không scan sau khi nguồn có cột mới sẽ khiến dropdown rule chưa thấy giá trị mới.</div>
-    </details>
    </Section>
 
    <Section id="tracker" title="5 · Tab Part Tracker — kiểm tra một Part từ đầu đến cuối"
@@ -679,17 +690,17 @@ export default async function Page(){
    </Section>
 
    <Section id="import" title="10 · Tab Import Master — đồng bộ dữ liệu kỹ thuật"
-    sub="Khác Import All Open Job: tab này cập nhật Master Part/Routing/Finish/Requirement và derived ST routing">
+    sub="Khác Import All Open Job: tab này cập nhật Master Part/Routing/Finish và chỉ các Process Requirement thực sự cần">
     <div className="lg-key lg-key-2">
      <Rule title="Lần đầu">Full Import.</Rule>
-     <Rule title="Từ lần sau">Incremental: NEW/CHANGED cập nhật; UNCHANGED bỏ qua; dữ liệu không còn được đánh inactive thay vì xóa lịch sử khi logic importer quy định.</Rule>
+     <Rule title="Từ lần sau">Part/Routing/Finish vẫn incremental NEW/CHANGED. Riêng Process Requirement cần thiết vẫn được đọc ở cả UNCHANGED để hỗ trợ filtered rebuild sau cleanup.</Rule>
     </div>
     <StepList items={[
      <>Chọn file Master Excel đúng format.</>,
-     <>Bấm <b>Import Master</b>; chờ thống kê Source / New / Changed / Unchanged / Routing.</>,
+     <>Bấm <b>Import Master</b>; chờ thống kê Source / New / Changed / Unchanged / Routing và số Process Requirement thực sự được ghi.</>,
      <>Importer chỉ rebuild các ST derived data/routing signature bị ảnh hưởng theo logic incremental hiện tại.</>,
      <>Nếu cần cập nhật lại chuỗi công đoạn sau import, hệ thống tiếp tục tự xử lý; nếu bị gián đoạn, vào ST Operation Flow để tiếp tục.</>,
-     <>Sau import, dùng Part Tracker kiểm tra một Part thay đổi để xác nhận Routing/Finish/Requirement.</>,
+     <>Sau import, dùng Part Tracker kiểm tra Routing/Finish và các Requirement đang được Rule/Keep yêu cầu.</>,
      <>Nếu cấu trúc/value All Open Job cũng thay đổi thì đó là luồng import riêng ở tab All Open Jobs; đừng nhầm hai file.</>
     ]}/>
     <Rule title="Reset All Master Data" tone="warning">
@@ -757,7 +768,7 @@ export default async function Page(){
       <tr><td>Schedule Area</td><td>Lane và Main được phép điều độ.</td><td>Unscheduled Batch xuất hiện/kéo được ở đâu.</td><td>Kiểm tra Planner assignment.</td></tr>
       <tr><td>Planner Assignment</td><td>Ai thấy/điều độ area.</td><td>Handover alert/Planner view.</td><td>Không rebuild routing.</td></tr>
       <tr><td>Import All Open Job</td><td>NextOperation/LastOperation/source_data mới.</td><td>Candidate/Recipe/condition/physical progress.</td><td>Scan Column Values nếu có cột/value mới.</td></tr>
-      <tr><td>Import Master</td><td>Part/Rev/Routing/Finish/Requirement.</td><td>Part Tracker, route, recipe master-condition lookup.</td><td>Kiểm tra changed Part và derived Bridge.</td></tr>
+      <tr><td>Import Master</td><td>Part/Rev/Routing/Finish + filtered Process Requirement.</td><td>Part Tracker, route, recipe master-condition lookup.</td><td>Requirement chỉ import theo active MD:REQ + Manual Keep; kiểm tra changed Part và derived Bridge.</td></tr>
       <tr><td>Dashboard / AI provider config</td><td>Dashboard analysis and AI narrative.</td><td>Does not change Planning / Batch / Schedule / Execution source data.</td><td>Refresh Dashboard / Refresh AI; no Rebuild Chain.</td></tr>
      </tbody>
     </table></div>

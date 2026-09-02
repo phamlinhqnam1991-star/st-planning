@@ -4,25 +4,14 @@ import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 import {MainOperationRecipeMappingManager} from "@/components/main-operation-recipe-mapping-manager";
 import {ProcessRecipeManager} from "@/components/process-recipe-manager";
 import {getPool} from "@/lib/db";
-import {unstable_cache} from "next/cache";
+import {PROCESS_REQUIREMENT_HEADERS} from "@/data/master-config";
 export const dynamic="force-dynamic";
 
-// v341: danh sách mã yêu cầu (MD:REQ:*) — cache 5 phút thay vì quét
-// md_process_requirement (2.1M rows) mỗi lần mở trang. Giá trị của từng mã
-// được lazy-load qua /api/config/recipe-condition-values khi người dùng chọn
-// cột đó trong builder điều kiện.
-const getRequirementCodes=unstable_cache(async()=>{
- const c=await getPool().connect();
- try{
-  const q=await c.query(`
-    select distinct requirement_code
-    from md_process_requirement
-    where is_active=true and nullif(trim(requirement_code),'') is not null
-    order by requirement_code
-  `);
-  return q.rows;
- }finally{c.release();}
-},["config-recipe-req-codes"],{revalidate:300,tags:["config-recipe"]});
+// v374: Requirement codes come from the supported Master headers, not from a
+// DISTINCT scan of md_process_requirement. The table may intentionally contain
+// only a small filtered subset after cleanup; all supported MD:REQ fields remain
+// available for configuring a new Recipe Rule before the next Master import.
+const getRequirementCodes=async()=>PROCESS_REQUIREMENT_HEADERS.map(requirement_code=>({requirement_code}));
 
 // Recipe Catalog + runtime Operation Code → Recipe are maintained together here.
 
@@ -134,7 +123,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
       purpose="Xác định Operation Code dùng Recipe nào, điều kiện áp dụng, độ ưu tiên, Mã lô mẫu và Prefix số lô."
       impact="Job chưa xác định được Recipe sẽ không tạo lô được. Thay đổi ở đây ảnh hưởng ngay tới Recipe đề xuất trên Planning Board."
       prev={{label:"Planner Assignment",href:"/planner-work-assignment"}}
-      next={{label:"Open Job Column Values",href:"/open-job-column-values"}}
+      next={{label:"Process Requirement Import Filter",href:"/process-requirement-filter"}}
      />
 
      {(()=>{

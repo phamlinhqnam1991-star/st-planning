@@ -34,6 +34,17 @@ This presentation order does not change READY / WAIT, Batch, Schedule, or Auto P
 - Batch and Schedule remain separate: Planning creates Batch; Scheduling assigns an existing Batch.
 - Manual and future Auto Planning share the same Batch/Schedule model.
 
+
+## Process Requirement storage
+
+`Active MD:REQ Recipe Rules + Manual Keep -> Filtered Master Import -> md_process_requirement`
+
+- `md_process_requirement` is no longer a full 38-column-per-Part/Revision expansion.
+- Only supported Requirement codes referenced by an active `md_main_operation_recipe.selection_rule` (`MD:REQ:*`) or marked in `md_process_requirement_keep` are imported. Blank values are skipped.
+- Requirement extraction runs even for UNCHANGED Part/Revision source hashes so a one-time TRUNCATE followed by re-import of the same Master Excel rebuilds only the small required subset.
+- Planning Chain derives the active MD:REQ code set first and queries only those Requirement codes; it no longer scans all active Process Requirement rows.
+- Recipe & Batch Rules still expose all 38 supported Master Requirement fields for configuration even when the filtered table currently contains no rows for a code.
+
 ## Database cleanup
 
 Migrations are append-only. Historical migrations 058/059 are preserved. Migration 066 removes the abandoned Planning snapshot cache and dirty triggers because current Candidate reads are canonical-only.

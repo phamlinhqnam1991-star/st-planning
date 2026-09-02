@@ -7750,6 +7750,76 @@
       "en": "Dashboard / AI provider config",
       "vi": "Cấu hình Dashboard / AI provider",
       "mode": "exact"
+    },
+    {
+      "en": "Process Requirement Import Filter",
+      "vi": "Bộ lọc Import Process Requirement",
+      "mode": "exact"
+    },
+    {
+      "en": "Store only Process Requirements required by Recipe Rules or explicitly marked Keep by the planner.",
+      "vi": "Chỉ lưu Process Requirement thực sự cần cho Recipe Rule hoặc được planner đánh dấu Keep.",
+      "mode": "exact"
+    },
+    {
+      "en": "Reduce md_process_requirement size: active MD:REQ Recipe Rules are retained automatically; the planner marks only additional Requirements that must remain available for lookup. Blank values are not imported.",
+      "vi": "Giảm mạnh kích thước md_process_requirement: Active MD:REQ Recipe Rule tự động được giữ; planner chỉ cần đánh dấu thêm các Requirement muốn giữ để tra cứu. Value rỗng không được import.",
+      "mode": "exact"
+    },
+    {
+      "en": "After changing a Rule or Keep setting, re-import Master to synchronize Requirements. Cleanup truncates only md_process_requirement; Part, Routing, Planning Chain, Batch, Schedule and Production Execution are untouched.",
+      "vi": "Sau khi thay đổi Rule/Keep, re-import Master để đồng bộ Requirement. Cleanup chỉ TRUNCATE md_process_requirement; không xóa Part, Routing, Planning Chain, Batch, Schedule hay Production Execution.",
+      "mode": "exact"
+    },
+    {
+      "en": "Migration 069 required.",
+      "vi": "Cần chạy migration 069.",
+      "mode": "exact"
+    },
+    {
+      "en": "Run supabase/migrations/069_process_requirement_filtered_import.sql before using Manual Keep.",
+      "vi": "Hãy chạy supabase/migrations/069_process_requirement_filtered_import.sql trước khi dùng Manual Keep.",
+      "mode": "exact"
+    },
+    {
+      "en": "Requirement Code is not one of the 38 Process Requirement columns supported by Master Import.",
+      "vi": "Requirement Code không nằm trong 38 cột Process Requirement được hỗ trợ bởi Master Import.",
+      "mode": "exact"
+    },
+    {
+      "en": "Migration 069_process_requirement_filtered_import.sql has not been applied.",
+      "vi": "Chưa chạy migration 069_process_requirement_filtered_import.sql.",
+      "mode": "exact"
+    },
+    {
+      "en": "Enter TRUNCATE exactly to confirm.",
+      "vi": "Nhập chính xác TRUNCATE để xác nhận.",
+      "mode": "exact"
+    },
+    {
+      "en": "Reduce md_process_requirement size using: Active MD:REQ Recipe Rule + Manual Keep. Only codes in this set with non-blank values are written during Master Import.",
+      "vi": "Giảm dung lượng md_process_requirement theo logic: Active MD:REQ Recipe Rule + Manual Keep. Chỉ những code trong tập này và có value không rỗng mới được ghi khi Import Master.",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe Rules automatically determine required Requirements. Manual Keep is only for Requirements the planner wants to retain for lookup even when no rule uses them.",
+      "vi": "Recipe Rule active tự động quyết định Requirement bắt buộc. Manual Keep chỉ dùng khi planner muốn giữ thêm Requirement để tra cứu dù chưa có rule.",
+      "mode": "exact"
+    },
+    {
+      "en": "V374 reads required Requirement columns for every Part/Revision, including UNCHANGED source hashes. Therefore md_process_requirement can be truncated separately and rebuilt from the same Master Excel as a much smaller dataset.",
+      "vi": "V374 vẫn đọc các cột Requirement cần thiết trên mọi Part/Revision, kể cả source hash UNCHANGED. Vì vậy có thể TRUNCATE riêng bảng Requirement rồi import lại cùng file Master để dựng lại tập dữ liệu nhỏ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Cleanup: truncate only md_process_requirement, then re-import Master. Part, Routing, Planning Chain, Batch, Schedule and Production Execution are not deleted.",
+      "vi": "Cleanup: TRUNCATE chỉ md_process_requirement rồi Import Master lại. Không xóa Part, Routing, Planning Chain, Batch, Schedule hay Production Execution.",
+      "mode": "exact"
+    },
+    {
+      "en": "Part/Routing/Finish remain incremental NEW/CHANGED. Required Process Requirements are also read for UNCHANGED rows to support filtered rebuild after cleanup.",
+      "vi": "Part/Routing/Finish vẫn incremental NEW/CHANGED. Riêng Process Requirement cần thiết vẫn được đọc ở cả UNCHANGED để hỗ trợ filtered rebuild sau cleanup.",
+      "mode": "exact"
     }
   ]
 }
