@@ -1,9 +1,12 @@
 "use client";
 
+import {pushAppToast} from "@/components/app-toast-provider";
+
 import {safeJson} from "@/lib/fetch-json";
 import {useMemo,useState} from "react";
 import {useRouter} from "next/navigation";
 import {refreshConfigPage} from "@/lib/config/config-client";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 
 type Recipe={
  recipe_key:string;
@@ -71,6 +74,7 @@ export function ProcessTimeRuleManager({
  rules:Rule[];
  columns:ColumnOption[];
 }){
+ const confirmErp=useErpConfirm();
  const router=useRouter();
  const [busy,setBusy]=useState(false);
  const [calcType,setCalcType]=useState<"FIXED_HOURS"|"QTY_SURFACE">("FIXED_HOURS");
@@ -129,7 +133,7 @@ export function ProcessTimeRuleManager({
      setConditionValues(x=>({...x,[column]:Array.isArray(d.rows)?d.rows:[]}));
      setConditionTruncated(x=>({...x,[column]:Boolean(d.truncated)}));
    }catch(e){
-     alert(e instanceof Error?e.message:String(e));
+     pushAppToast(e instanceof Error?e.message:String(e));
    }finally{
      setConditionLoading(x=>({...x,[column]:false}));
    }
@@ -180,7 +184,7 @@ export function ProcessTimeRuleManager({
  }
 
  function addCondition(){
-   if(conditions.length>=8)return alert("Mỗi rule được tối đa 8 cột điều kiện.");
+   if(conditions.length>=8)return pushAppToast("Mỗi rule được tối đa 8 cột điều kiện.");
    setConditions(x=>[...x,{source_column:"",source_value:""}]);
  }
 
@@ -198,14 +202,14 @@ export function ProcessTimeRuleManager({
  }
 
  async function save(){
-   if(!selectedRecipeKey)return alert("Chọn Recipe.");
+   if(!selectedRecipeKey)return pushAppToast("Chọn Recipe.");
    const timeValue=calcType==="FIXED_HOURS"?f.fixed_hours:f.standard_hours;
-   if(!validHhmm(timeValue))return alert("Thời gian phải nhập theo HH:MM, ví dụ 07:30.");
+   if(!validHhmm(timeValue))return pushAppToast("Thời gian phải nhập theo HH:MM, ví dụ 07:30.");
    if(conditions.some(x=>!x.source_column||!x.source_value))
-     return alert("Điều kiện Open Job phải chọn đủ Cột và Giá trị, hoặc xóa dòng điều kiện chưa dùng.");
+     return pushAppToast("Điều kiện Open Job phải chọn đủ Cột và Giá trị, hoặc xóa dòng điều kiện chưa dùng.");
    const cols=conditions.map(x=>x.source_column.toUpperCase());
    if(new Set(cols).size!==cols.length)
-     return alert("Không được chọn lặp cùng một cột trong một Time Rule.");
+     return pushAppToast("Không được chọn lặp cùng một cột trong một Time Rule.");
 
    const body={
      ...(edit?{id:edit.id}:{}),
@@ -238,12 +242,12 @@ export function ProcessTimeRuleManager({
      clear();
      refreshConfigPage(router);
    }catch(e){
-     alert(e instanceof Error?e.message:String(e));
+     pushAppToast(e instanceof Error?e.message:String(e));
    }finally{setBusy(false)}
  }
 
  async function remove(r:Rule){
-   if(!confirm(`Ngưng Time Rule của Recipe ${r.recipe_no||r.recipe_name}?`))return;
+   if(!await confirmErp(`Ngưng Time Rule của Recipe ${r.recipe_no||r.recipe_name}?`))return;
    setBusy(true);
    try{
      const x=await fetch("/api/process-recipe/time-rule",{
@@ -256,7 +260,7 @@ export function ProcessTimeRuleManager({
      clear();
      refreshConfigPage(router);
    }catch(e){
-     alert(e instanceof Error?e.message:String(e));
+     pushAppToast(e instanceof Error?e.message:String(e));
    }finally{setBusy(false)}
  }
 
@@ -403,7 +407,7 @@ export function ProcessTimeRuleManager({
         {calcType==="QTY_SURFACE"&&<><th>Qty Min</th><th>Qty Max</th><th>dm² Min</th><th>dm² Max</th></>}
         <th>Process</th>
         <th>Ghi chú</th>
-        <th></th>
+        <th className="action"></th>
       </tr></thead>
       <tbody>
        {visible.map(r=><tr key={r.id}>

@@ -1,8 +1,11 @@
 "use client";
 
+import {pushAppToast} from "@/components/app-toast-provider";
+
 import {safeJson} from "@/lib/fetch-json";
 import {useEffect,useMemo,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 
 const VIEW_STORAGE_KEY="st-planning:candidate-view-by-operation:v1";
 const COLUMN_STORAGE_KEY="st-planning:candidate-columns:v3";
@@ -171,6 +174,7 @@ export function BatchDetailManager({
  initialNextFilter:string;
  presentation?:"legacy"|"erp";
 }){
+ const confirmErp=useErpConfirm();
  const erpMode=presentation==="erp";
  const planningStateLabel=(value:unknown)=>{
   const raw=String(value||"").trim();
@@ -449,7 +453,7 @@ export function BatchDetailManager({
  }
 
  async function add(){
-   if(!selected.length)return alert(erpMode?"Chọn ít nhất một Job để thêm vào Batch.":"Chọn ít nhất 1 Job để thêm.");
+   if(!selected.length)return pushAppToast(erpMode?"Chọn ít nhất một Job để thêm vào Batch.":"Chọn ít nhất 1 Job để thêm.");
    setBusy(true);
    setMessage("");
 
@@ -473,7 +477,7 @@ export function BatchDetailManager({
  }
 
  async function remove(row:any){
-   if(!confirm(erpMode?`Bỏ Job ${row.job_num} khỏi Batch?`:`Bỏ Job ${row.job_num} khỏi lô?`))return;
+   if(!await confirmErp(erpMode?`Bỏ Job ${row.job_num} khỏi Batch?`:`Bỏ Job ${row.job_num} khỏi lô?`))return;
 
    setBusy(true);
    setMessage("");

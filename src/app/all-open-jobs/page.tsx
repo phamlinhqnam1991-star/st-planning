@@ -168,7 +168,7 @@ export default async function Page({
        defaultValue={q}
        placeholder="JobNum / Part / Last Operation / Next Operation / Program..."
       />
-      <button className="btn primary">Search</button>
+      <button className="btn primary">Tìm</button>
       <Link className="btn" href="/all-open-jobs/history">Change History</Link>
       {all
        ? <Link className="btn" href={`/all-open-jobs?status=${status}&q=${encodeURIComponent(q)}`}>Xem gọn (12 cột)</Link>
@@ -221,7 +221,7 @@ export default async function Page({
            <th>ST Area</th>
            <th className="num">Total Surface</th>
            <th>Priority</th>
-           <th></th>
+           <th className="action"></th>
           </tr>
          </thead>
          <tbody>

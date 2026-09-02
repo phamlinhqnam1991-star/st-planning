@@ -63,7 +63,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
    <div className="erp-panel-head"><b>Kết quả tìm kiếm</b><span>{matches.length} matches</span></div>
    {matches.length?
     <div className="table-wrap"><table className="erp-table">
-     <thead><tr><th>Part Number</th><th>Description</th><th>Program</th><th>Part Cluster</th><th className="num">Surface dm²</th><th></th></tr></thead>
+     <thead><tr><th>Part Number</th><th>Description</th><th>Program</th><th>Part Cluster</th><th className="num">Surface dm²</th><th className="action"></th></tr></thead>
      <tbody>{matches.map(x=><tr key={x.part_num}>
       <td><b>{x.part_num}</b></td><td>{x.part_description||"—"}</td><td>{x.program||"—"}</td><td>{x.part_cluster||"—"}</td><td className="num">{x.surface_dm2??"—"}</td>
       <td className="action"><Link className="erp-link" href={`/part-tracker?q=${encodeURIComponent(x.part_num)}`}>Mở</Link></td>
@@ -73,6 +73,10 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
   </div>}
 
   {part&&<div className="section">
+   <div className="erp-object-hero">
+    <div className="erp-object-identity"><small>PART</small><strong>{part.part_num}</strong><span>{part.part_description||"Không có mô tả"}</span></div>
+    <div className="erp-object-facts"><div><small>Program</small><b>{part.program||"—"}</b></div><div><small>Revision</small><b>{revisions.length}</b></div><div><small>Surface</small><b>{part.surface_dm2!=null?`${part.surface_dm2} dm²`:"—"}</b></div></div>
+   </div>
    <div className="erp-table-panel">
     <div className="erp-panel-head"><b>Part Summary</b><span>{part.part_num}</span></div>
     <div className="part-summary-grid">

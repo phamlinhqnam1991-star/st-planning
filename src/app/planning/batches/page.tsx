@@ -86,7 +86,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
        <thead><tr>
         <th>Batch</th><th>Ngày</th><th>Khu vực</th><th>Main Operation</th><th>Recipe</th>
         <th className="num">Job</th><th className="num">Qty</th><th className="num">Diện tích</th>
-        <th>Thời gian</th><th>Bắt đầu</th><th>Kết thúc</th><th>Trạng thái</th><th></th>
+        <th>Thời gian</th><th>Bắt đầu</th><th>Kết thúc</th><th>Trạng thái</th><th className="action"></th>
        </tr></thead>
        <tbody>
         {batchesQ.rows.map((b:any)=><tr key={b.id}>
@@ -102,7 +102,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
          <td>{b.planned_start?new Date(b.planned_start).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—"}</td>
          <td>{b.planned_end?new Date(b.planned_end).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—"}</td>
          <td><span className={`erpkit-status ${batchStatusTone(b.status)}`}><span className="erpkit-status-dot"/>{batchStatusLabel(b.status)}</span></td>
-         <td><div className="batch-list-actions">
+         <td className="action"><div className="batch-list-actions">
           <Link className="erp-link" href={`/planning/batches/${b.id}`}>Chi tiết →</Link>
           <BatchRowActions batchId={Number(b.id)} batchNo={b.batch_no||"—"} currentRecipeKey={b.recipe_key||null} presentation="erp"/>
          </div></td>

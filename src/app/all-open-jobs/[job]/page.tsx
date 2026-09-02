@@ -52,6 +52,11 @@ export default async function Page({
       <Link className="btn" href="/all-open-jobs">← All Open Jobs</Link>
      </div>
 
+     <div className="erp-object-hero">
+      <div className="erp-object-identity"><small>OPEN JOB</small><strong>{r.job_num}</strong><span>{r.part_num||"—"} · Rev {r.revision_num||"—"} · {r.program||"—"}</span></div>
+      <div className="erp-object-facts"><div><small>Last Operation</small><b>{r.last_operation||"—"}</b></div><div><small>Next Operation</small><b>{r.next_operation||"—"}</b></div><div><small>Qty</small><b>{r.prod_qty??"—"}</b></div><div><small>Priority</small><b>{r.priority_type||"—"}</b></div></div>
+     </div>
+
      <div className="erp-table-panel">
       <div className="erp-panel-head">
        <b>Thông tin Job</b>

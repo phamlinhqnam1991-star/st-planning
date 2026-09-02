@@ -9,6 +9,7 @@ import {
  selectChemicalHandlingRule,
  type ChemicalHandlingRule
 } from "@/lib/chemical-line-schedule";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 
 type OperationOption={standard_operation:string;st_group:string;batch_prefix:string|null};
 type ResourceOption={resource_code:string;resource_name:string;resource_group:string};
@@ -136,6 +137,7 @@ export function ManualScheduleGrid({
  scheduledRows:ScheduledRow[];planningBatches:PlanningBatch[];handlingRules:ChemicalHandlingRule[];
  date:string;planner:"1"|"2";
 }){
+ const confirmErp=useErpConfirm();
  const [rowCounts,setRowCounts]=useState<Record<string,number>>(()=>Object.fromEntries(
   scheduleAreas.map(a=>[a.schedule_area_code,Math.max(1,Number(a.default_rows)||20)])
  ));
@@ -425,7 +427,7 @@ export function ManualScheduleGrid({
  }
 
  async function deleteBatch(row:ScheduledRow){
-  const ok=window.confirm(
+  const ok=await confirmErp(
    `Xóa ${row.batch_no}?\\n\\nSchedule sẽ bị hủy. Job trong Batch sẽ quay lại Candidate/Eligible nếu Planning Chain cho phép.`
   );
 
@@ -763,7 +765,7 @@ export function ManualScheduleGrid({
    }
    if(pending.length===before){order.push(...pending);break;} // an toàn: tránh lặp vô hạn
   }
-  if(!window.confirm(`${a.schedule_area_name}: lưu TẤT CẢ ${order.length} dòng đề xuất? (mỗi dòng tạo 1 Batch + Schedule)`))return;
+  if(!await confirmErp(`${a.schedule_area_name}: lưu TẤT CẢ ${order.length} dòng đề xuất? (mỗi dòng tạo 1 Batch + Schedule)`))return;
   setSaveAllBusy(a.schedule_area_code);setMessage(`${a.schedule_area_name}: đang lưu ${order.length} dòng…`);
   const okList:number[]=[];const failList:{i:number;msg:string}[]=[];
   try{
@@ -850,14 +852,14 @@ export function ManualScheduleGrid({
      <div className="schedule-area-grid-title">
       <div><b>{a.schedule_area_name}</b><small>{a.schedule_area_code} · {aOps.length?aOps.map(x=>x.standard_operation).join(" / "):"CHƯA MAP OPERATION"}</small></div>
       <div className="schedule-area-row-actions">
-       <span>{actual.length} scheduled · {count} input rows</span>
+       <span>{actual.length} đã điều độ · {count} dòng nhập</span>
        {chemical&&<button type="button" className="btn primary" disabled={suggestBusy===a.schedule_area_code} onClick={()=>suggestAll(a)}>
         {suggestBusy===a.schedule_area_code?"Đang tính...":"Đề xuất"}
        </button>}
        {chemical&&<button type="button" className="btn" disabled={saveAllBusy===a.schedule_area_code} title="Lưu TẤT CẢ các dòng đề xuất cùng lúc (mỗi dòng tạo 1 Batch + Schedule). Lô nguồn lưu trước lô nối tiếp." onClick={()=>saveAll(a)}>
         {saveAllBusy===a.schedule_area_code?"Đang lưu...":"Lưu tất cả"}
        </button>}
-       {chemical&&hasSuggestedRows(a)&&<button type="button" className="btn" title="Xóa hết giờ/FB đề xuất, quay lại như chưa đề xuất" onClick={()=>{if(window.confirm("Xóa hết giờ/FB đã đề xuất ở vùng này? (Recipe và liên kết nối tiếp giữ nguyên)"))clearSuggestion(a);}}>↺ Xóa đề xuất</button>}
+       {chemical&&hasSuggestedRows(a)&&<button type="button" className="btn" title="Xóa hết giờ/FB đề xuất, quay lại như chưa đề xuất" onClick={async()=>{if(await confirmErp({title:"Xóa đề xuất",message:"Xóa hết giờ/FB đã đề xuất ở vùng này?",detail:"Recipe và liên kết nối tiếp được giữ nguyên.",tone:"warning",confirmLabel:"Xóa đề xuất"}))clearSuggestion(a);}}>↺ Xóa đề xuất</button>}
 
        <button
         type="button"
@@ -865,7 +867,7 @@ export function ManualScheduleGrid({
         disabled={rowBusy===a.schedule_area_code||count<=1}
         onClick={()=>removeRow(a)}
        >
-        − Row
+        − Dòng
        </button>
        <button
         type="button"
@@ -1223,7 +1225,7 @@ export function ManualScheduleGrid({
           {actual.length+i+1}
           {(r.chainFrom!=null||r.chainFromExisting!=null)&&<span className="row-chain-badge" title={`Liên kết nối tiếp từ Dòng ${(r.chainFromExisting??r.chainFrom??0)+1} (kéo-thả). Bấm để xóa liên kết.`} onClick={()=>patch(a,i,{chainFrom:null,chainFromExisting:null})}>↳{(r.chainFromExisting??r.chainFrom??0)+1}✕</span>}
 
-         </td><td>{r.batchId?<b>{r.batchNo}</b>:<span className="muted">NEW</span>}</td>
+         </td><td>{r.batchId?<b>{r.batchNo}</b>:<span className="muted">MỚI</span>}</td>
          <td>
           <select className="input" disabled={Boolean(r.batchId&&r.recipeKey)} value={r.recipeKey} onChange={e=>{
            const rc=recipes.find(x=>x.recipe_key===e.target.value);
@@ -1264,7 +1266,7 @@ export function ManualScheduleGrid({
          <td><div className="schedule-row-actions">
           <button type="button" className={`btn small keep-btn${r.keep?" on":""}`} title={r.keep?"Bỏ giữ dòng này":"Giữ dòng này (không bị Xóa đề xuất, có màu theo dõi)"} onClick={()=>patch(a,i,{keep:!r.keep})}>{r.keep?"Đang giữ":"Giữ"}</button>
           <button className="btn small primary" disabled={busy===k||!aOps.length} onClick={()=>save(a,i)}>{busy===k?"...":r.batchId?"Schedule":"Save"}</button>
-          {r.batchId&&<button className="btn small" type="button" onClick={()=>clearDraft(a,i)}>Clear</button>}
+          {r.batchId&&<button className="btn small" type="button" onClick={()=>clearDraft(a,i)}>Xóa nhập</button>}
          </div></td>
         </tr>
 

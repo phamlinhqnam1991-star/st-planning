@@ -4,6 +4,7 @@ import {safeJson} from "@/lib/fetch-json";
 import {useEffect,useMemo,useState} from "react";
 import {useRouter} from "next/navigation";
 import {usePopupMessage} from "@/hooks/use-popup-message";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 
 type FlowRow={
  operation_code:string;operation_name:string|null;planning_sort_order:number|null;
@@ -44,6 +45,7 @@ const emptyForm:FormState={
 export function StOperationFlowManager({rows,rawOperations,mainOperations,groups,areas,scheduleAreas,bridgeSegments}:{
  rows:FlowRow[];rawOperations:RawOp[];mainOperations:MainOp[];groups:Group[];areas:Area[];scheduleAreas:ScheduleArea[];bridgeSegments:BridgeSegment[];
 }){
+ const confirmErp=useErpConfirm();
  const router=useRouter();
  const [form,setForm]=useState<FormState>(emptyForm);
  const [step,setStep]=useState<1|2|3>(1);
@@ -166,7 +168,7 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
   if(!scopeOnly&&(!form.standard_operation||!form.st_group||!form.area_id||!form.schedule_area_code||!["1","2"].includes(form.planner_owner))){
    setMessage("Planning Operation bắt buộc đủ Main Operation → ST Group → Physical Area → Schedule Area → Planner.");return;
   }
-  if(!scopeOnly&&!window.confirm("Lưu sẽ cập nhật lại chuỗi công đoạn cho các Job liên quan.\n\nNếu thay đổi Main/Routing, hãy dựng lại Auto Bridge sau khi lưu. Lịch sử Batch/Schedule không bị xóa.\n\nTiếp tục?"))return;
+  if(!scopeOnly&&!await confirmErp("Lưu sẽ cập nhật lại chuỗi công đoạn cho các Job liên quan.\n\nNếu thay đổi Main/Routing, hãy dựng lại Auto Bridge sau khi lưu. Lịch sử Batch/Schedule không bị xóa.\n\nTiếp tục?"))return;
   setBusy(true);setMessage("");
   try{
    const r=await fetch("/api/config/st-operation-flow",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
@@ -226,7 +228,7 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
    try{await runBridgeUntilDone(bridgeRun)}catch(e){const latest=await refreshBridgeRun();setMessage(`Rebuild tạm dừng: ${e instanceof Error?e.message:String(e)}.${latest?.processedRoutings===latest?.totalRoutings?" Dữ liệu đã xử lý 100%; bấm Hoàn tất để thử lại.":" Có thể bấm Tiếp tục để chạy từ vị trí hiện tại."}`)}finally{setBusy(false)}
    return;
   }
-  if(!window.confirm("Dựng lại toàn bộ Auto Bridge?\n\nHệ thống sẽ quét toàn bộ ST Routing Chain. Nếu bị gián đoạn có thể tiếp tục lại; Planning Board vẫn dùng cấu hình hiện tại cho tới khi rebuild hoàn tất.\n\nTiếp tục?"))return;
+  if(!await confirmErp("Dựng lại toàn bộ Auto Bridge?\n\nHệ thống sẽ quét toàn bộ ST Routing Chain. Nếu bị gián đoạn có thể tiếp tục lại; Planning Board vẫn dùng cấu hình hiện tại cho tới khi rebuild hoàn tất.\n\nTiếp tục?"))return;
   setBusy(true);setMessage("Đang chuẩn bị Auto Bridge...");
   try{
    const d=await bridgeRequest({action:"start",mode:"FULL",chunk_size:150});
@@ -236,7 +238,7 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
 
  const cancelBridgeRun=async()=>{
   if(!bridgeRun)return;
-  if(!window.confirm("Hủy lần rebuild đang dở và làm lại từ đầu?\n\nCấu hình Bridge hiện tại vẫn được giữ cho tới khi rebuild mới hoàn tất."))return;
+  if(!await confirmErp("Hủy lần rebuild đang dở và làm lại từ đầu?\n\nCấu hình Bridge hiện tại vẫn được giữ cho tới khi rebuild mới hoàn tất."))return;
   setBusy(true);
   try{
    await bridgeRequest({action:"cancel",run_id:bridgeRun.runId});
@@ -281,7 +283,7 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
   }catch(e){setMessage(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
  };
  const deactivateManualBridge=async(segment:BridgeSegment)=>{
-  if(!confirm(`Ngưng Manual Bridge ${segment.previous_main_operation} → [${segment.intermediate_signature}] → ${segment.next_main_operation}?\n\nAuto Bridge tương ứng (nếu có) sẽ được dùng lại sau khi Rebuild Chain.`))return;
+  if(!await confirmErp(`Ngưng Manual Bridge ${segment.previous_main_operation} → [${segment.intermediate_signature}] → ${segment.next_main_operation}?\n\nAuto Bridge tương ứng (nếu có) sẽ được dùng lại sau khi Rebuild Chain.`))return;
   setBusy(true);setMessage("");
   try{
    const r=await fetch("/api/config/intermediate-bridges/manual",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"deactivate",id:segment.id})});
@@ -293,7 +295,7 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
  };
 
  const deactivate=async(code:string)=>{
-  if(!confirm(`Bỏ ${code} khỏi ST Scope?\n\nChỉ dùng cho Planning/ST_SCOPE_ONLY đã cấu hình tay. Auto Intermediate không cần thao tác này.`))return;
+  if(!await confirmErp(`Bỏ ${code} khỏi ST Scope?\n\nChỉ dùng cho Planning/ST_SCOPE_ONLY đã cấu hình tay. Auto Intermediate không cần thao tác này.`))return;
   setBusy(true);setMessage("");
   try{
    const r=await fetch("/api/config/st-operation-flow",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({source_operation_code:code})});

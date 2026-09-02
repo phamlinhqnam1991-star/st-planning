@@ -1,26 +1,24 @@
 "use client";
 
+import {pushAppToast} from "@/components/app-toast-provider";
+
 import {safeJson} from "@/lib/fetch-json";
 import {useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 
 export function ResetAllBatchesButton({presentation="legacy"}:{presentation?:"legacy"|"erp"}={}){
+ const confirmErp=useErpConfirm();
  const erpMode=presentation==="erp";
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
  usePopupMessage(message);
 
  async function resetAll(){
-  const first=window.confirm(
-   (erpMode?"ĐẶT LẠI TẤT CẢ BATCH?\n\n":"RESET TẤT CẢ CÁC LÔ?\n\n")+
-   (erpMode?"Tất cả Batch chưa chạy sẽ bị hủy, lịch điều độ tương ứng bị hủy và Job được trả về trạng thái chưa lập Batch.":"Tất cả Batch chưa chạy sẽ bị hủy, Schedule tương ứng bị hủy và toàn bộ Job sẽ trở về chuỗi chưa lập lô.")
-  );
+  const first=await confirmErp({title:erpMode?"Đặt lại tất cả Batch":"Reset tất cả lô",message:erpMode?"Hủy tất cả Batch chưa chạy?":"Hủy tất cả lô chưa chạy?",detail:erpMode?"Lịch điều độ tương ứng bị hủy và Job được trả về trạng thái chưa lập Batch.":"Schedule tương ứng bị hủy và toàn bộ Job sẽ trở về chuỗi chưa lập lô.",tone:"danger",confirmLabel:erpMode?"Tiếp tục đặt lại":"Tiếp tục reset"});
   if(!first)return;
 
-  const second=window.confirm(
-   (erpMode?"XÁC NHẬN LẦN CUỐI\n\n":"XÁC NHẬN LẦN CUỐI\n\n")+
-   (erpMode?"Thao tác áp dụng cho tất cả công đoạn và không thể hoàn tác. Tiếp tục?":"Thao tác này áp dụng cho TẤT CẢ công đoạn và không thể Undo. Tiếp tục?")
-  );
+  const second=await confirmErp({title:"Xác nhận lần cuối",message:erpMode?"Áp dụng đặt lại cho tất cả công đoạn?":"Áp dụng reset cho tất cả công đoạn?",detail:"Thao tác này không thể hoàn tác.",tone:"danger",confirmLabel:erpMode?"Đặt lại tất cả":"Reset tất cả"});
   if(!second)return;
 
   setBusy(true);
@@ -36,7 +34,7 @@ export function ResetAllBatchesButton({presentation="legacy"}:{presentation?:"le
    if(!response.ok)
     throw new Error(data.error||(erpMode?"Không đặt lại được các Batch.":"Không Reset được các lô."));
 
-   window.alert(
+   pushAppToast(
     erpMode?`Đặt lại hoàn tất.\nBatch đã đặt lại: ${data.resetBatches||0}\nJob trở về trạng thái chưa lập Batch: ${data.releasedJobs||0}`:`Reset hoàn tất.\nBatch: ${data.resetBatches||0}\nJob được trả về Planning: ${data.releasedJobs||0}`
    );
    window.location.reload();

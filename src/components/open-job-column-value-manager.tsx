@@ -1,8 +1,11 @@
 "use client";
 
+import {pushAppToast} from "@/components/app-toast-provider";
+
 import {safeJson} from "@/lib/fetch-json";
 import {useEffect,useState} from "react";
 import {notifyConfigHealthChanged} from "@/lib/config/config-client";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 
 type Row={
  id:number;
@@ -16,6 +19,7 @@ type Row={
 type ColumnStat={source_column:string;value_count:number};
 
 export function OpenJobColumnValueManager(){
+ const confirmErp=useErpConfirm();
  const [rows,setRows]=useState<Row[]>([]);
  const [columns,setColumns]=useState<ColumnStat[]>([]);
  const [total,setTotal]=useState(0);
@@ -51,7 +55,7 @@ export function OpenJobColumnValueManager(){
  useEffect(()=>{load()},[page,pageSize,column]);
 
  async function rebuild(){
-  if(!confirm("Quét lại toàn bộ giá trị từ All Open Job hiện tại?"))return;
+  if(!await confirmErp("Quét lại toàn bộ giá trị từ All Open Job hiện tại?"))return;
   setBusy(true);
   try{
    const r=await fetch("/api/config/open-job-column-values",{
@@ -66,7 +70,7 @@ export function OpenJobColumnValueManager(){
  }
 
  async function addValue(){
-  if(!newColumn.trim()||!newValue.trim())return alert("Nhập Column và Value.");
+  if(!newColumn.trim()||!newValue.trim())return pushAppToast("Nhập Column và Value.");
   setBusy(true);
   try{
    const r=await fetch("/api/config/open-job-column-values",{
@@ -99,7 +103,7 @@ export function OpenJobColumnValueManager(){
  }
 
  async function inactivate(row:Row){
-  if(!confirm(`Inactivate giá trị "${row.source_value}" của cột ${row.source_column}?`))return;
+  if(!await confirmErp(`Inactivate giá trị "${row.source_value}" của cột ${row.source_column}?`))return;
   setBusy(true);
   try{
    const r=await fetch("/api/config/open-job-column-values",{
@@ -117,14 +121,14 @@ export function OpenJobColumnValueManager(){
  return <div className="section erp-config-editor-stack">
   <div className="erp-table-panel">
    <div className="erp-panel-head">
-    <b>All Open Job Column Values</b>
-    <span>{total.toLocaleString()} values · {columns.length} columns</span>
+    <b>Giá trị cột All Open Job</b>
+    <span>{total.toLocaleString()} giá trị · {columns.length} cột</span>
    </div>
 
    <div className="row erp-filter-row">
     <button className="btn primary" disabled={busy} onClick={rebuild}>Quét lại dữ liệu</button>
     <select className="input" value={column} onChange={e=>{setColumn(e.target.value);setPage(1)}}>
-     <option value="">All columns</option>
+     <option value="">Tất cả cột</option>
      {columns.map(c=><option key={c.source_column} value={c.source_column}>{c.source_column} ({c.value_count})</option>)}
     </select>
     <input className="input" placeholder="Tìm giá trị..." value={q}
@@ -146,7 +150,7 @@ export function OpenJobColumnValueManager(){
     <table className="erp-table">
      <thead><tr>
       <th>Cột nguồn</th><th>Giá trị nguồn</th><th>Tên hiển thị</th>
-      <th>Số lần gặp</th><th>Gặp lần cuối</th><th>Hoạt động</th><th></th>
+      <th>Số lần gặp</th><th>Gặp lần cuối</th><th>Hoạt động</th><th className="action"></th>
      </tr></thead>
      <tbody>
       {rows.map(r=><tr key={r.id}>
@@ -163,9 +167,9 @@ export function OpenJobColumnValueManager(){
        <td className="action">
         {editing&&editing.id===r.id
          ? <div className="row">
-            <label className="row"><input type="checkbox" checked={active} onChange={e=>setActive(e.target.checked)}/>Active</label>
-            <button className="btn small primary" onClick={saveEdit}>Save</button>
-            <button className="btn small" onClick={()=>setEditing(null)}>Cancel</button>
+            <label className="row"><input type="checkbox" checked={active} onChange={e=>setActive(e.target.checked)}/>Hoạt động</label>
+            <button className="btn small primary" onClick={saveEdit}>Lưu</button>
+            <button className="btn small" onClick={()=>setEditing(null)}>Hủy</button>
            </div>
          : <div className="row">
             <button className="btn small" onClick={()=>{setEditing(r);setDisplayName(r.display_name||r.source_value);setActive(r.is_active)}}>Sửa</button>
@@ -173,14 +177,14 @@ export function OpenJobColumnValueManager(){
            </div>}
        </td>
       </tr>)}
-      {!rows.length&&<tr><td colSpan={7} className="muted">Chưa có dữ liệu. Bấm Scan / Rebuild để quét từ All Open Job.</td></tr>}
+      {!rows.length&&<tr><td colSpan={7} className="muted">Chưa có dữ liệu. Bấm Quét lại dữ liệu để lấy giá trị từ All Open Job.</td></tr>}
      </tbody>
     </table>
    </div>
 
    <div className="row erp-pager">
     <button className="btn small" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>‹ Trước</button>
-    <span>Trang {page} / {totalPages} · {total.toLocaleString()} values</span>
+    <span>Trang {page} / {totalPages} · {total.toLocaleString()} giá trị</span>
     <button className="btn small" disabled={page>=totalPages} onClick={()=>setPage(p=>p+1)}>Sau ›</button>
    </div>
   </div>

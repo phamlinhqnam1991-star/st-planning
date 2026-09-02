@@ -47,7 +47,7 @@ export default async function Page(){
     </div>
     <div className="erp-table-panel">
      <div className="erp-panel-head"><b>Tổng quan Master Data</b><span>{rows.length} nhóm dữ liệu</span></div>
-     <div className="table-wrap"><table className="erp-table"><thead><tr><th>Master</th><th>Mô tả</th><th className="num">Records</th><th></th></tr></thead><tbody>
+     <div className="table-wrap"><table className="erp-table"><thead><tr><th>Master</th><th>Mô tả</th><th className="num">Records</th><th className="action"></th></tr></thead><tbody>
       {rows.map(([name,desc,n,href])=><tr key={String(name)}><td><b>{String(name)}</b></td><td>{String(desc)}</td><td className="num mono">{Number(n||0).toLocaleString()}</td><td className="action"><Link className="erp-link" href={String(href)}>Mở</Link></td></tr>)}
      </tbody></table></div>
     </div>

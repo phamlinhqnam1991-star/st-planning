@@ -1,21 +1,25 @@
 "use client";
+
+import {pushAppToast} from "@/components/app-toast-provider";
 import {safeJson} from "@/lib/fetch-json";
 import {useState} from "react";
 import {useRouter} from "next/navigation";
 import {refreshConfigPage} from "@/lib/config/config-client";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 type G={st_group:string;group_name:string;description:string|null;sort_order:number;is_active:boolean};
 export function StGroupManager({rows}:{rows:G[]}){
+ const confirmErp=useErpConfirm();
  const router=useRouter();
  const [edit,setEdit]=useState<G|null>(null),[busy,setBusy]=useState(false);
  const [f,setF]=useState({st_group:"",group_name:"",description:""});
  function start(g:G){setEdit(g);setF({st_group:g.st_group,group_name:g.group_name,description:g.description||""})}
  function clear(){setEdit(null);setF({st_group:"",group_name:"",description:""})}
- async function save(){if(!f.st_group.trim())return alert("Nhập ST Group.");setBusy(true);try{
+ async function save(){if(!f.st_group.trim())return pushAppToast("Nhập ST Group.");setBusy(true);try{
   const r=await fetch("/api/master/st-group",{method:edit?"PATCH":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(f)});const d=await safeJson(r);if(!r.ok)throw new Error(d.error);clear();refreshConfigPage(router)
- }catch(e){alert(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
- async function deactivate(g:G){if(!confirm(`Ngưng sử dụng ST Group ${g.st_group}?`))return;setBusy(true);try{
+ }catch(e){pushAppToast(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
+ async function deactivate(g:G){if(!await confirmErp(`Ngưng sử dụng ST Group ${g.st_group}?`))return;setBusy(true);try{
   const r=await fetch("/api/master/st-group",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({st_group:g.st_group})});const d=await safeJson(r);if(!r.ok)throw new Error(d.error);clear();refreshConfigPage(router)
- }catch(e){alert(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
+ }catch(e){pushAppToast(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
  return <div className="erp-config-editor-stack">
   <section className="erp-form-panel erp-editor-panel">
    <div className="erp-panel-head"><div><b>{edit?"Sửa ST Group":"Thêm ST Group"}</b><span>Nhóm dùng để liên kết Main Operation với khu vực vật lý và điều độ.</span></div><span className="erp-record-count">{rows.length} nhóm</span></div>

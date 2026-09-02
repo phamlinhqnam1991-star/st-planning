@@ -166,7 +166,7 @@ export function AutoPlanningRuleManager({
        <th>Max Jobs</th>
        <th>Max Qty</th>
        <th>Max dm²</th>
-       <th></th>
+       <th className="action"></th>
       </tr>
      </thead>
      <tbody>

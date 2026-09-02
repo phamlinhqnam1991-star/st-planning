@@ -77,7 +77,7 @@ export default async function Page({
          <tr>
           <th>Time</th><th>Change</th><th>Job</th><th>Part</th><th>Rev</th>
           <th className="num">Prod Qty</th><th className="num">WIP Qty</th>
-          <th>Last Operation</th><th>Next Operation</th><th className="num">Surface</th><th></th>
+          <th>Last Operation</th><th>Next Operation</th><th className="num">Surface</th><th className="action"></th>
          </tr>
         </thead>
         <tbody>
@@ -93,7 +93,7 @@ export default async function Page({
            <td>{r.last_operation||"—"}</td>
            <td>{r.next_operation||"—"}</td>
            <td className="num">{r.total_surface??"—"}</td>
-           <td><Link className="erp-link" href={`/all-open-jobs/${encodeURIComponent(r.job_num)}`}>Mở</Link></td>
+           <td className="action"><Link className="erp-link" href={`/all-open-jobs/${encodeURIComponent(r.job_num)}`}>Mở</Link></td>
           </tr>
          )}
         </tbody>

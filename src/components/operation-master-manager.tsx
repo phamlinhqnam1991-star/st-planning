@@ -5,6 +5,7 @@ import {useMemo,useState} from "react";
 import {useRouter} from "next/navigation";
 import {refreshConfigPage} from "@/lib/config/config-client";
 import {usePopupMessage} from "@/hooks/use-popup-message";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 
 type Row={
  standard_operation:string;
@@ -36,6 +37,7 @@ const EMPTY_CREATE={
 };
 
 export function OperationMasterManager({rows,stGroups}:{rows:Row[];stGroups:StGroup[]}){
+ const confirmErp=useErpConfirm();
  const router=useRouter();
  const [editing,setEditing]=useState<string|null>(null);
  const [name,setName]=useState("");
@@ -68,7 +70,7 @@ export function OperationMasterManager({rows,stGroups}:{rows:Row[];stGroups:StGr
   const next=name.trim().toUpperCase();
   if(!next){setMessage("Tên công đoạn không được để trống.");return;}
   if(next===editing){setEditing(null);return;}
-  const ok=window.confirm(
+  const ok=await confirmErp(
    `Đổi tên công đoạn "${editing}" thành "${next}"?\n\n`+
    `Hệ thống sẽ cập nhật các liên kết Planning/Recipe/Batch liên quan.`
   );
@@ -157,7 +159,7 @@ export function OperationMasterManager({rows,stGroups}:{rows:Row[];stGroups:StGr
   const detail=next
    ? `Kích hoạt lại Main Operation "${row.standard_operation}"?`
    : `Ngưng sử dụng Main Operation "${row.standard_operation}"?\n\nMain này sẽ không còn dùng cho Planning mới. Dữ liệu lịch sử vẫn được giữ.`;
-  if(!window.confirm(detail))return;
+  if(!await confirmErp({title:verb,message:detail,tone:next?"default":"warning",confirmLabel:verb}))return;
   setBusy(true);setMessage("");
   try{
    const r=await fetch("/api/config/operation-master/manage",{
@@ -174,10 +176,7 @@ export function OperationMasterManager({rows,stGroups}:{rows:Row[];stGroups:StGr
 
  async function deleteOperation(row:Row){
   if(row.is_active){setMessage("Phải Ngưng sử dụng Main Operation trước khi Xóa vĩnh viễn.");return;}
-  if(!window.confirm(
-   `Xóa VĨNH VIỄN Main Operation "${row.standard_operation}"?\n\n`+
-   `Chỉ xóa được khi không còn Mapping / Recipe / Planning / Batch / lịch sử tham chiếu.`
-  ))return;
+  if(!await confirmErp({title:"Xóa vĩnh viễn Main Operation",message:`Xóa Main Operation "${row.standard_operation}"?`,detail:"Chỉ xóa được khi không còn Mapping / Recipe / Planning / Batch / lịch sử tham chiếu.",tone:"danger",confirmLabel:"Xóa vĩnh viễn"}))return;
   setBusy(true);setMessage("");
   try{
    const r=await fetch("/api/config/operation-master/manage",{

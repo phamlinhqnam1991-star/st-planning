@@ -1,8 +1,11 @@
 "use client";
+
+import {pushAppToast} from "@/components/app-toast-provider";
 import {safeJson} from "@/lib/fetch-json";
 import {useEffect,useMemo,useState} from "react";
 import {useRouter} from "next/navigation";
 import {refreshConfigPage} from "@/lib/config/config-client";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 
 type Recipe={
  recipe_key:string;
@@ -52,6 +55,7 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,sourceColumns,c
  sourceColumns:string[];
  columnValues:ColumnValue[];
 }){
+ const confirmErp=useErpConfirm();
  const router=useRouter();
  const [busy,setBusy]=useState(false);
  const [filter,setFilter]=useState("PAINT");
@@ -135,11 +139,11 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,sourceColumns,c
  }
  async function save(){
   if(!form.process_family.trim()||!form.recipe_group.trim()||!form.recipe_no.trim()){
-   alert("Process Family, Recipe Group và Recipe No là bắt buộc.");
+   pushAppToast("Process Family, Recipe Group và Recipe No là bắt buộc.");
    return;
   }
   if(nameMode==="OPEN_JOB"&&form.recipe_name_source_column.trim()&&!form.recipe_name.trim()){
-   alert("Đã chọn cột nguồn Recipe Name nhưng chưa chọn giá trị.");
+   pushAppToast("Đã chọn cột nguồn Recipe Name nhưng chưa chọn giá trị.");
    return;
   }
   setBusy(true);try{
@@ -152,14 +156,14 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,sourceColumns,c
    const body=edit?{...normalizedForm,recipe_key:edit.recipe_key}:normalizedForm;
    const r=await fetch("/api/process-recipe",{method:edit?"PATCH":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
    const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Save failed");clear();refreshConfigPage(router)
-  }catch(e){alert(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
+  }catch(e){pushAppToast(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
  }
  async function deactivate(r:Recipe){
-  if(!confirm(`Deactivate recipe ${r.recipe_no||r.recipe_name}?`))return;
+  if(!await confirmErp(`Deactivate recipe ${r.recipe_no||r.recipe_name}?`))return;
   setBusy(true);try{
    const x=await fetch("/api/process-recipe",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({recipe_key:r.recipe_key})});
    const d=await safeJson(x);if(!x.ok)throw new Error(d.error||"Deactivate failed");refreshConfigPage(router)
-  }catch(e){alert(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
+  }catch(e){pushAppToast(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
  }
 
  // v285: Recipe Name là dependent dropdown của Recipe No. Open Job Column
@@ -298,7 +302,7 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,sourceColumns,c
 
   <div className="erp-table-panel section">
    <div className="erp-panel-head"><b>Process Recipe Master</b><div className="row"><span>{visible.length} recipes</span><select className="input recipe-filter" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">All Process</option>{families.map(f=><option key={f}>{f}</option>)}</select></div></div>
-   <div className="table-wrap"><table className="erp-table"><thead><tr><th>Nhóm lớn</th><th>Nhóm Recipe</th><th>Số Recipe</th><th>Tên Recipe</th><th>Mã lô</th><th>Nguồn</th><th></th></tr></thead>
+   <div className="table-wrap"><table className="erp-table"><thead><tr><th>Nhóm lớn</th><th>Nhóm Recipe</th><th>Số Recipe</th><th>Tên Recipe</th><th>Mã lô</th><th>Nguồn</th><th className="action"></th></tr></thead>
     <tbody>{visible.map(r=><tr key={r.recipe_key}><td>{r.process_family}</td><td><b>{r.recipe_group}</b>{r.recipe_group_source_column&&<div className="muted recipe-source-cell">Cột: {r.recipe_group_source_column}</div>}</td><td className="mono">{r.recipe_no||"—"}{r.recipe_no_source_column&&<div className="muted recipe-source-cell">← {r.recipe_no_source_column}</div>}</td><td>{r.recipe_name||"—"}{r.recipe_name_source_column&&<div className="muted recipe-source-cell">← {r.recipe_name_source_column}</div>}</td><td className="mono">{r.batch_key}</td><td>{r.source_system||"—"}</td><td className="action"><div className="row"><button className="btn small" onClick={()=>startEdit(r)}>Sửa</button><button className="btn danger-btn small" onClick={()=>deactivate(r)}>Ngưng</button></div></td></tr>)}
     {!visible.length&&<tr><td colSpan={7} className="muted">Chưa có recipe.</td></tr>}</tbody>
    </table></div>

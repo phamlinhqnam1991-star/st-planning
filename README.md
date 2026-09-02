@@ -69,17 +69,17 @@ Apply Supabase migrations in numeric order through migration 067. Do not delete 
 
 See `docs/CURRENT_ARCHITECTURE.md` for the current architecture and `AUDIT_CLEANUP.md` for the latest cleanup audit.
 
-## ERP Standard V4
+## ERP Standard V5
 
-Toàn bộ production tabs dùng ERP Standard V4. Nguồn chuẩn UI hiện tại:
+Toàn bộ production tabs dùng ERP Standard V5. Nguồn chuẩn UI hiện tại:
 
-- `ERP_STANDARD_V4.md`
+- `ERP_STANDARD_V5.md`
 - `src/components/erp/erp-kit.css`
 - `src/components/erp/erp-app-header.tsx`
 - `src/lib/erp/st-navigation.ts`
 
 `/planning` là Planning Board ERP canonical; `/planning-old` đã bị loại.
 
-V4 deep thêm editor/workspace bên trong Configuration, Tracker, All Open Jobs, Masking/Unmasking, Schedule, Import và Logic Guide. Business logic/API/DB không thay đổi trong vòng UI này.
+V5 deep thêm interaction/workspace bên trong toàn bộ production UI: Configuration split editor + data grid, sticky action column, ERP confirm dialog, ERP toast trực tiếp, field-state/focus chuẩn, Schedule command row, Tracker fact-sheet và responsive interaction. Source production không còn `alert()`, `confirm()` hoặc `prompt()` native. Business logic/API/DB không thay đổi trong vòng UI này.
 
 Trang `/erp-kit` chỉ còn là showcase/reference component, không phải nguồn business logic.

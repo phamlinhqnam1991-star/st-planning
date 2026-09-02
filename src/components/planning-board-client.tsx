@@ -1,5 +1,7 @@
 "use client";
 
+import {pushAppToast} from "@/components/app-toast-provider";
+
 import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,type MouseEvent as ReactMouseEvent} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
 import {safeJson} from "@/lib/fetch-json";
@@ -2513,13 +2515,13 @@ const currentPriorityMonth=useMemo(()=>{
  }
 
  async function createBatch(){
-   if(!selected.length)return alert(erpMode?"Chọn ít nhất một Job READY.":"Chọn ít nhất 1 Candidate Job.");
-   if(compatibilityLock?.loading)return alert("Đang kiểm tra Recipe và điều kiện Batch. Vui lòng chờ một chút.");
-   if(compatibilityLock?.error)return alert(erpMode?`Điều kiện gom Batch: ${compatibilityLock.error}`:`Batch Compatibility: ${compatibilityLock.error}`);
+   if(!selected.length)return pushAppToast(erpMode?"Chọn ít nhất một Job READY.":"Chọn ít nhất 1 Candidate Job.");
+   if(compatibilityLock?.loading)return pushAppToast("Đang kiểm tra Recipe và điều kiện Batch. Vui lòng chờ một chút.");
+   if(compatibilityLock?.error)return pushAppToast(erpMode?`Điều kiện gom Batch: ${compatibilityLock.error}`:`Batch Compatibility: ${compatibilityLock.error}`);
    const effectiveOperation=selectedTargets[0]?.standardOperation||standardOperation||"";
-   if(!effectiveOperation)return alert(erpMode?"Không xác định được Main Operation.":"Không xác định được Standard Operation.");
+   if(!effectiveOperation)return pushAppToast(erpMode?"Không xác định được Main Operation.":"Không xác định được Standard Operation.");
    if(selectedTargets.some(x=>x.standardOperation!==effectiveOperation))
-     return alert(erpMode?"Một Batch chỉ được chứa Job của cùng Main Operation.":"Một Batch chỉ được chứa Job của cùng Standard Operation.");
+     return pushAppToast(erpMode?"Một Batch chỉ được chứa Job của cùng Main Operation.":"Một Batch chỉ được chứa Job của cùng Standard Operation.");
 
    setBusy(true);
    setMessage("");
@@ -3316,7 +3318,7 @@ const currentPriorityMonth=useMemo(()=>{
           <div className="table-wrap">
            <table className="erp-table recipe-compare-table">
             <thead>
-             <tr><th>Operation Code</th><th>{erpMode?"Main Operation":"Công đoạn chính"}</th><th className="num">Job chờ</th><th>{erpMode?"Job tham chiếu":"Job mẫu"}</th><th>Cấu hình</th><th></th></tr>
+             <tr><th>Operation Code</th><th>{erpMode?"Main Operation":"Công đoạn chính"}</th><th className="num">Job chờ</th><th>{erpMode?"Job tham chiếu":"Job mẫu"}</th><th>Cấu hình</th><th className="action"></th></tr>
             </thead>
             <tbody>
              {recipeCompare.boardNeeds.map((x:any,i:number)=>

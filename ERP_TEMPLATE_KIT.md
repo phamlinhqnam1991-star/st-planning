@@ -5,7 +5,7 @@
 ERP Kit đã được áp dụng cho production UI. `/erp-kit` vẫn được giữ như showcase/reference, nhưng không còn là nơi duy nhất dùng ERP components.
 
 Nguồn chuẩn presentation hiện tại:
-- `ERP_STANDARD_V4.md`
+- `ERP_STANDARD_V5.md`
 - `src/components/erp/erp-kit.css`
 - `src/components/erp/*`
 - `src/lib/erp/st-navigation.ts`
@@ -23,6 +23,8 @@ Nguồn chuẩn presentation hiện tại:
 - `ErpSection`: panel/section.
 - `ErpTabs`: page-level tabs.
 - `ErpEmptyState`: empty state.
+- `AppDialogProvider` + `useErpConfirm`: confirm/destructive dialog ERP dùng toàn app.
+- `AppToastProvider` + `pushAppToast`: toast chuẩn, không dùng browser alert.
 
 ## Nguyên tắc kiến trúc
 

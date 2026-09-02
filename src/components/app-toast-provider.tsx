@@ -37,24 +37,19 @@ export function AppToastProvider(){
 
   window.addEventListener("st-planning-toast",onToast);
 
-  // Existing code using alert() is routed through the same popup system.
-  const originalAlert=window.alert;
-  window.alert=(value?:any)=>pushAppToast(String(value??""),"warning");
-
   return ()=>{
    window.removeEventListener("st-planning-toast",onToast);
-   window.alert=originalAlert;
   };
  },[]);
 
  return <div className="app-toast-stack" aria-live="polite" aria-atomic="false">
-  {items.map(item=><div key={item.id} className={`app-toast app-toast-${item.kind}`}>
-   <div className="app-toast-icon">{item.kind==="success"?"✓":item.kind==="error"?"!":item.kind==="warning"?"!":"i"}</div>
+  {items.map(item=><div key={item.id} className={`app-toast app-toast-${item.kind}`} role={item.kind==="error"||item.kind==="warning"?"alert":"status"}>
+   <div className="app-toast-icon" aria-hidden="true">{item.kind==="success"?"✓":item.kind==="error"?"!":item.kind==="warning"?"!":"i"}</div>
    <div className="app-toast-content">
     <b>{item.kind==="success"?"Thành công":item.kind==="error"?"Lỗi":item.kind==="warning"?"Cảnh báo":"Thông báo"}</b>
     <span>{item.message}</span>
    </div>
-   <button type="button" className="app-toast-close" onClick={()=>setItems(prev=>prev.filter(x=>x.id!==item.id))}>×</button>
+   <button type="button" className="app-toast-close" aria-label="Đóng thông báo" onClick={()=>setItems(prev=>prev.filter(x=>x.id!==item.id))}>×</button>
   </div>)}
  </div>;
 }

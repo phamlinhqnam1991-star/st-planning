@@ -1,10 +1,13 @@
 "use client";
 
+import {pushAppToast} from "@/components/app-toast-provider";
+
 import {safeJson} from "@/lib/fetch-json";
 import {useEffect,useMemo,useState} from "react";
 import {useRouter} from "next/navigation";
 import {refreshConfigPage} from "@/lib/config/config-client";
 import {parseSelectionRule} from "@/lib/batch-key-recipe";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 
 type Operation={operation_code:string;operation_name:string|null};
 type Recipe={
@@ -97,6 +100,7 @@ export function MainOperationRecipeMappingManager({
  timeRules:{recipe_key:string;calc_type:string;priority:number;fixed_hours:number|null;standard_hours:number|null}[];
  unmapped:{operation_code:string;operation_name:string|null}[];
 }){
+ const confirmErp=useErpConfirm();
  const router=useRouter();
  // v270: tóm tắt thời gian Process theo Recipe (ưu tiên FIXED_HOURS, kế QTY_SURFACE).
  const timeByRecipe=useMemo(()=>{
@@ -207,8 +211,8 @@ export function MainOperationRecipeMappingManager({
  },[mappings]);
 
  async function save(){
-   if(!operationCode.trim())return alert("Chọn Operation Code.");
-   if(!recipeKey)return alert("Chọn Recipe.");
+   if(!operationCode.trim())return pushAppToast("Chọn Operation Code.");
+   if(!recipeKey)return pushAppToast("Chọn Recipe.");
    // v277: LƯU ĐÚNG format chuẩn source_column/operator/source_value —
    // trước đây ghi {column,value} → parseSelectionRule/engine không đọc được,
    // điều kiện "biến mất" sau khi lưu (báo lỗi "không lưu khi add/save recipe").
@@ -241,14 +245,14 @@ export function MainOperationRecipeMappingManager({
      if(!r.ok)throw new Error(d.error||"Save failed");
      refreshConfigPage(router);
    }catch(e){
-     alert(e instanceof Error?e.message:String(e));
+     pushAppToast(e instanceof Error?e.message:String(e));
    }finally{
      setBusy(false);
    }
  }
 
  async function remove(row:Mapping){
-   if(!confirm(`Bỏ Recipe ${row.recipe_no||row.recipe_name} khỏi Operation Code ${row.operation_code}?`))return;
+   if(!await confirmErp(`Bỏ Recipe ${row.recipe_no||row.recipe_name} khỏi Operation Code ${row.operation_code}?`))return;
    setBusy(true);
    try{
      const r=await fetch("/api/process-recipe/operation-code-map",{
@@ -264,7 +268,7 @@ export function MainOperationRecipeMappingManager({
      if(!r.ok)throw new Error(d.error||"Remove failed");
      refreshConfigPage(router);
    }catch(e){
-     alert(e instanceof Error?e.message:String(e));
+     pushAppToast(e instanceof Error?e.message:String(e));
    }finally{
      setBusy(false);
    }
@@ -537,7 +541,7 @@ export function MainOperationRecipeMappingManager({
              <th>Mã lô mẫu / Prefix</th>
              <th>Mã lô</th>
              <th>Ghi chú</th>
-             <th></th>
+             <th className="action"></th>
            </tr>
          </thead>
          <tbody>
@@ -591,7 +595,7 @@ export function MainOperationRecipeMappingManager({
      </div>
      <div className="table-wrap">
       <table className="erp-table">
-       <thead><tr><th>Mã công đoạn</th><th>Tên công đoạn</th><th></th></tr></thead>
+       <thead><tr><th>Mã công đoạn</th><th>Tên công đoạn</th><th className="action"></th></tr></thead>
        <tbody>
         {unmapped.map(u=>
          <tr key={u.operation_code}>

@@ -3,6 +3,7 @@
 import {safeJson} from "@/lib/fetch-json";
 import { useState } from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 
 type Recipe = {
   recipe_key: string;
@@ -25,6 +26,7 @@ export function BatchRowActions({
   currentRecipeKey,
   presentation="legacy",
 }: Props) {
+ const confirmErp=useErpConfirm();
   const erpMode=presentation==="erp";
   const [editing, setEditing] = useState(false);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -98,7 +100,7 @@ export function BatchRowActions({
   }
 
   async function deleteBatch() {
-    const confirmed = window.confirm(
+    const confirmed = await confirmErp(
       erpMode?`Xóa ${batchNo}?\\n\\nTất cả Job trong Batch sẽ trở về trạng thái chưa lập Batch để có thể lập lại.`:`Xóa ${batchNo}?\\n\\nTất cả Job trong lô sẽ trở về trạng thái chưa có lô để có thể lập lô lại.`
     );
 

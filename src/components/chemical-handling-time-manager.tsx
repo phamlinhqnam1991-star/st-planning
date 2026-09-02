@@ -3,11 +3,13 @@ import {safeJson} from "@/lib/fetch-json";
 import {useState} from "react";
 import {useRouter} from "next/navigation";
 import {refreshConfigPage} from "@/lib/config/config-client";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 
 type Rule={id:number;phase:"LOADING"|"UNLOADING";priority:number;qty_min:number|null;qty_max:number|null;surface_min_dm2:number|null;surface_max_dm2:number|null;duration_minutes:number;note:string|null};
 const hhmm=(n:number)=>`${String(Math.floor(n/60)).padStart(2,"0")}:${String(n%60).padStart(2,"0")}`;
 
 export function ChemicalHandlingTimeManager({rules}:{rules:Rule[]}){
+ const confirmErp=useErpConfirm();
  const router=useRouter();
  const [form,setForm]=useState({phase:"LOADING",priority:"100",qty_min:"",qty_max:"",surface_min_dm2:"",surface_max_dm2:"",duration:"00:30",note:""});
  const [busy,setBusy]=useState(false);const [message,setMessage]=useState("");
@@ -21,7 +23,7 @@ export function ChemicalHandlingTimeManager({rules}:{rules:Rule[]}){
   if(!res.ok){setMessage(data.error||"Không lưu được rule.");return} refreshConfigPage(router);
  }
  async function remove(id:number){
-  if(!confirm("Ngưng sử dụng rule này?"))return;
+  if(!await confirmErp("Ngưng sử dụng rule này?"))return;
   await fetch("/api/process-recipe/chemical-handling-time",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id})});refreshConfigPage(router);
  }
  return <section className="erp-table-panel section">
@@ -38,7 +40,7 @@ export function ChemicalHandlingTimeManager({rules}:{rules:Rule[]}){
    <button className="btn primary" disabled={busy} onClick={save}>{busy?"Đang lưu...":"Thêm rule"}</button>
   </div>
   {message&&<div className="notice">{message}</div>}
-  <div className="table-wrap"><table className="erp-table"><thead><tr><th>Giai đoạn</th><th>Ưu tiên</th><th>SL min</th><th>SL max</th><th>dm² min</th><th>dm² max</th><th>Thời gian</th><th>Ghi chú</th><th></th></tr></thead><tbody>
+  <div className="table-wrap"><table className="erp-table"><thead><tr><th>Giai đoạn</th><th>Ưu tiên</th><th>SL min</th><th>SL max</th><th>dm² min</th><th>dm² max</th><th>Thời gian</th><th>Ghi chú</th><th className="action"></th></tr></thead><tbody>
    {rules.map(r=><tr key={r.id}><td><b>{r.phase}</b></td><td>{r.priority}</td><td>{r.qty_min??"—"}</td><td>{r.qty_max??"—"}</td><td>{r.surface_min_dm2??"—"}</td><td>{r.surface_max_dm2??"—"}</td><td className="mono"><b>{hhmm(r.duration_minutes)}</b></td><td>{r.note||"—"}</td><td><button className="btn small danger-btn" onClick={()=>remove(r.id)}>Ngưng</button></td></tr>)}
   </tbody></table></div>
  </section>

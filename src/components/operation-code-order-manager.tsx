@@ -5,6 +5,7 @@ import {useState} from "react";
 import {useRouter} from "next/navigation";
 import {refreshConfigPage} from "@/lib/config/config-client";
 import {usePopupMessage} from "@/hooks/use-popup-message";
+import {useErpConfirm} from "@/components/app-dialog-provider";
 
 type Row={
  operation_code:string;
@@ -14,6 +15,7 @@ type Row={
 };
 
 export function OperationCodeOrderManager({rows}:{rows:Row[]}){
+ const confirmErp=useErpConfirm();
  const router=useRouter();
  const [editing,setEditing]=useState<string|null>(null);
  const [value,setValue]=useState("");
@@ -59,7 +61,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
  }
 
  async function removeOperation(row:Row){
-  const ok=window.confirm(
+  const ok=await confirmErp(
    `Bỏ ${row.operation_code} khỏi ST Scope?\n\n`+
    `Job ở công đoạn này sẽ không còn thuộc phạm vi ST và Planning Chain sẽ được cập nhật lại.\n`+
    `Batch/Schedule lịch sử không bị xóa.`
@@ -119,8 +121,8 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
        <td>
         {editing===row.operation_code
          ? <div className="row">
-            <button className="btn small primary" type="button" disabled={busy} onClick={()=>save(row.operation_code)}>Save</button>
-            <button className="btn small" type="button" disabled={busy} onClick={()=>setEditing(null)}>Cancel</button>
+            <button className="btn small primary" type="button" disabled={busy} onClick={()=>save(row.operation_code)}>Lưu</button>
+            <button className="btn small" type="button" disabled={busy} onClick={()=>setEditing(null)}>Hủy</button>
            </div>
          : <div className="row">
             <button className="btn small" type="button" disabled={busy} onClick={()=>begin(row)}>Đặt thứ tự</button>
