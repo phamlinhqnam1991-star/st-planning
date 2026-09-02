@@ -22,7 +22,7 @@ export default async function Page(){
  }
  const groups=[...new Set(masters.map((x:any)=>String(x.st_group)).filter(Boolean))];
  const sourceOperations=[...new Set(ops.map((x:any)=>String(x.operation_code)).filter(Boolean))];
- return <main className="erp-shell">
+ return <main className="erp-shell erpkit-migrated-page">
   <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
   <AppTabs active="config"/>
   <div className="erp-workspace">

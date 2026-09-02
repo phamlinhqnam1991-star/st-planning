@@ -3,7 +3,7 @@ import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 import {OpenJobColumnValueManager} from "@/components/open-job-column-value-manager";
 export const dynamic="force-dynamic";
 export default async function Page(){
- return <main className="erp-shell">
+ return <main className="erp-shell erpkit-migrated-page">
   <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
   <AppTabs active="config"/>
   <div className="erp-workspace">

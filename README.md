@@ -93,3 +93,7 @@ Trong giai đoạn migrate giao diện Planning:
 - `/planning-old` = baseline UI cũ để regression và đối chiếu.
 
 Xem `PLANNING_ERP_DUAL_ROUTE.md` trước khi xóa baseline.
+
+## ERP UI toàn hệ thống
+
+Bản hiện tại đã áp ERP Template Kit cho toàn bộ các tab production còn lại. Planning Board ERP giữ nguyên logic đã chốt; `/planning-old` tiếp tục là baseline cũ để so sánh. Xem `ERP_FULL_UI.md` để biết phạm vi và nguyên tắc migration.

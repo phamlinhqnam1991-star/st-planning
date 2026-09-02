@@ -40,7 +40,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
  }
  const areaByGroup=new Map(areaMaps.map(m=>[m.st_group,areas.find(a=>a.id===m.area_id)?.area_name||""]));
  const opByStd=new Map(opMaster.map(x=>[x.standard_operation,x]));
- return <main className="erp-shell">
+ return <main className="erp-shell erpkit-migrated-page">
  <header className="erp-header">
   <div><h1>ST Planning</h1></div>
   <div className="erp-env">PART TRACKER</div>
@@ -68,7 +68,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
      <thead><tr><th>Part Number</th><th>Description</th><th>Program</th><th>Part Cluster</th><th className="num">Surface dm²</th><th></th></tr></thead>
      <tbody>{matches.map(x=><tr key={x.part_num}>
       <td><b>{x.part_num}</b></td><td>{x.part_description||"—"}</td><td>{x.program||"—"}</td><td>{x.part_cluster||"—"}</td><td className="num">{x.surface_dm2??"—"}</td>
-      <td className="action"><Link className="erp-link" href={`/part-tracker?q=${encodeURIComponent(x.part_num)}`}>Open →</Link></td>
+      <td className="action"><Link className="erp-link" href={`/part-tracker?q=${encodeURIComponent(x.part_num)}`}>Mở</Link></td>
      </tr>)}</tbody>
     </table></div>
     :<div className="erp-empty">Không tìm thấy Part phù hợp với “{q}”.</div>}

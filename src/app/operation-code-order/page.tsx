@@ -42,7 +42,7 @@ export default async function Page(){
    order by o.planning_sort_order nulls last,cat.operation_code
   `);
 
-  return <main className="erp-shell">
+  return <main className="erp-shell erpkit-migrated-page">
    <header className="erp-header">
     <div><h1>ST Planning</h1></div>
     <div className="erp-env">CONFIGURATION</div>

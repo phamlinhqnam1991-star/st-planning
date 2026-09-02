@@ -121,7 +121,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
                  where p.part_num=$1 and p.is_active=true and r.is_active=true
                  order by p.revision_num,p.standard_operation`,[part]):Promise.resolve({rows:[]})
   ]);
-  return <main className="erp-shell">
+  return <main className="erp-shell erpkit-migrated-page">
    <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
    <AppTabs active="config"/>
    <div className="erp-workspace">

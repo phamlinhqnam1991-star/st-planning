@@ -2,7 +2,7 @@ import {AppTabs} from "@/components/app-tabs";
 import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 import {PlannerWorkAssignmentManager} from "@/components/planner-work-assignment-manager";
 export const dynamic="force-dynamic";
-export default function Page(){return <main className="erp-shell">
+export default function Page(){return <main className="erp-shell erpkit-migrated-page">
  <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
  <AppTabs active="config"/>
  <div className="erp-workspace">

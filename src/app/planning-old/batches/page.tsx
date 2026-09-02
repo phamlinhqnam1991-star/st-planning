@@ -37,7 +37,7 @@ export default async function Page(){
     <div className="erp-env">PLANNING BATCHES</div>
    </header>
 
-   <AppTabs active="planning"/>
+   <AppTabs active="planning" presentation="legacy"/>
 
    <section className="erp-content erp-content-full planning-page planning-batches-page">
     <div className="erp-page-head">

@@ -2,7 +2,7 @@ import {AreaManager} from "@/components/area-manager";
 import {AppTabs} from "@/components/app-tabs";
 import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 export const dynamic="force-dynamic";
-export default async function AreaPage(){return <main className="erp-shell">
+export default async function AreaPage(){return <main className="erp-shell erpkit-migrated-page">
  <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
  <AppTabs active="config"/>
  <div className="erp-workspace">

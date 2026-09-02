@@ -403,7 +403,7 @@ export default async function Page({
      <div className="erp-env">BATCH DETAIL</div>
     </header>
 
-    <AppTabs active="planning"/>
+    <AppTabs active="planning" presentation="legacy"/>
 
     <section className="erp-content erp-content-full planning-page">
      <div className="erp-page-head">

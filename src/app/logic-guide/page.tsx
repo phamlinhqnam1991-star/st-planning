@@ -155,7 +155,7 @@ export default async function Page(){
   db.release();
  }
 
- return <main className="erp-shell">
+ return <main className="erp-shell erpkit-migrated-page">
   <header className="erp-header">
    <div><h1>ST Planning</h1></div>
    <span className="erp-env">LOGIC & GUIDE</span>
@@ -458,7 +458,7 @@ export default async function Page(){
      <li><b>Xem gọn:</b> các cột vận hành chính.</li>
      <li><b>Xem tất cả cột:</b> union key trong <code>source_data</code> của page hiện tại; dùng để xác nhận chính xác tên cột/value trước khi tạo rule.</li>
      <li><b>Change History:</b> xem lịch sử NEW/CHANGED/CLOSED.</li>
-     <li><b>Open →:</b> xem chi tiết một Job.</li>
+     <li><b>Mở:</b> xem chi tiết một Job.</li>
     </ul>
 
     <div className="lg-subtitle">6.4 · Các cột đặc biệt tác động downstream</div>
@@ -652,7 +652,7 @@ export default async function Page(){
      <>Nếu cấu trúc/value All Open Job cũng thay đổi thì đó là luồng import riêng ở tab All Open Jobs; đừng nhầm hai file.</>
     ]}/>
     <Rule title="Reset All Master Data" tone="warning">
-     Dùng rất thận trọng. UI sẽ yêu cầu xác nhận; reset Master/Import History theo API hiện hành và giữ lại ST Operation Scope hệ thống. Sau reset phải import Master lại và kiểm tra derived routing/mapping trước khi Planning.
+     Dùng rất thận trọng. UI sẽ yêu cầu xác nhận; reset Master/Lịch sử Import theo API hiện hành và giữ lại ST Operation Scope hệ thống. Sau reset phải import Master lại và kiểm tra derived routing/mapping trước khi Planning.
     </Rule>
    </Section>
 

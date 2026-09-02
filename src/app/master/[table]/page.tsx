@@ -113,7 +113,7 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
   count=result.count;
  }
  if(error){
-   return <main className="erp-shell">
+   return <main className="erp-shell erpkit-migrated-page">
     <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">{c.section==="master"?"MASTER DATA":"CONFIGURATION"}</div></header>
     <AppTabs active={c.section==="master"?"master":"config"}/>
     <div className="erp-workspace">
@@ -128,7 +128,7 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
  const rows=(data||[]) as Record<string,unknown>[];const cols=rows.length?Object.keys(rows[0]).filter(x=>!["created_at","updated_at","last_import_batch_id"].includes(x)):[];const pages=Math.max(1,Math.ceil((count||0)/size));
  
  if(key==="operation"){
-  return <main className="erp-shell">
+  return <main className="erp-shell erpkit-migrated-page">
    <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
    <AppTabs active="config"/>
    <div className="erp-workspace">
@@ -149,7 +149,7 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
    </div>
   </main>
  }
- return <main className="erp-shell">
+ return <main className="erp-shell erpkit-migrated-page">
   <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">{c.section==="master"?"MASTER DATA":"CONFIGURATION"}</div></header>
   <AppTabs active={c.section==="master"?"master":"config"}/>
   <div className="erp-workspace">

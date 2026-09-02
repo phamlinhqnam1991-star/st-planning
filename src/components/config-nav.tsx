@@ -34,10 +34,10 @@ export function ConfigPageHeader({
       </div>
       <div className="config-page-meta">
         <div className="config-meta-purpose">
-          <b>🎯 Mục đích:</b> {purpose}
+          <b>Mục đích</b> {purpose}
         </div>
         <div className="config-meta-impact">
-          <b>🔗 Ảnh hưởng:</b> {impact}
+          <b>Ảnh hưởng</b> {impact}
         </div>
         {(prev || next) && (
           <div className="config-flow-nav">

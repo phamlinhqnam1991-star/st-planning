@@ -575,8 +575,8 @@ export function ManualScheduleGrid({
    });
   }
   setMessage(affected.length
-   ?`${a.schedule_area_name}: đã xóa thời gian đề xuất ở ${affected.length} dòng (${affected.join(", ")}).${kept?` Giữ nguyên ${kept} dòng đang 📌.`:""} Recipe và liên kết giữ nguyên — bấm Đề xuất lại nếu muốn.`
-   :(kept?`Các dòng đang 📌 giữ được giữ nguyên; không có dòng nào khác được đề xuất.`:"Không có dòng nào được đề xuất."));
+   ?`${a.schedule_area_name}: đã xóa thời gian đề xuất ở ${affected.length} dòng (${affected.join(", ")}).${kept?` Giữ nguyên ${kept} dòng đang .`:""} Recipe và liên kết giữ nguyên — bấm Đề xuất lại nếu muốn.`
+   :(kept?`Các dòng đang giữ được giữ nguyên; không có dòng nào khác được đề xuất.`:"Không có dòng nào được đề xuất."));
  }
 
  async function suggestAll(a:ScheduleArea){
@@ -855,7 +855,7 @@ export function ManualScheduleGrid({
         {suggestBusy===a.schedule_area_code?"Đang tính...":"Đề xuất"}
        </button>}
        {chemical&&<button type="button" className="btn" disabled={saveAllBusy===a.schedule_area_code} title="Lưu TẤT CẢ các dòng đề xuất cùng lúc (mỗi dòng tạo 1 Batch + Schedule). Lô nguồn lưu trước lô nối tiếp." onClick={()=>saveAll(a)}>
-        {saveAllBusy===a.schedule_area_code?"Đang lưu...":"💾 Lưu tất cả"}
+        {saveAllBusy===a.schedule_area_code?"Đang lưu...":"Lưu tất cả"}
        </button>}
        {chemical&&hasSuggestedRows(a)&&<button type="button" className="btn" title="Xóa hết giờ/FB đề xuất, quay lại như chưa đề xuất" onClick={()=>{if(window.confirm("Xóa hết giờ/FB đã đề xuất ở vùng này? (Recipe và liên kết nối tiếp giữ nguyên)"))clearSuggestion(a);}}>↺ Xóa đề xuất</button>}
 
@@ -1228,7 +1228,7 @@ export function ManualScheduleGrid({
           <select className="input" disabled={Boolean(r.batchId&&r.recipeKey)} value={r.recipeKey} onChange={e=>{
            const rc=recipes.find(x=>x.recipe_key===e.target.value);
            const defOp=rc&&rc.default_standard_operation?rc.default_standard_operation:"";
-           // Dòng đã điền Recipe → TỰ ĐỘNG 📌 giữ (không bị Xóa đề xuất / không mất khi thêm dòng mới)
+           // Dòng đã điền Recipe → TỰ ĐỘNG giữ (không bị Xóa đề xuất / không mất khi thêm dòng mới)
            patch(a,i,{
             recipeKey:e.target.value,
             keep:Boolean(e.target.value),
@@ -1262,7 +1262,7 @@ export function ManualScheduleGrid({
           ? <td className="num kl-cell">{r.batchId?kl(r.totalQty,r.totalSurfaceDm2):"—"}</td>
           : <><td>{r.batchId?r.totalJobs:0}</td><td>{r.batchId?fmt(r.totalQty,0):0}</td><td>{r.batchId?fmt(r.totalSurfaceDm2):0}</td></>}
          <td><div className="schedule-row-actions">
-          <button type="button" className={`btn small keep-btn${r.keep?" on":""}`} title={r.keep?"Bỏ giữ dòng này":"Giữ dòng này (không bị Xóa đề xuất, có màu theo dõi)"} onClick={()=>patch(a,i,{keep:!r.keep})}>{r.keep?"📌 Đang giữ":"📌 Giữ"}</button>
+          <button type="button" className={`btn small keep-btn${r.keep?" on":""}`} title={r.keep?"Bỏ giữ dòng này":"Giữ dòng này (không bị Xóa đề xuất, có màu theo dõi)"} onClick={()=>patch(a,i,{keep:!r.keep})}>{r.keep?"Đang giữ":"Giữ"}</button>
           <button className="btn small primary" disabled={busy===k||!aOps.length} onClick={()=>save(a,i)}>{busy===k?"...":r.batchId?"Schedule":"Save"}</button>
           {r.batchId&&<button className="btn small" type="button" onClick={()=>clearDraft(a,i)}>Clear</button>}
          </div></td>

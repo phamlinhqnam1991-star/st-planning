@@ -123,7 +123,7 @@ export default async function Page(){
     order by case when s.source='MANUAL' then 0 else 1 end,coalesce(s.priority,100) desc,s.previous_main_operation,s.next_main_operation,s.intermediate_signature
    `)
   ]);
-  return <main className="erp-shell"><header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION FLOW</div></header><AppTabs active="config"/><div className="erp-workspace"><ConfigSidebar active="flow"/><section className="erp-content"><ConfigPageHeader
+  return <main className="erp-shell erpkit-migrated-page"><header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION FLOW</div></header><AppTabs active="config"/><div className="erp-workspace"><ConfigSidebar active="flow"/><section className="erp-content"><ConfigPageHeader
    title="ST Operation Flow"
    subtitle="Cấu hình Main Planning / ST Scope Only; Intermediate dùng Auto Routing và Manual override khi cần."
    purpose="Auto Bridge tự đọc routing_code + seq + operation_code. Manual Bridge dùng cho ngoại lệ và luôn ưu tiên hơn Auto khi cùng LastLaborOp + NextOperation."

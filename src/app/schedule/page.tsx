@@ -477,7 +477,7 @@ export default async function Page({
   // Resource order is for Board visualization only; the exact Standard Operation
   // remains attached to each scheduled Batch, so different Job routings are not altered.
 
-  return <main className="erp-shell">
+  return <main className="erp-shell erpkit-migrated-page">
    <header className="erp-header">
     <div><h1>ST Planning</h1></div>
     <span className="erp-env">SCHEDULING</span>
@@ -485,11 +485,11 @@ export default async function Page({
    <AppTabs active="schedule"/>
    <section className="erp-content erp-content-full">
     <div className="erp-page-head">
-     <div><h2>Board Điều Độ</h2><p>Batch scheduling theo resource và process time.</p></div>
+     <div><h2>Board Điều Độ</h2><p>Điều độ Batch theo Resource, ngày sản xuất và thời gian xử lý.</p></div>
      <form>
       <input type="hidden" name="planner" value={planner}/>
       <input className="input" type="date" name="date" defaultValue={date}/>
-      <button className="btn" type="submit">Load</button>
+      <button className="btn" type="submit">Tải</button>
      </form>
     </div>
 
@@ -499,19 +499,19 @@ export default async function Page({
       href={`/schedule?date=${encodeURIComponent(date)}&planner=1`}
      >
       Planner 1
-      <small>{planner1Operations.length} operations</small>
+      <small>{planner1Operations.length} công đoạn</small>
      </a>
      <a
       className={`schedule-planner-view-tab ${planner==="2"?"active":""}`}
       href={`/schedule?date=${encodeURIComponent(date)}&planner=2`}
      >
       Planner 2
-      <small>{planner2Operations.length} operations</small>
+      <small>{planner2Operations.length} công đoạn</small>
      </a>
     </div>
 
     <div className="schedule-planner-view-summary">
-     <b>Planner {planner} View</b>
+     <b>Planner {planner}</b>
      <span>{plannerOperations.join(" · ")}</span>
     </div>
 
@@ -542,10 +542,10 @@ export default async function Page({
     <div className="erp-table-panel section schedule-table-all-planners">
      <div className="erp-panel-head">
       <div>
-       <b>Schedule Table · Tổng Hợp Planner 1 + Planner 2</b>
+       <b>Bảng điều độ · Tổng hợp Planner 1 + Planner 2</b>
        <small className="planning-sub">Tất cả Batch đã điều độ trong ngày {date}</small>
       </div>
-      <span>{allRows.length} scheduled batches</span>
+      <span>{allRows.length} lô đã điều độ</span>
      </div>
 
      <div className="table-wrap">
@@ -625,8 +625,8 @@ export default async function Page({
 
     <div className="erp-table-panel section">
      <div className="erp-panel-head">
-      <b>Schedule Table · Planner {planner}</b>
-      <span>{rows.length} scheduled batches</span>
+      <b>Bảng điều độ · Planner {planner}</b>
+      <span>{rows.length} lô đã điều độ</span>
      </div>
 
      <div className="table-wrap">

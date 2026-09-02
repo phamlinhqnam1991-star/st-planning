@@ -638,7 +638,7 @@ function ImportDemo() {
       <ErpSection title="Import file" description="Kéo thả hoặc chọn file Excel Master."><div className="erpkit-dropzone"><div>⇧</div><b>Drop .xlsx file here</b><span>Partinfo_Used for Surface Treatment - *.xlsx</span><button className="erpkit-btn erpkit-btn-primary">Choose file</button></div></ErpSection>
       <ErpSection title="Import policy"><div className="erpkit-policy-list"><div><b>NEW</b><span>Thêm Part / Revision / Routing mới.</span></div><div><b>CHANGED</b><span>Cập nhật record thay đổi và rebuild routing bị ảnh hưởng.</span></div><div><b>UNCHANGED</b><span>Bỏ qua để import nhanh.</span></div><div><b>MISSING</b><span>Chuyển inactive, không xóa.</span></div></div></ErpSection>
     </div>
-    <ErpSection title="Import History" flush><ErpDataGrid rows={rows} getRowKey={r=>r.id} columns={[
+    <ErpSection title="Lịch sử Import" flush><ErpDataGrid rows={rows} getRowKey={r=>r.id} columns={[
       {key:"file",header:"File",minWidth:320,render:r=><b>{r.file}</b>},{key:"time",header:"Imported at",minWidth:150,render:r=>r.time},{key:"new",header:"New",width:70,align:"right",render:r=><b>{r.new}</b>},{key:"changed",header:"Changed",width:80,align:"right",render:r=>r.changed},{key:"unchanged",header:"Unchanged",width:95,align:"right",render:r=>r.unchanged},{key:"status",header:"Status",width:110,render:()=> <ErpStatus label="COMPLETED" tone="success"/>},
     ]}/></ErpSection>
   </>;

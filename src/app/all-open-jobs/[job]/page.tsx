@@ -37,7 +37,7 @@ export default async function Page({
    const source=(r.source_data||{}) as Record<string,unknown>;
    const sourceEntries=Object.entries(source);
 
-   return <main className="erp-shell">
+   return <main className="erp-shell erpkit-migrated-page">
     <header className="erp-header">
      <div><h1>ST Planning</h1></div>
      <div className="erp-env">JOB DETAIL</div>

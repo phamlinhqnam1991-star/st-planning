@@ -2,21 +2,24 @@ import Link from "next/link";
 
 export type AppTab="master"|"config"|"tracker"|"jobtracker"|"jobs"|"planning"|"masking"|"schedule"|"import"|"guide";
 
-export function AppTabs({active}:{active:AppTab}){
+export function AppTabs({active,presentation="erp"}:{active:AppTab;presentation?:"erp"|"legacy"}){
  const tabs=[
-  {key:"master",label:"Master Data",href:"/master-data"},
-  {key:"config",label:"Cấu hình",href:"/settings"},
-  {key:"tracker",label:"Part Tracker",href:"/part-tracker"},
-  {key:"jobtracker",label:"Job Tracker",href:"/job-tracker"},
-  {key:"jobs",label:"All Open Jobs",href:"/all-open-jobs"},
-  {key:"planning",label:"Planning Board",href:"/planning"},
-  {key:"masking",label:"Masking / Unmasking",href:"/masking-unmasking-planning"},
-  {key:"schedule",label:"Board Điều Độ",href:"/schedule"},
-  {key:"import",label:"Import Master",href:"/import-master"},
-  {key:"guide",label:"Logic & Hướng dẫn",href:"/logic-guide"},
+  {key:"master",label:"Master Data",short:"MD",href:"/master-data"},
+  {key:"config",label:"Cấu hình",short:"CF",href:"/settings"},
+  {key:"tracker",label:"Part Tracker",short:"PT",href:"/part-tracker"},
+  {key:"jobtracker",label:"Job Tracker",short:"JT",href:"/job-tracker"},
+  {key:"jobs",label:"All Open Jobs",short:"OJ",href:"/all-open-jobs"},
+  {key:"planning",label:"Planning Board",short:"PL",href:"/planning"},
+  {key:"masking",label:"Masking / Unmasking",short:"MU",href:"/masking-unmasking-planning"},
+  {key:"schedule",label:"Board Điều Độ",short:"SC",href:"/schedule"},
+  {key:"import",label:"Import Master",short:"IM",href:"/import-master"},
+  {key:"guide",label:"Logic & Hướng dẫn",short:"LG",href:"/logic-guide"},
  ] as const;
- return <nav className="erp-modules" aria-label="ST Planning modules">
+ if(presentation==="legacy")return <nav className="erp-modules" aria-label="ST Planning modules">
   {tabs.map(t=><Link key={t.key} href={t.href} className={`erp-module ${active===t.key?"active":""}`}>{t.label}</Link>)}
+ </nav>;
+ return <nav className="erp-modules" aria-label="ST Planning modules">
+  {tabs.map(t=><Link key={t.key} href={t.href} className={`erp-module ${active===t.key?"active":""}`}><span className="erp-module-short">{t.short}</span><span className="erp-module-label">{t.label}</span></Link>)}
  </nav>
 }
 

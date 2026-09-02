@@ -70,7 +70,7 @@ export default async function Page(){
             group by source_column
             order by source_column`)
   ]);
-  return <main className="erp-shell">
+  return <main className="erp-shell erpkit-migrated-page">
    <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
    <AppTabs active="config"/>
    <div className="erp-workspace">

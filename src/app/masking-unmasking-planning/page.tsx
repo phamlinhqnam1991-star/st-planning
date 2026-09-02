@@ -92,7 +92,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
  const unmasking=groups.reduce((n,g)=>n+g.unmasking.length,0);
  const activeMain=groups.filter(g=>g.masking.length||g.unmasking.length).length;
  const prev=shiftDate(date,-1),next=shiftDate(date,1),today=vnToday();
- return <main className="erp-shell">
+ return <main className="erp-shell erpkit-migrated-page">
   <header className="erp-header"><div><h1>ST Planning</h1></div><span className="erp-env">MASKING / UNMASKING</span></header>
   <AppTabs active="masking"/>
   <section className="erp-content erp-content-full support-planning-page">

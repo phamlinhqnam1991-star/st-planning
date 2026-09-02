@@ -29,7 +29,7 @@ export default async function Page(){
   ["ST Routing Chain","Chuỗi operation ST chuẩn hóa",c.md_st_routing,"/master/stroutingchain"],
   ["Part → Routing","Map Part + Revision → RoutingCode",c.md_part_routing,"/master/partrouting"],
  ];
- return <main className="erp-shell">
+ return <main className="erp-shell erpkit-migrated-page">
   <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">MASTER DATA</div></header>
   <AppTabs active="master"/>
   <div className="erp-workspace">
@@ -39,9 +39,9 @@ export default async function Page(){
     {err&&<div className="notice"><b>Lỗi kết nối:</b> {err}</div>}
     {data?.issues?.length>0&&<div className="notice"><b>Cần kiểm tra dữ liệu:</b><ul className="issue-list">{data.issues.map((x:string)=><li key={x}>{x}</li>)}</ul></div>}
     <div className="erp-table-panel">
-     <div className="erp-panel-head"><b>Master Data Overview</b><span>{rows.length} data groups</span></div>
+     <div className="erp-panel-head"><b>Tổng quan Master Data</b><span>{rows.length} nhóm dữ liệu</span></div>
      <div className="table-wrap"><table className="erp-table"><thead><tr><th>Master</th><th>Mô tả</th><th className="num">Records</th><th></th></tr></thead><tbody>
-      {rows.map(([name,desc,n,href])=><tr key={String(name)}><td><b>{String(name)}</b></td><td>{String(desc)}</td><td className="num mono">{Number(n||0).toLocaleString()}</td><td className="action"><Link className="erp-link" href={String(href)}>Open →</Link></td></tr>)}
+      {rows.map(([name,desc,n,href])=><tr key={String(name)}><td><b>{String(name)}</b></td><td>{String(desc)}</td><td className="num mono">{Number(n||0).toLocaleString()}</td><td className="action"><Link className="erp-link" href={String(href)}>Mở</Link></td></tr>)}
      </tbody></table></div>
     </div>
    </section>

@@ -51,7 +51,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
      <LogoutButton/>
     </div>
    </header>
-   <AppTabs active="planning"/>
+   <AppTabs active="planning" presentation="legacy"/>
    <section className="erp-content erp-content-full planning-page planning-candidate-page">
     <div className="erp-page-head"><div><h2>Planning Board · Baseline cũ</h2><p>Bản giao diện cũ giữ nguyên để đối chiếu trong giai đoạn chuyển ERP.</p></div><a className="btn primary" href={erpHref}>Mở ERP version →</a></div>
     <PlanningViewTabs active="candidates" basePath="/planning-old"/>

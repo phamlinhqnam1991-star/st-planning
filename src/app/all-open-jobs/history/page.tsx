@@ -46,7 +46,7 @@ export default async function Page({
    const total=Number(countQ.rows[0]?.n||0);
    const pages=Math.max(1,Math.ceil(total/size));
 
-   return <main className="erp-shell">
+   return <main className="erp-shell erpkit-migrated-page">
     <header className="erp-header">
      <div><h1>ST Planning</h1></div>
      <div className="erp-env">JOB HISTORY</div>
@@ -95,7 +95,7 @@ export default async function Page({
            <td>{r.last_operation||"—"}</td>
            <td>{r.next_operation||"—"}</td>
            <td className="num">{r.total_surface??"—"}</td>
-           <td><Link className="erp-link" href={`/all-open-jobs/${encodeURIComponent(r.job_num)}`}>Open →</Link></td>
+           <td><Link className="erp-link" href={`/all-open-jobs/${encodeURIComponent(r.job_num)}`}>Mở</Link></td>
           </tr>
          )}
         </tbody>

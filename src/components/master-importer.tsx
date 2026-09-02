@@ -60,7 +60,7 @@ export function MasterImporter(){
  }
 
  async function resetAll(){
-  if(!confirm("Reset toàn bộ Master Data và Import History? ST Operation Scope hệ thống sẽ được giữ lại."))return;
+  if(!confirm("Reset toàn bộ Master Data và Lịch sử Import? ST Operation Scope hệ thống sẽ được giữ lại."))return;
   if(prompt('Nhập chính xác RESET để xác nhận:')!=="RESET")return;
   setResetBusy(true);
   try{

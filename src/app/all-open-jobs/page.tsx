@@ -129,7 +129,7 @@ export default async function Page({
      ["ALL","All"]
    ];
 
-   return <main className="erp-shell">
+   return <main className="erp-shell erpkit-migrated-page">
     <header className="erp-header">
      <div><h1>ST Planning</h1></div>
      <div className="erp-env">ALL OPEN JOBS</div>
@@ -242,7 +242,7 @@ export default async function Page({
             <td className="num mono">{r.total_surface??"—"}</td>
             <td>{r.priority_type||"—"}</td>
             <td className="action">
-             <Link className="erp-link" href={`/all-open-jobs/${encodeURIComponent(r.job_num)}`}>Open →</Link>
+             <Link className="erp-link" href={`/all-open-jobs/${encodeURIComponent(r.job_num)}`}>Mở</Link>
             </td>
            </tr>
           )}
@@ -262,7 +262,7 @@ export default async function Page({
 
      <div className="erp-table-panel section">
       <div className="erp-panel-head">
-       <b>Import History</b>
+       <b>Lịch sử Import</b>
        <span>10 lần import gần nhất</span>
       </div>
       <div className="table-wrap">
