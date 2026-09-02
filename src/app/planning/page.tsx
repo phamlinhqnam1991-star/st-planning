@@ -47,7 +47,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
     <ErpPageHeader
      eyebrow="PLANNING / BATCH"
      title="Planning Board"
-     description="ERP version · dùng nguyên Candidate, Route Matrix, Recipe, Batch Compatibility và Batch logic hiện tại."
+     description="Matrix theo Job × Main Operation · chọn READY trực tiếp để tạo hoặc thêm vào Batch."
      status={<span className="erpkit-status erpkit-status-success">ERP</span>}
      actions={<Link className="erpkit-btn" href={scoped("/planning-old")}>Mở baseline cũ</Link>}
     />
@@ -62,6 +62,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
 
     <section className="erpkit-planning-live-shell">
      <PlanningCandidateShell
+      presentation="erp"
       areas={staticData.areas as any[]}
       operations={staticData.operations as any[]}
       availableBatches={batchesQ.rows as any[]}

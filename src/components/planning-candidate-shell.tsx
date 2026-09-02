@@ -14,6 +14,7 @@ function useLoadElapsed(active:boolean){
 }
 
 type Props={
+ presentation?:"legacy"|"erp";
  areas:any[];operations:any[];availableBatches:any[];mainOperations:any[];stOperations:any[];nextOperations:any[];sourceColumns:string[];operationMappings:any[];
  initial:{
   areaId:string;op:string;recipeKey:string;previousBatchNo:string;
@@ -27,7 +28,7 @@ type Props={
 const ROUTE_CHUNK_SIZE=60;
 const ROUTE_MAX_PARALLEL=3;
 
-export function PlanningCandidateShell({areas,operations,availableBatches,mainOperations,stOperations,nextOperations,sourceColumns,operationMappings,initial}:Props){
+export function PlanningCandidateShell({presentation="legacy",areas,operations,availableBatches,mainOperations,stOperations,nextOperations,sourceColumns,operationMappings,initial}:Props){
  const [areaId,setAreaId]=useState(initial.areaId);
  const [op,setOp]=useState(initial.op);
  const [recipeKey,setRecipeKey]=useState(initial.recipeKey);
@@ -397,8 +398,8 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
   if(v&&op&&!operations.some(x=>String(x.area_id||"")===v&&x.standard_operation===op)){setOp("");setRecipeKey("");}
  }
 
- return <>
-  <form className="erp-form-panel planning-filter" onSubmit={submit}>
+ return <div className={presentation==="erp"?"erpkit-live-planning":""}>
+  <form className={presentation==="erp"?"erpkit-live-planning-filter":"erp-form-panel planning-filter"} onSubmit={submit}>
    <label>Area<select className="input" value={areaId} onChange={e=>changeArea(e.target.value)}><option value="">Tất cả Area</option>{areas.map(a=><option key={a.id} value={a.id}>{a.area_name}</option>)}</select></label>
    <label>Standard Operation<select className="input" value={op} onChange={e=>{setOp(e.target.value);setRecipeKey("");}}><option value="">Chọn công đoạn...</option>{filteredOperations.map(x=><option key={`${x.area_id||"none"}-${x.standard_operation}`} value={x.standard_operation}>{x.standard_operation}{x.area_name?` · ${x.area_name}`:""}</option>)}</select>{areaId&&<small className="planning-sub">{filteredOperations.length} công đoạn</small>}</label>
    <label>Recipe<select className="input" value={recipeKey} onChange={e=>setRecipeKey(e.target.value)}><option value="">Tất cả / Không yêu cầu</option>{recipeOptions.map(r=><option key={r.recipe_key} value={r.recipe_key}>{r.recipe_no||"—"} · {r.recipe_name||"CHƯA KHAI BÁO"}</option>)}</select></label>
@@ -425,7 +426,8 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
     onReloadCandidates={()=>void load({useLoadedScope:true})}
     onBatchMutation={refreshAffectedCandidates}
     onAfterMutation={()=>{void load({useLoadedScope:true});void refreshDeferredData();}}
+    presentation={presentation}
    />
   </div>
- </>;
+ </div>;
 }

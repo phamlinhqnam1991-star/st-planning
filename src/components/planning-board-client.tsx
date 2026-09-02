@@ -328,6 +328,7 @@ const SORT_STORAGE_KEY="st-planning:candidate-sort:v1";
 const VIEW_STORAGE_KEY="st-planning:candidate-view-by-operation:v1";
 const COLUMN_STORAGE_KEY="st-planning:candidate-columns:v6";
 const COLUMN_LAYOUT_STORAGE_KEY="st-planning:candidate-column-layout:v1";
+const ERP_MATRIX_DEFAULT_COLUMNS=["job","part_rev","qty","surface","priority"] as const;
 const ALL_OPEN_JOB_GROUP_KEY="group:allopen";
 
 function collapsedColumnLayoutFromVisible(keys:string[]){
@@ -443,6 +444,7 @@ const CANDIDATE_DOM_ROW_STEP=100;
 // Client fetch dùng safeJson chung từ @/lib/fetch-json để mọi màn hình báo lỗi HTTP/HTML nhất quán.
 
 export function PlanningBoardClient({
+ presentation="legacy",
  candidates,
  availableBatches,
  standardOperation,
@@ -463,7 +465,8 @@ export function PlanningBoardClient({
  onReloadCandidates,
  onBatchMutation,
  onAfterMutation
-}:{
+}: {
+ presentation?:"legacy"|"erp";
  candidates:Candidate[];
  availableBatches:BatchTargetOption[];
  standardOperation:string;
@@ -492,6 +495,9 @@ export function PlanningBoardClient({
  // Rebuild Planning Chain.
  onAfterMutation?:()=>void;
 }){
+ const erpMode=presentation==="erp";
+ const columnStorageKey=erpMode?"st-planning:erp-matrix-columns:v1":COLUMN_STORAGE_KEY;
+ const columnLayoutStorageKey=erpMode?"st-planning:erp-matrix-column-layout:v1":COLUMN_LAYOUT_STORAGE_KEY;
  const [selected,setSelected]=useState<number[]>([]);
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
@@ -520,14 +526,18 @@ export function PlanningBoardClient({
  // v261: khởi tạo NGAY từ Default View máy chủ (SSR) → không hiện "hình 1" (169 cột).
 const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.stView??null);
  const [visibleColumns,setVisibleColumns]=useState<string[]|null>(
-  initialView&&Array.isArray(initialView.columns)&&initialView.columns.length
-   ?initialView.columns
-   :null
+  erpMode
+   ?[...ERP_MATRIX_DEFAULT_COLUMNS]
+   :initialView&&Array.isArray(initialView.columns)&&initialView.columns.length
+    ?initialView.columns
+    :null
  );
  const [columnLayout,setColumnLayout]=useState<string[]|null>(
-  initialView&&Array.isArray(initialView.columnLayout)&&initialView.columnLayout.length
-   ?initialView.columnLayout
-   :null
+  erpMode
+   ?collapsedColumnLayoutFromVisible([...ERP_MATRIX_DEFAULT_COLUMNS])
+   :initialView&&Array.isArray(initialView.columnLayout)&&initialView.columnLayout.length
+    ?initialView.columnLayout
+    :null
  );
  const [displayRulesOpen,setDisplayRulesOpen]=useState(false);
  const [filterNextMain,setFilterNextMain]=useState(initialView?.filters?.nextMain||"");
@@ -565,8 +575,8 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
  const [fullView,setFullView]=useState(false);
  const [candidateDomLimit,setCandidateDomLimit]=useState(CANDIDATE_INITIAL_DOM_ROWS);
  const candidateDomSentinelRef=useRef<HTMLTableRowElement|null>(null);
- const [candidateDensity,setCandidateDensity]=useState<"normal"|"compact"|"ultra">(initialView?.density??"compact");
- const [routeFocus,setRouteFocus]=useState(Boolean(initialView?.routeFocus));
+ const [candidateDensity,setCandidateDensity]=useState<"normal"|"compact"|"ultra">(erpMode?"normal":(initialView?.density??"compact"));
+ const [routeFocus,setRouteFocus]=useState(erpMode?true:Boolean(initialView?.routeFocus));
  // v282: Chẩn đoán Recipe + So sánh Cấu hình ↔ Board.
  const [recipeDiag,setRecipeDiag]=useState<any|null>(null);
  const [recipeDiagLoading,setRecipeDiagLoading]=useState(false);
@@ -714,35 +724,35 @@ useEffect(()=>{
  // fields. Route/Main columns are automatic from the displayed Jobs' AllOperation
  // and cannot be hidden by an old Columns preset.
  useEffect(()=>{
-   if(initialView&&Array.isArray(initialView.columns)&&initialView.columns.length)return;
+   if(!erpMode&&initialView&&Array.isArray(initialView.columns)&&initialView.columns.length)return;
    try{
      const raw=
-       window.localStorage.getItem(COLUMN_STORAGE_KEY) ||
-       window.localStorage.getItem(LEGACY_COLUMN_STORAGE_KEY);
+       window.localStorage.getItem(columnStorageKey) ||
+       (!erpMode?window.localStorage.getItem(LEGACY_COLUMN_STORAGE_KEY):null);
 
      const valid=new Set(configurableColumns.map(x=>x.key));
      if(!raw){
-       setVisibleColumns(configurableColumns.map(x=>x.key));
+       setVisibleColumns(erpMode?[...ERP_MATRIX_DEFAULT_COLUMNS]:configurableColumns.map(x=>x.key));
        return;
      }
 
      const saved=JSON.parse(raw);
      if(Array.isArray(saved)){
        let next=saved.filter((x:unknown)=>typeof x==="string"&&valid.has(x)) as string[];
-       if(!window.localStorage.getItem(COLUMN_STORAGE_KEY)){
+       if(!window.localStorage.getItem(columnStorageKey)){
          for(const key of ["status","batch_no","previous_status","previous_batch_no","actual_progress"]){
            if(valid.has(key)&&!next.includes(key))next.push(key);
          }
-         window.localStorage.setItem(COLUMN_STORAGE_KEY,JSON.stringify(next));
+         window.localStorage.setItem(columnStorageKey,JSON.stringify(next));
        }
        setVisibleColumns(next);
      }else{
-       setVisibleColumns(configurableColumns.map(x=>x.key));
+       setVisibleColumns(erpMode?[...ERP_MATRIX_DEFAULT_COLUMNS]:configurableColumns.map(x=>x.key));
      }
    }catch{
-     setVisibleColumns(configurableColumns.map(x=>x.key));
+     setVisibleColumns(erpMode?[...ERP_MATRIX_DEFAULT_COLUMNS]:configurableColumns.map(x=>x.key));
    }
- },[configurableColumns]);
+ },[configurableColumns,erpMode,columnStorageKey]);
 
  useEffect(()=>{
    try{
@@ -853,14 +863,14 @@ useEffect(()=>{
     :collapsedColumnLayoutFromVisible(configurableActiveColumns);
   }else{
    try{
-    const raw=window.localStorage.getItem(COLUMN_LAYOUT_STORAGE_KEY);
+    const raw=window.localStorage.getItem(columnLayoutStorageKey);
     const parsed=raw?JSON.parse(raw):null;
     if(Array.isArray(parsed)&&parsed.length)next=parsed.map((x:unknown)=>String(x));
    }catch{}
    if(!next)next=collapsedColumnLayoutFromVisible(configurableActiveColumns);
   }
   setColumnLayout(next);
- },[columnLayout,configurableActiveColumns,initialView]);
+ },[columnLayout,configurableActiveColumns,initialView,columnLayoutStorageKey,erpMode]);
 
  // v227: Default View lưu trên MÁY CHỦ (dùng chung mọi môi trường).
  useEffect(()=>{
@@ -1164,8 +1174,8 @@ useEffect(()=>{
    setVisibleColumns(sanitized);
    setColumnLayout(layout);
    try{
-    window.localStorage.setItem(COLUMN_STORAGE_KEY,JSON.stringify(sanitized));
-    window.localStorage.setItem(COLUMN_LAYOUT_STORAGE_KEY,JSON.stringify(layout));
+    window.localStorage.setItem(columnStorageKey,JSON.stringify(sanitized));
+    window.localStorage.setItem(columnLayoutStorageKey,JSON.stringify(layout));
    }catch{}
    // Route/Main columns are automatic and are deliberately not persisted here.
    void persistColumnsToView(sanitized,layout);
@@ -3117,80 +3127,55 @@ const currentPriorityMonth=useMemo(()=>{
  },[freezeCol,activeColumns,candidateDensity,routeFocus,displayCandidates.length,fullView]);
 
  
- return <div className="planning-board-grid">
-   <section className={`erp-table-panel planning-candidates ${fullView?"candidate-full-view":""} candidate-density-${candidateDensity} ${routeFocus?"candidate-route-focus":""}`}>
-    <div className="erp-panel-head candidate-sticky-toolbar">
-     <b>Candidate Jobs</b>
-     <div className="row">
-      <button type="button" className={`btn small status-chip ${statusFilter==="ELIGIBLE"?"status-chip-active":""}`}
-       onClick={()=>setStatusFilter(statusFilter==="ELIGIBLE"?"":"ELIGIBLE")}
-       title="Lọc: chỉ hiện Candidate READY (chưa vào Batch)">
-       {eligibleCandidates.length} ELIGIBLE
-      </button>
-      <span>·</span>
-      <button type="button" className={`btn small status-chip ${statusFilter==="PLANNED"?"status-chip-active":""}`}
-       onClick={()=>setStatusFilter(statusFilter==="PLANNED"?"":"PLANNED")}
-       title="Lọc: chỉ hiện Candidate đã vào Batch">
-       {plannedCandidates.length} PLANNED
-      </button>
-      <span>·</span>
-      <button type="button" className={`btn small status-chip ${statusFilter==="WAIT"?"status-chip-active":""}`}
-       onClick={()=>setStatusFilter(statusFilter==="WAIT"?"":"WAIT")}
-       title="Lọc: chỉ hiện Candidate đang chờ (LOCKED, có chain)">
-       {waitingCandidates.length} WAIT
-      </button>
-      {noChainCandidates.length>0&&<>
-       <span>·</span>
-       <button type="button" className={`btn small status-chip ${statusFilter==="NO_CHAIN"?"status-chip-active":""}`}
-        onClick={()=>setStatusFilter(statusFilter==="NO_CHAIN"?"":"NO_CHAIN")}
-        title="Lọc: chỉ hiện Job KHÔNG có Planning Chain (NO CHAIN)">
-        {noChainCandidates.length} NO CHAIN
-       </button>
-      </>}
-      <span>·</span>
-      <button type="button" className="btn small" onClick={()=>setStatusFilter("")}
-       title="Bỏ lọc trạng thái — hiện tất cả">
-       Tất cả {pagination.totalCandidates} job
-      </button>
-      <button className="btn small" type="button" onClick={()=>setDisplayRulesOpen(x=>!x)}>
-       Sắp xếp / Lọc
-      </button>
-      <button className="btn small" type="button" onClick={()=>setColumnPickerOpen(x=>!x)}>
-       Cột ({configurableActiveColumns.length}/{configurableColumns.length})
-      </button>
-      <button className="btn small" type="button" onClick={()=>setOperationPickerOpen(x=>!x)} title="Chọn NextOperation được hiển thị">
-       Công đoạn ({effectiveStView.size}/{allNextOps.length})
-      </button>
-      <button className="btn small" type="button" onClick={()=>setFullView(x=>!x)} title="ESC để thoát Full View">
-       {fullView?"Thoát toàn màn hình":"Toàn màn hình"}
-      </button>
-      <button
-       className="btn small"
-       type="button"
-       onClick={runRecipeCompare}
-       disabled={recipeCompareLoading}
-       title="So sánh cấu hình Recipe (Công thức & Rule) với nhu cầu thực tế trên board — tìm mapping thiếu / mapping không được dùng"
-      >
-       {recipeCompareLoading?"Đang so sánh…":"⇄ So sánh Recipe"}
-      </button>
-      <button
-       className="btn small"
-       type="button"
-       title="Ghim dòng tiêu đề và các cột bên trái."
-       onClick={()=>{
-        if(freezeMenuOpen){setFreezeMenuOpen(false);return;}
-        if(freezePick){setFreezePick(false);setFreezeDraft(null);return;}
-        if(freeze.mode==="off"){setFreezePick(true);return;}
-        setFreezeMenuOpen(true);
-       }}
-      >
-       {freezePick?"📌 Chọn cột…":freeze.mode==="off"?"📌 Ghim cột":`📌 ${freezeLabel}`}
-      </button>
-      <button className="btn small" disabled={busy} onClick={rebuild}>
-       Rebuild Chain
-      </button>
+ return <div className={`planning-board-grid ${erpMode?"planning-board-grid-erp":""}`}>
+   <section className={`erp-table-panel planning-candidates ${erpMode?"erpkit-live-matrix-panel ":""}${fullView?"candidate-full-view":""} candidate-density-${candidateDensity} ${routeFocus?"candidate-route-focus":""}`}>
+    {erpMode?
+     <div className="erpkit-live-matrix-head candidate-sticky-toolbar">
+      <div className="erpkit-live-matrix-title">
+       <div><b>Planning Matrix</b><small>Job × Main Operation · click READY để chọn Batch</small></div>
+       <div className="erpkit-live-matrix-kpis">
+        <button type="button" className={`erpkit-live-kpi is-ready ${statusFilter==="ELIGIBLE"?"is-active":""}`} onClick={()=>setStatusFilter(statusFilter==="ELIGIBLE"?"":"ELIGIBLE")}><b>{eligibleCandidates.length}</b><span>READY</span></button>
+        <button type="button" className={`erpkit-live-kpi is-batch ${statusFilter==="PLANNED"?"is-active":""}`} onClick={()=>setStatusFilter(statusFilter==="PLANNED"?"":"PLANNED")}><b>{plannedCandidates.length}</b><span>BATCH</span></button>
+        <button type="button" className={`erpkit-live-kpi is-wait ${statusFilter==="WAIT"?"is-active":""}`} onClick={()=>setStatusFilter(statusFilter==="WAIT"?"":"WAIT")}><b>{waitingCandidates.length}</b><span>WAIT</span></button>
+        {noChainCandidates.length>0&&<button type="button" className={`erpkit-live-kpi is-muted ${statusFilter==="NO_CHAIN"?"is-active":""}`} onClick={()=>setStatusFilter(statusFilter==="NO_CHAIN"?"":"NO_CHAIN")}><b>{noChainCandidates.length}</b><span>NO CHAIN</span></button>}
+       </div>
+      </div>
+      <div className="erpkit-live-matrix-actions">
+       <button type="button" className={`erpkit-btn ${statusFilter===""?"is-active":""}`} onClick={()=>setStatusFilter("")}>All {pagination.totalCandidates}</button>
+       <div className="erpkit-segmented">
+        <button type="button" className={candidateDensity==="compact"?"is-active":""} onClick={()=>setCandidateDensity("compact")}>Compact</button>
+        <button type="button" className={candidateDensity==="normal"?"is-active":""} onClick={()=>setCandidateDensity("normal")}>Detail</button>
+       </div>
+       <button className="erpkit-btn" type="button" onClick={()=>setDisplayRulesOpen(x=>!x)}>Filter / Sort</button>
+       <button className="erpkit-btn" type="button" onClick={()=>setColumnPickerOpen(x=>!x)}>Columns</button>
+       <button className="erpkit-btn" type="button" onClick={()=>setOperationPickerOpen(x=>!x)}>Operations</button>
+       <button className="erpkit-btn" type="button" onClick={()=>setFullView(x=>!x)}>{fullView?"Exit Full View":"Full View"}</button>
+       <button className="erpkit-btn" type="button" onClick={runRecipeCompare} disabled={recipeCompareLoading}>{recipeCompareLoading?"Comparing…":"Recipe Check"}</button>
+       <button className="erpkit-btn" type="button" title="Ghim dòng tiêu đề và các cột bên trái." onClick={()=>{if(freezeMenuOpen){setFreezeMenuOpen(false);return;}if(freezePick){setFreezePick(false);setFreezeDraft(null);return;}if(freeze.mode==="off"){setFreezePick(true);return;}setFreezeMenuOpen(true);}}>📌 {freeze.mode==="off"?"Freeze":freezeLabel}</button>
+       <button className="erpkit-btn" disabled={busy} onClick={rebuild}>Rebuild Chain</button>
+      </div>
      </div>
-    </div>
+    :
+     <div className="erp-panel-head candidate-sticky-toolbar">
+      <b>Candidate Jobs</b>
+      <div className="row">
+       <button type="button" className={`btn small status-chip ${statusFilter==="ELIGIBLE"?"status-chip-active":""}`} onClick={()=>setStatusFilter(statusFilter==="ELIGIBLE"?"":"ELIGIBLE")} title="Lọc: chỉ hiện Candidate READY (chưa vào Batch)">{eligibleCandidates.length} ELIGIBLE</button>
+       <span>·</span>
+       <button type="button" className={`btn small status-chip ${statusFilter==="PLANNED"?"status-chip-active":""}`} onClick={()=>setStatusFilter(statusFilter==="PLANNED"?"":"PLANNED")} title="Lọc: chỉ hiện Candidate đã vào Batch">{plannedCandidates.length} PLANNED</button>
+       <span>·</span>
+       <button type="button" className={`btn small status-chip ${statusFilter==="WAIT"?"status-chip-active":""}`} onClick={()=>setStatusFilter(statusFilter==="WAIT"?"":"WAIT")} title="Lọc: chỉ hiện Candidate đang chờ (LOCKED, có chain)">{waitingCandidates.length} WAIT</button>
+       {noChainCandidates.length>0&&<><span>·</span><button type="button" className={`btn small status-chip ${statusFilter==="NO_CHAIN"?"status-chip-active":""}`} onClick={()=>setStatusFilter(statusFilter==="NO_CHAIN"?"":"NO_CHAIN")} title="Lọc: chỉ hiện Job KHÔNG có Planning Chain (NO CHAIN)">{noChainCandidates.length} NO CHAIN</button></>}
+       <span>·</span>
+       <button type="button" className="btn small" onClick={()=>setStatusFilter("")} title="Bỏ lọc trạng thái — hiện tất cả">Tất cả {pagination.totalCandidates} job</button>
+       <button className="btn small" type="button" onClick={()=>setDisplayRulesOpen(x=>!x)}>Sắp xếp / Lọc</button>
+       <button className="btn small" type="button" onClick={()=>setColumnPickerOpen(x=>!x)}>Cột ({configurableActiveColumns.length}/{configurableColumns.length})</button>
+       <button className="btn small" type="button" onClick={()=>setOperationPickerOpen(x=>!x)} title="Chọn NextOperation được hiển thị">Công đoạn ({effectiveStView.size}/{allNextOps.length})</button>
+       <button className="btn small" type="button" onClick={()=>setFullView(x=>!x)} title="ESC để thoát Full View">{fullView?"Thoát toàn màn hình":"Toàn màn hình"}</button>
+       <button className="btn small" type="button" onClick={runRecipeCompare} disabled={recipeCompareLoading} title="So sánh cấu hình Recipe (Công thức & Rule) với nhu cầu thực tế trên board — tìm mapping thiếu / mapping không được dùng">{recipeCompareLoading?"Đang so sánh…":"⇄ So sánh Recipe"}</button>
+       <button className="btn small" type="button" title="Ghim dòng tiêu đề và các cột bên trái." onClick={()=>{if(freezeMenuOpen){setFreezeMenuOpen(false);return;}if(freezePick){setFreezePick(false);setFreezeDraft(null);return;}if(freeze.mode==="off"){setFreezePick(true);return;}setFreezeMenuOpen(true);}}>{freezePick?"📌 Chọn cột…":freeze.mode==="off"?"📌 Ghim cột":`📌 ${freezeLabel}`}</button>
+       <button className="btn small" disabled={busy} onClick={rebuild}>Rebuild Chain</button>
+      </div>
+     </div>}
 
     {freezePick&&!freezeDraft&&
      <div className="freeze-hint-bar">📌 <b>Chọn vị trí freeze:</b> click vào <b>tiêu đề cột</b> trong bảng — các cột bên trái và dòng tiêu đề sẽ được ghìm (ESC để hủy).</div>}
@@ -3613,10 +3598,15 @@ const currentPriorityMonth=useMemo(()=>{
       </div>
      </div>}
 
+    {erpMode&&<div className="erpkit-live-matrix-legend">
+     <span className="is-done"><i/>DONE</span><span className="is-ready"><i/>READY</span><span className="is-wait"><i/>WAIT</span><span className="is-batch"><i/>BATCH</span><span className="is-scheduled"><i/>SCHEDULED</span><span className="is-muted"><i/>NO CHAIN / N/A</span>
+     <small>Click READY để chọn/bỏ chọn · Matrix tự sinh cột theo Main Operation</small>
+    </div>}
+
     <div className="table-wrap">
      <table
       ref={freezeTableRef}
-      className={`erp-table planning-candidate-table${freezeActive||freezeDraft?" candidate-freeze-on":""}`}
+      className={`erp-table planning-candidate-table${erpMode?" planning-erp-matrix-table":""}${freezeActive||freezeDraft?" candidate-freeze-on":""}`}
       data-fc={freezeCol>0?String(freezeCol):"0"}
       onClickCapture={e=>{
        if(!freezePick)return;
@@ -3692,7 +3682,7 @@ const currentPriorityMonth=useMemo(()=>{
    </section>
 
    <aside
-    className={`erp-table-panel planning-batch-panel ${dragCandidateId!==null?"planning-batch-drop-ready":""}`}
+    className={`erp-table-panel planning-batch-panel ${erpMode?"erpkit-live-batch-panel ":""}${dragCandidateId!==null?"planning-batch-drop-ready":""}`}
     onDragOver={e=>{
      if(dragCandidateId===null)return;
      e.preventDefault();
