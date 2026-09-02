@@ -341,6 +341,19 @@ const VIEW_STORAGE_KEY="st-planning:candidate-view-by-operation:v1";
 const COLUMN_STORAGE_KEY="st-planning:candidate-columns:v6";
 const COLUMN_LAYOUT_STORAGE_KEY="st-planning:candidate-column-layout:v1";
 const ERP_MATRIX_DEFAULT_COLUMNS=["job","part_rev","qty","surface","priority"] as const;
+// v388: Area Candidate focus must keep the same operational context columns
+// for every Area. Older AREA presets (Chemical Line in particular) may have
+// been saved before the current ERP matrix and can be too sparse. These source
+// fields are therefore guaranteed in Area focus when the catalog exposes them;
+// the rest of the planner's saved/custom columns are still preserved.
+const ERP_AREA_CONTEXT_SOURCE_FIELDS=[
+ "PartDescription",
+ "CurrentGoodWIPQty",
+ "TotalSurface",
+ "LastLaborOp",
+ "NextOperation",
+ "OpenDMR"
+] as const;
 const ALL_OPEN_JOB_GROUP_KEY="group:allopen";
 
 function collapsedColumnLayoutFromVisible(keys:string[]){
@@ -779,6 +792,22 @@ useEffect(()=>{
      group:"allopen" as const
    }))
  ],[sourceColumns,routeColumns]);
+
+ const areaContextSourceKeys=useMemo(()=>{
+   const normalizeSourceName=(value:string)=>String(value||"")
+    .trim().toUpperCase().replace(/[^A-Z0-9]+/g,"");
+   const byNormalized=new Map<string,string>();
+   for(const col of sourceColumns){
+    const token=normalizeSourceName(col);
+    if(token&&!byNormalized.has(token))byNormalized.set(token,col);
+   }
+   const out:string[]=[];
+   for(const wanted of ERP_AREA_CONTEXT_SOURCE_FIELDS){
+    const actual=byNormalized.get(normalizeSourceName(wanted));
+    if(actual)out.push(`source:${actual}`);
+   }
+   return out;
+ },[sourceColumns]);
 
  const candidateSortFields=useMemo(()=>{
    const seen=new Set<string>();
@@ -2585,32 +2614,55 @@ const currentPriorityMonth=useMemo(()=>{
    return out;
   }
 
-  // v386 Area focus: keep normal Candidate rows and planning/info columns, but
-  // replace the cross-area route matrix with ONE virtual Previous Main column
-  // plus all configured Main Operations belonging to the selected Area.
+  // v388 Area focus: every Area uses the same Candidate context baseline.
+  // A legacy/sparse AREA view must not make Chemical Line lose the source
+  // context that other Areas show. Keep the planner's existing extra columns,
+  // but guarantee these operational fields before Previous Main:
+  // PartDescription, CurrentGoodWIPQty, TotalSurface, LastLaborOp,
+  // NextOperation, Priority and OpenDMR. Route columns remain Area-specific.
   if(areaMode&&selectedAreaId){
    const areaRouteKeys=activeColumns.filter(key=>
     key.startsWith("route-main:") &&
     selectedAreaMainOperationSet.has(normalized(key.slice("route-main:".length)))
    );
-   const out:string[]=[];
-   let matrixInserted=false;
-   for(const key of activeColumns){
-    if(key.startsWith("route-main:")){
-     if(!matrixInserted){
-      out.push(ERP_BATCH_PREVIOUS_CONTEXT_KEY,...areaRouteKeys);
-      matrixInserted=true;
-     }
-     continue;
-    }
-    out.push(key);
-   }
-   if(!matrixInserted)out.push(ERP_BATCH_PREVIOUS_CONTEXT_KEY,...areaRouteKeys);
-   return out;
+   // routeColumns is already canonical Main Planning Order for the selected
+   // Area. Use it as a fallback if an old saved layout contains no route keys.
+   const effectiveAreaRouteKeys=areaRouteKeys.length
+    ?areaRouteKeys
+    :routeColumns.map(col=>col.key).filter(key=>
+      selectedAreaMainOperationSet.has(normalized(key.slice("route-main:".length)))
+     );
+
+   const openDmrContextKey=areaContextSourceKeys.find(key=>
+    key.toUpperCase().replace(/[^A-Z0-9]+/g,"").endsWith("OPENDMR")
+   );
+   const requiredContext=[
+    "job",
+    ...areaContextSourceKeys.filter(key=>key!==openDmrContextKey),
+    "priority",
+    ...(openDmrContextKey?[openDmrContextKey]:[])
+   ];
+   const validContext=requiredContext.filter(key=>
+    key==="job" || key==="priority" || configurableKeySet.has(key)
+   );
+   const requiredSet=new Set(validContext);
+   const remainder=activeColumns.filter(key=>
+    !key.startsWith("route-main:") &&
+    !requiredSet.has(key) &&
+    key!==ERP_BATCH_PREVIOUS_CONTEXT_KEY &&
+    key!==ERP_BATCH_NEXT_CONTEXT_KEY
+   );
+
+   return [
+    ...validContext,
+    ERP_BATCH_PREVIOUS_CONTEXT_KEY,
+    ...effectiveAreaRouteKeys,
+    ...remainder
+   ];
   }
 
   return activeColumns;
- },[erpMode,batchSelectionModeActive,batchSelectionOperation,activeColumns,areaMode,selectedAreaId,selectedAreaMainOperationSet]);
+ },[erpMode,batchSelectionModeActive,batchSelectionOperation,activeColumns,areaMode,selectedAreaId,selectedAreaMainOperationSet,routeColumns,areaContextSourceKeys,configurableKeySet]);
 
  const totalQty=selectedTargets.reduce((a,x)=>a+Number(x.candidate.plan_qty||0),0);
  const totalSurface=selectedTargets.reduce((a,x)=>a+Number(x.candidate.plan_surface||0),0);

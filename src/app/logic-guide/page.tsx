@@ -582,10 +582,13 @@ export default async function Page(){
      Nếu Operation Code không có Recipe Rule phù hợp và phải fallback theo Part/Revision, fallback cũng bám đúng occurrence: <code>PRIMER→md_material_finish.primer1</code>, <code>PRIMER2→primer2</code>, <code>PRIMER3→primer3</code>, <code>TOPCOAT1→topcoat1</code>, <code>TOPCOAT2→topcoat2</code>. Không còn dùng PRIMER1 chung cho PRIMER2/PRIMER3.
     </Rule>
 
-    <div className="lg-subtitle">7.5 · Chọn READY đầu tiên → Batch Selection Mode</div>
+    <div className="lg-subtitle">7.5 · Chọn Area / chọn READY</div>
+    <Rule title="Area Candidate dùng chung một bố cục nghiệp vụ" tone="important">
+     Khi chọn một Area và để <b>Tất cả công đoạn</b>, mọi Area dùng cùng baseline Candidate: Job, PartDescription, CurrentGoodWIPQty, TotalSurface, LastLaborOp, NextOperation, Priority, OpenDMR (nếu cột nguồn tồn tại), sau đó là một cột ảo <b>Previous Main</b> + toàn bộ Main Operation thuộc Area theo Main Planning Order. Area preset cũ không được làm mất baseline này.
+    </Rule>
     <StepList items={[
      <>Click/checkbox/drag một cell <b>READY</b>. Main Operation của occurrence đó trở thành Main đang build Batch.</>,
-     <>Board thu gọn ma trận về đúng <b>2 cột ngữ cảnh nghiệp vụ</b>: một cột ảo <b>Previous Main</b> dùng chung cho mọi Job và một cột <b>Next Main</b> đang build Batch. Mỗi ô Previous Main tự hiện Main trước thực tế của Job + badge trạng thái (D/R/W/U/S/P/RN/H) + Batch + giờ điều độ; vì vậy Job đi từ BSASLD/BSAUNSLD vẫn nằm chung một cột. Ô Next Main giữ READY/lock và hiện Recipe của chính Job khi có Recipe.</>,
+     <>Board thu gọn ma trận thành <b>Previous Main + Main đang chọn + Next Main Planning</b>. Previous Main hiện Main trước thực tế của Job + badge trạng thái (D/R/W/U/S/P/RN/H) + Batch + giờ điều độ. Main đang chọn chỉ giữ status/READY interaction; Recipe của Main đang chọn vẫn được dùng nội bộ cho Recipe Lock nhưng không hiển thị tại đây. Next Main Planning hiện Main kế tiếp và Recipe của chính Main kế tiếp nếu có.</>,
      <>Trong Main active, server resolve Recipe thật của từng Job. READY khác Recipe bị làm mờ/disable.</>,
      <>Nếu Recipe mapping có condition, panel <b>Batch Compatibility</b> hiện checkbox theo condition của <code>md_main_operation_recipe.selection_rule</code>.</>,
      <>Mặc định tích tất cả condition. Bỏ tích condition nào → condition đó không còn dùng để khóa membership. Bỏ hết → chỉ cần cùng Main + cùng Recipe.</>,

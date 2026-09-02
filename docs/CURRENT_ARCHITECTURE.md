@@ -33,6 +33,7 @@
 
 - This behavior applies to every configured Area; Painting is only an example.
 - When the planner loads Candidates with an Area selected and no single Main Operation filter, Candidate rows remain scoped by the server to that Area.
+- Every Area uses the same Candidate context baseline before the matrix: **Job, PartDescription, CurrentGoodWIPQty, TotalSurface, LastLaborOp, NextOperation, Priority, OpenDMR** when those source fields exist. Legacy/sparse Area presets may add extra columns but cannot remove this operational baseline from Area focus.
 - The physical Route Matrix shows **all configured Main Operations belonging to the selected Area** in Main Planning Order. Upstream/downstream Main columns from other Areas are not rendered in Area focus.
 - One virtual **Previous Main** column is inserted before the Area Main columns. For each Candidate row it resolves the immediate Main occurrence before that exact Candidate (`standard_operation + source_seq`) and shows status, Batch No, schedule time, and Resource when available.
 - Repeated Main occurrences remain occurrence-safe because Previous Main is anchored by `source_seq`, not by Main name alone.
