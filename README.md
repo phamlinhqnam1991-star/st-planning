@@ -8,7 +8,7 @@ Surface Treatment planning application built with Next.js 16, TypeScript, Postgr
 - All Open Jobs / Import All Open Jobs
 - Configuration: ST Scope, ST Operation Flow, Source → Main Mapping, Main Operation, ST Group, Physical Area, Schedule Area, Planner assignment
 - Recipe & Rules / Loading-Unloading Time / Process Time / Open Job Column Values
-- Planning Board / Batch Detail / Recent Batches
+- Planning Board Matrix / Candidate Jobs / Batch Detail / Recent Batches
 - Masking / Unmasking Planning
 - Board Điều Độ
 - Part Tracker / Job Tracker
@@ -68,3 +68,28 @@ npm run dev
 Apply Supabase migrations in numeric order through migration 066. Do not delete or rewrite already-applied historical migrations.
 
 See `docs/CURRENT_ARCHITECTURE.md` for the current architecture and `AUDIT_DEEP.md` for the latest cleanup audit.
+
+## ERP Template Kit
+
+Trang preview UI mới: `http://localhost:3000/erp-kit`
+
+Template kit nằm tại:
+
+- `src/components/erp/*` — App Shell, Page Header, Toolbar, Data Grid, Form, Status, KPI, Tabs, Section.
+- `src/lib/erp/*` — design tokens, status config, table presets, UI config.
+- `src/components/erp/erp-kit.css` — style namespace riêng `erpkit-*`, chưa thay CSS các màn hình nghiệp vụ hiện tại.
+
+Giai đoạn này chỉ thêm Design System + Showcase. Planning / Batch / Schedule / Database chưa được migrate hoặc thay đổi logic.
+
+### ERP All Tabs Demo
+
+Mở `/erp-kit` để duyệt mock UI cho toàn bộ tab hiện có trước khi áp style vào màn hình production. Demo gồm Master Data, Cấu hình, Part Tracker, Job Tracker, All Open Jobs, Planning Board, Masking / Unmasking, Board Điều Độ, Import Master và Logic & Hướng dẫn. Demo không đọc/ghi database.
+
+## Planning ERP dual route
+
+Trong giai đoạn migrate giao diện Planning:
+
+- `/planning` = ERP version mới, dùng logic/runtime Planning hiện tại.
+- `/planning-old` = baseline UI cũ để regression và đối chiếu.
+
+Xem `PLANNING_ERP_DUAL_ROUTE.md` trước khi xóa baseline.

@@ -1,9 +1,7 @@
 import Link from "next/link";
 import {notFound} from "next/navigation";
+import {AppTabs} from "@/components/app-tabs";
 import {BatchDetailManager} from "@/components/batch-detail-manager";
-import {LogoutButton} from "@/components/logout-button";
-import {ErpAppShell,ErpPageHeader,ErpTabs} from "@/components/erp";
-import {ST_ERP_MODULES} from "@/lib/erp/st-navigation";
 import {getPool} from "@/lib/db";
 import {loadLiveRecipeContext,effectiveRecipeKey} from "@/lib/planning/live-recipe";
 
@@ -399,37 +397,33 @@ export default async function Page({
      }
    }
 
-   return <ErpAppShell
-    moduleItems={ST_ERP_MODULES}
-    activeModule="planning"
-    environment="ERP PLANNING"
-    userArea={<LogoutButton/>}
-    breadcrumb={<><Link href="/planning">Planning</Link><span>/</span><Link href="/planning/batches">Batches</Link><span>/</span><b>{batch.batch_no||"—"}</b></>}
-   >
-    <div className="planning-erp-version">
-     <ErpPageHeader
-      eyebrow="PLANNING / BATCH DETAIL"
-      title={batch.batch_no||"—"}
-      description={`${batch.area_name||"—"} · ${batch.standard_operation}`}
-      status={<span className="erpkit-status erpkit-status-info">{batch.status}</span>}
-      actions={<div className="erpkit-page-actions">
-       <Link className="erpkit-btn" href={`/planning-old/batches/${batchId}`}>Baseline cũ</Link>
-       <Link
-        className="erpkit-btn"
-        href={sp.returnTo==="schedule"
-         ? `/schedule${sp.date?`?date=${encodeURIComponent(sp.date)}`:""}`
-         : "/planning/batches"}
-       >
-        ← {sp.returnTo==="schedule"?"Board Điều Độ":"Recent Planning Batches"}
-       </Link>
-      </div>}
-     />
-     <ErpTabs active="batches" items={[
-      {key:"matrix",label:"Planning Matrix",href:"/planning"},
-      {key:"batches",label:"Recent Planning Batches",href:"/planning/batches"},
-     ]}/>
+   return <main className="erp-shell">
+    <header className="erp-header">
+     <div><h1>ST Planning</h1></div>
+     <div className="erp-env">BATCH DETAIL</div>
+    </header>
 
-     <div className="erpkit-section">
+    <AppTabs active="planning"/>
+
+    <section className="erp-content erp-content-full planning-page">
+     <div className="erp-page-head">
+      <div>
+       <h2>{batch.batch_no||"—"}</h2>
+       <p>{batch.area_name||"—"} · {batch.standard_operation}</p>
+      </div>
+      <Link
+       className="btn"
+       href={
+        sp.returnTo==="schedule"
+         ? `/schedule${sp.date?`?date=${encodeURIComponent(sp.date)}`:""}`
+         : "/planning-old/batches"
+       }
+      >
+       ← {sp.returnTo==="schedule"?"Board Điều Độ":"Recent Planning Batches"}
+      </Link>
+     </div>
+
+     <div className="erp-table-panel">
       <div className="planning-batch-detail-summary">
        <div><span>Operation</span><b>{batch.standard_operation}</b></div>
        <div><span>Recipe</span><b>{batch.recipe_no?`${batch.recipe_no} · ${batch.recipe_name||""}`:"—"}</b></div>
@@ -451,8 +445,8 @@ export default async function Page({
       candidates={candidatesQ.rows as any}
       initialNextFilter={sp.next||""}
      />
-    </div>
-   </ErpAppShell>
+    </section>
+   </main>
  }finally{
    c.release();
  }

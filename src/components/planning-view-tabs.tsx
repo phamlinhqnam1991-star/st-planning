@@ -7,13 +7,13 @@ type PlanningView="candidates"|"batches";
 // v320: tab switching keeps the real query-string scope (area/op/recipe/prevBatch)
 // currently on the URL, so moving between Candidate Jobs / Recent Batches
 // does not lose the filter context.
-export function PlanningViewTabs({active}:{active:PlanningView}){
+export function PlanningViewTabs({active,basePath="/planning"}:{active:PlanningView;basePath?:string}){
  const sp=useSearchParams();
  const scopeQuery=sp.toString();
  const href=(base:string)=>scopeQuery?`${base}?${scopeQuery}`:base;
  const tabs=[
-  {key:"candidates" as const,label:"Candidate Jobs",href:href("/planning")},
-  {key:"batches" as const,label:"Recent Planning Batches",href:href("/planning/batches")}
+  {key:"candidates" as const,label:"Candidate Jobs",href:href(basePath)},
+  {key:"batches" as const,label:"Recent Planning Batches",href:href(`${basePath}/batches`)}
  ];
 
  return <nav className="planning-view-tabs" aria-label="Planning views">

@@ -1,4 +1,5 @@
 import "./globals.css";
+import "@/components/erp/erp-kit.css";
 import type { Viewport } from "next";
 import {AppToastProvider} from "@/components/app-toast-provider";
 
