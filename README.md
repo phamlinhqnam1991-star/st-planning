@@ -96,3 +96,6 @@ Planning ERP đã được chốt làm giao diện chuẩn:
 Route baseline cũ đã được loại bỏ.
 
 ## ERP UI toàn hệ thống
+## ERP Deep UI
+Toàn bộ tab production dùng lớp ERP presentation chung. Xem `ERP_DEEP_UI_AUDIT.md` để biết phạm vi và validation.
+

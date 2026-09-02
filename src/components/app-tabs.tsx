@@ -16,15 +16,15 @@ export function AppTabs({active,presentation="erp"}:{active:AppTab;presentation?
   {key:"guide",label:"Logic & Hướng dẫn",short:"LG",href:"/logic-guide"},
  ] as const;
  if(presentation==="legacy")return <nav className="erp-modules" aria-label="ST Planning modules">
-  {tabs.map(t=><Link key={t.key} href={t.href} className={`erp-module ${active===t.key?"active":""}`}>{t.label}</Link>)}
+  {tabs.map(t=><Link key={t.key} href={t.href} className={`erp-module ${active===t.key?"active":""}`} aria-current={active===t.key?"page":undefined}>{t.label}</Link>)}
  </nav>;
  return <nav className="erp-modules" aria-label="ST Planning modules">
-  {tabs.map(t=><Link key={t.key} href={t.href} className={`erp-module ${active===t.key?"active":""}`}><span className="erp-module-short">{t.short}</span><span className="erp-module-label">{t.label}</span></Link>)}
+  {tabs.map(t=><Link key={t.key} href={t.href} className={`erp-module ${active===t.key?"active":""}`} aria-current={active===t.key?"page":undefined}><span className="erp-module-short">{t.short}</span><span className="erp-module-label">{t.label}</span></Link>)}
  </nav>
 }
 
 export function SubTabs({items,active}:{items:{label:string;href:string;key:string}[];active?:string}){
  return <nav className="erp-subnav" aria-label="Section navigation">
-  {items.map(x=><Link key={x.key} href={x.href} className={`erp-subnav-item ${active===x.key?"active":""}`}>{x.label}</Link>)}
+  {items.map(x=><Link key={x.key} href={x.href} className={`erp-subnav-item ${active===x.key?"active":""}`} aria-current={active===x.key?"page":undefined}>{x.label}</Link>)}
  </nav>
 }

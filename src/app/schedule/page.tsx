@@ -493,6 +493,13 @@ export default async function Page({
      </form>
     </div>
 
+    <div className="erp-overview-metrics">
+     <div className="erp-overview-metric"><span>Planner</span><b>{planner}</b><small>{plannerOperations.length} Main Operation</small></div>
+     <div className="erp-overview-metric"><span>Batch trong phạm vi</span><b>{plannerBatches.length}</b><small>Batch có thể điều độ</small></div>
+     <div className="erp-overview-metric success"><span>Đã điều độ</span><b>{rows.length}</b><small>Ngày {date}</small></div>
+     <div className={`erp-overview-metric ${handoverAlerts.some((x:any)=>x.status==="NEW")?"warning":""}`}><span>Handover mới</span><b>{handoverAlerts.filter((x:any)=>x.status==="NEW").length}</b><small>Cần planner kiểm tra</small></div>
+    </div>
+
     <div className="schedule-planner-view-tabs">
      <a
       className={`schedule-planner-view-tab ${planner==="1"?"active":""}`}
