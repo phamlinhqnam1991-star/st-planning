@@ -117,3 +117,21 @@ Added `/production-execution` for Production department work reporting. Data com
 - Batch Compatibility no longer treats a temporarily missing Route Matrix `effective_recipe_key` as "no Recipe".
 - Missing target Recipe metadata is resolved server-side from the exact Planning Operation + Open Job + current Recipe Rules before compatibility is calculated.
 - Different-Recipe READY Jobs are locked again; V380 Previous Main/compact/zoom behavior is unchanged.
+
+## Database backup / restore (V383)
+
+For a compressed backup of the ST Planning `public` PostgreSQL schema, install PostgreSQL client tools and run:
+
+```bash
+npm run db:backup
+```
+
+Windows: double-click `scripts/backup-database.cmd`.
+
+Restore is destructive and requires an explicit token:
+
+```bash
+npm run db:restore -- backups/st-planning_YYYYMMDD_HHMMSS.dump --confirm=RESTORE
+```
+
+See `docs/DATABASE_BACKUP_V383.md` for details.

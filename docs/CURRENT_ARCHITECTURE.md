@@ -98,3 +98,7 @@ Migrations are append-only. Historical migrations 058/059 are preserved. Migrati
 - Ask AI supports recent multi-turn conversation. Conversation history carries intent/context only; database facts must come from the current snapshot or current-request tool results.
 - To protect free quotas, database access is on-demand rather than dumping the entire database into every prompt. `AI_MAX_TOOL_ROUNDS` controls the maximum tool rounds per question (default 4); the old `GROQ_AI_MAX_TOOL_ROUNDS` remains a backward-compatible fallback setting.
 - If a provider returns text that does not match the structured analysis schema, the server attempts structured-output normalization; text fallback remains available rather than misreporting a connection failure.
+
+## V383 — Database backup/restore safety layer
+
+Administrative PostgreSQL backups are created outside Vercel with `pg_dump` against the ST Planning `public` schema. The application runtime remains unchanged. The backup layer is intentionally read-only during backup and uses a separate explicit destructive restore command with `RESTORE` confirmation. Supabase-managed schemas are excluded from the ST Planning business backup.

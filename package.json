@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "clean:delivery": "rm -rf node_modules .next tsconfig.tsbuildinfo vv.txt .env.local",
     "clean:stale": "node scripts/remove-stale-legacy.mjs",
-    "i18n:check": "node scripts/check-ui-i18n.mjs"
+    "i18n:check": "node scripts/check-ui-i18n.mjs",
+    "db:backup": "node scripts/db-backup.mjs",
+    "db:restore": "node scripts/db-restore.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",

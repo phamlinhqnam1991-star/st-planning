@@ -7,3 +7,7 @@ node_modules
 tsconfig.tsbuildinfo
 vv.txt
 .vercel
+
+# Local PostgreSQL backups - never commit production data
+backups/*.dump
+backups/*.dump.manifest.json
