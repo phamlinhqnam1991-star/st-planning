@@ -2593,3 +2593,20 @@
 .planning-erp-version .candidate-density-compact .planning-erp-matrix-table td.route-status-cell>small{
   margin-top:1px!important;font-size:6px!important;line-height:1.05!important;
 }
+
+/* v387 · Job/Main Hold controls ------------------------------------------------ */
+.planning-erp-version .route-status-main-line{display:flex;align-items:center;gap:4px;min-width:0}
+.planning-erp-version .planning-erp-matrix-table td.route-status-cell .route-status-main-line>b{display:inline-flex;min-height:20px;align-items:center;padding:2px 6px;border:1px solid #d8dee8;border-radius:5px;background:#f5f7fa;color:#667085!important;font-size:9px!important;font-weight:800!important;letter-spacing:.015em;white-space:nowrap}
+.planning-erp-version .planning-erp-matrix-table td.route-status-ready .route-status-main-line>b{background:#dbeeff!important;border-color:#86b9e8!important;color:#0d5ea8!important}
+.planning-erp-version .planning-erp-matrix-table td.route-status-waiting .route-status-main-line>b,.planning-erp-version .planning-erp-matrix-table td.route-status-wait-prev .route-status-main-line>b,.planning-erp-version .planning-erp-matrix-table td.route-status-wait-future .route-status-main-line>b{background:#fff0cf!important;border-color:#e9cb8c!important;color:#945c00!important}
+.planning-erp-version .planning-erp-matrix-table td.route-status-hold .route-status-main-line>b{background:#ffe8e4!important;border-color:#efb9b2!important;color:#b42318!important}
+.planning-erp-version .route-job-hold-btn{float:right;margin-left:4px;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border:1px solid #d0d5dd;border-radius:5px;background:#fff;color:#667085;font-size:9px;font-weight:850;cursor:pointer;line-height:1}
+.planning-erp-version .route-job-hold-btn:hover{border-color:#d92d20;background:#fff4f2;color:#b42318}
+.planning-erp-version .route-job-hold-btn.is-held{border-color:#efb9b2;background:#ffe8e4;color:#b42318}
+.job-hold-modal-backdrop{position:fixed;inset:0;z-index:2500;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.32);backdrop-filter:blur(1px)}
+.job-hold-modal{width:min(460px,calc(100vw - 32px));border:1px solid #d0d5dd;border-radius:12px;background:#fff;box-shadow:0 18px 55px rgba(15,23,42,.2);padding:14px;display:grid;gap:12px}
+.job-hold-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.job-hold-modal-head>div{display:grid;gap:3px}.job-hold-modal-head b{font-size:14px;color:#101828}.job-hold-modal-head small{font-size:11px;color:#667085}
+.job-hold-field{display:grid;gap:5px}.job-hold-field>span{font-size:11px;font-weight:750;color:#475467}.job-hold-field textarea{resize:vertical;min-height:72px}
+.job-hold-current{display:grid;grid-template-columns:1fr 1fr;gap:8px}.job-hold-current>div{display:grid;gap:3px;padding:8px;border:1px solid #eaecf0;border-radius:8px;background:#f9fafb}.job-hold-current span{font-size:10px;color:#667085}.job-hold-current b{font-size:11px;color:#344054;overflow-wrap:anywhere}
+.job-hold-modal-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:2px}
+.erpkit-live-kpi.is-hold{background:#fff4f2;border-color:#efb9b2;color:#b42318}

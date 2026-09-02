@@ -41,6 +41,7 @@ const RECIPE_OPTIONS_SQL=`
          and ocr.is_active=true
         where p.standard_operation=$1
           and p.status='ELIGIBLE'
+          and coalesce(p.is_hold,false)=false
           and p.is_active=true
       )
     )
@@ -288,7 +289,9 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
        coalesce(p.source_operation_code,j.next_operation,'') source_operation_code,
        coalesce(p.standard_operation,'') standard_operation,
        p.st_group,p.recipe_key,
-       coalesce(p.status,'LOCKED') planning_status,
+       case when coalesce(p.is_hold,false) then 'HOLD' else coalesce(p.status,'LOCKED') end planning_status,
+       coalesce(p.is_hold,false) is_hold,
+       p.hold_reason,p.hold_note,p.held_at,p.held_by,
        (p.id is not null) has_planning_chain,
        p.source_seq,
        pb.batch_no,

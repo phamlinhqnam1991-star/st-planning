@@ -70,7 +70,7 @@ npm run dev
 
 ## Database
 
-Apply Supabase migrations in numeric order through migration 070. Do not delete or rewrite already-applied historical migrations.
+Apply Supabase migrations in numeric order through migration 071. Do not delete or rewrite already-applied historical migrations.
 
 See `docs/CURRENT_ARCHITECTURE.md` for the current architecture and `AUDIT_CLEANUP.md` for the latest cleanup audit.
 
@@ -142,3 +142,8 @@ See `docs/DATABASE_BACKUP_V383.md` for details.
 - Next Main Planning resolves the immediate downstream Main independently per Job and shows that downstream Main's Recipe when available.
 - Recipe Compatibility Lock for the selected Batch Main is unchanged.
 
+
+
+## V387 · Job/Main Hold
+
+Run `supabase/migrations/071_job_main_operation_hold.sql`. Planning Matrix READY/WAIT cells can be held at the exact Job + Main occurrence. Held cells display `H`, cannot be added to Batch, retain reason/note/user/time across All Open Job imports, and can be released to recalculate READY/WAIT for that Job only. Job Hold is separate from Schedule/Batch HOLD.

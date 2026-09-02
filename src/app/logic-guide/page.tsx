@@ -275,6 +275,7 @@ export default async function Page(){
      <>Nếu Operation là <b>ST_SCOPE_ONLY</b>, Job vẫn thấy ở All Open Jobs nhưng Operation đó không trở thành Main Planning, không tạo Batch và không vào Board Điều Độ.</>,
      <>Planning resolver dùng Routing + Bridge + Source → Main Mapping để tạo các occurrence Main trong <code>planning_job_operation</code>.</>,
      <>Trạng thái tuần tự: Main chưa plan đầu tiên trong suffix hiện tại = <b>READY</b>; Main chưa plan phía sau = <b>WAIT</b>; Main có Batch = <b>PLANNED</b>; tiến độ vật lý đã qua = <b>DONE</b>.</>,
+     <>Planner có thể đặt <b>Job/Main HOLD</b> trước khi vào Batch. HOLD được lưu trên đúng <code>planning_job_operation</code>, chặn Job đó khỏi Batch nhưng không Hold các Job khác; Release Hold sẽ tính lại đúng READY/WAIT cho riêng Job đó.</>,
      <>Khi tạo Batch cho READY, server cập nhật đúng Job đó và tính lại chain; chỉ Main kế tiếp được mở READY. Client dùng <b>Delta Refresh</b>, không reload toàn Planning Board.</>
     ]}/>
 
@@ -288,6 +289,7 @@ export default async function Page(){
       <tr><td>Source → Main</td><td><code>md_st_operation_mapping</code></td><td>Recipe mapping</td></tr>
       <tr><td>Recipe runtime</td><td><code>md_main_operation_recipe</code> + <code>selection_rule</code></td><td>Không dùng mapping khác thay thế</td></tr>
       <tr><td>Batch Compatibility</td><td>Recipe mapping <code>selection_rule</code> + selection lưu trên Batch</td><td>Process Time condition</td></tr>
+      <tr><td>Job/Main Hold</td><td><code>planning_job_operation.is_hold</code> + reason/note/user/time</td><td><code>planning_schedule.status=HOLD</code> (đó là Hold cấp Batch/Schedule)</td></tr>
       <tr><td>Process Time chuẩn</td><td><code>md_recipe_time_rule</code> + condition table</td><td>Duration planner override</td></tr>
       <tr><td>Planner ownership</td><td>Schedule Area → Planner Assignment</td><td>Danh sách Planner hard-code</td></tr>
      </tbody>

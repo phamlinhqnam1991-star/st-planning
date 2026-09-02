@@ -113,3 +113,15 @@ Migrations are append-only. Historical migrations 058/059 are preserved. Migrati
 ## V383 — Database backup/restore safety layer
 
 Administrative PostgreSQL backups are created outside Vercel with `pg_dump` against the ST Planning `public` schema. The application runtime remains unchanged. The backup layer is intentionally read-only during backup and uses a separate explicit destructive restore command with `RESTORE` confirmation. Supabase-managed schemas are excluded from the ST Planning business backup.
+
+
+## V387 — Job/Main Hold
+
+`Planning Job Operation -> Job Hold Gate -> READY/WAIT display -> Batch selection`
+
+- Job Hold is stored on the exact `planning_job_operation` occurrence (`is_hold`, `hold_reason`, `hold_note`, `held_at`, `held_by`).
+- Job Hold is independent from `planning_schedule.status = HOLD`; one held Job must never hold every Job in a shared Batch/Schedule.
+- An unbatched READY or WAIT Main can be placed on Hold from the Planning Matrix. A held cell displays `H`, is not batch-selectable, and the Batch API rejects it server-side as a race-safety check.
+- Hold metadata is not overwritten by `syncPlanningChains`, so Hold survives incremental All Open Job imports and normal chain rebuilds while the same operation occurrence remains active.
+- Release Hold clears only the Hold metadata and runs an incremental chain sync for that Job, returning the operation to the correct READY/WAIT state.
+- Planning Board exposes a HOLD filter and Job Tracker shows Hold reason/user information.

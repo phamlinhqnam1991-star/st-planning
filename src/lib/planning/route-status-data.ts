@@ -34,6 +34,11 @@ export async function loadPlanningRouteStatus(c:any,candidateIds:number[]){
            'standard_operation',r.standard_operation,
            'planning_job_operation_id',r.planning_job_operation_id,
            'planning_job_status',r.planning_job_status,
+           'is_hold',r.planning_job_hold,
+           'hold_reason',r.hold_reason,
+           'hold_note',r.hold_note,
+           'held_at',r.held_at,
+           'held_by',r.held_by,
            'ready_source_seq',r.ready_source_seq,
            'route_status',r.route_status,
            'batch_id',r.batch_id,
@@ -108,12 +113,17 @@ export async function loadPlanningRouteStatus(c:any,candidateIds:number[]){
 
              exact_po.id planning_job_operation_id,
              exact_po.status planning_job_status,
+             coalesce(exact_po.is_hold,false) planning_job_hold,
+             exact_po.hold_reason,
+             exact_po.hold_note,
+             exact_po.held_at,
+             exact_po.held_by,
              exact_po.planning_seq
 
            from raw_route rr
 
            left join lateral (
-             select po.id,po.standard_operation,po.status,po.planning_seq
+             select po.id,po.standard_operation,po.status,po.is_hold,po.hold_reason,po.hold_note,po.held_at,po.held_by,po.planning_seq
              from planning_job_operation po
              where po.job_num=p.job_num
                and po.is_active=true
@@ -308,9 +318,19 @@ export async function loadPlanningRouteStatus(c:any,candidateIds:number[]){
            standard_operation,
            planning_job_operation_id,
            planning_job_status,
+           planning_job_hold,
+           hold_reason,
+           hold_note,
+           held_at,
+           held_by,
            ready_source_seq,
 
            case
+             -- v387: Job/Main HOLD is a planning-level gate independent from
+             -- Batch/Schedule HOLD. It only overrides an unbatched live row.
+             when coalesce(planning_job_hold,false) and batch_id is null
+               then 'HOLD'
+
              -- v312: operations before Current Main are already passed by
              -- physical progress, but preserve their stronger actual history.
              -- If no Batch/Schedule history exists, show DONE_BY_PROGRESS as DONE.

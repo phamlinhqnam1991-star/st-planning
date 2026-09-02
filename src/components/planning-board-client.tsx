@@ -24,6 +24,11 @@ type RouteStatusItem={
  standard_operation:string|null;
  planning_job_operation_id:number|null;
  planning_job_status:string|null;
+ is_hold?:boolean;
+ hold_reason?:string|null;
+ hold_note?:string|null;
+ held_at?:string|null;
+ held_by?:string|null;
  ready_source_seq:number|null;
  route_status:
   |"DONE"
@@ -81,7 +86,12 @@ type Candidate={
  next_standard_operation:string|null;
  priority_type:string|null;
  recipe_required:boolean;
- planning_status:"LOCKED"|"ELIGIBLE"|"PLANNED";
+ planning_status:"LOCKED"|"ELIGIBLE"|"PLANNED"|"HOLD";
+ is_hold?:boolean;
+ hold_reason?:string|null;
+ hold_note?:string|null;
+ held_at?:string|null;
+ held_by?:string|null;
  has_planning_chain?:boolean;
  next_operation_type?:"PLANNING_OPERATION"|"INTERMEDIATE"|"ST_SCOPE_ONLY"|null;
  intermediate_previous_main?:string|null;
@@ -413,6 +423,17 @@ type BatchCompatibilityLock={
 };
 
 type CompatibilityConditionChoice={identity:string;columns:string[]};
+type JobHoldDialogTarget={
+ id:number;
+ jobNum:string;
+ standardOperation:string;
+ sourceOperation:string;
+ isHold:boolean;
+ holdReason?:string|null;
+ holdNote?:string|null;
+ heldAt?:string|null;
+ heldBy?:string|null;
+};
 
 type CandidateViewPreset={
  columns:string[];
@@ -521,6 +542,10 @@ export function PlanningBoardClient({
  const [selected,setSelected]=useState<number[]>([]);
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
+ const [holdDialog,setHoldDialog]=useState<JobHoldDialogTarget|null>(null);
+ const [holdReason,setHoldReason]=useState("DMR");
+ const [holdNote,setHoldNote]=useState("");
+ const [holdBusy,setHoldBusy]=useState(false);
  const [targetBatchId,setTargetBatchId]=useState("");
  // v336: first READY Job (or Existing Batch) establishes Recipe + Process
  // condition compatibility. Only incompatible READY cells of that Main are dimmed/disabled; other Main columns stay untouched.
@@ -1785,6 +1810,7 @@ const currentPriorityMonth=useMemo(()=>{
        || (statusFilter==="NO_CHAIN"&&x.has_planning_chain===false)
        || (statusFilter==="ELIGIBLE"&&x.planning_status==="ELIGIBLE")
        || (statusFilter==="PLANNED"&&x.planning_status==="PLANNED")
+       || (statusFilter==="HOLD"&&x.planning_status==="HOLD")
        || (statusFilter==="WAIT"&&x.planning_status==="LOCKED"&&x.has_planning_chain!==false))
    );
 
@@ -1867,6 +1893,11 @@ const currentPriorityMonth=useMemo(()=>{
 
  const waitingCandidates=useMemo(
    ()=>displayCandidates.filter(x=>x.planning_status==="LOCKED"&&x.has_planning_chain!==false),
+   [displayCandidates]
+ );
+
+ const holdCandidates=useMemo(
+   ()=>displayCandidates.filter(x=>x.planning_status==="HOLD"),
    [displayCandidates]
  );
 
@@ -2849,6 +2880,7 @@ const currentPriorityMonth=useMemo(()=>{
     case "PLANNED": return "P";
     case "ELIGIBLE": return "R";
     case "LOCKED": return "W";
+    case "HOLD": return "H";
     case "NO BATCH": return "NB";
     default:return raw;
    }
@@ -2942,6 +2974,78 @@ const currentPriorityMonth=useMemo(()=>{
  const routeCellSelected=(item:RouteStatusItem)=>{
    const id=Number(item.planning_job_operation_id);
    return Number.isFinite(id)&&selected.includes(id);
+ };
+
+ const openJobHoldDialog=(candidate:Candidate,item:RouteStatusItem)=>{
+   const rawId=Number(item.planning_job_operation_id);
+   const fallbackId=Number(candidate.id);
+   const sameAsCandidate=normalized(item.standard_operation||candidate.standard_operation)===normalized(candidate.standard_operation);
+   const id=Number.isFinite(rawId)?rawId:(sameAsCandidate&&Number.isFinite(fallbackId)?fallbackId:NaN);
+   if(!Number.isFinite(id)){setMessage(`${candidate.job_num}: không xác định được Planning Operation để Hold.`);return;}
+   const target:JobHoldDialogTarget={
+    id,
+    jobNum:candidate.job_num,
+    standardOperation:String(item.standard_operation||candidate.standard_operation||""),
+    sourceOperation:String(item.source_operation||candidate.source_operation_code||""),
+    isHold:Boolean(item.is_hold??candidate.is_hold),
+    holdReason:item.hold_reason??candidate.hold_reason??null,
+    holdNote:item.hold_note??candidate.hold_note??null,
+    heldAt:item.held_at??candidate.held_at??null,
+    heldBy:item.held_by??candidate.held_by??null
+   };
+   setHoldDialog(target);
+   setHoldReason(String(target.holdReason||"DMR").toUpperCase());
+   setHoldNote(String(target.holdNote||""));
+ };
+
+ const saveJobHold=async()=>{
+   if(!holdDialog||holdDialog.isHold)return;
+   setHoldBusy(true);setMessage("");
+   try{
+    const r=await fetch("/api/planning/job-hold",{
+     method:"POST",headers:{"content-type":"application/json"},
+     body:JSON.stringify({planning_job_operation_id:holdDialog.id,reason:holdReason,note:holdNote})
+    });
+    const data=await safeJson(r);
+    if(!r.ok)throw new Error(data?.error||"Không Hold được Job.");
+    setSelected(prev=>prev.filter(x=>x!==holdDialog.id));
+    setHoldDialog(null);
+    pushAppToast(`${holdDialog.jobNum} · ${holdDialog.standardOperation}: HOLD`);
+    onReloadCandidates?.();
+   }catch(e){setMessage(e instanceof Error?e.message:String(e));}
+   finally{setHoldBusy(false);}
+ };
+
+ const releaseJobHold=async()=>{
+   if(!holdDialog||!holdDialog.isHold)return;
+   setHoldBusy(true);setMessage("");
+   try{
+    const r=await fetch("/api/planning/job-hold",{
+     method:"DELETE",headers:{"content-type":"application/json"},
+     body:JSON.stringify({planning_job_operation_id:holdDialog.id})
+    });
+    const data=await safeJson(r);
+    if(!r.ok)throw new Error(data?.error||"Không bỏ Hold được Job.");
+    setHoldDialog(null);
+    pushAppToast(`${holdDialog.jobNum} · ${holdDialog.standardOperation}: đã bỏ HOLD`);
+    onReloadCandidates?.();
+   }catch(e){setMessage(e instanceof Error?e.message:String(e));}
+   finally{setHoldBusy(false);}
+ };
+
+ const renderJobHoldButton=(candidate:Candidate,item:RouteStatusItem,status:string)=>{
+   const isJobHold=Boolean(item.is_hold??candidate.is_hold);
+   const rawId=Number(item.planning_job_operation_id);
+   const hasResolvableId=Number.isFinite(rawId)||(normalized(item.standard_operation||candidate.standard_operation)===normalized(candidate.standard_operation)&&Number.isFinite(Number(candidate.id)));
+   const canPlaceHold=hasResolvableId&&!item.batch_id && ["READY","WAITING"].includes(normalized(status));
+   if(!isJobHold&&!canPlaceHold)return null;
+   return <button
+    type="button"
+    className={`route-job-hold-btn ${isJobHold?"is-held":""}`}
+    title={isJobHold?"Bỏ Hold Job/Main":"Hold Job/Main"}
+    aria-label={isJobHold?"Bỏ Hold Job/Main":"Hold Job/Main"}
+    onClick={e=>{e.preventDefault();e.stopPropagation();openJobHoldDialog(candidate,item);}}
+   >{isJobHold?"↺":"H"}</button>;
  };
 
  const toggleRouteCell=(candidate:Candidate,item:RouteStatusItem)=>{
@@ -3140,6 +3244,11 @@ const currentPriorityMonth=useMemo(()=>{
       standard_operation:x.standard_operation,
       planning_job_operation_id:x.id,
       planning_job_status:x.planning_status,
+      is_hold:Boolean(x.is_hold),
+      hold_reason:x.hold_reason||null,
+      hold_note:x.hold_note||null,
+      held_at:x.held_at||null,
+      held_by:x.held_by||null,
       ready_source_seq:Number(x.source_seq||0)||null,
       route_status:status,
       batch_id:x.batch_id,
@@ -3170,7 +3279,7 @@ const currentPriorityMonth=useMemo(()=>{
        toggleRouteCell(x,fallbackItem);
       }}
      >
-      <b>{fallbackDisplay}</b>
+      <b>{fallbackDisplay}</b>{renderJobHoldButton(x,fallbackItem,status)}
       {!currentMainFocus&&x.batch_no&&<span className="route-status-batch">{x.batch_no}</span>}
      </td>;
     }
@@ -3286,7 +3395,10 @@ const currentPriorityMonth=useMemo(()=>{
     item.resource_code?`${erpMode?"Resource":"Resource"}: ${item.resource_code}`:"",
     item.planned_start?`${erpMode?"Bắt đầu":"Start"}: ${routeDateTime(item.planned_start)}`:"",
     item.planned_end?`${erpMode?"Kết thúc":"End"}: ${routeDateTime(item.planned_end)}`:"",
-    item.recipe_name?`Recipe: ${item.recipe_name}`:""
+    item.recipe_name?`Recipe: ${item.recipe_name}`:"",
+    item.is_hold?`Hold: ${item.hold_reason||"—"}${item.hold_note?` · ${item.hold_note}`:""}`:"",
+    item.is_hold&&item.held_by?`Held by: ${item.held_by}`:"",
+    item.is_hold&&item.held_at?`Held at: ${routeDateTime(item.held_at)}`:""
    ].filter(Boolean).join(" · ")).join("\n");
 
    // v159: one source of truth for interaction.
@@ -3328,7 +3440,7 @@ const currentPriorityMonth=useMemo(()=>{
      if(clickable)toggleRouteCell(x,selectableItem);
     }}
    >
-    <b>{displayStatus}</b>
+    <b>{displayStatus}</b>{renderJobHoldButton(x,selectableItem,status)}
 
     {!currentMainFocus&&<>
      {(scheduledEnds.length>0||batchNos.length>0)&&
@@ -3537,6 +3649,7 @@ const currentPriorityMonth=useMemo(()=>{
         <button type="button" className={`erpkit-live-kpi is-ready ${statusFilter==="ELIGIBLE"?"is-active":""}`} onClick={()=>setStatusFilter(statusFilter==="ELIGIBLE"?"":"ELIGIBLE")}><b>{eligibleCandidates.length}</b><span>READY</span></button>
         <button type="button" className={`erpkit-live-kpi is-batch ${statusFilter==="PLANNED"?"is-active":""}`} onClick={()=>setStatusFilter(statusFilter==="PLANNED"?"":"PLANNED")}><b>{plannedCandidates.length}</b><span>BATCH</span></button>
         <button type="button" className={`erpkit-live-kpi is-wait ${statusFilter==="WAIT"?"is-active":""}`} onClick={()=>setStatusFilter(statusFilter==="WAIT"?"":"WAIT")}><b>{waitingCandidates.length}</b><span>WAIT</span></button>
+        {holdCandidates.length>0&&<button type="button" className={`erpkit-live-kpi is-hold ${statusFilter==="HOLD"?"is-active":""}`} onClick={()=>setStatusFilter(statusFilter==="HOLD"?"":"HOLD")}><b>{holdCandidates.length}</b><span>HOLD</span></button>}
         {noChainCandidates.length>0&&<button type="button" className={`erpkit-live-kpi is-muted ${statusFilter==="NO_CHAIN"?"is-active":""}`} onClick={()=>setStatusFilter(statusFilter==="NO_CHAIN"?"":"NO_CHAIN")}><b>{noChainCandidates.length}</b><span>NO CHAIN</span></button>}
        </div>
       </div>
@@ -3569,6 +3682,7 @@ const currentPriorityMonth=useMemo(()=>{
        <button type="button" className={`btn small status-chip ${statusFilter==="PLANNED"?"status-chip-active":""}`} onClick={()=>setStatusFilter(statusFilter==="PLANNED"?"":"PLANNED")} title="Lọc: chỉ hiện Candidate đã vào Batch">{plannedCandidates.length} PLANNED</button>
        <span>·</span>
        <button type="button" className={`btn small status-chip ${statusFilter==="WAIT"?"status-chip-active":""}`} onClick={()=>setStatusFilter(statusFilter==="WAIT"?"":"WAIT")} title="Lọc: chỉ hiện Candidate đang chờ (LOCKED, có chain)">{waitingCandidates.length} WAIT</button>
+       {holdCandidates.length>0&&<><span>·</span><button type="button" className={`btn small status-chip ${statusFilter==="HOLD"?"status-chip-active":""}`} onClick={()=>setStatusFilter(statusFilter==="HOLD"?"":"HOLD")} title="Lọc: Job/Main đang HOLD">{holdCandidates.length} HOLD</button></>}
        {noChainCandidates.length>0&&<><span>·</span><button type="button" className={`btn small status-chip ${statusFilter==="NO_CHAIN"?"status-chip-active":""}`} onClick={()=>setStatusFilter(statusFilter==="NO_CHAIN"?"":"NO_CHAIN")} title="Lọc: chỉ hiện Job KHÔNG có Planning Chain (NO CHAIN)">{noChainCandidates.length} NO CHAIN</button></>}
        <span>·</span>
        <button type="button" className="btn small" onClick={()=>setStatusFilter("")} title="Bỏ lọc trạng thái — hiện tất cả">Tất cả {pagination.totalCandidates} job</button>
@@ -4328,6 +4442,36 @@ const currentPriorityMonth=useMemo(()=>{
 
     </div>
    </aside>
+
+   {holdDialog&&<div className="job-hold-modal-backdrop" onMouseDown={()=>!holdBusy&&setHoldDialog(null)}>
+    <div className="job-hold-modal" onMouseDown={e=>e.stopPropagation()}>
+     <div className="job-hold-modal-head">
+      <div><b>{holdDialog.isHold?"Bỏ Hold Job":"Hold Job"}</b><small>{holdDialog.jobNum} · {holdDialog.standardOperation}</small></div>
+      <button type="button" className="btn small" disabled={holdBusy} onClick={()=>setHoldDialog(null)}>×</button>
+     </div>
+     {holdDialog.isHold?(
+      <div className="job-hold-current">
+       <div><span>Reason</span><b>{holdDialog.holdReason||"—"}</b></div>
+       <div><span>Note</span><b>{holdDialog.holdNote||"—"}</b></div>
+       <div><span>Held by</span><b>{holdDialog.heldBy||"—"}</b></div>
+       <div><span>Held at</span><b>{holdDialog.heldAt?routeDateTime(holdDialog.heldAt):"—"}</b></div>
+      </div>
+     ):(
+      <>
+       <label className="job-hold-field"><span>Hold Reason</span><select className="input" value={holdReason} onChange={e=>setHoldReason(e.target.value)} disabled={holdBusy}>
+        <option value="DMR">DMR</option><option value="QUALITY">Quality</option><option value="MATERIAL">Material</option><option value="CUSTOMER">Customer</option><option value="OTHER">Other</option>
+       </select></label>
+       <label className="job-hold-field"><span>Note</span><textarea className="input" rows={3} value={holdNote} onChange={e=>setHoldNote(e.target.value)} placeholder="Ghi chú lý do Hold..." disabled={holdBusy}/></label>
+      </>
+     )}
+     <div className="job-hold-modal-actions">
+      <button type="button" className="btn small" disabled={holdBusy} onClick={()=>setHoldDialog(null)}>Đóng</button>
+      {holdDialog.isHold
+       ?<button type="button" className="btn primary" disabled={holdBusy} onClick={releaseJobHold}>{holdBusy?"Đang xử lý…":"Bỏ Hold"}</button>
+       :<button type="button" className="btn primary" disabled={holdBusy||!holdReason} onClick={saveJobHold}>{holdBusy?"Đang xử lý…":"Hold Job"}</button>}
+     </div>
+    </div>
+   </div>}
 
    {/* v339: Excel-style column filter popup (fixed overlay, không bị cắt bởi scroll container) */}
    {colFilterMenu&&(()=>{

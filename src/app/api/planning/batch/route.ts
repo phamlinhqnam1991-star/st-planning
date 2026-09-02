@@ -241,7 +241,7 @@ export async function POST(req:NextRequest){
 
    const q=await c.query(`
      select
-       p.id,p.job_num,p.source_operation_code,p.standard_operation,p.st_group,p.recipe_key,p.status,
+       p.id,p.job_num,p.source_operation_code,p.standard_operation,p.st_group,p.recipe_key,p.status,p.is_hold,
        p.source_seq,p.planning_seq,p.operation_instance_key,
        j.part_num,j.revision_num,
        j.source_data,
@@ -277,6 +277,8 @@ export async function POST(req:NextRequest){
      throw new Error("Một số Candidate Job không còn hợp lệ.");
 
    for(const r of q.rows){
+     if(r.is_hold)
+       throw new Error(`Job ${r.job_num} · ${r.standard_operation} đang HOLD. Bỏ Hold trước khi thêm vào Batch.`);
      if(r.status!=="ELIGIBLE")
        throw new Error(`Job ${r.job_num} không còn ELIGIBLE.`);
      if(r.standard_operation!==standardOperation)

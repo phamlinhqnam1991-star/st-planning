@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V380";
+export const ST_AI_KNOWLEDGE_VERSION="V387";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -16,7 +16,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"planning-chain",
   title:"Planning Chain and READY/WAIT",
-  content:`Planning Chain is the source of truth for sequential planning handoff. planning_job_operation represents canonical Main Planning occurrences with operation_instance_key and status LOCKED/ELIGIBLE/PLANNED. READY in the UI corresponds to the eligible next planning occurrence; a created Batch records durable Batch history. Repeated raw operations are resolved by occurrence identity rather than raw text alone.`
+  content:`Planning Chain is the source of truth for sequential planning handoff. planning_job_operation represents canonical Main Planning occurrences with operation_instance_key and underlying status LOCKED/ELIGIBLE/PLANNED. READY in the UI corresponds to the eligible next planning occurrence; a created Batch records durable Batch history. Repeated raw operations are resolved by occurrence identity rather than raw text alone. Job/Main Hold is a separate planning gate on the exact occurrence and does not change Batch/Schedule Hold semantics.`
  },
  {
   key:"st-scope",
@@ -41,7 +41,13 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"planning-ready-focus",
   title:"Planning Board READY focus context",
-  content:`When a READY Main establishes Batch Selection Mode, the board narrows Jobs to that Main but keeps the selected Main plus the union of each visible Job's immediate Previous Main Planning. The virtual Previous Main column is read-only context showing each Job's actual previous Main Operation, its status badge, prior Batch No, resource and scheduled time when available; unrelated Main columns stay hidden. Compact row density and 70%-130% table zoom are presentation-only and never change Planning Chain, Batch, Recipe, or Schedule.`
+  content:`When an Area is selected, the matrix shows one virtual Previous Main column plus all Main Operations mapped to that Area. When a READY Main establishes Batch Selection Mode, it narrows to Previous Main + the selected Main + one virtual Next Main Planning column. Previous Main is read-only context with status, prior Batch No, resource and schedule time. The selected Main shows status only; Next Main Planning shows that next Main and its own Recipe when applicable. Compact row density and 70%-130% table zoom are presentation-only.`
+ },
+
+ {
+  key:"job-main-hold",
+  title:"Job/Main Hold",
+  content:`Planner Hold is stored on the exact planning_job_operation occurrence using is_hold plus reason/note/user/time. An unbatched READY or WAIT Main on Hold displays H and cannot be added to Batch; the Batch API validates the hold again server-side. Hold survives All Open Job incremental imports and normal chain rebuilds for the same live occurrence. Release Hold clears only hold metadata and incrementally recalculates READY/WAIT for that Job. planning_schedule.status=HOLD remains a separate Batch/Schedule-level state.`
  },
  {
   key:"chemical-line",
