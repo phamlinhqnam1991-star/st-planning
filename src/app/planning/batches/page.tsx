@@ -27,6 +27,27 @@ const hhmm=(minutes:number|null)=>{
  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
 };
 
+const batchStatusTone=(value:unknown)=>{
+ const status=String(value||"").trim().toUpperCase();
+ if(["COMPLETED","DONE"].includes(status))return "erpkit-status-success";
+ if(["RUNNING","SCHEDULED"].includes(status))return "erpkit-status-info";
+ if(["HOLD","WAITING"].includes(status))return "erpkit-status-warning";
+ if(["CANCELLED","ERROR"].includes(status))return "erpkit-status-danger";
+ return "erpkit-status-neutral";
+};
+
+const batchStatusLabel=(value:unknown)=>{
+ const status=String(value||"").trim().toUpperCase();
+ if(status==="UNSCHEDULED")return "CHƯA ĐIỀU ĐỘ";
+ if(status==="SCHEDULED")return "ĐÃ ĐIỀU ĐỘ";
+ if(status==="RUNNING")return "ĐANG CHẠY";
+ if(["COMPLETED","DONE"].includes(status))return "HOÀN TẤT";
+ if(["HOLD","WAITING"].includes(status))return "ĐANG CHỜ";
+ if(status==="CANCELLED")return "ĐÃ HỦY";
+ if(status==="ERROR")return "LỖI";
+ return status||"—";
+};
+
 export default async function Page({searchParams}:{searchParams:Promise<{area?:string;op?:string;recipe?:string;prevBatch?:string}>}){
  const sp=await searchParams;
  const scopeParams=new URLSearchParams();
@@ -39,34 +60,34 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
   return <ErpAppShell
    moduleItems={ST_ERP_MODULES}
    activeModule="planning"
-   environment="ERP PLANNING"
-   userArea={<LogoutButton/>}
-   breadcrumb={<><Link href="/planning">Planning</Link><span>/</span><b>Recent Planning Batches</b></>}
+   environment="ST PLANNING"
+   userArea={<LogoutButton presentation="erp"/>}
+   breadcrumb={<><Link href="/planning">Planning Board</Link><span>/</span><b>Batch gần đây</b></>}
   >
    <div className="planning-erp-version">
     <ErpPageHeader
-     eyebrow="PLANNING / BATCH"
-     title="Recent Planning Batches"
-     description="Danh sách Batch hiện tại · giữ nguyên Batch actions và dữ liệu của Planning Board."
-     status={<span className="erpkit-status erpkit-status-success">ERP</span>}
-     actions={<Link className="erpkit-btn" href={scoped("/planning-old/batches")}>Mở baseline cũ</Link>}
+     eyebrow="PLANNING BOARD"
+     title="Batch gần đây"
+     description="Theo dõi các Batch đã tạo từ Planning Board và mở nhanh chi tiết khi cần."
+     status={<span className="erpkit-status erpkit-status-success"><span className="erpkit-status-dot"/>LIVE</span>}
+     actions={<Link className="erpkit-btn" href={scoped("/planning-old/batches")}>So sánh giao diện cũ</Link>}
     />
     <ErpTabs active="batches" items={[
-     {key:"matrix",label:"Planning Matrix",href:scoped("/planning")},
-     {key:"batches",label:"Recent Planning Batches",href:scoped("/planning/batches"),count:batchesQ.rows.length},
+     {key:"matrix",label:"Ma trận kế hoạch",href:scoped("/planning")},
+     {key:"batches",label:"Batch gần đây",href:scoped("/planning/batches"),count:batchesQ.rows.length},
     ]}/>
 
     <div className="erpkit-section erpkit-live-batches">
      <div className="erpkit-section-head">
-      <div><b>Planning Batches gần nhất</b><small>{batchesQ.rows.length} lô</small></div>
-      <ResetAllBatchesButton/>
+      <div><b>Danh sách Batch</b><small>{batchesQ.rows.length} Batch gần nhất</small></div>
+      <ResetAllBatchesButton presentation="erp"/>
      </div>
      <div className="table-wrap">
       <table className="erp-table planning-batch-table">
        <thead><tr>
-        <th>Batch</th><th>Date</th><th>Area</th><th>Operation</th><th>Recipe</th>
-        <th className="num">Jobs</th><th className="num">Qty</th><th className="num">Surface</th>
-        <th>Process</th><th>Start</th><th>End</th><th>Status</th><th></th>
+        <th>Batch</th><th>Ngày</th><th>Khu vực</th><th>Main Operation</th><th>Recipe</th>
+        <th className="num">Job</th><th className="num">Qty</th><th className="num">Diện tích</th>
+        <th>Thời gian</th><th>Bắt đầu</th><th>Kết thúc</th><th>Trạng thái</th><th></th>
        </tr></thead>
        <tbody>
         {batchesQ.rows.map((b:any)=><tr key={b.id}>
@@ -81,13 +102,13 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
          <td className="mono">{hhmm(b.process_minutes)}</td>
          <td>{b.planned_start?new Date(b.planned_start).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—"}</td>
          <td>{b.planned_end?new Date(b.planned_end).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"—"}</td>
-         <td><span className="job-state state-new">{b.status}</span></td>
+         <td><span className={`erpkit-status ${batchStatusTone(b.status)}`}><span className="erpkit-status-dot"/>{batchStatusLabel(b.status)}</span></td>
          <td><div className="batch-list-actions">
-          <Link className="erp-link" href={`/planning/batches/${b.id}`}>View →</Link>
-          <BatchRowActions batchId={Number(b.id)} batchNo={b.batch_no||"—"} currentRecipeKey={b.recipe_key||null}/>
+          <Link className="erp-link" href={`/planning/batches/${b.id}`}>Chi tiết →</Link>
+          <BatchRowActions batchId={Number(b.id)} batchNo={b.batch_no||"—"} currentRecipeKey={b.recipe_key||null} presentation="erp"/>
          </div></td>
         </tr>)}
-        {!batchesQ.rows.length&&<tr><td colSpan={13} className="muted">Chưa có Planning Batch.</td></tr>}
+        {!batchesQ.rows.length&&<tr><td colSpan={13} className="muted">Chưa có Batch nào.</td></tr>}
        </tbody>
       </table>
      </div>

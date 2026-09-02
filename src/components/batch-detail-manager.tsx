@@ -160,7 +160,8 @@ export function BatchDetailManager({
  planningDate,
  jobs,
  candidates,
- initialNextFilter
+ initialNextFilter,
+ presentation="legacy"
 }:{
  batchId:number;
  standardOperation:string;
@@ -168,7 +169,20 @@ export function BatchDetailManager({
  jobs:any[];
  candidates:Candidate[];
  initialNextFilter:string;
+ presentation?:"legacy"|"erp";
 }){
+ const erpMode=presentation==="erp";
+ const planningStateLabel=(value:unknown)=>{
+  const raw=String(value||"").trim();
+  if(!erpMode)return raw;
+  switch(normalized(raw)){
+   case "PLANNED": return "BATCH";
+   case "ELIGIBLE": return "READY";
+   case "LOCKED": return "WAIT";
+   case "NO BATCH": return "CHƯA CÓ BATCH";
+   default:return raw;
+  }
+ };
  const [busy,setBusy]=useState(false);
  const [selected,setSelected]=useState<number[]>([]);
  const [q,setQ]=useState("");
@@ -435,7 +449,7 @@ export function BatchDetailManager({
  }
 
  async function add(){
-   if(!selected.length)return alert("Chọn ít nhất 1 Job để thêm.");
+   if(!selected.length)return alert(erpMode?"Chọn ít nhất một Job để thêm vào Batch.":"Chọn ít nhất 1 Job để thêm.");
    setBusy(true);
    setMessage("");
 
@@ -447,9 +461,9 @@ export function BatchDetailManager({
      });
      const d=await safeJson(r);
 
-     if(!r.ok)throw new Error(d.error||"Add Job failed");
+     if(!r.ok)throw new Error(d.error||(erpMode?"Không thêm được Job vào Batch.":"Add Job failed"));
 
-     setMessage(`Đã thêm Job · Batch hiện có ${d.totalJobs} Jobs.`);
+     setMessage(erpMode?`Đã thêm Job · Batch hiện có ${d.totalJobs} Job.`:`Đã thêm Job · Batch hiện có ${d.totalJobs} Jobs.`);
      setTimeout(()=>location.reload(),800);
    }catch(e){
      setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`);
@@ -459,7 +473,7 @@ export function BatchDetailManager({
  }
 
  async function remove(row:any){
-   if(!confirm(`Bỏ Job ${row.job_num} khỏi lô?`))return;
+   if(!confirm(erpMode?`Bỏ Job ${row.job_num} khỏi Batch?`:`Bỏ Job ${row.job_num} khỏi lô?`))return;
 
    setBusy(true);
    setMessage("");
@@ -472,9 +486,9 @@ export function BatchDetailManager({
      });
      const d=await safeJson(r);
 
-     if(!r.ok)throw new Error(d.error||"Remove Job failed");
+     if(!r.ok)throw new Error(d.error||(erpMode?"Không bỏ được Job khỏi Batch.":"Remove Job failed"));
 
-     setMessage(`Đã bỏ Job ${row.job_num} khỏi lô.`);
+     setMessage(erpMode?`Đã bỏ Job ${row.job_num} khỏi Batch.`:`Đã bỏ Job ${row.job_num} khỏi lô.`);
      setTimeout(()=>location.reload(),800);
    }catch(e){
      setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`);
@@ -483,13 +497,20 @@ export function BatchDetailManager({
    }
  }
 
+ const erpColumnLabels:Record<string,string>={
+   job:"Job",part_rev:"Part / Rev",qty:"Qty",surface:"Diện tích",source_op:"Operation Code",
+   previous_op:"Công đoạn trước",next_op:"Main Operation tiếp theo",recipe:"Recipe",
+   primer1:"Primer 1",primer2:"Primer 2",primer3:"Primer 3",priority:"Ưu tiên",status:"Trạng thái",
+   batch_no:"Batch",previous_status:"Trạng thái kế hoạch trước",previous_batch_no:"Batch trước",actual_progress:"Tiến độ thực tế"
+ };
+
  const renderHeader=(key:string)=>{
    const col=allColumns.find(x=>x.key===key);
    if(!col)return null;
    return <th
     key={key}
     className={["qty","surface"].includes(key)?"num":col.group==="allopen"?"all-open-source-col":undefined}
-   >{col.label}</th>;
+   >{erpMode?(erpColumnLabels[key]||col.label):col.label}</th>;
  };
 
  const renderCell=(x:Candidate,key:string)=>{
@@ -530,7 +551,7 @@ export function BatchDetailManager({
         {x.recipe_no
          ? <><b>{x.recipe_no}</b><small className="planning-sub">{x.recipe_name||"—"}</small></>
          : x.recipe_required
-          ? <span className="job-state state-changed">RECIPE REQUIRED</span>
+          ? <span className="job-state state-changed">{erpMode?"CHƯA CÓ RECIPE":"RECIPE REQUIRED"}</span>
           : "—"}
        </td>;
 
@@ -550,7 +571,7 @@ export function BatchDetailManager({
 
      case "status":
        return <td key={key}>
-        <span className="job-state state-eligible">{x.planning_status||"ELIGIBLE"}</span>
+        <span className="job-state state-eligible">{planningStateLabel(x.planning_status||"ELIGIBLE")}</span>
        </td>;
 
      case "batch_no":
@@ -563,11 +584,11 @@ export function BatchDetailManager({
             <b>{x.previous_planning_operation}</b>
             <small className="planning-sub">
              {x.previous_batch_no
-              ? `${x.previous_planning_status||"PLANNED"} · ${x.previous_batch_no}`
-              : x.previous_planning_status||"NO BATCH"}
+              ? `${planningStateLabel(x.previous_planning_status||"PLANNED")} · ${x.previous_batch_no}`
+              : planningStateLabel(x.previous_planning_status||"NO BATCH")}
             </small>
            </>
-         : <><b>START</b><small className="planning-sub">FIRST PLAN OP</small></>}
+         : <><b>START</b><small className="planning-sub">{erpMode?"CÔNG ĐOẠN ĐẦU":"FIRST PLAN OP"}</small></>}
        </td>;
 
      case "previous_batch_no":
@@ -576,7 +597,7 @@ export function BatchDetailManager({
          ? <>
             <b>{x.previous_batch_no}</b>
             <small className="planning-sub">
-             {x.previous_batch_operation||x.previous_batch_source_operation||"—"} · {x.previous_batch_status||"PLANNED"}
+             {x.previous_batch_operation||x.previous_batch_source_operation||"—"} · {planningStateLabel(x.previous_batch_status||"PLANNED")}
             </small>
            </>
          : "—"}
@@ -593,18 +614,15 @@ export function BatchDetailManager({
    }
  };
 
- return <div className="section">
+ return <div className={erpMode?"erpkit-batch-detail-manager":"section"}>
 
-   <div className="erp-table-panel section">
+   <div className={erpMode?"erp-table-panel section erpkit-batch-detail-table":"erp-table-panel section"}>
     <div className="erp-panel-head">
      <div className="batch-add-title">
-      <b>Jobs in Batch</b>
-      <small>
-       Candidate View: {standardOperation}
-       {viewLoaded?" · DEFAULT SAVED":" · GLOBAL/DEFAULT"}
-      </small>
+      <b>{erpMode?"Job trong Batch":"Jobs in Batch"}</b>
+      <small>{erpMode?`Main Operation: ${standardOperation}`:<>Candidate View: {standardOperation}{viewLoaded?" · DEFAULT SAVED":" · GLOBAL/DEFAULT"}</>}</small>
      </div>
-     <span>{jobs.length} Jobs</span>
+     <span>{jobs.length} {erpMode?"Job":"Jobs"}</span>
     </div>
 
     <div className="table-wrap">
@@ -612,7 +630,7 @@ export function BatchDetailManager({
       <thead>
        <tr>
         {columns.map(renderHeader)}
-        <th className="batch-job-remove-col">Action</th>
+        <th className="batch-job-remove-col">{erpMode?"Thao tác":"Action"}</th>
        </tr>
       </thead>
       <tbody>
@@ -625,7 +643,7 @@ export function BatchDetailManager({
            disabled={busy}
            onClick={()=>remove(x)}
           >
-           Remove
+           {erpMode?"Bỏ Job":"Remove"}
           </button>
          </td>
         </tr>
@@ -633,23 +651,20 @@ export function BatchDetailManager({
 
        {!visibleBatchJobs.length&&
         <tr>
-         <td colSpan={columns.length+1} className="muted">Lô chưa có Job.</td>
+         <td colSpan={columns.length+1} className="muted">{erpMode?"Batch chưa có Job.":"Lô chưa có Job."}</td>
         </tr>}
       </tbody>
      </table>
     </div>
    </div>
 
-   <div className="erp-table-panel section">
+   <div className={erpMode?"erp-table-panel section erpkit-batch-detail-table":"erp-table-panel section"}>
     <div className="erp-panel-head">
      <div className="batch-add-title">
-      <b>Add Jobs to Batch</b>
-      <small>
-       Candidate View: {standardOperation}
-       {viewLoaded?" · DEFAULT SAVED":" · GLOBAL/DEFAULT"}
-      </small>
+      <b>{erpMode?"Thêm Job vào Batch":"Add Jobs to Batch"}</b>
+      <small>{erpMode?"Chọn các Job phù hợp với Main Operation và Recipe của Batch.":<>Candidate View: {standardOperation}{viewLoaded?" · DEFAULT SAVED":" · GLOBAL/DEFAULT"}</>}</small>
      </div>
-     <span>{visible.length} candidates</span>
+     <span>{visible.length} {erpMode?"Job khả dụng":"candidates"}</span>
     </div>
 
 
@@ -658,42 +673,42 @@ export function BatchDetailManager({
      <div className={`recipe-suggestion-banner ${selectedRecipeSuggestion.kind==="ok"?"is-ok":selectedRecipeSuggestion.kind==="mixed"?"is-warn":"is-muted"}`}>
       {selectedRecipeSuggestion.kind==="ok"&&(
        <>
-        <b>✓ Recipe đề xuất:</b>
+        <b>{erpMode?"Recipe đề xuất":"✓ Recipe đề xuất:"}</b>
         <span>{selectedRecipeSuggestion.label}</span>
        </>
       )}
       {selectedRecipeSuggestion.kind==="mixed"&&(
        <>
-        <b>⚠ Các Job chọn có Recipe khác nhau:</b>
-        <span>{selectedRecipeSuggestion.keys.join(" · ")} — nên chọn Job cùng Recipe để gom lô.</span>
+        <b>{erpMode?"Recipe không đồng nhất":"⚠ Các Job chọn có Recipe khác nhau:"}</b>
+        <span>{selectedRecipeSuggestion.keys.join(" · ")} — {erpMode?"nên chọn Job cùng Recipe để gom Batch.":"nên chọn Job cùng Recipe để gom lô."}</span>
        </>
       )}
       {selectedRecipeSuggestion.kind==="none"&&(
        <>
-        <b>✕ Job chưa có Recipe theo cấu hình:</b>
-        <span>Cấu hình <a href="/recipe-operation-map">Công thức & Rule</a>.</span>
+        <b>{erpMode?"Chưa có Recipe":"✕ Job chưa có Recipe theo cấu hình:"}</b>
+        <span>{erpMode?<>Mở <a href="/recipe-operation-map">Công thức & Rule</a> để bổ sung cấu hình.</>:<>Cấu hình <a href="/recipe-operation-map">Công thức & Rule</a>.</>}</span>
        </>
       )}
      </div>}
 
     <div className="batch-add-filter batch-add-filter-same-view">
      <label>
-      Search Job / Part
+      {erpMode?"Tìm Job / Part":"Search Job / Part"}
       <input
        className="input"
        value={q}
        onChange={e=>setQ(e.target.value)}
-       placeholder="Job / Part / Source Op..."
+       placeholder={erpMode?"Job / Part / Operation Code...":"Job / Part / Source Op..."}
       />
      </label>
 
      <div className="batch-add-view-info">
-      <span>{columns.length} columns</span>
-      <span>{sortRules.length} sort levels</span>
+      <span>{columns.length} {erpMode?"cột":"columns"}</span>
+      <span>{sortRules.length} {erpMode?"mức sắp xếp":"sort levels"}</span>
      </div>
 
      <button className="btn primary" disabled={busy||!selected.length} onClick={add}>
-      Add Selected ({selected.length})
+      {erpMode?`Thêm ${selected.length} Job`:`Add Selected (${selected.length})`}
      </button>
     </div>
 
@@ -735,7 +750,7 @@ export function BatchDetailManager({
        {!visible.length&&
         <tr>
          <td colSpan={1+columns.length} className="muted">
-          Không có Job phù hợp với Candidate View của {standardOperation}.
+          {erpMode?`Không có Job phù hợp với Main Operation ${standardOperation}.`:`Không có Job phù hợp với Candidate View của ${standardOperation}.`}
          </td>
         </tr>}
       </tbody>

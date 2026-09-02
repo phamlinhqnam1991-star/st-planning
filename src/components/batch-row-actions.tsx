@@ -16,13 +16,16 @@ type Props = {
   batchId: number;
   batchNo: string;
   currentRecipeKey: string | null;
+  presentation?: "legacy" | "erp";
 };
 
 export function BatchRowActions({
   batchId,
   batchNo,
   currentRecipeKey,
+  presentation="legacy",
 }: Props) {
+  const erpMode=presentation==="erp";
   const [editing, setEditing] = useState(false);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [recipeKey, setRecipeKey] = useState(currentRecipeKey || "");
@@ -96,7 +99,7 @@ export function BatchRowActions({
 
   async function deleteBatch() {
     const confirmed = window.confirm(
-      `Xóa ${batchNo}?\\n\\nTất cả Job trong lô sẽ trở về trạng thái chưa có lô để có thể lập lô lại.`
+      erpMode?`Xóa ${batchNo}?\\n\\nTất cả Job trong Batch sẽ trở về trạng thái chưa lập Batch để có thể lập lại.`:`Xóa ${batchNo}?\\n\\nTất cả Job trong lô sẽ trở về trạng thái chưa có lô để có thể lập lô lại.`
     );
 
     if (!confirmed) {
@@ -131,32 +134,32 @@ export function BatchRowActions({
     <div className="batch-row-actions">
       <div className="batch-row-buttons">
         <button
-          className="btn small"
+          className={erpMode?"erpkit-btn":"btn small"}
           type="button"
           disabled={busy}
           onClick={openEdit}
         >
-          {editing ? "Close" : "Edit Recipe"}
+          {editing ? (erpMode?"Đóng":"Close") : (erpMode?"Sửa Recipe":"Edit Recipe")}
         </button>
 
         <button
-          className="btn small danger-btn"
+          className={erpMode?"erpkit-btn erpkit-btn-danger":"btn small danger-btn"}
           type="button"
           disabled={busy}
           onClick={deleteBatch}
         >
-          Delete
+          {erpMode?"Xóa":"Delete"}
         </button>
       </div>
 
       {editing ? (
         <div className="batch-recipe-editor">
           <select
-            className="input"
+            className={erpMode?"erpkit-select":"input"}
             value={recipeKey}
             onChange={(event) => setRecipeKey(event.target.value)}
           >
-            <option value="">No Recipe</option>
+            <option value="">{erpMode?"Không có Recipe":"No Recipe"}</option>
 
             {recipes.map((recipe) => (
               <option key={recipe.recipe_key} value={recipe.recipe_key}>
@@ -167,12 +170,12 @@ export function BatchRowActions({
           </select>
 
           <button
-            className="btn primary small"
+            className={erpMode?"erpkit-btn erpkit-btn-primary":"btn primary small"}
             type="button"
             disabled={busy}
             onClick={saveRecipe}
           >
-            Save
+            {erpMode?"Lưu":"Save"}
           </button>
         </div>
       ) : null}

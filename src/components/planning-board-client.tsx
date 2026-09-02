@@ -496,6 +496,21 @@ export function PlanningBoardClient({
  onAfterMutation?:()=>void;
 }){
  const erpMode=presentation==="erp";
+ const erpColumnLabels:Record<string,string>={
+  job:"Job",standard_operation:"Main Operation",part_rev:"Part / Rev",qty:"Qty",surface:"Diện tích",source_op:"Operation Code",
+  previous_op:"Công đoạn trước",next_op:"Main Operation tiếp theo",recipe:"Recipe",
+  primer1:"Primer 1",primer2:"Primer 2",primer3:"Primer 3",priority:"Ưu tiên",status:"Trạng thái",
+  batch_no:"Batch",previous_status:"Trạng thái kế hoạch trước",previous_batch_no:"Batch trước",actual_progress:"Tiến độ thực tế"
+ };
+ const planningColumnLabel=(col:CandidateColumn)=>erpMode?(erpColumnLabels[col.key]||col.label):col.label;
+ const sortFieldLabel=(key:string,label:string)=>{
+  if(!erpMode)return label;
+  const labels:Record<string,string>={
+   next_main:"Main Operation tiếp theo",next_operation:"Next Operation",primer1:"Primer 1",primer2:"Primer 2",primer3:"Primer 3",
+   recipe:"Recipe",previous_batch:"Batch trước",priority:"Ưu tiên",part:"Part",program:"Program",qty:"Qty",surface:"Diện tích",job:"Job"
+  };
+  return labels[key]||label;
+ };
  const columnStorageKey=erpMode?"st-planning:erp-matrix-columns:v1":COLUMN_STORAGE_KEY;
  const columnLayoutStorageKey=erpMode?"st-planning:erp-matrix-column-layout:v1":COLUMN_LAYOUT_STORAGE_KEY;
  const [selected,setSelected]=useState<number[]>([]);
@@ -708,17 +723,17 @@ useEffect(()=>{
      result.push({key,label});
    };
 
-   CANDIDATE_SORT_SPECIAL_FIELDS.forEach(x=>add(x.key,x.label));
+   CANDIDATE_SORT_SPECIAL_FIELDS.forEach(x=>add(x.key,sortFieldLabel(x.key,x.label)));
 
    // Every selectable/displayable Candidate column, including all raw
    // All Open Job source_data columns, is also available in Sort Priority.
    allColumns.forEach(col=>{
      if(col.group==="allopen" && isRawNextOperationSourceColumn(col.label))return;
-     add(`column:${col.key}`,col.label);
+     add(`column:${col.key}`,planningColumnLabel(col));
    });
 
    return result;
- },[allColumns]);
+ },[allColumns,erpMode]);
 
  // v291: user column preferences control only planning/info + All Open Job
  // fields. Route/Main columns are automatic from the displayed Jobs' AllOperation
@@ -920,10 +935,10 @@ useEffect(()=>{
 
  const exactViewLabel=
    standardOperation
-    ?`Operation ${standardOperation}`
+    ?`${erpMode?"Main Operation":"Operation"} ${standardOperation}`
     :selectedAreaId
-     ?`Area ${selectedAreaName}`
-     :"System";
+     ?`${erpMode?"Khu vực":"Area"} ${selectedAreaName}`
+     :(erpMode?"Toàn hệ thống":"System");
 
  const applyViewPreset=(preset:CandidateViewPreset)=>{
    const validColumns=new Set(configurableColumns.map(x=>x.key));
@@ -1005,7 +1020,7 @@ useEffect(()=>{
 
    if(!found){
      setViewLoadedFor("");
-     setViewMessage(`${exactViewLabel}: chưa có Default View.`);
+     setViewMessage(erpMode?`${exactViewLabel}: chưa có bố cục mặc định.`:`${exactViewLabel}: chưa có Default View.`);
      setTimeout(()=>setViewMessage(""),1800);
      return false;
    }
@@ -1015,14 +1030,14 @@ useEffect(()=>{
 
    const label=
     found.key.startsWith("OP:")
-     ?`Operation ${found.key.slice(3)}`
+     ?`${erpMode?"Main Operation":"Operation"} ${found.key.slice(3)}`
      :found.key.startsWith("AREA:")
-      ?`Area Default`
+      ?(erpMode?"Bố cục khu vực":"Area Default")
       :found.key==="SYSTEM"
-       ?"System Default"
-       :`Operation ${found.key}`;
+       ?(erpMode?"Bố cục hệ thống":"System Default")
+       :`${erpMode?"Main Operation":"Operation"} ${found.key}`;
 
-   setViewMessage(`Đã load ${label}.`);
+   setViewMessage(erpMode?`Đã áp dụng ${label}.`:`Đã load ${label}.`);
    setTimeout(()=>setViewMessage(""),1800);
    return true;
  };
@@ -1058,12 +1073,12 @@ useEffect(()=>{
       body:JSON.stringify({action:"save",view_key:exactViewKey,payload})
      });
      const d=await safeJson(r);
-     if(!r.ok)throw new Error(d?.error||"Không lưu được Default View.");
+     if(!r.ok)throw new Error(d?.error||(erpMode?"Không lưu được bố cục mặc định.":"Không lưu được Default View."));
 
      setViewLoadedFor(exactViewKey);
-     setViewMessage(`Đã lưu Default View cho ${exactViewLabel} (đã lưu trên máy chủ — dùng chung mọi môi trường).`);
+     setViewMessage(erpMode?`Đã lưu bố cục mặc định cho ${exactViewLabel}.`:`Đã lưu Default View cho ${exactViewLabel} (đã lưu trên máy chủ — dùng chung mọi môi trường).`);
    }catch(e){
-     setViewMessage(`Không lưu được Default View: ${e instanceof Error?e.message:String(e)}`);
+     setViewMessage(erpMode?`Không lưu được bố cục mặc định: ${e instanceof Error?e.message:String(e)}`:`Không lưu được Default View: ${e instanceof Error?e.message:String(e)}`);
    }
    setTimeout(()=>setViewMessage(""),2600);
  };
@@ -1072,7 +1087,7 @@ useEffect(()=>{
    const views=readOperationViews();
 
    if(!views[exactViewKey]){
-     setViewMessage(`${exactViewLabel}: không có Default View riêng để xóa.`);
+     setViewMessage(erpMode?`${exactViewLabel}: không có bố cục mặc định riêng để xóa.`:`${exactViewLabel}: không có Default View riêng để xóa.`);
      setTimeout(()=>setViewMessage(""),1800);
      return;
    }
@@ -1090,13 +1105,13 @@ useEffect(()=>{
      });
      await safeJson(r);
    }catch(e){
-     setViewMessage(`Xóa Default View thất bại: ${e instanceof Error?e.message:String(e)}`);
+     setViewMessage(erpMode?`Không xóa được bố cục mặc định: ${e instanceof Error?e.message:String(e)}`:`Xóa Default View thất bại: ${e instanceof Error?e.message:String(e)}`);
      setTimeout(()=>setViewMessage(""),2600);
      return;
    }
 
    setViewLoadedFor("");
-   setViewMessage(`Đã xóa Default View của ${exactViewLabel} trên máy chủ.`);
+   setViewMessage(erpMode?`Đã xóa bố cục mặc định của ${exactViewLabel}.`:`Đã xóa Default View của ${exactViewLabel} trên máy chủ.`);
    setTimeout(()=>setViewMessage(""),2000);
  };
 
@@ -2197,7 +2212,7 @@ const currentPriorityMonth=useMemo(()=>{
     })
    });
    const d=await safeJson(r);
-   if(!r.ok)throw new Error(d?.error||"Không kiểm tra được Batch Compatibility.");
+   if(!r.ok)throw new Error(d?.error||(erpMode?"Không kiểm tra được điều kiện gom Batch.":"Không kiểm tra được Batch Compatibility."));
    if(seq!==compatibilitySeq.current)return;
    const compatibleIds=Array.isArray(d.compatibleIds)?d.compatibleIds.map(Number).filter(Number.isFinite):[];
    const next:BatchCompatibilityLock={
@@ -2468,13 +2483,13 @@ const currentPriorityMonth=useMemo(()=>{
  }
 
  async function createBatch(){
-   if(!selected.length)return alert("Chọn ít nhất 1 Candidate Job.");
+   if(!selected.length)return alert(erpMode?"Chọn ít nhất một Job READY.":"Chọn ít nhất 1 Candidate Job.");
    if(compatibilityLock?.loading)return alert("Đang kiểm tra Recipe và điều kiện Batch. Vui lòng chờ một chút.");
-   if(compatibilityLock?.error)return alert(`Batch Compatibility: ${compatibilityLock.error}`);
+   if(compatibilityLock?.error)return alert(erpMode?`Điều kiện gom Batch: ${compatibilityLock.error}`:`Batch Compatibility: ${compatibilityLock.error}`);
    const effectiveOperation=selectedTargets[0]?.standardOperation||standardOperation||"";
-   if(!effectiveOperation)return alert("Không xác định được Standard Operation.");
+   if(!effectiveOperation)return alert(erpMode?"Không xác định được Main Operation.":"Không xác định được Standard Operation.");
    if(selectedTargets.some(x=>x.standardOperation!==effectiveOperation))
-     return alert("Một Batch chỉ được chứa Job của cùng Standard Operation.");
+     return alert(erpMode?"Một Batch chỉ được chứa Job của cùng Main Operation.":"Một Batch chỉ được chứa Job của cùng Standard Operation.");
 
    setBusy(true);
    setMessage("");
@@ -2503,13 +2518,9 @@ const currentPriorityMonth=useMemo(()=>{
 
      const d=await safeJson(r);
 
-     setMessage(
-       `${d.batchNo} ${d.addedToExisting?"updated":"created"} · ${d.totalJobs} Jobs · `+
-       `Qty ${formatNumber(d.totalQty)} · `+
-       `Surface ${formatNumber(d.totalSurface)} dm² · `+
-       `Process ${minutesToHHMM(d.processMinutes)}`+
-       (d.batchKey?` · Batch Key ${d.batchKey}`:"")+
-       (d.ruleName?` · Rule: ${d.ruleName}`:"")
+     setMessage(erpMode
+      ?`${d.batchNo} · ${d.addedToExisting?"đã cập nhật":"đã tạo"} · ${d.totalJobs} Job · Qty ${formatNumber(d.totalQty)} · Diện tích ${formatNumber(d.totalSurface)} dm² · Thời gian ${minutesToHHMM(d.processMinutes)}${d.batchKey?` · Batch Key ${d.batchKey}`:""}${d.ruleName?` · Quy tắc ${d.ruleName}`:""}`
+      :`${d.batchNo} ${d.addedToExisting?"updated":"created"} · ${d.totalJobs} Jobs · Qty ${formatNumber(d.totalQty)} · Surface ${formatNumber(d.totalSurface)} dm² · Process ${minutesToHHMM(d.processMinutes)}${d.batchKey?` · Batch Key ${d.batchKey}`:""}${d.ruleName?` · Rule: ${d.ruleName}`:""}`
      );
 
      // v335: Batch mutation is a DELTA update. Keep the current board mounted
@@ -2527,7 +2538,7 @@ const currentPriorityMonth=useMemo(()=>{
       });
      }catch(deltaError){
       console.error("[planning] batch delta refresh failed",deltaError);
-      setMessage(prev=>`${prev} · Danh sách chưa cập nhật hết; bấm Áp dụng & nạp Candidate nếu cần.`);
+      setMessage(prev=>`${prev} · ${erpMode?"Dữ liệu hiển thị chưa đồng bộ hết; bấm Áp dụng để nạp lại.":"Danh sách chưa cập nhật hết; bấm Áp dụng & nạp Candidate nếu cần."}`);
      }
    }catch(e){
      setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`);
@@ -2538,13 +2549,13 @@ const currentPriorityMonth=useMemo(()=>{
 
  async function rebuild(){
    setBusy(true);
-   setMessage("Đang dựng lại Planning Chain...");
+   setMessage(erpMode?"Đang dựng lại chuỗi kế hoạch…":"Đang dựng lại Planning Chain...");
 
    try{
      const r=await fetch("/api/planning/rebuild",{method:"POST"});
      const d=await safeJson(r);
 
-     setMessage(`Đã dựng lại Planning Chain: ${d.jobs||0} Job · ${d.operations||0} công đoạn.`);
+     setMessage(erpMode?`Đã dựng lại chuỗi: ${d.jobs||0} Job · ${d.operations||0} công đoạn.`:`Đã dựng lại Planning Chain: ${d.jobs||0} Job · ${d.operations||0} công đoạn.`);
      setTimeout(()=>onAfterMutation?.(),800);
    }catch(e){
      setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`);
@@ -2573,10 +2584,33 @@ const currentPriorityMonth=useMemo(()=>{
    }
    const active=Boolean((colFilters[key]||[]).length);
    return <th key={key} className={cls||undefined}>
-    <span className="candidate-th-label">{col.label}</span>
+    <span className="candidate-th-label">{planningColumnLabel(col)}</span>
     <button type="button" className={`col-filter-btn ${active?"is-active":""}`}
-     onClick={e=>openColFilter(key,e)} title="Lọc cột (Excel style)">▼</button>
+     onClick={e=>openColFilter(key,e)} title={erpMode?"Lọc theo cột":"Lọc cột (Excel style)"}>▼</button>
    </th>;
+ };
+
+ const planningStateLabel=(status:unknown)=>{
+   const raw=String(status||"");
+   if(!erpMode)return raw;
+   switch(normalized(status)){
+    case "PLANNED": return "BATCH";
+    case "ELIGIBLE": return "READY";
+    case "LOCKED": return "WAIT";
+    case "NO BATCH": return "CHƯA CÓ BATCH";
+    default:return raw;
+   }
+ };
+
+ const routeStatusLabel=(status:unknown)=>{
+   const raw=String(status||"");
+   if(!erpMode)return raw;
+   switch(normalized(status)){
+    case "PLANNED-UNSCHEDULED": return "BATCH";
+    case "COMPLETED": return "DONE";
+    case "WAITING": return "WAIT";
+    default: return raw;
+   }
  };
 
  const routeStatusClass=(status:unknown)=>{
@@ -2702,14 +2736,14 @@ const currentPriorityMonth=useMemo(()=>{
    if(Number(item.source_seq)===immediate){
     return {
      label:"WAIT",
-     reason:"Previous Main Planning chưa DONE / SCHEDULED / UNSCHEDULED.",
+     reason:erpMode?"Main Operation trước chưa hoàn tất hoặc chưa được lập lịch.":"Previous Main Planning chưa DONE / SCHEDULED / UNSCHEDULED.",
      kind:"route-status-wait-prev"
     };
    }
 
    return {
     label:"WAIT",
-    reason:"Next Main Planning chưa tới lượt. Chỉ Main ngay sau handoff mới được READY.",
+    reason:erpMode?"Chưa tới lượt Main Operation này. Chỉ công đoạn kế tiếp trong chuỗi mới được READY.":"Next Main Planning chưa tới lượt. Chỉ Main ngay sau handoff mới được READY.",
     kind:"route-status-wait-future"
    };
  }
@@ -2721,7 +2755,7 @@ const currentPriorityMonth=useMemo(()=>{
    const mainDimReason=mainDimmed?mainOperationSelectionReason(mainOperation):"";
 
    if(x.route_status_loaded===false){
-    return <td key={key} className={`route-status-cell route-status-loading ${mainDimClass}`.trim()} title={`${mainOperation} · đang tải Route Matrix${mainDimReason?` · ${mainDimReason}`:""}`}>…</td>;
+    return <td key={key} className={`route-status-cell route-status-loading ${mainDimClass}`.trim()} title={`${mainOperation} · ${erpMode?"đang tải trạng thái":"đang tải Route Matrix"}${mainDimReason?` · ${mainDimReason}`:""}`}>…</td>;
    }
 
    const items=(x.route_status||[])
@@ -2764,7 +2798,7 @@ const currentPriorityMonth=useMemo(()=>{
      };
 
      const fallbackWaiting=waitingDisplayFor(x,fallbackItem);
-     const fallbackDisplay=normalized(status)==="WAITING"?fallbackWaiting.label:status;
+     const fallbackDisplay=normalized(status)==="WAITING"?fallbackWaiting.label:routeStatusLabel(status);
      const fallbackCompatLocked=
       normalized(status)==="READY" &&
       compatibilityLockedId(Number(x.id),mainOperation);
@@ -2863,7 +2897,7 @@ const currentPriorityMonth=useMemo(()=>{
    const waitingDisplay=waitingDisplayFor(x,displayItem);
    const displayStatus=normalized(status)==="WAITING"
     ?waitingDisplay.label
-    :status;
+    :routeStatusLabel(status);
    const waitingClass=normalized(status)==="WAITING"
     ?waitingDisplay.kind
     :"";
@@ -2883,13 +2917,13 @@ const currentPriorityMonth=useMemo(()=>{
     .filter(Boolean);
 
    const tooltip=items.map((item,index)=>[
-    items.length>1?`${mainOperation} occurrence ${index+1}`:mainOperation,
-    `Source: ${item.source_operation}`,
-    `Status: ${normalized(item.route_status)==="WAITING"?waitingDisplayFor(x,item).label:item.route_status}`,
+    items.length>1?(erpMode?`${mainOperation} · lần ${index+1}`:`${mainOperation} occurrence ${index+1}`):mainOperation,
+    `${erpMode?"Operation Code":"Source"}: ${item.source_operation}`,
+    `${erpMode?"Trạng thái":"Status"}: ${normalized(item.route_status)==="WAITING"?waitingDisplayFor(x,item).label:routeStatusLabel(item.route_status)}`,
     normalized(item.route_status)==="WAITING"?waitingDisplayFor(x,item).reason:"",
     item.batch_no?`Batch: ${item.batch_no}`:"",
-    item.resource_code?`Resource: ${item.resource_code}`:"",
-    item.planned_end?`End: ${routeDateTime(item.planned_end)}`:"",
+    item.resource_code?`${erpMode?"Resource":"Resource"}: ${item.resource_code}`:"",
+    item.planned_end?`${erpMode?"Kết thúc":"End"}: ${routeDateTime(item.planned_end)}`:"",
     item.recipe_name?`Recipe: ${item.recipe_name}`:""
    ].filter(Boolean).join(" · ")).join("\n");
 
@@ -2943,10 +2977,10 @@ const currentPriorityMonth=useMemo(()=>{
      <small>{resources.join(" / ")}</small>}
 
     {scheduledEnds.length>0&&
-     <small>End {scheduledEnds.join(" / ")}</small>}
+     <small>{erpMode?"Kết thúc":"End"} {scheduledEnds.join(" / ")}</small>}
 
     {items.length>1&&
-     <small>{items.length} route occurrences</small>}
+     <small>{erpMode?`${items.length} lần trong routing`:`${items.length} route occurrences`}</small>}
    </td>;
  };
  const renderCandidateCell=(x:Candidate,key:string)=>{
@@ -2996,7 +3030,7 @@ const currentPriorityMonth=useMemo(()=>{
         {x.recipe_no
          ? <><b>{x.recipe_no}</b><small className="planning-sub">{x.recipe_name||"CHƯA KHAI BÁO"}</small></>
          : x.recipe_required
-          ? <span className="job-state state-changed">RECIPE REQUIRED</span>
+          ? <span className="job-state state-changed">{erpMode?"CHƯA CÓ RECIPE":"RECIPE REQUIRED"}</span>
           : <span>—</span>}
        </td>;
 
@@ -3017,8 +3051,8 @@ const currentPriorityMonth=useMemo(()=>{
      case "status":
        return <td key={key}>
         {x.planning_status==="PLANNED"
-         ? <span className="job-state state-planned">PLANNED</span>
-         : <span className="job-state state-eligible">ELIGIBLE</span>}
+         ? <span className="job-state state-planned">{erpMode?"BATCH":"PLANNED"}</span>
+         : <span className="job-state state-eligible">{erpMode?"READY":"ELIGIBLE"}</span>}
        </td>;
 
      case "batch_no":
@@ -3035,11 +3069,11 @@ const currentPriorityMonth=useMemo(()=>{
             <b>{x.previous_planning_operation}</b>
             <small className="planning-sub">
              {x.previous_batch_no
-              ? `${x.previous_planning_status||"PLANNED"} · ${x.previous_batch_no}`
-              : x.previous_planning_status||"NO BATCH"}
+              ? `${planningStateLabel(x.previous_planning_status||"PLANNED")} · ${x.previous_batch_no}`
+              : planningStateLabel(x.previous_planning_status||"NO BATCH")}
             </small>
            </>
-         : <><b>START</b><small className="planning-sub">FIRST PLAN OP</small></>}
+         : <><b>START</b><small className="planning-sub">{erpMode?"CÔNG ĐOẠN ĐẦU":"FIRST PLAN OP"}</small></>}
        </td>;
 
      case "previous_batch_no":
@@ -3048,7 +3082,7 @@ const currentPriorityMonth=useMemo(()=>{
          ? <>
             <b>{x.previous_batch_no}</b>
             <small className="planning-sub">
-             {x.previous_batch_operation||x.previous_batch_source_operation||"—"} · {x.previous_batch_status||"PLANNED"}
+             {x.previous_batch_operation||x.previous_batch_source_operation||"—"} · {planningStateLabel(x.previous_batch_status||"PLANNED")}
             </small>
            </>
          : "—"}
@@ -3080,7 +3114,7 @@ const currentPriorityMonth=useMemo(()=>{
    const labels:string[]=["Chọn"];
    for(const key of activeColumns){
     const col=allColumns.find(c=>c.key===key);
-    labels.push(col?col.label:key);
+    labels.push(col?planningColumnLabel(col):key);
    }
    return labels;
  },[activeColumns,allColumns]);
@@ -3132,7 +3166,7 @@ const currentPriorityMonth=useMemo(()=>{
     {erpMode?
      <div className="erpkit-live-matrix-head candidate-sticky-toolbar">
       <div className="erpkit-live-matrix-title">
-       <div><b>Planning Matrix</b><small>Job × Main Operation · click READY để chọn Batch</small></div>
+       <div><b>Ma trận kế hoạch</b><small>Job × Main Operation · chọn READY để gom Job vào Batch</small></div>
        <div className="erpkit-live-matrix-kpis">
         <button type="button" className={`erpkit-live-kpi is-ready ${statusFilter==="ELIGIBLE"?"is-active":""}`} onClick={()=>setStatusFilter(statusFilter==="ELIGIBLE"?"":"ELIGIBLE")}><b>{eligibleCandidates.length}</b><span>READY</span></button>
         <button type="button" className={`erpkit-live-kpi is-batch ${statusFilter==="PLANNED"?"is-active":""}`} onClick={()=>setStatusFilter(statusFilter==="PLANNED"?"":"PLANNED")}><b>{plannedCandidates.length}</b><span>BATCH</span></button>
@@ -3141,18 +3175,18 @@ const currentPriorityMonth=useMemo(()=>{
        </div>
       </div>
       <div className="erpkit-live-matrix-actions">
-       <button type="button" className={`erpkit-btn ${statusFilter===""?"is-active":""}`} onClick={()=>setStatusFilter("")}>All {pagination.totalCandidates}</button>
+       <button type="button" className={`erpkit-btn ${statusFilter===""?"is-active":""}`} onClick={()=>setStatusFilter("")}>Tất cả {pagination.totalCandidates}</button>
        <div className="erpkit-segmented">
-        <button type="button" className={candidateDensity==="compact"?"is-active":""} onClick={()=>setCandidateDensity("compact")}>Compact</button>
-        <button type="button" className={candidateDensity==="normal"?"is-active":""} onClick={()=>setCandidateDensity("normal")}>Detail</button>
+        <button type="button" className={candidateDensity==="compact"?"is-active":""} onClick={()=>setCandidateDensity("compact")}>Gọn</button>
+        <button type="button" className={candidateDensity==="normal"?"is-active":""} onClick={()=>setCandidateDensity("normal")}>Chi tiết</button>
        </div>
-       <button className="erpkit-btn" type="button" onClick={()=>setDisplayRulesOpen(x=>!x)}>Filter / Sort</button>
-       <button className="erpkit-btn" type="button" onClick={()=>setColumnPickerOpen(x=>!x)}>Columns</button>
-       <button className="erpkit-btn" type="button" onClick={()=>setOperationPickerOpen(x=>!x)}>Operations</button>
-       <button className="erpkit-btn" type="button" onClick={()=>setFullView(x=>!x)}>{fullView?"Exit Full View":"Full View"}</button>
-       <button className="erpkit-btn" type="button" onClick={runRecipeCompare} disabled={recipeCompareLoading}>{recipeCompareLoading?"Comparing…":"Recipe Check"}</button>
-       <button className="erpkit-btn" type="button" title="Ghim dòng tiêu đề và các cột bên trái." onClick={()=>{if(freezeMenuOpen){setFreezeMenuOpen(false);return;}if(freezePick){setFreezePick(false);setFreezeDraft(null);return;}if(freeze.mode==="off"){setFreezePick(true);return;}setFreezeMenuOpen(true);}}>📌 {freeze.mode==="off"?"Freeze":freezeLabel}</button>
-       <button className="erpkit-btn" disabled={busy} onClick={rebuild}>Rebuild Chain</button>
+       <button className="erpkit-btn" type="button" onClick={()=>setDisplayRulesOpen(x=>!x)}>Bộ lọc</button>
+       <button className="erpkit-btn" type="button" onClick={()=>setColumnPickerOpen(x=>!x)}>Cột</button>
+       <button className="erpkit-btn" type="button" onClick={()=>setOperationPickerOpen(x=>!x)}>Công đoạn</button>
+       <button className="erpkit-btn" type="button" onClick={()=>setFullView(x=>!x)}>{fullView?"Thu gọn":"Toàn màn hình"}</button>
+       <button className="erpkit-btn" type="button" onClick={runRecipeCompare} disabled={recipeCompareLoading}>{recipeCompareLoading?"Đang kiểm tra…":"Kiểm tra Recipe"}</button>
+       <button className="erpkit-btn" type="button" title="Ghim dòng tiêu đề và các cột bên trái." onClick={()=>{if(freezeMenuOpen){setFreezeMenuOpen(false);return;}if(freezePick){setFreezePick(false);setFreezeDraft(null);return;}if(freeze.mode==="off"){setFreezePick(true);return;}setFreezeMenuOpen(true);}}>{freeze.mode==="off"?"Ghim cột":freezeLabel}</button>
+       <button className="erpkit-btn" disabled={busy} onClick={rebuild}>Dựng lại chuỗi</button>
       </div>
      </div>
     :
@@ -3178,16 +3212,16 @@ const currentPriorityMonth=useMemo(()=>{
      </div>}
 
     {freezePick&&!freezeDraft&&
-     <div className="freeze-hint-bar">📌 <b>Chọn vị trí freeze:</b> click vào <b>tiêu đề cột</b> trong bảng — các cột bên trái và dòng tiêu đề sẽ được ghìm (ESC để hủy).</div>}
+     <div className="freeze-hint-bar">{erpMode?<><b>Chọn cột cần ghim.</b> Các cột bên trái và hàng tiêu đề sẽ được cố định. Nhấn Esc để hủy.</>:<>📌 <b>Chọn vị trí freeze:</b> click vào <b>tiêu đề cột</b> trong bảng — các cột bên trái và dòng tiêu đề sẽ được ghìm (ESC để hủy).</>}</div>}
     {freezeDraft&&
      <div className="freeze-confirm-bar">
-      📌 Ghim đến cột <b>{freezeDraft.col}</b>: <b className="freeze-confirm-col">{freezeColumnLabels[Math.min(freezeDraft.col??1,FREEZE_MAX_COLS)-1]??`Cột ${freezeDraft.col}`}</b>
-      <button className="btn small" type="button" onClick={()=>persistFreeze(freezeDraft)}>✓ Chốt</button>
+      {erpMode?"Ghim đến":"📌 Ghim đến cột"} <b>{freezeDraft.col}</b>: <b className="freeze-confirm-col">{freezeColumnLabels[Math.min(freezeDraft.col??1,FREEZE_MAX_COLS)-1]??`Cột ${freezeDraft.col}`}</b>
+      <button className="btn small" type="button" onClick={()=>persistFreeze(freezeDraft)}>{erpMode?"Xác nhận":"✓ Chốt"}</button>
       <button className="btn small" type="button" onClick={()=>setFreezeDraft(null)}>Hủy</button>
      </div>}
     {freezeMenuOpen&&freeze.mode!=="off"&&
      <div className="freeze-menu">
-      <div className="freeze-menu-title">📌 Đang ghim: <b>{freezeLabel}</b></div>
+      <div className="freeze-menu-title">{erpMode?"Đang ghim:":"📌 Đang ghim:"} <b>{freezeLabel}</b></div>
       <div className="row">
        <button type="button" className="btn small" onClick={()=>{setFreezeMenuOpen(false);setFreezePick(true);}}>Đổi vị trí…</button>
        <button type="button" className="btn small" onClick={()=>persistFreeze({mode:"header"})}>Chỉ dòng tiêu đề</button>
@@ -3201,7 +3235,7 @@ const currentPriorityMonth=useMemo(()=>{
     {recipeCompareOpen&&recipeCompare&&
      <div className="recipe-compare-panel">
       <div className="recipe-diagnosis-head">
-       <b>⇄ So sánh Cấu hình Recipe ↔ Board</b>
+       <b>{erpMode?"Đối chiếu cấu hình Recipe":"⇄ So sánh Cấu hình Recipe ↔ Board"}</b>
        <button className="btn small" type="button" onClick={()=>setRecipeCompareOpen(false)}>×</button>
       </div>
       {recipeCompare.error?(
@@ -3210,14 +3244,14 @@ const currentPriorityMonth=useMemo(()=>{
        <>
         <div className="recipe-compare-section">
          <div className="recipe-compare-title">
-          <b>① Board CẦN nhưng CẤU HÌNH THIẾU</b>
-          <small>Operation Code của các Job ELIGIBLE đang chờ trên board — nếu chưa có mapping thì Job báo "Chưa có Recipe".</small>
+          <b>{erpMode?"Thiếu cấu hình cho Job đang chờ":"① Board CẦN nhưng CẤU HÌNH THIẾU"}</b>
+          <small>{erpMode?"Các Operation Code đang có Job READY nhưng chưa tìm thấy Recipe phù hợp.":'Operation Code của các Job ELIGIBLE đang chờ trên board — nếu chưa có mapping thì Job báo "Chưa có Recipe".'}</small>
          </div>
          {recipeCompare.boardNeeds?.length?(
           <div className="table-wrap">
            <table className="erp-table recipe-compare-table">
             <thead>
-             <tr><th>Operation Code</th><th>Công đoạn chính</th><th className="num">Job chờ</th><th>Job mẫu</th><th>Cấu hình</th><th></th></tr>
+             <tr><th>Operation Code</th><th>{erpMode?"Main Operation":"Công đoạn chính"}</th><th className="num">Job chờ</th><th>{erpMode?"Job tham chiếu":"Job mẫu"}</th><th>Cấu hình</th><th></th></tr>
             </thead>
             <tbody>
              {recipeCompare.boardNeeds.map((x:any,i:number)=>
@@ -3236,19 +3270,19 @@ const currentPriorityMonth=useMemo(()=>{
             </tbody>
            </table>
           </div>
-         ):<div className="notice">Không có Job ELIGIBLE nào đang chờ trên board.</div>}
+         ):<div className="notice">{erpMode?"Không có Job READY nào đang chờ trong phạm vi hiện tại.":"Không có Job ELIGIBLE nào đang chờ trên board."}</div>}
         </div>
 
         <div className="recipe-compare-section">
          <div className="recipe-compare-title">
-          <b>② CẤU HÌNH CÓ nhưng BOARD KHÔNG dùng</b>
-          <small>Mapping đã tạo nhưng hiện không khớp Job ELIGIBLE nào trên board.</small>
+          <b>{erpMode?"Cấu hình hiện chưa được sử dụng":"② CẤU HÌNH CÓ nhưng BOARD KHÔNG dùng"}</b>
+          <small>{erpMode?"Các cấu hình đang bật nhưng chưa khớp Job READY nào trong phạm vi hiện tại.":"Mapping đã tạo nhưng hiện không khớp Job ELIGIBLE nào trên board."}</small>
          </div>
          {recipeCompare.configUnused?.length?(
           <div className="table-wrap">
            <table className="erp-table recipe-compare-table">
             <thead>
-             <tr><th>Operation Code</th><th>Recipe</th><th>Vấn đề</th></tr>
+             <tr><th>Operation Code</th><th>Recipe</th><th>{erpMode?"Ghi chú":"Vấn đề"}</th></tr>
             </thead>
             <tbody>
              {recipeCompare.configUnused.map((x:any,i:number)=>
@@ -3261,7 +3295,7 @@ const currentPriorityMonth=useMemo(()=>{
             </tbody>
            </table>
           </div>
-         ):<div className="notice">Mọi mapping đang hoạt động đều khớp ít nhất 1 Job trên board.</div>}
+         ):<div className="notice">{erpMode?"Mọi cấu hình đang bật đều khớp ít nhất một Job trong phạm vi hiện tại.":"Mọi mapping đang hoạt động đều khớp ít nhất 1 Job trên board."}</div>}
         </div>
        </>
       )}
@@ -3271,7 +3305,7 @@ const currentPriorityMonth=useMemo(()=>{
      <div className="candidate-display-rules">
       <div className="candidate-display-rules-head">
        <div>
-        <b>Hiển thị & lọc Candidate</b>
+        <b>{erpMode?"Thiết lập hiển thị":"Hiển thị & lọc Candidate"}</b>
         <small>
          {`${exactViewLabel}${viewLoadedFor===exactViewKey?" · đã lưu mặc định":""}`}
         </small>
@@ -3293,35 +3327,35 @@ const currentPriorityMonth=useMemo(()=>{
       {viewMessage&&<div className="candidate-view-message">{viewMessage}</div>}
 
       <div className="candidate-filter-grid">
-       <label>Next Main Plan Op
+       <label>{erpMode?"Main Operation tiếp theo":"Next Main Plan Op"}
         <select className="input" value={filterNextMain} onChange={e=>setFilterNextMain(e.target.value)}>
          <option value="">Tất cả</option>
          {nextMainOptions.map(v=><option key={v} value={v}>{v}</option>)}
         </select>
        </label>
 
-       <label>NextOperation
+       <label>{erpMode?"Next Operation":"NextOperation"}
         <select className="input" value={filterNextOperation} onChange={e=>setFilterNextOperation(e.target.value)}>
          <option value="">Tất cả</option>
          {nextOperationOptions.map(v=><option key={v} value={v}>{v}</option>)}
         </select>
        </label>
 
-       <label>Part Master PRIMER1
+       <label>{erpMode?"Primer 1":"Part Master PRIMER1"}
         <select className="input" value={filterPrimer1} onChange={e=>setFilterPrimer1(e.target.value)}>
          <option value="">Tất cả</option>
          {primer1Options.map(v=><option key={v} value={v}>{v}</option>)}
         </select>
        </label>
 
-       <label>Part Master PRIMER2
+       <label>{erpMode?"Primer 2":"Part Master PRIMER2"}
         <select className="input" value={filterPrimer2} onChange={e=>setFilterPrimer2(e.target.value)}>
          <option value="">Tất cả</option>
          {primer2Options.map(v=><option key={v} value={v}>{v}</option>)}
         </select>
        </label>
 
-       <label>Part Master PRIMER3
+       <label>{erpMode?"Primer 3":"Part Master PRIMER3"}
         <select className="input" value={filterPrimer3} onChange={e=>setFilterPrimer3(e.target.value)}>
          <option value="">Tất cả</option>
          {primer3Options.map(v=><option key={v} value={v}>{v}</option>)}
@@ -3332,7 +3366,7 @@ const currentPriorityMonth=useMemo(()=>{
       {/* v338: lọc theo trạng thái từng cột Main Planning (Route Matrix) */}
       <div className="candidate-route-filter">
        <div className="candidate-sort-title">
-        <b>Main Planning (Route Matrix) — lọc theo trạng thái từng cột</b>
+        <b>{erpMode?"Lọc trạng thái theo Main Operation":"Main Planning (Route Matrix) — lọc theo trạng thái từng cột"}</b>
         {Object.keys(filterRouteMain).length>0&&(
          <button className="btn small" type="button" onClick={()=>setFilterRouteMain({})}>Xóa hết ({Object.keys(filterRouteMain).length})</button>
         )}
@@ -3341,7 +3375,7 @@ const currentPriorityMonth=useMemo(()=>{
         {routeColumns.map(col=>{
          const op=normalized(col.label);
          const val=filterRouteMain[op]||"";
-         return <label key={col.key} title={`${col.label} — lọc Candidate theo trạng thái cột này`}>{col.label}
+         return <label key={col.key} title={`${planningColumnLabel(col)} — lọc theo trạng thái cột này`}>{planningColumnLabel(col)}
           <select className="input" value={val} onChange={e=>{
            const v=e.target.value;
            setFilterRouteMain(prev=>{
@@ -3351,8 +3385,8 @@ const currentPriorityMonth=useMemo(()=>{
            });
           }}>
            <option value="">Tất cả</option>
-           <option value="__ANY__">Có occurrence</option>
-           <option value="__NONE__">Không occurrence</option>
+           <option value="__ANY__">{erpMode?"Có công đoạn":"Có occurrence"}</option>
+           <option value="__NONE__">{erpMode?"Không có công đoạn":"Không occurrence"}</option>
            {ROUTE_STATUS_FILTER_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
           </select>
          </label>;
@@ -3362,9 +3396,9 @@ const currentPriorityMonth=useMemo(()=>{
 
       <div className="candidate-sort-rules">
        <div className="candidate-sort-title">
-        <b>Sort Priority</b>
+        <b>{erpMode?"Thứ tự sắp xếp":"Sort Priority"}</b>
         <button className="btn small" type="button" onClick={addSortRule} disabled={sortRules.length>=10}>
-         + Sort Level
+         {erpMode?"+ Thêm mức":"+ Sort Level"}
         </button>
        </div>
 
@@ -3405,8 +3439,8 @@ const currentPriorityMonth=useMemo(()=>{
           value={rule.direction}
           onChange={e=>updateSortRule(index,{direction:e.target.value as SortDirection})}
          >
-          <option value="asc">ASC</option>
-          <option value="desc">DESC</option>
+          <option value="asc">{erpMode?"Tăng dần":"ASC"}</option>
+          <option value="desc">{erpMode?"Giảm dần":"DESC"}</option>
          </select>
          <button className="btn small" type="button" onClick={()=>removeSortRule(index)}>×</button>
         </div>
@@ -3417,34 +3451,34 @@ const currentPriorityMonth=useMemo(()=>{
     {columnPickerOpen&&
      <div className="candidate-column-picker candidate-column-package-picker">
       <div className="candidate-column-picker-head">
-       <b>Chọn cột hiển thị</b>
+       <b>{erpMode?"Cấu hình cột":"Chọn cột hiển thị"}</b>
        <small>
-        <b>Các cột All Open Job mặc định nằm trong nhóm All Open Job.</b> Cột được kéo ra trước/sau nhóm sẽ hiển thị riêng.
+        {erpMode?<><b>Chọn và sắp xếp cột.</b> Các trường nguồn Open Job có thể giữ trong nhóm hoặc đưa ra vị trí riêng.</>:<><b>Các cột All Open Job mặc định nằm trong nhóm All Open Job.</b> Cột được kéo ra trước/sau nhóm sẽ hiển thị riêng.</>}
        </small>
        <input
         className="input"
         value={columnSearch}
         onChange={e=>setColumnSearch(e.target.value)}
-        placeholder="Tìm cột để đưa ra trước / sau Nhóm All Open Job..."
+        placeholder={erpMode?"Tìm cột...":"Tìm cột để đưa ra trước / sau Nhóm All Open Job..."}
        />
        <div className="row">
         <button className="btn small" type="button" onClick={()=>{
          const keys=configurableColumns.map(x=>x.key);
          saveColumns(keys,collapsedColumnLayoutFromVisible(keys));
-        }}>Select All</button>
+        }}>{erpMode?"Chọn tất cả":"Select All"}</button>
         <button className="btn small" type="button" onClick={()=>{
          const keys=PLANNING_COLUMNS.map(x=>x.key);
          saveColumns(keys,[...keys,ALL_OPEN_JOB_GROUP_KEY]);
-        }}>Planning Only</button>
-        <button className="btn small" type="button" onClick={collapseAllOpenJobColumns}>Gom All Open Job</button>
-        <button className="btn small" type="button" onClick={()=>saveColumns([],[ALL_OPEN_JOB_GROUP_KEY])}>Clear</button>
+        }}>{erpMode?"Chỉ cột kế hoạch":"Planning Only"}</button>
+        <button className="btn small" type="button" onClick={collapseAllOpenJobColumns}>{erpMode?"Gom trường Open Job":"Gom All Open Job"}</button>
+        <button className="btn small" type="button" onClick={()=>saveColumns([],[ALL_OPEN_JOB_GROUP_KEY])}>{erpMode?"Ẩn tất cả":"Clear"}</button>
        </div>
       </div>
 
       <div className="candidate-column-package-summary">
-       <b>Thứ tự bố cục</b>
+       <b>{erpMode?"Bố cục cột":"Thứ tự bố cục"}</b>
        <span>
-        {configurableActiveColumns.filter(x=>x.startsWith("source:")).length}/{sourceColumns.length} cột All Open Job đang hiển thị · {groupedSourceColumns.length} cột thuộc nhóm · {visibleGroupedSourceColumns.length} cột trong nhóm đang hiển thị
+        {erpMode?`${configurableActiveColumns.filter(x=>x.startsWith("source:")).length}/${sourceColumns.length} trường Open Job đang hiển thị · ${groupedSourceColumns.length} trường trong nhóm · ${visibleGroupedSourceColumns.length} trường đang bật`:<>{configurableActiveColumns.filter(x=>x.startsWith("source:")).length}/{sourceColumns.length} cột All Open Job đang hiển thị · {groupedSourceColumns.length} cột thuộc nhóm · {visibleGroupedSourceColumns.length} cột trong nhóm đang hiển thị</>}
        </span>
       </div>
 
@@ -3453,10 +3487,10 @@ const currentPriorityMonth=useMemo(()=>{
         const isGroup=item===ALL_OPEN_JOB_GROUP_KEY;
         const c=isGroup?null:configurableColumns.find(x=>x.key===item);
         if(!isGroup&&!c)return null;
-        const label=isGroup?"📦 Nhóm cột All Open Job":c!.label;
+        const label=isGroup?(erpMode?"Nhóm trường Open Job":"📦 Nhóm cột All Open Job"):planningColumnLabel(c!);
         const groupLabel=isGroup
-         ?`${groupedSourceColumns.length} cột nằm trong nhóm`
-         :(c!.group==="planning"?"Planning":"All Open Job · đã đưa ra khỏi nhóm");
+         ?`${groupedSourceColumns.length} ${erpMode?"trường":"cột"} nằm trong nhóm`
+         :(c!.group==="planning"?(erpMode?"Kế hoạch":"Planning"):(erpMode?"Open Job · ngoài nhóm":"All Open Job · đã đưa ra khỏi nhóm"));
         return <div
          key={item}
          className={`candidate-column-choice candidate-column-order-item candidate-column-layout-item ${isGroup?"is-column-package":"is-visible"} ${dragColumnKey===item?"is-dragging":""}`}
@@ -3498,8 +3532,8 @@ const currentPriorityMonth=useMemo(()=>{
 
       {columnSearch.trim()&&<>
        <div className="candidate-column-search-title">
-        <b>Kết quả tìm cột</b>
-        <small>Tất cả cột All Open Job mặc định ở trong nhóm. Đưa Trước/Sau nhóm để tách cột ra; checkbox chỉ điều khiển ẩn/hiện.</small>
+        <b>{erpMode?"Kết quả tìm kiếm":"Kết quả tìm cột"}</b>
+        <small>{erpMode?"Chọn vị trí hiển thị hoặc giữ trường trong nhóm Open Job.":"Tất cả cột All Open Job mặc định ở trong nhóm. Đưa Trước/Sau nhóm để tách cột ra; checkbox chỉ điều khiển ẩn/hiện."}</small>
        </div>
        <div className="candidate-column-picker-grid candidate-column-search-grid">
         {filteredColumnChoices.map(c=>{
@@ -3509,22 +3543,22 @@ const currentPriorityMonth=useMemo(()=>{
          const groupIndex=effectiveColumnLayout.indexOf(ALL_OPEN_JOB_GROUP_KEY);
          const itemIndex=effectiveColumnLayout.indexOf(c.key);
          const location=isSource&&!explicit
-          ?`Trong Nhóm All Open Job · ${visible?"đang hiển thị":"đang ẩn"}`
+          ?`${erpMode?"Trong nhóm Open Job":"Trong Nhóm All Open Job"} · ${visible?"đang hiển thị":"đang ẩn"}`
           :!visible
            ?"Đang ẩn"
            :isSource
             ?(itemIndex>=0&&groupIndex>=0&&itemIndex<groupIndex?"Trước nhóm":"Sau nhóm")
-            :"Planning";
+            :(erpMode?"Kế hoạch":"Planning");
          return <div key={c.key} className={`candidate-column-choice candidate-column-search-item ${visible?"is-visible":""}`}>
           <label className="candidate-column-toggle">
            <input type="checkbox" checked={visible} onChange={()=>toggleColumn(c.key)}/>
-           <span>{c.label}</span>
+           <span>{planningColumnLabel(c)}</span>
            <small>{location}</small>
           </label>
           {isSource&&<div className="candidate-column-search-actions">
-           <button className="btn small" type="button" onClick={()=>placeSourceRelativeToGroup(c.key,"before")}>← Trước nhóm</button>
+           <button className="btn small" type="button" onClick={()=>placeSourceRelativeToGroup(c.key,"before")}>{erpMode?"Trước nhóm":"← Trước nhóm"}</button>
            <button className="btn small" type="button" onClick={()=>putSourceInGroup(c.key)}>Trong nhóm</button>
-           <button className="btn small" type="button" onClick={()=>placeSourceRelativeToGroup(c.key,"after")}>Sau nhóm →</button>
+           <button className="btn small" type="button" onClick={()=>placeSourceRelativeToGroup(c.key,"after")}>{erpMode?"Sau nhóm":"Sau nhóm →"}</button>
           </div>}
          </div>;
         })}
@@ -3536,18 +3570,18 @@ const currentPriorityMonth=useMemo(()=>{
     {operationPickerOpen&&
      <div className="candidate-column-picker candidate-operation-picker">
       <div className="candidate-column-picker-head">
-       <b>Chọn công đoạn hiển thị</b>
-       <small>Lọc Job theo NextOperation. Tick/bỏ tick để đổi ngay các công đoạn đang xem; nếu cần nạp thêm dữ liệu, bấm “Áp dụng & nạp Candidate”.</small>
+       <b>{erpMode?"Phạm vi công đoạn":"Chọn công đoạn hiển thị"}</b>
+       <small>{erpMode?"Chọn Operation Code cần hiển thị trên ma trận kế hoạch.":"Lọc Job theo NextOperation. Tick/bỏ tick để đổi ngay các công đoạn đang xem; nếu cần nạp thêm dữ liệu, bấm “Áp dụng & nạp Candidate”."}</small>
        <input
         className="input"
         value={opSearch}
         onChange={e=>setOpSearch(e.target.value)}
-        placeholder="Tìm công đoạn..."
+        placeholder={erpMode?"Tìm Operation Code...":"Tìm công đoạn..."}
        />
        <div className="row">
-        <button className="btn small" type="button" onClick={()=>changeStView(allNextOps.map(o=>o.code))}>Chọn hết ({allNextOps.length})</button>
-        <button className="btn small" type="button" onClick={()=>changeStView([])}>Bỏ hết</button>
-        <button className="btn small primary" type="button" title="Lưu lựa chọn và nạp lại Candidate" onClick={async()=>{
+        <button className="btn small" type="button" onClick={()=>changeStView(allNextOps.map(o=>o.code))}>{erpMode?`Chọn tất cả (${allNextOps.length})`:`Chọn hết (${allNextOps.length})`}</button>
+        <button className="btn small" type="button" onClick={()=>changeStView([])}>{erpMode?"Bỏ chọn":"Bỏ hết"}</button>
+        <button className="btn small primary" type="button" title={erpMode?"Lưu phạm vi công đoạn và nạp lại dữ liệu":"Lưu lựa chọn và nạp lại Candidate"} onClick={async()=>{
          const views=readOperationViews();
          const existing=views[exactViewKey];
          const payload:CandidateViewPreset={
@@ -3565,15 +3599,15 @@ const currentPriorityMonth=useMemo(()=>{
          try{
           const r=await fetch("/api/planning/board-view",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"save",view_key:exactViewKey,payload})});
           const d=await safeJson(r);
-          if(!r.ok)throw new Error(d?.error||"Không lưu được VIEW CÔNG ĐOẠN ST.");
+          if(!r.ok)throw new Error(d?.error||(erpMode?"Không lưu được phạm vi công đoạn.":"Không lưu được VIEW CÔNG ĐOẠN ST."));
           setOperationPickerOpen(false);
           if(onReloadCandidates)onReloadCandidates();
           else location.reload();
          }catch(e){
-          setViewMessage(`Không lưu được VIEW CÔNG ĐOẠN ST: ${e instanceof Error?e.message:String(e)}`);
+          setViewMessage(erpMode?`Không lưu được phạm vi công đoạn: ${e instanceof Error?e.message:String(e)}`:`Không lưu được VIEW CÔNG ĐOẠN ST: ${e instanceof Error?e.message:String(e)}`);
           setTimeout(()=>setViewMessage(""),2600);
          }
-        }}>Áp dụng & nạp Candidate</button>
+        }}>{erpMode?"Áp dụng và nạp lại":"Áp dụng & nạp Candidate"}</button>
         <button className="btn small" type="button" onClick={()=>setOperationPickerOpen(false)}>Đóng</button>
        </div>
       </div>
@@ -3588,19 +3622,19 @@ const currentPriorityMonth=useMemo(()=>{
            changeStView([...next]);
           }}/>
           <span>{o.code}</span>
-          <small>{o.inPanel?"Đã cấu hình ST":"Chỉ trong All Open Jobs"}{Number(o.jobs||0)>0?` · ${o.jobs} job`:""}{loadedByOp.get(o.code)?` · hiện ${loadedByOp.get(o.code)}/${o.jobs}`:""}</small>
+          <small>{o.inPanel?"Đã cấu hình ST":erpMode?"Job nguồn":"Chỉ trong All Open Jobs"}{Number(o.jobs||0)>0?` · ${o.jobs} ${erpMode?"Job":"job"}`:""}{loadedByOp.get(o.code)?(erpMode?` · ${loadedByOp.get(o.code)}/${o.jobs} đã tải`:` · hiện ${loadedByOp.get(o.code)}/${o.jobs}`):""}</small>
          </label>
         </div>;
        })}
        {!filteredAllOps.length&&<div className="candidate-column-empty">Không có công đoạn nào khớp tìm kiếm.</div>}
        {!effectiveStView.size&&
-        <div className="candidate-column-empty candidate-column-empty-info">Đã bỏ hết — Candidate Jobs TRỐNG (không hiện job nào). Tick lại các ô bên trên để hiện.</div>}
+        <div className="candidate-column-empty candidate-column-empty-info">{erpMode?"Chưa chọn công đoạn. Chọn ít nhất một Operation Code để hiển thị Job.":"Đã bỏ hết — Candidate Jobs TRỐNG (không hiện job nào). Tick lại các ô bên trên để hiện."}</div>}
       </div>
      </div>}
 
     {erpMode&&<div className="erpkit-live-matrix-legend">
      <span className="is-done"><i/>DONE</span><span className="is-ready"><i/>READY</span><span className="is-wait"><i/>WAIT</span><span className="is-batch"><i/>BATCH</span><span className="is-scheduled"><i/>SCHEDULED</span><span className="is-muted"><i/>NO CHAIN / N/A</span>
-     <small>Click READY để chọn/bỏ chọn · Matrix tự sinh cột theo Main Operation</small>
+     <small>Chọn READY để thêm Job vào Batch · thứ tự cột theo Main Planning Order</small>
     </div>}
 
     <div className="table-wrap">
@@ -3658,7 +3692,7 @@ const currentPriorityMonth=useMemo(()=>{
            title={!selectableTargetFor(x)
               ?"Job chưa có Main READY để thêm Batch"
               :operationSelectionLocked(x)
-               ?"Khác Standard Operation với Job đã chọn"
+               ?erpMode?"Khác Main Operation với Job đã chọn":"Khác Standard Operation với Job đã chọn"
                :compatibilityLockedForTarget(x)
                 ?(compatibilityReasonForId(Number(selectableTargetFor(x)!.id),selectableTargetFor(x)!.standardOperation)||"Khác Recipe / điều kiện của Batch")
                 :`Chọn ${selectableTargetFor(x)!.standardOperation} READY`}
@@ -3670,11 +3704,11 @@ const currentPriorityMonth=useMemo(()=>{
        )}
        {renderedCandidates.length<displayCandidates.length&&
         <tr ref={candidateDomSentinelRef} className="candidate-dom-sentinel"><td colSpan={1+activeColumns.length}>
-         Đang hiển thị {renderedCandidates.length}/{displayCandidates.length} dòng — cuộn xuống để tải thêm.
+         {erpMode?<>Đang hiển thị {renderedCandidates.length}/{displayCandidates.length} dòng · cuộn xuống để tải thêm.</>:<>Đang hiển thị {renderedCandidates.length}/{displayCandidates.length} dòng — cuộn xuống để tải thêm.</>}
         </td></tr>}
        {!displayCandidates.length&&
         <tr><td colSpan={1+activeColumns.length} className="muted">
-         Không có Candidate phù hợp với filter hiện tại.
+         {erpMode?"Không có Job phù hợp với bộ lọc hiện tại.":"Không có Candidate phù hợp với filter hiện tại."}
         </td></tr>}
       </tbody>
      </table>
@@ -3697,31 +3731,32 @@ const currentPriorityMonth=useMemo(()=>{
     }}
    >
     <div className="erp-panel-head planning-batch-head">
-     <b>Batch Builder</b>
+     <b>{erpMode?"Lập Batch":"Batch Builder"}</b>
     </div>
 
     <div className="planning-batch-body planning-batch-body-compact">
+     {erpMode&&selectedRows.length===0&&<div className="erpkit-batch-selection-hint"><b>Chưa chọn Job</b><span>Chọn một cell READY trong ma trận để bắt đầu tạo Batch.</span></div>}
      <div className="planning-summary-grid planning-summary-grid-compact">
-      <div><span>Operation</span><b>{selectedOperation||standardOperation||(areaMode?"Chọn Job để xác định":"—")}</b></div>
-      <div><span>Jobs</span><b>{selectedRows.length}</b></div>
-      <div><span>Total Qty</span><b>{formatNumber(totalQty)}</b></div>
-      <div><span>Total Surface</span><b>{formatNumber(totalSurface)} dm²</b></div>
-      <div className="planning-process-time"><span>Process Time</span><b>{minutesToHHMM(estimatedMinutes)}</b></div>
+      <div><span>{erpMode?"Main Operation":"Operation"}</span><b>{selectedOperation||standardOperation||(areaMode?"Chọn Job để xác định":"—")}</b></div>
+      <div><span>{erpMode?"Số Job":"Jobs"}</span><b>{selectedRows.length}</b></div>
+      <div><span>{erpMode?"Tổng Qty":"Total Qty"}</span><b>{formatNumber(totalQty)}</b></div>
+      <div><span>{erpMode?"Tổng diện tích":"Total Surface"}</span><b>{formatNumber(totalSurface)} dm²</b></div>
+      <div className="planning-process-time"><span>{erpMode?"Thời gian xử lý":"Process Time"}</span><b>{minutesToHHMM(estimatedMinutes)}</b></div>
      </div>
 
      {compatibilityLock&&
       <div className={`planning-compatibility-lock ${compatibilityLock.error?"is-error":compatibilityLock.loading?"is-loading":"is-active"}`}>
        <div className="planning-compatibility-lock-head">
-        <b>🔒 Batch Compatibility</b>
+        <b>{erpMode?"Điều kiện gom Batch":"🔒 Batch Compatibility"}</b>
         <span>{compatibilityLock.loading?"Đang kiểm tra…":`${compatibilityLock.compatible} cho phép · ${compatibilityLock.locked} khóa`}</span>
        </div>
        {compatibilityLock.profile&&<>
         <div><span>Main Operation</span><b>{compatibilityLock.profile.standardOperation||"—"}</b></div>
         <div><span>Recipe</span><b>{compatibilityLock.profile.recipeNo||compatibilityLock.profile.recipeKey||"Không dùng Recipe"}{compatibilityLock.profile.recipeName?` · ${compatibilityLock.profile.recipeName}`:""}</b></div>
-        {compatibilityLock.profile.recipeMappingId&&<div><span>Recipe Rule</span><b className="mono">#{compatibilityLock.profile.recipeMappingId}</b></div>}
+        {compatibilityLock.profile.recipeMappingId&&<div><span>{erpMode?"Quy tắc Recipe":"Recipe Rule"}</span><b className="mono">#{compatibilityLock.profile.recipeMappingId}</b></div>}
         {compatibilityLock.profile.conditions.length>0?
          <div className="planning-compatibility-condition-picker">
-          <span>Điều kiện Recipe dùng để gom lô</span>
+          <span>{erpMode?"Điều kiện áp dụng":"Điều kiện Recipe dùng để gom lô"}</span>
           <div>
            {compatibilityLock.profile.conditions.map(cond=>{
             const checked=(compatibilityLock.profile?.selectedConditionColumns||[])
@@ -3740,10 +3775,10 @@ const currentPriorityMonth=useMemo(()=>{
           </div>
           <small>{compatibilityLock.profile.selectedConditionColumns.length
            ?`Đang khóa theo: ${compatibilityLock.profile.conditionText}`
-           :"Không chọn condition: chỉ khóa theo cùng Recipe."}</small>
+           :erpMode?"Không chọn điều kiện: chỉ kiểm tra cùng Recipe.":"Không chọn condition: chỉ khóa theo cùng Recipe."}</small>
          </div>:
-         <div><span>Điều kiện</span><b>Recipe mapping không có điều kiện Open Job</b></div>}
-        <small>{compatibilityLock.profile.source==="BATCH"?"Điều kiện được lưu theo Target Batch hiện tại":"Mặc định tích tất cả; bỏ tích condition để mở thêm Job cùng Recipe"}</small>
+         <div><span>Điều kiện</span><b>{erpMode?"Cấu hình Recipe không có điều kiện Open Job":"Recipe mapping không có điều kiện Open Job"}</b></div>}
+        <small>{compatibilityLock.profile.source==="BATCH"?(erpMode?"Điều kiện đang kế thừa từ Batch đích":"Điều kiện được lưu theo Target Batch hiện tại"):(erpMode?"Mặc định dùng toàn bộ điều kiện; có thể bỏ chọn để mở rộng Job cùng Recipe":"Mặc định tích tất cả; bỏ tích condition để mở thêm Job cùng Recipe")}</small>
        </>}
        {compatibilityLock.error&&<small className="planning-compatibility-error">{compatibilityLock.error}</small>}
       </div>}
@@ -3752,17 +3787,17 @@ const currentPriorityMonth=useMemo(()=>{
       <div className={`planning-rule-suggestion ${suggestionSummary.allSameRecipe?"ok":suggestionSummary.mixedRecipes?"warn":""}`}>
        {suggestionSummary.unanimousRecipe?(
         <>
-         <b>✓ Recipe đề xuất cho lô:</b>
+         <b>{erpMode?"Recipe đề xuất":"✓ Recipe đề xuất cho lô:"}</b>
          <span className="mono">{suggestionSummary.unanimousRecipeLabel||suggestionSummary.unanimousRecipe}</span>
-         <span>theo cấu hình Recipe của công đoạn đang tạo lô</span>
+         <span>{erpMode?"Theo cấu hình Main Operation đang chọn":"theo cấu hình Recipe của công đoạn đang tạo lô"}</span>
          {suggestionSummary.unanimousKey&&<span className="mono">Batch Key: {suggestionSummary.unanimousKey}</span>}
          {suggestionSummary.unanimousPrefix&&<span className="mono">Prefix: {suggestionSummary.unanimousPrefix}</span>}
         </>
        ):(
         <>
          <b>{suggestionSummary.mixedRecipes
-           ?"⚠ Các Job chọn có Recipe khác nhau"
-           :"✕ Chưa có Recipe theo cấu hình"}</b>
+           ?erpMode?"Recipe không đồng nhất":"⚠ Các Job chọn có Recipe khác nhau"
+           :erpMode?"Chưa có Recipe theo cấu hình":"✕ Chưa có Recipe theo cấu hình"}</b>
          <span>
           {suggestionSummary.mixedRecipes
            ? "Kiểm tra lại 'Cấu hình → Công thức & Rule' hoặc chọn Job cùng Recipe."
@@ -3776,7 +3811,7 @@ const currentPriorityMonth=useMemo(()=>{
            onClick={runRecipeDiagnosis}
            disabled={recipeDiagLoading}
           >
-           {recipeDiagLoading?"Đang phân tích…":"🔍 Xem lý do"}
+           {recipeDiagLoading?"Đang phân tích…":erpMode?"Xem lý do":"🔍 Xem lý do"}
           </button>}
         </>
        )}
@@ -3786,7 +3821,7 @@ const currentPriorityMonth=useMemo(()=>{
      {recipeDiag&&
       <div className="recipe-diagnosis-panel">
        <div className="recipe-diagnosis-head">
-        <b>🔍 Chẩn đoán Recipe</b>
+        <b>{erpMode?"Chẩn đoán Recipe":"🔍 Chẩn đoán Recipe"}</b>
         <button className="btn small" type="button" onClick={()=>setRecipeDiag(null)}>×</button>
        </div>
        {recipeDiag.error?(
@@ -3813,18 +3848,18 @@ const currentPriorityMonth=useMemo(()=>{
          </div>
          {recipeDiag.matchedRecipe&&
           <div className="recipe-diagnosis-matched">
-           <b>✓ Rule đã match:</b>
+           <b>{erpMode?"Quy tắc đã khớp":"✓ Rule đã match:"}</b>
            <span className="mono">{recipeDiag.matchedRecipe.recipe_mapping_id?`#${recipeDiag.matchedRecipe.recipe_mapping_id}`:"Mặc định"}</span>
            <span className="mono">{recipeDiag.matchedRecipe.recipe_no||recipeDiag.matchedRecipe.recipe_key}{recipeDiag.matchedRecipe.recipe_name?` · ${recipeDiag.matchedRecipe.recipe_name}`:""}</span>
            {recipeDiag.matchedRecipe.selection_rule&&<small>{recipeDiag.matchedRecipe.selection_rule}</small>}
           </div>}
          {recipeDiag.candidates&&recipeDiag.candidates.length>0&&
           <div className="recipe-diagnosis-candidates">
-           <b>Các mapping hiện có cho “{firstUnmatchedTarget?.target.sourceOperation}”:</b>
+           <b>{erpMode?"Các cấu hình Recipe hiện có cho":"Các mapping hiện có cho"} “{firstUnmatchedTarget?.target.sourceOperation}”:</b>
            <div className="table-wrap">
             <table className="erp-table recipe-candidate-table">
              <thead>
-              <tr><th>Rule</th><th>Recipe</th><th>Ưu tiên</th><th>Mặc định</th><th>Điều kiện</th><th>Khớp Job?</th></tr>
+              <tr><th>{erpMode?"Quy tắc":"Rule"}</th><th>Recipe</th><th>Ưu tiên</th><th>Mặc định</th><th>Điều kiện</th><th>Khớp Job?</th></tr>
              </thead>
              <tbody>
               {recipeDiag.candidates.map((x:any,i:number)=>
@@ -3857,14 +3892,14 @@ const currentPriorityMonth=useMemo(()=>{
       </div>}
 
      <label className="planning-target-batch">
-      <span>Target Batch</span>
+      <span>{erpMode?"Batch đích":"Target Batch"}</span>
       <select
        className="input"
        value={targetBatchId}
        onChange={e=>setTargetBatchId(e.target.value)}
        disabled={busy||!selectedOperation}
       >
-       <option value="">Create New Batch</option>
+       <option value="">{erpMode?"Tạo Batch mới":"Create New Batch"}</option>
        {compatibleTargetBatches.map(b=>{
         const scheduleDateTime=b.schedule_id&&b.schedule_start
          ?new Date(b.schedule_start).toLocaleString("vi-VN",{
@@ -3883,15 +3918,15 @@ const currentPriorityMonth=useMemo(()=>{
          :"";
         const scheduleText=b.schedule_id
          ?[
-           "SCHEDULED",
+           erpMode?"ĐÃ ĐIỀU ĐỘ":"SCHEDULED",
            b.resource_code||"",
            scheduleDateTime
             ?`${scheduleDateTime}${scheduleEndTime?`–${scheduleEndTime}`:""}`
             :""
           ].filter(Boolean).join(" · ")
-         :"UNSCHEDULED";
+         :(erpMode?"CHƯA ĐIỀU ĐỘ":"UNSCHEDULED");
         return <option key={b.id} value={b.id}>
-         {b.batch_no} · {scheduleText} · {b.total_jobs||0} jobs
+         {b.batch_no} · {scheduleText} · {b.total_jobs||0} {erpMode?"Job":"jobs"}
         </option>;
        })}
       </select>
@@ -3900,7 +3935,7 @@ const currentPriorityMonth=useMemo(()=>{
        if(!b)return null;
        return <small className="planning-target-batch-info">
         {b.recipe_no?`Recipe ${b.recipe_no} · `:""}
-        Qty {formatNumber(b.total_qty)} · Surface {formatNumber(b.total_surface_dm2)} dm²
+        Qty {formatNumber(b.total_qty)} · {erpMode?"Diện tích":"Surface"} {formatNumber(b.total_surface_dm2)} dm²
         {b.schedule_id&&b.schedule_start
          ? ` · ${b.resource_code||""} ${new Date(b.schedule_start).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})}`
          : ""}
@@ -3913,10 +3948,10 @@ const currentPriorityMonth=useMemo(()=>{
       disabled={busy||!selected.length||Boolean(compatibilityLock?.loading)||Boolean(compatibilityLock?.error)}
       onClick={createBatch}>
       {busy
-       ?"Đang xử lý..."
+       ?erpMode?"Đang xử lý…":"Đang xử lý..."
        :targetBatchId
-        ?"Add Selected to Existing Batch"
-        :"Create New Batch"}
+        ?erpMode?"Thêm Job vào Batch đã chọn":"Add Selected to Existing Batch"
+        :erpMode?"Tạo Batch mới":"Create New Batch"}
      </button>
 
     </div>
@@ -3934,11 +3969,11 @@ const currentPriorityMonth=useMemo(()=>{
       <button type="button" className="col-filter-popup-close" onClick={()=>setColFilterMenu(null)}>×</button>
      </div>
      <div className="col-filter-popup-actions">
-      <button type="button" className="btn small" onClick={()=>setAllColFilter(colFilterMenu.key,colFilterOptions)}>Chọn hết</button>
-      <button type="button" className="btn small" onClick={()=>setAllColFilter(colFilterMenu.key,[])}>Bỏ hết</button>
+      <button type="button" className="btn small" onClick={()=>setAllColFilter(colFilterMenu.key,colFilterOptions)}>{erpMode?"Chọn tất cả":"Chọn hết"}</button>
+      <button type="button" className="btn small" onClick={()=>setAllColFilter(colFilterMenu.key,[])}>{erpMode?"Bỏ chọn":"Bỏ hết"}</button>
       <span className="muted">{sel.length}/{colFilterOptions.length}</span>
      </div>
-     <input className="input col-filter-search" placeholder="Tìm giá trị..." value={colFilterSearch}
+     <input className="input col-filter-search" placeholder={erpMode?"Tìm giá trị…":"Tìm giá trị..."} value={colFilterSearch}
       onChange={e=>setColFilterSearch(e.target.value)} autoFocus/>
      <div className="col-filter-list">
       {colFilterOptions.map(v=>{

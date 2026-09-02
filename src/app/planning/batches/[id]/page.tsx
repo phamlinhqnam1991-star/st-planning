@@ -25,6 +25,27 @@ const hhmm=(minutes:number|null)=>{
  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
 };
 
+const batchStatusTone=(value:unknown)=>{
+ const status=String(value||"").trim().toUpperCase();
+ if(["COMPLETED","DONE"].includes(status))return "erpkit-status-success";
+ if(["RUNNING","SCHEDULED"].includes(status))return "erpkit-status-info";
+ if(["HOLD","WAITING"].includes(status))return "erpkit-status-warning";
+ if(["CANCELLED","ERROR"].includes(status))return "erpkit-status-danger";
+ return "erpkit-status-neutral";
+};
+
+const batchStatusLabel=(value:unknown)=>{
+ const status=String(value||"").trim().toUpperCase();
+ if(status==="UNSCHEDULED")return "CHƯA ĐIỀU ĐỘ";
+ if(status==="SCHEDULED")return "ĐÃ ĐIỀU ĐỘ";
+ if(status==="RUNNING")return "ĐANG CHẠY";
+ if(["COMPLETED","DONE"].includes(status))return "HOÀN TẤT";
+ if(["HOLD","WAITING"].includes(status))return "ĐANG CHỜ";
+ if(status==="CANCELLED")return "ĐÃ HỦY";
+ if(status==="ERROR")return "LỖI";
+ return status||"—";
+};
+
 export default async function Page({
  params,searchParams
 }:{
@@ -402,44 +423,44 @@ export default async function Page({
    return <ErpAppShell
     moduleItems={ST_ERP_MODULES}
     activeModule="planning"
-    environment="ERP PLANNING"
-    userArea={<LogoutButton/>}
-    breadcrumb={<><Link href="/planning">Planning</Link><span>/</span><Link href="/planning/batches">Batches</Link><span>/</span><b>{batch.batch_no||"—"}</b></>}
+    environment="ST PLANNING"
+    userArea={<LogoutButton presentation="erp"/>}
+    breadcrumb={<><Link href="/planning">Planning Board</Link><span>/</span><Link href="/planning/batches">Batch gần đây</Link><span>/</span><b>{batch.batch_no||"—"}</b></>}
    >
     <div className="planning-erp-version">
      <ErpPageHeader
-      eyebrow="PLANNING / BATCH DETAIL"
+      eyebrow="PLANNING BOARD"
       title={batch.batch_no||"—"}
-      description={`${batch.area_name||"—"} · ${batch.standard_operation}`}
-      status={<span className="erpkit-status erpkit-status-info">{batch.status}</span>}
+      description={`Chi tiết Batch · ${batch.area_name||"—"} · ${batch.standard_operation}`}
+      status={<span className={`erpkit-status ${batchStatusTone(batch.status)}`}><span className="erpkit-status-dot"/>{batchStatusLabel(batch.status)}</span>}
       actions={<div className="erpkit-page-actions">
-       <Link className="erpkit-btn" href={`/planning-old/batches/${batchId}`}>Baseline cũ</Link>
+       <Link className="erpkit-btn" href={`/planning-old/batches/${batchId}`}>So sánh giao diện cũ</Link>
        <Link
         className="erpkit-btn"
         href={sp.returnTo==="schedule"
          ? `/schedule${sp.date?`?date=${encodeURIComponent(sp.date)}`:""}`
          : "/planning/batches"}
        >
-        ← {sp.returnTo==="schedule"?"Board Điều Độ":"Recent Planning Batches"}
+        ← {sp.returnTo==="schedule"?"Board Điều Độ":"Batch gần đây"}
        </Link>
       </div>}
      />
      <ErpTabs active="batches" items={[
-      {key:"matrix",label:"Planning Matrix",href:"/planning"},
-      {key:"batches",label:"Recent Planning Batches",href:"/planning/batches"},
+      {key:"matrix",label:"Ma trận kế hoạch",href:"/planning"},
+      {key:"batches",label:"Batch gần đây",href:"/planning/batches"},
      ]}/>
 
      <div className="erpkit-section">
       <div className="planning-batch-detail-summary">
-       <div><span>Operation</span><b>{batch.standard_operation}</b></div>
+       <div><span>Main Operation</span><b>{batch.standard_operation}</b></div>
        <div><span>Recipe</span><b>{batch.recipe_no?`${batch.recipe_no} · ${batch.recipe_name||""}`:"—"}</b></div>
        <div><span>Batch Key</span><b className="mono">{batch.batch_key||"—"}</b></div>
-       <div><span>Jobs</span><b>{batch.total_jobs}</b></div>
-       <div><span>Total Qty</span><b>{formatNumber(batch.total_qty)}</b></div>
-       <div><span>Total Surface</span><b>{formatNumber(batch.total_surface_dm2)} dm²</b></div>
-       <div><span>Process Time</span><b>{hhmm(batch.process_minutes)}</b></div>
-       <div><span>Status</span><b>{batch.status}</b></div>
-       <div><span>Priority</span><b>{batch.priority}</b></div>
+       <div><span>Số Job</span><b>{batch.total_jobs}</b></div>
+       <div><span>Tổng Qty</span><b>{formatNumber(batch.total_qty)}</b></div>
+       <div><span>Diện tích</span><b>{formatNumber(batch.total_surface_dm2)} dm²</b></div>
+       <div><span>Thời gian xử lý</span><b>{hhmm(batch.process_minutes)}</b></div>
+       <div><span>Trạng thái</span><b>{batchStatusLabel(batch.status)}</b></div>
+       <div><span>Ưu tiên</span><b>{batch.priority}</b></div>
       </div>
      </div>
 
@@ -450,6 +471,7 @@ export default async function Page({
       jobs={jobsQ.rows as any}
       candidates={candidatesQ.rows as any}
       initialNextFilter={sp.next||""}
+      presentation="erp"
      />
     </div>
    </ErpAppShell>

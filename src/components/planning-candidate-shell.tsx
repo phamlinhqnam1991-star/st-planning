@@ -115,7 +115,7 @@ export function PlanningCandidateShell({presentation="legacy",areas,operations,a
       body:JSON.stringify({candidateIds:chunk})
      });
      const d=await r.json().catch(()=>({}));
-     if(!r.ok)throw new Error(d.error||"Không tải được Route Matrix.");
+     if(!r.ok)throw new Error(d.error||(presentation==="erp"?"Không tải được trạng thái ma trận.":"Không tải được Route Matrix."));
      if(seq!==loadSeq.current)return;
 
      const routeMap=new Map<number,any[]>((d.rows||[]).map((x:any)=>[Number(x.candidate_id),Array.isArray(x.route_status)?x.route_status:[]]));
@@ -195,7 +195,7 @@ export function PlanningCandidateShell({presentation="legacy",areas,operations,a
    })
   });
   const d=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(d?.error||"Không cập nhật được Candidate vừa tạo Batch.");
+  if(!r.ok)throw new Error(d?.error||(presentation==="erp"?"Không cập nhật được Job vừa thay đổi Batch.":"Không cập nhật được Candidate vừa tạo Batch."));
 
   const deltaRows=(Array.isArray(d.candidates)?d.candidates:[]).map((row:any)=>({
    ...row,
@@ -263,7 +263,7 @@ export function PlanningCandidateShell({presentation="legacy",areas,operations,a
   }catch(e){
    if(seq===loadSeq.current){
     console.error("[planning] source_data lazy fetch failed",e);
-    setSourceDataError("Không tải được cột All Open Source (mạng chậm) — board vẫn hoạt động bình thường.");
+    setSourceDataError(presentation==="erp"?"Không tải được các trường Open Job mở rộng — ma trận vẫn hoạt động bình thường.":"Không tải được cột All Open Source (mạng chậm) — board vẫn hoạt động bình thường.");
    }
   }finally{clearTimeout(timer);}
  }
@@ -321,7 +321,7 @@ export function PlanningCandidateShell({presentation="legacy",areas,operations,a
     if(!r.ok){
      const detail=String(d?.error||"").trim();
      console.error(`[planning] candidates FAILED ${r.status} ${r.statusText}`,detail||raw.slice(0,1200));
-     throw new Error(detail||"Không tải được Candidate Jobs.");
+     throw new Error(detail||(presentation==="erp"?"Không tải được dữ liệu Planning Board.":"Không tải được Candidate Jobs."));
     }
     return d;
    };
@@ -398,24 +398,29 @@ export function PlanningCandidateShell({presentation="legacy",areas,operations,a
   if(v&&op&&!operations.some(x=>String(x.area_id||"")===v&&x.standard_operation===op)){setOp("");setRecipeKey("");}
  }
 
- return <div className={presentation==="erp"?"erpkit-live-planning":""}>
-  <form className={presentation==="erp"?"erpkit-live-planning-filter":"erp-form-panel planning-filter"} onSubmit={submit}>
-   <label>Area<select className="input" value={areaId} onChange={e=>changeArea(e.target.value)}><option value="">Tất cả Area</option>{areas.map(a=><option key={a.id} value={a.id}>{a.area_name}</option>)}</select></label>
-   <label>Standard Operation<select className="input" value={op} onChange={e=>{setOp(e.target.value);setRecipeKey("");}}><option value="">Chọn công đoạn...</option>{filteredOperations.map(x=><option key={`${x.area_id||"none"}-${x.standard_operation}`} value={x.standard_operation}>{x.standard_operation}{x.area_name?` · ${x.area_name}`:""}</option>)}</select>{areaId&&<small className="planning-sub">{filteredOperations.length} công đoạn</small>}</label>
-   <label>Recipe<select className="input" value={recipeKey} onChange={e=>setRecipeKey(e.target.value)}><option value="">Tất cả / Không yêu cầu</option>{recipeOptions.map(r=><option key={r.recipe_key} value={r.recipe_key}>{r.recipe_no||"—"} · {r.recipe_name||"CHƯA KHAI BÁO"}</option>)}</select></label>
-   <label>Previous Batch No<input className="input" value={previousBatchNo} onChange={e=>setPreviousBatchNo(e.target.value)} placeholder="PB-000120"/></label>
-   <button className="btn primary" disabled={loading}>{loading?"Đang tải...":"Tải Candidate"}</button>
+ const erpMode=presentation==="erp";
+ const fieldClass=erpMode?"erpkit-select":"input";
+ const actionClass=erpMode?"erpkit-btn erpkit-btn-primary":"btn primary";
+ const noticeClass=(tone:"info"|"warning"|"danger"="info")=>erpMode?`erpkit-planning-notice is-${tone}`:"notice section";
+
+ return <div className={erpMode?"erpkit-live-planning":""}>
+  <form className={erpMode?"erpkit-live-planning-filter":"erp-form-panel planning-filter"} onSubmit={submit}>
+   <label><span>{erpMode?"Khu vực":"Area"}</span><select className={fieldClass} value={areaId} onChange={e=>changeArea(e.target.value)}><option value="">{erpMode?"Tất cả khu vực":"Tất cả Area"}</option>{areas.map(a=><option key={a.id} value={a.id}>{a.area_name}</option>)}</select></label>
+   <label><span>{erpMode?"Main Operation":"Standard Operation"}</span><select className={fieldClass} value={op} onChange={e=>{setOp(e.target.value);setRecipeKey("");}}><option value="">{erpMode?"Tất cả công đoạn":"Chọn công đoạn..."}</option>{filteredOperations.map(x=><option key={`${x.area_id||"none"}-${x.standard_operation}`} value={x.standard_operation}>{x.standard_operation}{x.area_name?` · ${x.area_name}`:""}</option>)}</select>{areaId&&<small className="planning-sub">{filteredOperations.length} công đoạn</small>}</label>
+   <label><span>Recipe</span><select className={fieldClass} value={recipeKey} onChange={e=>setRecipeKey(e.target.value)}><option value="">{erpMode?"Tất cả Recipe":"Tất cả / Không yêu cầu"}</option>{recipeOptions.map(r=><option key={r.recipe_key} value={r.recipe_key}>{r.recipe_no||"—"} · {r.recipe_name||"CHƯA KHAI BÁO"}</option>)}</select></label>
+   <label><span>{erpMode?"Batch trước":"Previous Batch No"}</span><input className={erpMode?"erpkit-input":"input"} value={previousBatchNo} onChange={e=>setPreviousBatchNo(e.target.value)} placeholder={erpMode?"Nhập Batch No.":"PB-000120"}/></label>
+   <button className={actionClass} disabled={loading}>{loading?"Đang tải…":erpMode?"Áp dụng":"Tải Candidate"}</button>
   </form>
-  {error&&<div className="notice section">{error}
-   <div className="row" style={{marginTop:8}}><button className="btn primary" onClick={()=>void load()}>Thử lại</button></div>
+  {error&&<div className={noticeClass("danger")}>{error}
+   <div className="row" style={{marginTop:8}}><button className={actionClass} onClick={()=>void load()}>Thử lại</button></div>
   </div>}
-  {routeError&&<div className="notice section">Candidate đã tải; lỗi trạng thái công đoạn: {routeError}</div>}
-  {sourceDataError&&<div className="notice section">{sourceDataError}</div>}
-  {loading&&<div className="notice section">Đang tải Candidate Jobs… {loadElapsed>0&&<span className="muted">({loadElapsed}s)</span>}</div>}
-  {!loading&&loadingMore&&<div className="notice section">Đang tải tiếp Jobs… đã hiển thị {candidates.length.toLocaleString("vi-VN")} dòng</div>}
-  {!loading&&routeLoading&&<div className="notice section">Đang tải trạng thái công đoạn cho các Job đang hiển thị…</div>}
-  {!op&&!areaId&&<div className="notice section">Chọn Area để xem Candidate, hoặc chọn thêm Main Operation để lọc chi tiết.</div>}
-  <div className="section">
+  {routeError&&<div className={noticeClass("warning")}>{erpMode?"Dữ liệu Job đã tải, nhưng trạng thái công đoạn gặp lỗi: ":"Dữ liệu Job đã tải, nhưng trạng thái Route Matrix gặp lỗi: "}{routeError}</div>}
+  {sourceDataError&&<div className={noticeClass("warning")}>{sourceDataError}</div>}
+  {loading&&<div className={noticeClass("info")}><span className="erpkit-planning-spinner"/>Đang tải dữ liệu kế hoạch {loadElapsed>0&&<span className="muted">· {loadElapsed}s</span>}</div>}
+  {!loading&&loadingMore&&<div className={noticeClass("info")}><span className="erpkit-planning-spinner"/>Đang tải thêm Job · đã hiển thị {candidates.length.toLocaleString("vi-VN")} dòng</div>}
+  {!loading&&routeLoading&&<div className={noticeClass("info")}><span className="erpkit-planning-spinner"/>{erpMode?"Đang đồng bộ trạng thái công đoạn…":"Đang đồng bộ trạng thái Route Matrix…"}</div>}
+  {!op&&!areaId&&<div className={noticeClass("info")}>Chọn khu vực hoặc Main Operation để thu hẹp phạm vi kế hoạch.</div>}
+  <div className={erpMode?"erpkit-live-planning-content":"section"}>
    <PlanningBoardClient
     key={boardKey}
     candidates={candidates} availableBatches={availableBatchesState} standardOperation={loadedOp}

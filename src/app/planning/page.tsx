@@ -39,24 +39,24 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
   return <ErpAppShell
    moduleItems={ST_ERP_MODULES}
    activeModule="planning"
-   environment="ERP PLANNING"
-   userArea={<LogoutButton/>}
-   breadcrumb={<><Link href="/planning">Planning</Link><span>/</span><b>Matrix</b></>}
+   environment="ST PLANNING"
+   userArea={<LogoutButton presentation="erp"/>}
+   breadcrumb={<><Link href="/planning">Planning Board</Link><span>/</span><b>Ma trận kế hoạch</b></>}
   >
    <div className="planning-erp-version">
     <ErpPageHeader
-     eyebrow="PLANNING / BATCH"
+     eyebrow="PLANNING BOARD"
      title="Planning Board"
-     description="Matrix theo Job × Main Operation · chọn READY trực tiếp để tạo hoặc thêm vào Batch."
-     status={<span className="erpkit-status erpkit-status-success">ERP</span>}
-     actions={<Link className="erpkit-btn" href={scoped("/planning-old")}>Mở baseline cũ</Link>}
+     description="Ma trận Job × Main Operation · chọn READY để tạo mới hoặc bổ sung Job vào Batch."
+     status={<span className="erpkit-status erpkit-status-success"><span className="erpkit-status-dot"/>LIVE</span>}
+     actions={<Link className="erpkit-btn" href={scoped("/planning-old")}>So sánh giao diện cũ</Link>}
     />
 
     <ErpTabs
      active="matrix"
      items={[
-      {key:"matrix",label:"Planning Matrix",href:scoped("/planning")},
-      {key:"batches",label:"Recent Planning Batches",href:scoped("/planning/batches"),count:batchesQ.rows.length},
+      {key:"matrix",label:"Ma trận kế hoạch",href:scoped("/planning")},
+      {key:"batches",label:"Batch gần đây",href:scoped("/planning/batches"),count:batchesQ.rows.length},
      ]}
     />
 
