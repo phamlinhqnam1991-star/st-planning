@@ -112,3 +112,8 @@ Added `/production-execution` for Production department work reporting. Data com
 - PREV cells are read-only and show prior Batch No + scheduled start when available.
 - Compact rows are denser; matrix-only zoom supports 70%..130% and persists locally.
 - No change to Planning Chain, Batch, Recipe, Schedule, or Production Execution logic.
+
+## V381 · Recipe Compatibility Lock Restore
+- Batch Compatibility no longer treats a temporarily missing Route Matrix `effective_recipe_key` as "no Recipe".
+- Missing target Recipe metadata is resolved server-side from the exact Planning Operation + Open Job + current Recipe Rules before compatibility is calculated.
+- Different-Recipe READY Jobs are locked again; V380 Previous Main/compact/zoom behavior is unchanged.

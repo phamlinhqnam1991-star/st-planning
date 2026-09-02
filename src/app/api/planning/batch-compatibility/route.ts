@@ -2,7 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {requireApiUser} from "@/lib/api-auth";
 import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
-import {mergeJobData} from "@/lib/planning/live-recipe";
+import {bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
 import {
  compatibilityConditionMatches,
  describeCompatibilityConditions,
@@ -24,6 +24,58 @@ type CandidateInput={
  standardOperation:string;
  sourceOperation:string;
 };
+
+// v381: Route Matrix is progressively enriched. In plan-ahead READY cases the
+// browser can legitimately reach Batch Compatibility before effective_recipe_key
+// has arrived for every occurrence. Never interpret that timing gap as
+// "this Main does not use Recipe". Resolve only the missing Recipe values on
+// the server from the exact planning_job_operation + current Open Job data.
+async function hydrateMissingCandidateRecipes(c:any,input:CandidateInput[]):Promise<CandidateInput[]>{
+ const missingIds=input.filter(x=>!clean(x.recipeKey)).map(x=>Number(x.id)).filter(Number.isFinite);
+ if(!missingIds.length)return input;
+
+ const q=await c.query(`
+  select p.id,p.standard_operation,p.source_operation_code,
+         j.part_num,j.revision_num,j.source_data
+  from planning_job_operation p
+  join open_job_current j on j.job_num=p.job_num and j.is_open=true
+  where p.id=any($1::bigint[])
+    and p.is_active=true
+ `,[missingIds]);
+ if(!q.rowCount)return input;
+
+ const ctx=await getCachedLiveRecipeContext(c);
+ const resolved=new Map<number,{recipeKey:string|null;recipeMappingId:number|null;standardOperation:string;sourceOperation:string}>();
+ for(const r of q.rows){
+  const match=bestRecipeMatch(ctx,{
+   standardOperation:r.standard_operation,
+   sourceOperationCode:r.source_operation_code,
+   partNum:r.part_num,
+   revisionNum:r.revision_num,
+   sourceData:(r.source_data||{}) as Record<string,unknown>,
+   ruleSuggestion:null
+  });
+  resolved.set(Number(r.id),{
+   recipeKey:match.recipeKey||null,
+   recipeMappingId:match.recipeMappingId||null,
+   standardOperation:clean(r.standard_operation),
+   sourceOperation:clean(r.source_operation_code)
+  });
+ }
+
+ return input.map(item=>{
+  if(item.recipeKey)return item;
+  const live=resolved.get(Number(item.id));
+  if(!live)return item;
+  return {
+   ...item,
+   recipeKey:live.recipeKey,
+   recipeMappingId:item.recipeMappingId||live.recipeMappingId,
+   standardOperation:item.standardOperation||live.standardOperation,
+   sourceOperation:item.sourceOperation||live.sourceOperation
+  };
+ });
+}
 
 async function loadConditionDataByOperationIds(c:any,ids:number[],columns:string[]){
  const result=new Map<number,Record<string,unknown>>();
@@ -104,7 +156,7 @@ export async function POST(req:NextRequest){
 
  const body=await req.json().catch(()=>({}));
  const rawCandidates=Array.isArray(body.candidates)?body.candidates:[];
- const candidates:CandidateInput[]=rawCandidates.slice(0,5000).map((x:any)=>({
+ const candidateInput:CandidateInput[]=rawCandidates.slice(0,5000).map((x:any)=>({
   id:Number(x?.id),
   recipeKey:clean(x?.recipeKey)||null,
   recipeMappingId:Number(x?.recipeMappingId||0)>0?Number(x.recipeMappingId):null,
@@ -118,13 +170,14 @@ export async function POST(req:NextRequest){
   ?normalizeCompatibilityColumns(body.selectedConditionColumns)
   :undefined;
 
- if(!candidates.length)
+ if(!candidateInput.length)
   return NextResponse.json({profile:null,compatibleIds:[],reasons:{}});
  if(!batchId&&(!Number.isFinite(anchorId)||anchorId<=0))
   return NextResponse.json({error:"Thiếu Job chuẩn hoặc Target Batch."},{status:400});
 
  const c=await getPool().connect();
  try{
+  const candidates=await hydrateMissingCandidateRecipes(c,candidateInput);
   let recipeKey="";
   let recipeMappingId:number|null=null;
   let standardOperation="";
