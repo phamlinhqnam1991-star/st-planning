@@ -209,31 +209,6 @@ export function toRecipeCandidates(rows:any[]):RecipeCandidateItem[]{
   }));
 }
 
-// Chuyển hàng SQL md_main_operation_recipe thành Map<operation_code, items>.
-export function groupRecipeCandidates(
-  rows:any[],
-  codeColumn:string="operation_code"
-):Map<string,RecipeCandidateItem[]>{
-  const map=new Map<string,RecipeCandidateItem[]>();
-  for(const r of rows||[]){
-    const k=String(r[codeColumn]??"").trim().toUpperCase();
-    if(!k)continue;
-    const arr=map.get(k)||[];
-    arr.push({
-      mapping_id:r.mapping_id==null?null:Number(r.mapping_id),
-      recipe_key:String(r.recipe_key),
-      priority:r.priority==null?null:Number(r.priority),
-      is_default:!!r.is_default,
-      updated_at:r.updated_at,
-      selection_rule:r.selection_rule?String(r.selection_rule):null,
-      batch_key_template:r.batch_key_template?String(r.batch_key_template):null,
-      batch_no_prefix:r.batch_no_prefix?String(r.batch_no_prefix):null
-    });
-    map.set(k,arr);
-  }
-  return map;
-}
-
 // Thay {COLUMN_NAME} trong template bằng giá trị thật của Job.
 export function substituteTemplate(
   template:string|null,

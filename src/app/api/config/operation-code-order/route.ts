@@ -14,7 +14,6 @@ export async function POST(req:Request){
  let c:any=null;
  try{
   const body=await req.json();
-  const action=clean(body?.action||"set-order").toLowerCase();
   const operationCode=clean(body?.operation_code).toUpperCase();
   const operationName=clean(body?.operation_name)||operationCode;
   const raw=body?.planning_sort_order;
@@ -24,55 +23,14 @@ export async function POST(req:Request){
    return NextResponse.json({error:"Thiếu Operation Code."},{status:400});
 
   if(order!==null && (!Number.isInteger(order)||order<0))
-   return NextResponse.json({error:"Next Op Sort phải là số nguyên >= 0."},{status:400});
+   return NextResponse.json({error:"Operation Code Order phải là số nguyên >= 0."},{status:400});
 
   c=await getPool().connect();
   await c.query("begin");
 
-  if(action==="add"){
-    // Production DB may contain historical duplicates, therefore do not rely
-    // on ON CONFLICT. Reactivate/update existing code first; insert only if absent.
-    const upd=await c.query(`
-      update public.md_operation
-         set operation_name=$2,
-             planning_sort_order=$3,
-             is_active=true
-       where upper(trim(operation_code))=$1
-      returning operation_code,operation_name,planning_sort_order
-    `,[operationCode,operationName,order]);
-
-    let row:any;
-    if(upd.rowCount){
-      row=upd.rows[0];
-    }else{
-      const ins=await c.query(`
-        insert into public.md_operation(
-          operation_code,operation_name,planning_sort_order,is_active
-        )
-        values($1,$2,$3,true)
-        returning operation_code,operation_name,planning_sort_order
-      `,[operationCode,operationName,order]);
-      row=ins.rows[0];
-    }
-
-    await c.query(`insert into md_st_operation_scope(operation_code,is_active) values($1,true) on conflict(operation_code) do update set is_active=true`,[operationCode]);
-
-    const sync=await remapAll(c);
-    await c.query("commit");
-    invalidatePlanningStaticData();
-    invalidateConfigHealth();
-    return NextResponse.json({
-      ok:true,
-      action:"add",
-      row,
-      sync,
-      note:"Operation mới chỉ vào Main Operation khi có ST Operation Mapping active cho code này."
-    });
-  }
-
-  // Next Op Sort belongs to the RAW Operation Code only.
-  // It is intentionally independent from Main Planning Order / READY-WAIT / Planning Chain.
-  // Therefore changing this number MUST NOT rebuild or remap Planning Chain.
+  // Operation Code Order belongs to the RAW Operation Code only and is an
+  // optional tie-breaker inside the Main inherited from ST Operation Mapping.
+  // Changing it MUST NOT rebuild/remap Planning Chain or READY/WAIT.
   const q=await c.query(`
    update public.md_operation
       set planning_sort_order=$2,
@@ -97,9 +55,8 @@ export async function POST(req:Request){
   invalidateConfigHealth();
   return NextResponse.json({
     ok:true,
-    action:action==="set-next-op-sort"?"set-next-op-sort":"set-order",
     row,
-    note:"Next Op Sort chỉ dùng để sắp xếp RAW NextOperation; không rebuild Planning Chain."
+    note:"Operation Code Order chỉ tie-break RAW NextOperation trong cùng Main; không rebuild Planning Chain."
   });
  }catch(e){
   if(c){try{await c.query("rollback")}catch{}}

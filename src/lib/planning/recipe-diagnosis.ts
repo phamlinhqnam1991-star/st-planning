@@ -1,5 +1,5 @@
 import type{PoolClient}from"pg";
-import{loadLiveRecipeContext,bestRecipeMatch,mergeJobData,type LiveRecipeContext,PAINT_STANDARD_OPS}from"@/lib/planning/live-recipe";
+import{loadLiveRecipeContext,bestRecipeMatch,mergeJobData,PAINT_STANDARD_OPS}from"@/lib/planning/live-recipe";
 import{parseSelectionRule,matchCondition,selectionRuleMatchesPaintOccurrence}from"@/lib/batch-key-recipe";
 
 const clean=(v:unknown)=>String(v??"").trim();

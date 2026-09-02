@@ -9,8 +9,8 @@ export type PlanningCandidateQuery={
  recipeKey:string;
  previousBatchNo:string;
  requestedPage:number;
- // v298: null = load ALL Candidates (pagination removed). Numeric values keep
- // the legacy paged behavior for backward compatibility.
+ // null = explicit load-all mode; numeric values are the current progressive
+ // Planning Board path (200 rows/page).
  pageSize:number|null;
  stViewParams:string[];
  knownTotalCandidates?:number|null;
@@ -63,10 +63,10 @@ export type PlanningCandidateMetadataQuery={
 /**
  * v327: metadata-only Candidate load — Recipe options (dropdown) + Time Rules
  * (Batch panel) WITHOUT the heavy candidates query. Used by
- * /api/planning/candidate-metadata so the board can render filters first and
- * load the heavy rows separately. Runs the two queries in parallel.
+ * Planning Board dùng metadata load trực tiếp ở server để render filters trước
+ * khi tải candidate rows nặng. Hai query metadata chạy song song.
  */
-export async function loadPlanningCandidateMetadata(c:any,input:PlanningCandidateMetadataQuery){
+export async function loadPlanningCandidateMetadata(input:PlanningCandidateMetadataQuery){
   const t0=Date.now();
   const {op,recipeKey}=input;
   let recipeOptions:any[]=[];
@@ -438,13 +438,11 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
        limit 1
      ) mf on true
 
-     -- v347: Next Op Sort belongs to the RAW All Open Job.NextOperation code.
-     -- Do NOT require md_st_operation_scope here: Bridge Intermediate operations
-     -- (INSPLM, SCRB-CM, UNMSK-CM, INSPCM, ...) may be valid sort codes without
-     -- their own active ST Scope row. md_operation.planning_sort_order is the
-     -- single source of truth for Planning Board Next Operation sorting.
-     -- LATERAL + LIMIT 1 also protects Candidate cardinality if historical
-     -- duplicate md_operation rows exist for the same normalized code.
+     -- Optional RAW Operation Code Order tie-breaker. The Planning Board first
+     -- resolves RAW NextOperation -> Main and uses Main Planning Order; this raw
+     -- number is consulted only within the same Main. Do not require ST Scope here
+     -- because Bridge Intermediate codes may also need a stable tie-breaker.
+     -- LATERAL + LIMIT 1 protects Candidate cardinality with historical duplicates.
      left join lateral (
        select mo.planning_sort_order
        from public.md_operation mo
@@ -563,7 +561,7 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
      ) selected_r on true
      where ${conditions.join(" and ")}
      order by
-       -- v347: SQL order is ONLY a stable pagination/transport order.
+       -- SQL order is ONLY a stable pagination/transport order.
        -- Planning Board presentation sort is owned entirely by sortRules on
        -- the client. In particular, do not hard-code Next Operation or Priority
        -- here because that would make progressive pages appear pre-sorted by a

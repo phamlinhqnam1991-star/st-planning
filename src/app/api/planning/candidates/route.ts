@@ -4,9 +4,9 @@ import {requireApiUser} from "@/lib/api-auth";
 import {resolvePlanningView} from "@/lib/planning/planning-view-server";
 import {loadPlanningCandidates} from "@/lib/planning/candidate-data";
 
-// v298: Loading ALL Candidates in one query can exceed the default serverless
-// timeout on large boards. Give the route the same headroom as other heavy
-// Planning endpoints (still capped by the Vercel plan limit).
+// Candidate endpoint supports both progressive paging and an explicit all-mode.
+// The current Planning Board uses 200-row progressive pages; keep headroom for
+// large scopes and explicit all-mode/debug requests.
 export const maxDuration=60;
 
 // v322: canonical-only read path. Measured on live data (643 candidates):
@@ -30,9 +30,8 @@ export async function GET(req:NextRequest){
  const op=(sp.get("op")||"").trim();
  const recipeKey=(sp.get("recipe")||"").trim();
  const previousBatchNo=(sp.get("prevBatch")||"").trim();
- // v298: pageSize=all (default) loads every Candidate in ONE response and skips
- // the heavy filtered COUNT query — pagination is removed from Planning Board.
- // Numeric page sizes stay supported for backward compatibility / debugging.
+ // Current board requests numeric pageSize=200 progressively. `all` remains a
+ // supported API mode for explicit callers/debugging and skips the filtered COUNT.
  const rawPageSize=(sp.get("pageSize")||"all").trim().toLowerCase();
  const loadAll=rawPageSize!=="0"&&(rawPageSize==="all"||rawPageSize==="");
  const numericPageSize=Math.trunc(Number(rawPageSize)||200);

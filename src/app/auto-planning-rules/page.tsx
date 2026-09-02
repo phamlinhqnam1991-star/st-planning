@@ -166,7 +166,7 @@ export default async function Page(){
       subtitle="Thiết lập riêng cho từng Standard Operation · Engine tương lai chỉ đọc Rule Master này."
       purpose="Cấu hình quy tắc tự động gom lô cho từng công đoạn chính: job nào được gom, gom theo tiêu chí nào, giới hạn lô ra sao, ưu tiên xếp lô thế nào."
       impact="Phần lớn các cờ hiện là cấu hình nền cho Auto Planning tương lai (chưa tự chạy). Batch Key / Recipe Rules là phần đang hoạt động ngay trên Planning Board."
-      prev={{label:"Batch Key / Recipe Rules",href:"/batch-key-recipe-rules"}}
+      prev={{label:"Batch Key / Recipe Rules",href:"/recipe-operation-map"}}
      />
 
      <div className="notice auto-rule-logic-note">

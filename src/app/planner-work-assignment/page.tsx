@@ -14,7 +14,7 @@ export default function Page(){return <main className="erp-shell">
     purpose="Xác định người phụ trách điều độ từng khu vực (Planner 1 / Planner 2) — ai thấy việc gì trên Board Điều Độ."
     impact="Việc chuyển chỉ đổi người phụ trách điều độ, không đổi Standard Operation, Routing, Batch hoặc logic công đoạn."
     prev={{label:"Schedule Area Mapping",href:"/schedule-areas"}}
-    next={{label:"Công thức & Thời gian",href:"/process-recipes"}}
+    next={{label:"Công thức & Thời gian",href:"/recipe-operation-map"}}
    />
    <PlannerWorkAssignmentManager/>
   </section>

@@ -129,7 +129,7 @@ export default async function Page(){
    purpose="Auto Bridge tự đọc routing_code + seq + operation_code. Manual Bridge dùng cho ngoại lệ và luôn ưu tiên hơn Auto khi cùng LastLaborOp + NextOperation."
    impact="Khi Lưu, hệ thống dựng lại toàn bộ chuỗi công đoạn (ST Routing + Planning Chain) cho các Job liên quan — có thể mất vài chục giây. Lịch sử Batch/Schedule không bị xóa."
    prev={{label:"Tổng quan Cấu hình",href:"/settings"}}
-   next={{label:"Công thức & Thời gian",href:"/process-recipes"}}
+   next={{label:"Công thức & Thời gian",href:"/recipe-operation-map"}}
   /><StOperationFlowManager rows={flowQ.rows as any} rawOperations={rawQ.rows as any} mainOperations={mainQ.rows as any} groups={groupQ.rows as any} areas={areaQ.rows as any} scheduleAreas={scheduleQ.rows as any} bridgeSegments={bridgeQ.rows as any}/></section></div></main>;
  }finally{c.release()}
 }

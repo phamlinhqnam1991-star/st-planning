@@ -44,12 +44,3 @@ export function getProductionDay(date:Date):Date{
  return d;
 }
 
-export function isNextProductionDay(currentDate:Date,compareDate:Date):boolean{
- const currentDay=getProductionDay(currentDate);
- const compareDay=getProductionDay(compareDate);
- return compareDay.getTime()>currentDay.getTime();
-}
-
-export function formatProductionDay(date:Date):string{
- return date.toLocaleDateString("vi-VN",{timeZone:SCHEDULE_TIME_ZONE});
-}

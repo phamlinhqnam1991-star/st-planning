@@ -156,7 +156,7 @@ export async function POST(req:Request){
   }
 
   await c.query("commit");
-  return NextResponse.json({ok:true,schedule:iq.rows[0]});
+  return NextResponse.json({ok:true,schedule:iq.rows[0],autoAdjusted});
  }catch(e:any){
   await c.query("rollback");
   return NextResponse.json({error:e?.message||"Schedule failed"},{status:400});

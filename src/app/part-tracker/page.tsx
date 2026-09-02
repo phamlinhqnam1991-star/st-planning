@@ -3,7 +3,6 @@ import {createAdminClient} from "@/lib/supabase/admin";
 import {AppTabs} from "@/components/app-tabs";
 export const dynamic="force-dynamic";
 
-const clean=(x:unknown)=>String(x??"");
 function KV({label,value}:{label:string,value:unknown}){return <div className="kv"><span>{label}</span><b>{value===null||value===undefined||value===""?"—":String(value)}</b></div>}
 
 export default async function Page({searchParams}:{searchParams:Promise<{q?:string}>}){

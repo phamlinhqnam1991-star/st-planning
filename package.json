@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "clean:delivery": "rm -rf node_modules .next tsconfig.tsbuildinfo vv.txt .env.local"
+    "clean:delivery": "rm -rf node_modules .next tsconfig.tsbuildinfo vv.txt .env.local",
+    "clean:stale": "node scripts/remove-stale-legacy.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",

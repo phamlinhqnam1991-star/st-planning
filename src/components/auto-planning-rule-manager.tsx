@@ -62,7 +62,6 @@ type FieldOption={
  source:string;
 };
 
-const b=(v:unknown)=>Boolean(v);
 const nullable=(v:string)=>{
  const s=v.trim();
  return s===""?null:Number(s);

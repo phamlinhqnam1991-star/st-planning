@@ -1,12 +1,11 @@
 "use client";
 import {safeJson} from "@/lib/fetch-json";
-import {Fragment,useEffect,useMemo,useRef,useState} from "react";
+import {Fragment,useEffect,useRef,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
-import {calculatedScheduleEndTime,getProductionDay} from "@/lib/schedule-time";
+import {calculatedScheduleEndTime} from "@/lib/schedule-time";
 import {
  buildChemicalScheduleWindow,
  isPrecleanRecipe,
- normalizeChemicalRecipeNo,
  selectChemicalHandlingRule,
  type ChemicalHandlingRule
 } from "@/lib/chemical-line-schedule";
@@ -164,7 +163,6 @@ export function ManualScheduleGrid({
  const [saveAllBusy,setSaveAllBusy]=useState<string|null>(null);
  const [healBusy,setHealBusy]=useState("");
 
- const opMap=useMemo(()=>new Map(operations.map(o=>[o.standard_operation.toUpperCase(),o])),[operations]);
 
  function areaOps(a:ScheduleArea){
   const allowed=new Set((a.operations||[]).map(x=>x.standard_operation.toUpperCase()));
@@ -370,7 +368,7 @@ export function ManualScheduleGrid({
   setMessage("");
  }
 
- async function saveEdit(a:ScheduleArea,row:ScheduledRow){
+ async function saveEdit(row:ScheduledRow){
   const duration=parseHHMM(editDraft.duration);
 
   if(!editDraft.resourceCode||!editDraft.date||!editDraft.startTime||!duration){
@@ -1168,7 +1166,7 @@ export function ManualScheduleGrid({
                  type="button"
                  className="btn small primary"
                  disabled={actionBusy===`edit-${x.id}`}
-                 onClick={()=>saveEdit(a,x)}
+                 onClick={()=>saveEdit(x)}
                 >
                  {actionBusy===`edit-${x.id}`?"Saving...":"Save Edit"}
                 </button>

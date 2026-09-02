@@ -19,7 +19,6 @@ type Recipe={
  is_active:boolean;
 };
 type PartMap={part_num:string;revision_num:string;standard_operation:string;recipe_key:string;source_slot:string|null;source_recipe_no:string|null;recipe_no:string|null;recipe_name:string|null;recipe_group:string;process_family:string;batch_key:string};
-type Op={standard_operation:string};
 type ColumnValue={column:string;value:string;label:string};
 type RecipeForm={
  process_family:string;
@@ -46,11 +45,10 @@ const emptyForm=():RecipeForm=>({
  note:""
 });
 
-export function ProcessRecipeManager({recipes,partRows,partQuery,operations,sourceColumns,columnValues}:{
+export function ProcessRecipeManager({recipes,partRows,partQuery,sourceColumns,columnValues}:{
  recipes:Recipe[];
  partRows:PartMap[];
  partQuery:string;
- operations:Op[];
  sourceColumns:string[];
  columnValues:ColumnValue[];
 }){

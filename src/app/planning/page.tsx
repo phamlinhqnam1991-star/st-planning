@@ -16,8 +16,8 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
  const op=(sp.op||"").trim();
  const recipeKey=(sp.recipe||"").trim();
  const previousBatchNo=(sp.prevBatch||"").trim();
- // v298: pagination removed — the board always loads ALL Candidates in one
- // request (pageSize=all). The server no longer runs the filtered COUNT query.
+ // Candidate rows are loaded progressively by PlanningCandidateShell (200/page).
+ // SSR only preloads light metadata so the first HTML stays small.
 
  // v329: SSR preloads the light Candidate metadata (Recipe dropdown + Time
  // Rules for the Batch panel) via loadPlanningCandidateMetadata — two small
@@ -32,7 +32,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
    resolvePlanningView(c,op,areaId),
    getRecentPlanningBatches(c,100),
    staticDataPromise,
-   loadPlanningCandidateMetadata(c,{op,recipeKey})
+   loadPlanningCandidateMetadata({op,recipeKey})
   ]);
   const today=new Date().toISOString().slice(0,10);
 

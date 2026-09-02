@@ -188,7 +188,6 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
       <summary>② Danh mục Recipe — thêm / sửa / ngưng Recipe trước khi mapping vào Operation Code</summary>
       <ProcessRecipeManager
        recipes={recipesQ.rows as any}
-       operations={opsQ.rows as any}
        partRows={partQ.rows as any}
        partQuery={part}
        sourceColumns={(columnsQ.rows as any[]).map((x:any)=>String(x.source_column))}

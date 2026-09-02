@@ -203,8 +203,8 @@ export default async function Page(){
      <Rule title="Nguyên tắc 1 · Master ≠ Config" tone="important">
       <b>Master Data</b> là dữ liệu kỹ thuật từ file nguồn; <b>Cấu hình</b> là quyết định planning của nhà máy. Không sửa Master để chữa một lỗi Mapping nếu lỗi nằm ở Configuration.
      </Rule>
-     <Rule title="Nguyên tắc 2 · Main Planning Order ≠ Next Op Sort" tone="important">
-      <b>Main Planning Order</b> nằm trong Operation Master và chỉ dùng nội bộ cho chuỗi Main / READY / WAIT. <b>Next Op Sort</b> nằm ở Source Operation và chỉ dùng sắp xếp RAW NextOperation trên Planning Board. Planning Board đã bỏ cột Current Main và không hiển thị Main Planning Order.
+     <Rule title="Nguyên tắc 2 · NextOperation kế thừa Main Planning Order" tone="important">
+      Planning Board resolve <b>RAW NextOperation → ST Operation Mapping → Main Operation → Main Planning Order</b>. <b>Operation Code Order</b> ở Source Operation chỉ là tie-breaker tùy chọn trong cùng Main. READY/WAIT vẫn dùng Planning Chain như trước.
      </Rule>
      <Rule title="Nguyên tắc 3 · Recipe condition ≠ Process Time condition" tone="warning">
       Condition ở <b>Operation Code → Recipe</b> chọn Recipe và là nguồn checkbox <b>Batch Compatibility</b>. Condition ở <b>Process Time</b> chỉ chọn rule thời gian. Hai bộ condition độc lập.
@@ -243,8 +243,8 @@ export default async function Page(){
      <thead><tr><th>Nội dung</th><th>Nguồn chuẩn</th><th>Không nên dùng thay thế</th></tr></thead>
      <tbody>
       <tr><td>RAW NextOperation</td><td><code>open_job_current.next_operation</code></td><td>Current Main cũ (đã bỏ khỏi Board)</td></tr>
-      <tr><td>Next Operation Sort</td><td><code>md_operation.planning_sort_order</code></td><td>Main Planning Order</td></tr>
-      <tr><td>Main Planning sequence</td><td><code>md_operation_master.planning_sort_order</code> + canonical chain</td><td>Next Op Sort</td></tr>
+      <tr><td>Operation Code Order (tie-break)</td><td><code>md_operation.planning_sort_order</code></td><td>Main Planning Order (primary)</td></tr>
+      <tr><td>Main Planning sequence / NextOperation presentation</td><td><code>md_operation_master.planning_sort_order</code> + canonical mapping/chain</td><td>Operation Code Order chỉ tie-break trong cùng Main</td></tr>
       <tr><td>Source → Main</td><td><code>md_st_operation_mapping</code></td><td>Recipe mapping</td></tr>
       <tr><td>Recipe runtime</td><td><code>md_main_operation_recipe</code> + <code>selection_rule</code></td><td>Main Op → Recipe reference cũ</td></tr>
       <tr><td>Batch Compatibility</td><td>Recipe mapping <code>selection_rule</code> + selection lưu trên Batch</td><td>Process Time condition</td></tr>
@@ -262,7 +262,7 @@ export default async function Page(){
      <tbody>
       <tr><td><b>Part</b></td><td>Danh mục Part, mô tả, Program, cluster, Surface dm².</td><td>Part Tracker, Recipe/condition lookup, Surface tính Batch.</td><td>Ảnh hưởng lookup Part và các phép tính dựa Surface.</td></tr>
       <tr><td><b>Part Revision</b></td><td>Revision thuộc Part, active/inactive.</td><td>Join Finish, Requirement, Routing, Recipe fallback.</td><td>Revision không còn active sẽ không nên dùng cho routing mới.</td></tr>
-      <tr><td><b>Source Operation</b></td><td>Danh mục Operation Code gốc từ Master; chứa <b>Next Op Sort</b>.</td><td>ST Scope, Bridge, Planning Board sort NextOperation.</td><td>Đổi Next Op Sort chỉ đổi thứ tự hiển thị/sort, không đổi READY/WAIT.</td></tr>
+      <tr><td><b>Source Operation</b></td><td>Danh mục Operation Code gốc từ Master; có <b>Operation Code Order</b> tùy chọn.</td><td>ST Scope, Bridge, tie-break Planning Board.</td><td>Đổi Operation Code Order chỉ đổi tie-break trong cùng Main, không đổi READY/WAIT.</td></tr>
       <tr><td><b>Routing Detail</b></td><td>Chuỗi operation đầy đủ theo Part + Revision, có seq và Next Operation.</td><td>Dựng ST Routing standardized, Bridge Intermediate, Part Tracker.</td><td>Routing thay đổi sẽ làm thay đổi physical sequence và có thể cần rebuild derived routing/bridge.</td></tr>
       <tr><td><b>Material Finish</b></td><td>Primer1/2/3, Topcoat1/2, Anti-abrasion, finish name...</td><td>Paint Recipe resolver/condition, Part Tracker.</td><td>Có thể làm Job resolve sang Recipe sơn khác.</td></tr>
       <tr><td><b>Process Requirement</b></td><td>Requirement code/value theo Part + Revision.</td><td>Recipe condition builder (các condition Master), Part Tracker.</td><td>Có thể thay kết quả Recipe nếu mapping dùng requirement.</td></tr>
@@ -297,13 +297,13 @@ export default async function Page(){
     </details>
 
     <details className="erp-details">
-     <summary><b>② ST Scope · Next Operation Sort</b></summary>
-     <p><b>ST Scope</b> quyết định Operation Code nào thuộc phạm vi ST. <b>Next Op Sort</b> là số sắp xếp RAW NextOperation trên Planning Board và hỗ trợ cả Planning Operation, ST_SCOPE_ONLY, Bridge Intermediate.</p>
+     <summary><b>② ST Scope · Operation Code Order</b></summary>
+     <p><b>ST Scope</b> quyết định Operation Code nào thuộc phạm vi ST. RAW NextOperation lấy Main qua mapping/chain và kế thừa <b>Main Planning Order</b>. Operation Code Order chỉ là tie-breaker tùy chọn trong cùng Main.</p>
      <div className="lg-key lg-key-2">
       <Rule title="Ví dụ">CMSA=10 · FMSKG-CM=20 · INSPLM=25 · SCRB-CM=27 · CHEMMILL=30 → khi Sort Priority chọn NextOperation ASC, Board đi theo đúng số này.</Rule>
-      <Rule title="Không ảnh hưởng READY/WAIT" tone="important">Next Op Sort lưu ở <code>md_operation.planning_sort_order</code>. Nó <b>không</b> thay Main sequence, Previous Main, Recipe, Batch hay Schedule.</Rule>
+      <Rule title="Không ảnh hưởng READY/WAIT" tone="important">Operation Code Order lưu ở <code>md_operation.planning_sort_order</code>. Nó <b>không</b> thay Main sequence, Previous Main, Recipe, Batch hay Schedule.</Rule>
      </div>
-     <p>Operation chưa đặt Next Op Sort được đưa xuống cuối, sau đó mới sort ổn định theo tên. Sort Priority trên Planning Board là nguồn thứ tự trình bày duy nhất; không còn hard-sort NextOperation/Priority ẩn.</p>
+     <p>Main chưa có Main Planning Order được đưa xuống cuối. Trong cùng Main, Operation Code có Order được dùng làm tie-breaker; nếu chưa đặt thì sort ổn định theo RAW NextOperation. Sort Priority vẫn là nguồn thứ tự trình bày của planner.</p>
     </details>
 
     <details className="erp-details">
@@ -327,7 +327,7 @@ export default async function Page(){
       <li><b>Xóa</b>: chỉ khi đã ngưng và không còn Mapping/Recipe/Planning/Batch/Bridge/Handover dependency.</li>
       <li><b>Đổi tên</b>: API cập nhật các liên kết liên quan; vẫn nên kiểm tra lại Recipe, Area và Board sau rename.</li>
      </ul>
-     <div className="notice"><b>Quan trọng:</b> không dùng Planning Order để sort RAW NextOperation. Việc đó thuộc bước ② Next Op Sort.</div>
+     <div className="notice"><b>Quan trọng:</b> RAW NextOperation phải kế thừa Main Planning Order qua Mapping. Bước ② Operation Code Order chỉ dùng tie-break trong cùng Main.</div>
     </details>
 
     <details className="erp-details">
@@ -517,9 +517,9 @@ export default async function Page(){
 
     <div className="lg-subtitle">7.3 · Sort Priority — đặc biệt Next Operation</div>
     <Rule title="Không còn hard-sort ẩn" tone="important">
-     Planning Board chạy đúng thứ tự các rule trong <b>Sort Priority</b>. Nếu chọn <b>NextOperation</b>, comparator lookup <code>md_operation.planning_sort_order</code> (Next Op Sort). Operation chưa cấu hình → xuống cuối → tie-break theo tên. NextOperation raw từ source_data trùng tên đã được loại khỏi danh sách Sort để tránh chọn nhầm text sort.
+     Planning Board chạy đúng thứ tự các rule trong <b>Sort Priority</b>. Nếu chọn <b>NextOperation</b>, comparator resolve RAW NextOperation → Main và dùng <code>md_operation_master.planning_sort_order</code>; <code>md_operation.planning_sort_order</code> chỉ tie-break trong cùng Main. NextOperation raw từ source_data trùng tên vẫn bị loại khỏi danh sách Sort để tránh chọn nhầm text sort.
     </Rule>
-    <p>Ví dụ Sort Priority = ① NextOperation ASC → ② Priority DESC → ③ Job ASC. Board sẽ dùng Next Op Sort trước, sau đó mới Priority rồi Job.</p>
+    <p>Ví dụ Sort Priority = ① NextOperation ASC → ② Priority DESC → ③ Job ASC. Board sẽ dùng Main Planning Order của Main chứa RAW NextOperation trước; Operation Code Order chỉ tie-break trong cùng Main, sau đó mới Priority rồi Job.</p>
 
     <div className="lg-subtitle">7.4 · Recipe sơn phải đúng occurrence PRIMER/TOPCOAT</div>
     <Rule title="Occurrence-aware Recipe Rule" tone="important">
@@ -565,7 +565,7 @@ export default async function Page(){
     </ul>
 
     <div className="lg-subtitle">7.9 · Khi nào cần Rebuild Planning Chain?</div>
-    <p>Không cần rebuild chỉ vì tạo Batch hoặc đổi Next Op Sort. Nên rebuild sau thay đổi cấu trúc như ST Scope/Main Mapping/Bridge/Planning chain rule hoặc khi dữ liệu chain cũ được tạo trước logic mới. Rebuild là thao tác nặng và có thể tải lại Candidates.</p>
+    <p>Không cần rebuild chỉ vì tạo Batch hoặc đổi Operation Code Order. Nên rebuild sau thay đổi cấu trúc như ST Scope/Main Mapping/Bridge/Planning chain rule hoặc khi dữ liệu chain cũ được tạo trước logic mới. Rebuild là thao tác nặng và có thể tải lại Candidates.</p>
    </Section>
 
    <Section id="masking" title="8 · Tab Masking / Unmasking — kế hoạch support theo ngày điều độ"
@@ -663,7 +663,7 @@ export default async function Page(){
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Thay đổi</th><th>Ảnh hưởng trực tiếp</th><th>Ảnh hưởng phía sau</th><th>Cần làm sau đó</th></tr></thead>
      <tbody>
-      <tr><td>Next Op Sort</td><td>Thứ tự RAW NextOperation khi Planning sort.</td><td>Không đổi chain/READY/Recipe/Batch.</td><td>Reload/refresh Board; không Rebuild Chain.</td></tr>
+      <tr><td>Operation Code Order</td><td>Tie-break RAW NextOperation trong cùng Main.</td><td>Không đổi chain/READY/Recipe/Batch.</td><td>Reload/refresh Board; không Rebuild Chain.</td></tr>
       <tr><td>Main Planning Order</td><td>Thứ tự Main canonical nội bộ.</td><td>Có thể đổi Previous/Next Main và READY/WAIT.</td><td>Kiểm tra mapping; Rebuild Chain.</td></tr>
       <tr><td>Add/Remove ST Scope</td><td>Job visibility + operation classification.</td><td>Có thể đổi All Open Jobs/Planning Chain.</td><td>Rebuild derived chain khi cần.</td></tr>
       <tr><td>Source → Main Mapping</td><td>Raw op map sang Main nào.</td><td>Route Matrix, Recipe context, Area/Schedule.</td><td>Rebuild/kiểm tra chain + Part Tracker.</td></tr>
@@ -691,12 +691,12 @@ export default async function Page(){
      </tr>)}{!mainOps.length&&<tr><td colSpan={5} className="muted">Không đọc được Main Operation.</td></tr>}</tbody>
     </table></div>
 
-    <div className="lg-subtitle">11.2 · Next Operation Sort — Planning / ST Scope Only / Bridge Intermediate</div>
+    <div className="lg-subtitle">11.2 · Operation Code Order — tie-breaker trong cùng Main</div>
     <div className="table-wrap"><table className="erp-table">
-     <thead><tr><th>Operation Code</th><th>Loại</th><th>Operation Name</th><th>Next Op Sort</th></tr></thead>
+     <thead><tr><th>Operation Code</th><th>Loại</th><th>Operation Name</th><th>Operation Code Order</th></tr></thead>
      <tbody>{nextOps.map((x:any,i)=><tr key={`${x.operation_code}-${i}`}>
       <td><b>{x.operation_code}</b></td><td>{x.operation_type}</td><td>{x.operation_name||"—"}</td><td className="num"><b>{x.planning_sort_order??"—"}</b></td>
-     </tr>)}{!nextOps.length&&<tr><td colSpan={4} className="muted">Không đọc được Next Op Sort.</td></tr>}</tbody>
+     </tr>)}{!nextOps.length&&<tr><td colSpan={4} className="muted">Không đọc được Operation Code Order.</td></tr>}</tbody>
     </table></div>
 
     <div className="lg-subtitle">11.3 · Source → Main Mapping</div>
@@ -765,7 +765,7 @@ export default async function Page(){
    </Section>
 
    <Section id="faq" title="13 · FAQ / Chẩn đoán nhanh">
-    <Faq q="Vì sao Next Operation sort không đúng ABC?" a={<>Đó là chủ ý. Khi Sort Priority dùng <b>NextOperation</b>, Board lookup <b>Next Op Sort</b> từ <code>md_operation.planning_sort_order</code>, không sort chữ. Kiểm tra Cấu hình → ST Scope · Next Operation Sort.</>}/>
+    <Faq q="Vì sao Next Operation không sort theo chữ ABC?" a={<>Đó là chủ ý. Khi Sort Priority dùng <b>NextOperation</b>, Board resolve RAW NextOperation → Main và dùng <b>Main Planning Order</b>. Operation Code Order chỉ tie-break trong cùng Main. Kiểm tra Cấu hình → Main Operation và ST Scope.</>}/>
     <Faq q="Vì sao một Job READY nhưng click xong các READY khác bị mờ?" a={<>Bạn đang ở <b>Batch Selection Mode</b>. Main khác bị dim; cùng Main nhưng khác Recipe hoặc không thỏa các condition đang tích cũng bị dim/disable. Clear Selection để thoát mode.</>}/>
     <Faq q="Vì sao không thấy checkbox condition trong Batch Compatibility?" a={<>Checkbox lấy từ <b>Operation Code → Recipe → Điều kiện áp dụng cho Job</b> của đúng Recipe mapping. Process Time condition không tạo checkbox. Nếu mapping Recipe không có condition, panel sẽ báo chỉ khóa theo Recipe.</>}/>
     <Faq q="Tôi bỏ tích hết condition thì có trộn Recipe được không?" a={<>Không. Empty condition subset chỉ có nghĩa là <b>same Main + same Recipe</b>. Recipe khác vẫn bị server chặn.</>}/>
@@ -775,7 +775,7 @@ export default async function Page(){
     <Faq q="Recipe đúng nhưng Process Time = — / chưa xác định?" a={<>Kiểm tra Cấu hình → Thời gian xử lý. Batch có thể không match range Qty/Surface hoặc condition cụ thể; cần rule fallback không condition nếu muốn có thời gian cho trường hợp trộn value.</>}/>
     <Faq q="Job không xuất hiện ở All Open Jobs ST?" a={<>Kiểm tra RAW <b>NextOperation</b> của Job có nằm trong <code>md_st_operation_scope</code> active hay không. Source→Main Mapping không quyết định visibility của tab All Open Jobs.</>}/>
     <Faq q="Job xuất hiện All Open Jobs nhưng không có READY?" a={<>Có thể Operation là ST_SCOPE_ONLY, chain chưa resolve, Main phía trước còn WAIT/gap, hoặc dữ liệu Last/Next/AllOperation/Bridge không định vị được. Với raw Operation lặp lại nhiều occurrence, engine sẽ ưu tiên occurrence sớm nhất chưa có Batch; dùng nút Job Planning Debug để xem occurrence nào đang được chọn. Kiểm tra Route Matrix/NO CHAIN và ST Operation Flow.</>}/>
-    <Faq q="Đổi Next Op Sort có cần Rebuild Chain?" a={<>Không. Next Op Sort chỉ dùng presentation sort. Rebuild Chain chỉ cần cho thay đổi cấu trúc Planning/Mapping/Bridge/Scope.</>}/>
+    <Faq q="Đổi Operation Code Order có cần Rebuild Chain?" a={<>Không. Operation Code Order chỉ dùng tie-break presentation. Rebuild Chain chỉ cần cho thay đổi cấu trúc Planning/Mapping/Bridge/Scope.</>}/>
     <Faq q="Ngưng Main Operation có mất Batch lịch sử không?" a={<>Không. Ngưng giữ lịch sử. Xóa vĩnh viễn chỉ được phép khi đã ngưng và không còn dependency; API sẽ chặn và báo các nhóm còn tham chiếu.</>}/>
     <Faq q="Import Master và Import All Open Job khác gì?" a={<>Import Master = dữ liệu kỹ thuật Part/Revision/Routing/Finish/Requirement. Import All Open Job = snapshot WIP/job thực tế. Hai luồng độc lập nhưng gặp nhau tại Planning resolver.</>}/>
    </Section>

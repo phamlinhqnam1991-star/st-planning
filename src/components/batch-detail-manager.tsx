@@ -17,26 +17,7 @@ const formatNumber=(value:unknown,maxDecimals=2)=>{
  return decimal?`${whole},${decimal}`:whole;
 };
 
-type JobRow={
- batch_job_id:number;
- planning_job_operation_id:number;
- job_num:string;
- part_num:string|null;
- revision_num:string|null;
- qty:number|null;
- surface_dm2:number|null;
- source_operation_code:string;
- standard_operation:string;
- next_standard_operation:string|null;
- priority_type:string|null;
- part_master_primer1:string|null;
- part_master_primer2:string|null;
- part_master_primer3:string|null;
- part_master_topcoat1:string|null;
- part_master_topcoat2:string|null;
- part_master_antiabration:string|null;
- part_master_varnish:string|null;
-};
+
 
 type Candidate={
  id:number;

@@ -55,18 +55,17 @@ export default async function Page(){
 
     <section className="erp-content">
      <ConfigPageHeader
-      title="ST Scope · Next Operation Sort"
-      subtitle="Đặt Next Op Sort cho mọi Operation Code thuộc ST, kể cả Bridge Intermediate. Chỉ dùng để sort RAW NextOperation trên Planning Board."
+      title="ST Scope · Operation Code Order"
+      subtitle="Đặt Operation Code Order tùy chọn để tie-break các RAW NextOperation trong cùng Main. Thứ tự chính kế thừa Main Planning Order."
       purpose="Đặt thứ tự hiển thị/sort của RAW NextOperation (vd CMSA = 10 · INSPLM = 25 · CHEMMILL = 30). Field này độc lập với Main Planning Order."
-      impact="Đổi Next Op Sort không thay đổi READY/WAIT hay Planning Chain. Chỉ Add/Remove ST Scope mới ảnh hưởng chuỗi công đoạn."
+      impact="Đổi Operation Code Order không thay đổi READY/WAIT hay Planning Chain; nó chỉ đổi tie-break trong cùng Main. Chỉ Add/Remove ST Scope mới ảnh hưởng chuỗi công đoạn."
       prev={{label:"Tổng quan Cấu hình",href:"/settings"}}
       next={{label:"Source → Main Mapping",href:"/master/operationmapping"}}
      />
 
      <div className="notice section">
       Ví dụ: CMSA = 10 · INSPLM = 25 · SCRB-CM = 27 · CHEMMILL = 30.
-      Planning Board sort Next Operation sẽ dùng số này, kể cả Intermediate.
-      Next Op Sort không can thiệp Main Planning Order, READY/WAIT hay Planning Chain. Để thêm Operation đầy đủ một lần, dùng <a href="/st-operation-flow">ST Operation Flow</a>.
+      RAW NextOperation luôn kế thừa Main Planning Order qua ST Operation Mapping. Operation Code Order chỉ được xét sau đó như tie-breaker trong cùng Main (kể cả Intermediate khi cùng Main) và không can thiệp READY/WAIT hay Planning Chain. Để thêm Operation đầy đủ một lần, dùng <a href="/st-operation-flow">ST Operation Flow</a>.
      </div>
 
      <OperationCodeOrderManager rows={q.rows as any}/>

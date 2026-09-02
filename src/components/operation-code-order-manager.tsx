@@ -19,10 +19,6 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
  const [value,setValue]=useState("");
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
- const [addOpen,setAddOpen]=useState(false);
- const [newCode,setNewCode]=useState("");
- const [newName,setNewName]=useState("");
- const [newOrder,setNewOrder]=useState("");
  usePopupMessage(message);
 
  function begin(row:Row){
@@ -46,51 +42,17 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
   setMessage("");
   try{
    const d=await request({
-    action:"set-next-op-sort",
     operation_code:operationCode,
     planning_sort_order:value.trim()===""?null:Number(value)
    });
 
    setMessage(
-    `Đã lưu Next Op Sort ${operationCode} = ${d.row.planning_sort_order??"chưa gán"}. Không thay đổi Planning Chain.`
+    `Đã lưu Operation Code Order ${operationCode} = ${d.row.planning_sort_order??"chưa gán"}. Chỉ tie-break trong cùng Main; không thay đổi Planning Chain.`
    );
    setEditing(null);
    refreshConfigPage(router);
   }catch(e){
-   setMessage(e instanceof Error?e.message:"Không lưu được Next Op Sort.");
-  }finally{
-   setBusy(false);
-  }
- }
-
- async function addOperation(){
-  const code=newCode.trim().toUpperCase();
-  if(!code){
-   setMessage("Nhập Operation Code.");
-   return;
-  }
-
-  setBusy(true);
-  setMessage("");
-  try{
-   const d=await request({
-    action:"add",
-    operation_code:code,
-    operation_name:newName.trim()||code,
-    planning_sort_order:newOrder.trim()===""?null:Number(newOrder)
-   });
-
-   setMessage(
-    `Đã thêm/reactivate ${d.row.operation_code} và mapping/sync lại toàn bộ. `+
-    `Nếu đây là code mới hoàn toàn, hãy gán ST Operation Mapping để code thuộc Main Operation mong muốn.`
-   );
-   setNewCode("");
-   setNewName("");
-   setNewOrder("");
-   setAddOpen(false);
-   refreshConfigPage(router);
-  }catch(e){
-   setMessage(e instanceof Error?e.message:"Không thêm được Operation Code.");
+   setMessage(e instanceof Error?e.message:"Không lưu được Operation Code Order.");
   }finally{
    setBusy(false);
   }
@@ -124,9 +86,9 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
  return <div className="section">
   <div className="erp-panel-head" style={{marginBottom:8}}>
    <div>
-    <b>ST Scope & Next Operation Sort</b>
+    <b>ST Scope & Operation Code Order</b>
     <small className="planning-sub">
-     Next Op Sort áp dụng cho cả Planning và Intermediate, chỉ dùng khi sort RAW NextOperation trên Planning Board. Thêm mới đầy đủ dùng ST Operation Flow.
+     Operation Code Order là tie-breaker tùy chọn khi nhiều RAW NextOperation cùng thuộc một Main. Thứ tự chính kế thừa Main Planning Order. Thêm mới đầy đủ dùng ST Operation Flow.
     </small>
    </div>
    <button className="btn primary" type="button" disabled={busy} onClick={()=>router.push("/st-operation-flow")}>＋ Add / Configure Full Flow</button>
@@ -142,7 +104,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
    <table className="erp-table">
     <thead>
      <tr>
-      <th>Next Op Sort</th>
+      <th>Operation Code Order</th>
      <th>Mã công đoạn</th>
      <th>Tên công đoạn</th>
       <th>Loại</th>
@@ -171,7 +133,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
        <td>
         {editing===row.operation_code
          ? <div className="row">
-            <button className="btn small primary" type="button" disabled={busy} onClick={()=>save(row.operation_code)}>Save + Remap</button>
+            <button className="btn small primary" type="button" disabled={busy} onClick={()=>save(row.operation_code)}>Save</button>
             <button className="btn small" type="button" disabled={busy} onClick={()=>setEditing(null)}>Cancel</button>
            </div>
          : <div className="row">

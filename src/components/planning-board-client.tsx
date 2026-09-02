@@ -277,10 +277,10 @@ const isHiddenPlanningBoardSourceColumn=(name:string)=>{
  return key==="MAIN PLANNING ORDER" || key==="PLANNING ORDER" || key==="PLANNING SORT ORDER";
 };
 
-// v347: All Open Job may also expose a raw NextOperation source column. Keep
+// All Open Job may also expose a raw NextOperation source column. Keep
 // that column visible if the planner wants it, but do not offer a SECOND text
 // sort for it. The special `next_operation` sort below is the only canonical
-// sort and uses md_operation.planning_sort_order (Next Op Sort).
+// sort: Main Planning Order first; md_operation.planning_sort_order is only the raw-code tie-breaker.
 const isRawNextOperationSourceColumn=(name:string)=>
  String(name||"").trim().toUpperCase().replace(/[^A-Z0-9]+/g,"")==="NEXTOPERATION";
 
@@ -1051,6 +1051,7 @@ useEffect(()=>{
       body:JSON.stringify({action:"save",view_key:exactViewKey,payload})
      });
      const d=await safeJson(r);
+     if(!r.ok)throw new Error(d?.error||"Không lưu được Default View.");
 
      setViewLoadedFor(exactViewKey);
      setViewMessage(`Đã lưu Default View cho ${exactViewLabel} (đã lưu trên máy chủ — dùng chung mọi môi trường).`);
@@ -1467,6 +1468,28 @@ const currentPriorityMonth=useMemo(()=>{
    }
  };
 
+ // Latest canonical NextOperation presentation order:
+ // RAW NextOperation -> ST Operation Mapping -> Main Operation -> Main Planning Order.
+ // md_operation.planning_sort_order is only an optional tie-breaker inside the same Main.
+ const mainPlanningOrderByCode=useMemo(()=>{
+   const map=new Map<string,number>();
+   for(const op of mainOperations){
+    const key=normalized(op.standard_operation);
+    const order=Number(op.planning_sort_order);
+    if(key&&Number.isFinite(order))map.set(key,order);
+   }
+   return map;
+ },[mainOperations]);
+ const mappedMainBySource=useMemo(()=>{
+   const map=new Map<string,string>();
+   for(const m of operationMappings){
+    const source=normalized(m.source_operation_code);
+    const main=normalized(m.standard_operation_rule);
+    if(source&&main&&!map.has(source))map.set(source,main);
+   }
+   return map;
+ },[operationMappings]);
+
  const getSortValue=(x:Candidate,field:string):string|number=>{
    // Every visible/selectable Candidate column.
    if(field.startsWith("column:")){
@@ -1477,15 +1500,6 @@ const currentPriorityMonth=useMemo(()=>{
    switch(field){
      case "next_main":
        return normalized(x.next_standard_operation||"END");
-
-     case "next_operation": {
-       // Global production priority is configured by RAW Operation Code,
-       // exactly matching All Open Job.next_operation.
-       // This is intentionally independent from Job routing and Standard Operation.
-       const raw=x.next_operation_planning_sort_order;
-       const configured=raw==null?NaN:Number(raw);
-       return Number.isFinite(configured)?configured:999999;
-     }
 
      case "primer1":
        return sourceSortValue(x.part_master_primer1);
@@ -1501,9 +1515,6 @@ const currentPriorityMonth=useMemo(()=>{
 
      case "previous_batch":
        return normalized(x.previous_batch_no);
-
-     case "priority":
-       return normalized(x.priority_type);
 
      case "part":
        return normalized(x.part_num);
@@ -1714,33 +1725,38 @@ const currentPriorityMonth=useMemo(()=>{
    );
 
    return [...filtered].sort((a,b)=>{
-     // v347: Sort Priority is the ONLY presentation order. No hidden/hard
-     // NextOperation or Priority level is allowed before the planner's rules.
+     // Sort Priority remains the only presentation order. When NextOperation is selected,
+     // resolve RAW -> Main and inherit Main Planning Order; no hidden level precedes user rules.
      for(const rule of sortRules){
        let cmp=0;
 
        if(rule.field==="next_operation"){
-         // RAW NextOperation -> md_operation.planning_sort_order (Next Op Sort).
-         // Unconfigured Operation Codes are ALWAYS pushed to the end; among
-         // configured codes ASC/DESC follows the planner's selected direction.
-         const aSortRaw=a.next_operation_planning_sort_order;
-         const bSortRaw=b.next_operation_planning_sort_order;
-         const aoRaw=Number(aSortRaw);
-         const boRaw=Number(bSortRaw);
-         const aMissing=aSortRaw===null||aSortRaw===undefined||!Number.isFinite(aoRaw);
-         const bMissing=bSortRaw===null||bSortRaw===undefined||!Number.isFinite(boRaw);
-         if(aMissing!==bMissing)return aMissing?1:-1;
+         const aRaw=normalized(a.next_operation);
+         const bRaw=normalized(b.next_operation);
+         const aMain=mappedMainBySource.get(aRaw)||normalized(a.standard_operation);
+         const bMain=mappedMainBySource.get(bRaw)||normalized(b.standard_operation);
+         const aMainOrder=mainPlanningOrderByCode.get(aMain);
+         const bMainOrder=mainPlanningOrderByCode.get(bMain);
+         const aMainMissing=aMainOrder===undefined;
+         const bMainMissing=bMainOrder===undefined;
+         // Main without Main Planning Order always stays at the end.
+         if(aMainMissing!==bMainMissing)return aMainMissing?1:-1;
+         if(!aMainMissing&&!bMainMissing)cmp=Number(aMainOrder)-Number(bMainOrder);
+         // Keep different Mains grouped deterministically if their order is equal/missing.
+         if(cmp===0)cmp=aMain.localeCompare(bMain,undefined,{numeric:true,sensitivity:"base"});
 
-         cmp=aMissing&&bMissing
-          ?normalized(a.next_operation).localeCompare(
-            normalized(b.next_operation),undefined,{numeric:true,sensitivity:"base"}
-           )
-          :aoRaw-boRaw;
          if(cmp===0){
-           cmp=normalized(a.next_operation).localeCompare(
-            normalized(b.next_operation),undefined,{numeric:true,sensitivity:"base"}
-           );
+          // Old Operation Code Order is only a tie-breaker inside the same Main.
+          const aCodeOrderRaw=a.next_operation_planning_sort_order;
+          const bCodeOrderRaw=b.next_operation_planning_sort_order;
+          const aCodeOrder=Number(aCodeOrderRaw);
+          const bCodeOrder=Number(bCodeOrderRaw);
+          const aCodeMissing=aCodeOrderRaw===null||aCodeOrderRaw===undefined||!Number.isFinite(aCodeOrder);
+          const bCodeMissing=bCodeOrderRaw===null||bCodeOrderRaw===undefined||!Number.isFinite(bCodeOrder);
+          if(aCodeMissing!==bCodeMissing)return aCodeMissing?1:-1;
+          if(!aCodeMissing&&!bCodeMissing)cmp=aCodeOrder-bCodeOrder;
          }
+         if(cmp===0)cmp=aRaw.localeCompare(bRaw,undefined,{numeric:true,sensitivity:"base"});
        }else if(rule.field==="priority"){
          cmp=priorityRank(a.priority_type)-priorityRank(b.priority_type);
        }else{
@@ -1760,7 +1776,8 @@ const currentPriorityMonth=useMemo(()=>{
    });
  },[
    candidates,filterNextMain,filterNextOperation,
-   filterPrimer1,filterPrimer2,filterPrimer3,sortRules,stOperations,effectiveStView,statusFilter,filterRouteMain,colFilters
+   filterPrimer1,filterPrimer2,filterPrimer3,sortRules,stOperations,effectiveStView,statusFilter,filterRouteMain,colFilters,
+   mappedMainBySource,mainPlanningOrderByCode
  ]);
 
  const candidateIdentityKey=useMemo(
@@ -2387,9 +2404,9 @@ const currentPriorityMonth=useMemo(()=>{
    setFilterRouteMain({});
    setColFilters({});
    saveSortRules([
-    {field:"next_main",direction:"asc"},
     {field:"next_operation",direction:"asc"},
-    {field:"primer1",direction:"asc"}
+    {field:"priority",direction:"desc"},
+    {field:"job",direction:"asc"}
    ]);
  };
 
@@ -2860,11 +2877,6 @@ const currentPriorityMonth=useMemo(()=>{
    if(chosen.rawStatus==="READY" && chosen.current){
     status="READY";
    }
-
-   const readySourceSeq=chosen.readySeq;
-   const currentSeq=Number.isFinite(readySourceSeq)
-    ?readySourceSeq
-    :Number.POSITIVE_INFINITY;
 
    const isCurrent=chosen.current;
 

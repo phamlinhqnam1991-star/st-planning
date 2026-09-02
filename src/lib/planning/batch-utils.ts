@@ -90,36 +90,6 @@ export function selectProcessTimeRuleFromRules(
  return matched[0]||null;
 }
 
-/**
- * Compatibility Lock không phụ thuộc Qty/Surface band. Nó chọn nhóm điều kiện
- * Open Job cụ thể nhất đang khớp Job/Batch. Các Qty/Surface rule lặp cùng một
- * nhóm điều kiện vì vậy cho ra cùng signature khi số lượng lô thay đổi.
- */
-export function selectProcessConditionGroupFromRules(
- rules:ProcessTimeRuleRow[],
- jobData:Record<string,unknown>[]=[]
-):ProcessTimeRuleCondition[]{
- const matched=rules.filter(r=>{
-  const conds=Array.isArray(r.conditions)?r.conditions:[];
-  if(!conds.length)return true;
-  if(!jobData.length)return false;
-  return jobData.every(row=>conds.every(cond=>processConditionMatches(cond,row)));
- }).sort(sortProcessRulesBySpecificity);
- return (matched[0]?.conditions||[]).map(c=>({
-  source_column:cleanProcessValue(c.source_column),
-  source_value:cleanProcessValue(c.source_value)
- }));
-}
-
-export function processConditionSignature(conditions:ProcessTimeRuleCondition[]){
- return [...(conditions||[])]
-  .map(c=>({source_column:cleanProcessValue(c.source_column),source_value:cleanProcessValue(c.source_value)}))
-  .filter(c=>c.source_column)
-  .sort((a,b)=>a.source_column.localeCompare(b.source_column)||a.source_value.localeCompare(b.source_value))
-  .map(c=>`${c.source_column}=${c.source_value}`)
-  .join("\u001f");
-}
-
 export function selectProcessMinutesFromRules(
  rules:ProcessTimeRuleRow[],
  totalQty:number,

@@ -55,18 +55,6 @@ const MD_LABELS:Record<string,string>={
 };
 const mdLabel=(key:string)=>MD_LABELS[key]||(key.startsWith("MD:REQ:")?`Req: ${key.slice(7)}`:(key.startsWith("MD:")?key.slice(3)+" (Master)":key));
 
-const ruleLabel=(selectionRule:string|null)=>{
- const conds=parseSelectionRule(selectionRule);
- if(!conds.length)return "—";
- return conds.map(c=>{
-   const op=OPERATORS.find(o=>o.value===c.operator)?.label||c.operator;
-   const col=mdLabel(c.source_column);
-   return (c.operator==="not_empty"||c.operator==="is_empty")
-     ? `${col} ${op}`
-     : `${col} ${op} ${c.source_value||""}`;
- }).join(" · ");
-};
-
 // v272/v274: tách "Áp dụng cho" thành 2 cột — "Cột điều kiện" (tên cột) và
 // "Giá trị điều kiện" (toán tử + giá trị), đánh số để ghép cặp từng dòng.
 const renderConditionColumns=(selectionRule:string|null)=>{
