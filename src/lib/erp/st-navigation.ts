@@ -9,6 +9,7 @@ export type StErpLeafKey=
  |"planning"
  |"masking"
  |"schedule"
+ |"production"
  |"import"
  |"guide";
 
@@ -32,6 +33,7 @@ export const ST_ERP_MODULE_GROUPS:StErpModuleGroup[]=[
    {key:"planning",label:"Planning Board",href:"/planning",shortLabel:"PL"},
    {key:"masking",label:"Masking / Unmasking",href:"/masking-unmasking-planning",shortLabel:"MU"},
    {key:"schedule",label:"Board Điều Độ",href:"/schedule",shortLabel:"SC"},
+   {key:"production",label:"Production Execution",href:"/production-execution",shortLabel:"PX"},
   ]
  },
  {

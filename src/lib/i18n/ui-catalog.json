@@ -4040,6 +4040,176 @@
       "en": "Routing sample / Note",
       "vi": "Routing mẫu / Note",
       "mode": "exact"
+    },
+    {
+      "en": "Production Execution",
+      "vi": "Báo cáo sản xuất",
+      "mode": "exact"
+    },
+    {
+      "en": "Work Items",
+      "vi": "Công việc",
+      "mode": "exact"
+    },
+    {
+      "en": "Waiting",
+      "vi": "Chờ thực hiện",
+      "mode": "exact"
+    },
+    {
+      "en": "On-going",
+      "vi": "Đang thực hiện",
+      "mode": "exact"
+    },
+    {
+      "en": "Done",
+      "vi": "Hoàn thành",
+      "mode": "exact"
+    },
+    {
+      "en": "Actual Start",
+      "vi": "Bắt đầu thực tế",
+      "mode": "exact"
+    },
+    {
+      "en": "Actual End",
+      "vi": "Kết thúc thực tế",
+      "mode": "exact"
+    },
+    {
+      "en": "Report",
+      "vi": "Báo cáo",
+      "mode": "exact"
+    },
+    {
+      "en": "Target",
+      "vi": "Mốc kế hoạch",
+      "mode": "exact"
+    },
+    {
+      "en": "Type",
+      "vi": "Loại việc",
+      "mode": "exact"
+    },
+    {
+      "en": "All Areas",
+      "vi": "Tất cả khu vực",
+      "mode": "exact"
+    },
+    {
+      "en": "All Statuses",
+      "vi": "Tất cả trạng thái",
+      "mode": "exact"
+    },
+    {
+      "en": "By Area",
+      "vi": "Theo khu vực",
+      "mode": "exact"
+    },
+    {
+      "en": "List",
+      "vi": "Danh sách",
+      "mode": "exact"
+    },
+    {
+      "en": "Production",
+      "vi": "Sản xuất",
+      "mode": "exact"
+    },
+    {
+      "en": "Source of truth",
+      "vi": "Nguồn dữ liệu chuẩn",
+      "mode": "exact"
+    },
+    {
+      "en": "Previous",
+      "vi": "Ngày trước",
+      "mode": "exact"
+    },
+    {
+      "en": "Next",
+      "vi": "Ngày sau",
+      "mode": "exact"
+    },
+    {
+      "en": "Today",
+      "vi": "Hôm nay",
+      "mode": "exact"
+    },
+    {
+      "en": "Scheduled production + Masking / Unmasking worklist · report WAITING → ON-GOING → DONE without changing Planning or Schedule status.",
+      "vi": "Danh sách việc đã điều độ + Masking / Unmasking · báo cáo WAITING → ON-GOING → DONE mà không thay đổi trạng thái Planning hoặc Điều độ.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Board Điều Độ provides Batch / Resource / Planned Time. Masking / Unmasking provides support work. This page stores only execution status and Actual Start/End.",
+      "vi": "Board Điều Độ cung cấp Batch / Resource / thời gian kế hoạch. Masking / Unmasking cung cấp công việc hỗ trợ. Trang này chỉ lưu trạng thái thực hiện và thời gian bắt đầu/kết thúc thực tế.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Execution status is independent from Scheduling status.",
+      "vi": "Trạng thái thực hiện độc lập với trạng thái Điều độ.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Production Execution — production worklist & completion reporting",
+      "vi": "Báo cáo sản xuất — danh sách việc và báo cáo hoàn thành",
+      "mode": "phrase"
+    },
+    {
+      "en": "Reads scheduled Batch + Masking / Unmasking work; stores execution status separately from Planning and Scheduling",
+      "vi": "Đọc Batch đã điều độ + công việc Masking / Unmasking; lưu trạng thái thực hiện tách riêng khỏi Planning và Điều độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "Production status is separate from Schedule status",
+      "vi": "Trạng thái sản xuất tách riêng trạng thái Điều độ",
+      "mode": "exact"
+    },
+    {
+      "en": "WAITING / ON-GOING / DONE is an execution report only. Updating it does not change planning_schedule, Batch state, READY/WAIT, or Planning Chain.",
+      "vi": "WAITING / ON-GOING / DONE chỉ là báo cáo thực hiện. Cập nhật trạng thái này không thay đổi planning_schedule, trạng thái Batch, READY/WAIT hoặc Planning Chain.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Default status",
+      "vi": "Trạng thái mặc định",
+      "mode": "exact"
+    },
+    {
+      "en": "A scheduled work item with no execution report is shown as WAITING. Selecting ON-GOING records Actual Start; selecting DONE records Actual End.",
+      "vi": "Công việc đã điều độ nhưng chưa báo cáo sẽ hiển thị WAITING. Chọn ON-GOING ghi Actual Start; chọn DONE ghi Actual End.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Planned data remains live",
+      "vi": "Dữ liệu kế hoạch luôn lấy trực tiếp",
+      "mode": "exact"
+    },
+    {
+      "en": "Batch No., Recipe, Qty, Surface, Resource and Planned Time are read from the existing Planning/Scheduling sources. Production Execution does not duplicate them.",
+      "vi": "Batch No., Recipe, Qty, Surface, Resource và Planned Time được đọc từ nguồn Planning/Điều độ hiện tại. Báo cáo sản xuất không sao chép các dữ liệu này.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Support work",
+      "vi": "Công việc hỗ trợ",
+      "mode": "exact"
+    },
+    {
+      "en": "Masking and Unmasking are grouped by Batch/Main Operation so Production sees a practical worklist instead of one report row for every routing detail.",
+      "vi": "Masking và Unmasking được gom theo Batch/Main Operation để Production xem danh sách việc thực tế thay vì một dòng báo cáo cho từng routing detail.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Derived support work",
+      "vi": "Công việc hỗ trợ được suy ra",
+      "mode": "exact"
+    },
+    {
+      "en": "Production worklist & completion reporting",
+      "vi": "Danh sách việc & báo cáo hoàn thành",
+      "mode": "exact"
     }
   ]
 }
