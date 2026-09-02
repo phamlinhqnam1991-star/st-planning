@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import Link from "next/link";
 import {notFound} from "next/navigation";
 import {createAdminClient} from "@/lib/supabase/admin";
@@ -114,7 +115,7 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
  }
  if(error){
    return <main className="erp-shell erpkit-migrated-page">
-    <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">{c.section==="master"?"MASTER DATA":"CONFIGURATION"}</div></header>
+    <ErpAppHeader module={c.section==="master"?"MASTER DATA":"CONFIGURATION"}/>
     <AppTabs active={c.section==="master"?"master":"config"}/>
     <div className="erp-workspace">
      {c.section==="master"?(<aside className="erp-sidebar"><div className="erp-sidebar-title">MASTER DATA</div><SubTabs items={masterTabs} active={key}/></aside>):(<ConfigSidebar active={key}/>)}
@@ -129,7 +130,7 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
  
  if(key==="operation"){
   return <main className="erp-shell erpkit-migrated-page">
-   <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
+   <ErpAppHeader module="CONFIGURATION"/>
    <AppTabs active="config"/>
    <div className="erp-workspace">
     <ConfigSidebar active="operation"/>
@@ -150,7 +151,7 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
   </main>
  }
  return <main className="erp-shell erpkit-migrated-page">
-  <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">{c.section==="master"?"MASTER DATA":"CONFIGURATION"}</div></header>
+  <ErpAppHeader module={c.section==="master"?"MASTER DATA":"CONFIGURATION"}/>
   <AppTabs active={c.section==="master"?"master":"config"}/>
   <div className="erp-workspace">
    {c.section==="master"?(<aside className="erp-sidebar"><div className="erp-sidebar-title">MASTER DATA</div><SubTabs items={masterTabs} active={key}/></aside>):(<ConfigSidebar active={key}/>)}

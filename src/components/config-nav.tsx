@@ -25,35 +25,38 @@ export function ConfigPageHeader({
   next?: { label: string; href: string };
 }) {
   return (
-    <>
-      <div className="erp-page-head">
+    <section className="erp-config-object-header" aria-label={`Cấu hình ${title}`}>
+      <div className="erp-page-head erp-config-page-head">
         <div>
+          <div className="erp-object-eyebrow">Configuration workspace</div>
           <h2>{title}</h2>
           {subtitle ? <p>{subtitle}</p> : null}
         </div>
-      </div>
-      <div className="config-page-meta">
-        <div className="config-meta-purpose">
-          <b>Mục đích</b> {purpose}
-        </div>
-        <div className="config-meta-impact">
-          <b>Ảnh hưởng</b> {impact}
-        </div>
         {(prev || next) && (
-          <div className="config-flow-nav">
+          <div className="config-flow-nav erp-command-actions">
             {prev && (
               <Link className="btn small" href={prev.href}>
-                ← {prev.label}
+                <span aria-hidden="true">←</span> {prev.label}
               </Link>
             )}
             {next && (
               <Link className="btn small primary" href={next.href}>
-                {next.label} →
+                {next.label} <span aria-hidden="true">→</span>
               </Link>
             )}
           </div>
         )}
       </div>
-    </>
+      <div className="config-page-meta erp-config-context-grid">
+        <div className="config-meta-purpose erp-context-card">
+          <span className="erp-context-label">Mục đích</span>
+          <strong>{purpose}</strong>
+        </div>
+        <div className="config-meta-impact erp-context-card">
+          <span className="erp-context-label">Ảnh hưởng phía sau</span>
+          <strong>{impact}</strong>
+        </div>
+      </div>
+    </section>
   );
 }

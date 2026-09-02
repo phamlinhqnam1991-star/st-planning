@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {redirect} from "next/navigation";
 import {createClient} from "@/lib/supabase/server";
 import {LoginForm} from "@/components/login-form";
@@ -11,10 +12,7 @@ export default async function LoginPage(){
  if(user)redirect("/planning");
 
  return <main className="erp-shell erpkit-migrated-page">
-  <header className="erp-header">
-   <div><h1>ST Planning</h1></div>
-   <div className="erp-env">LOGIN</div>
-  </header>
+  <ErpAppHeader module="LOGIN"/>
   <LoginForm/>
  </main>;
 }

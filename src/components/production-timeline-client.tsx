@@ -211,7 +211,7 @@ export default function ProductionTimelineClient({
           const segmentStyle=timelineStyle(segment.start,segment.end);if(!segmentStyle)return null;
           return <div className={`schedule-chip production-timeline-batch chemical chemical-${segment.key}${conflicted?" conflict":""}${chainClass}`}
            key={`${x.id}-${segment.key}`} style={segmentStyle}
-           title={`${x.batch_no}${x.recipe_no?` · Recipe ${x.recipe_no}`:""} · ${segment.label} · ${time(segment.start)}–${time(segment.end)}${chainTitle}${conflicted?" · ⚠ XUNG ĐỘT":""}`}>
+           title={`${x.batch_no}${x.recipe_no?` · Recipe ${x.recipe_no}`:""} · ${segment.label} · ${time(segment.start)}–${time(segment.end)}${chainTitle}${conflicted?" · XUNG ĐỘT":""}`}>
            {continued&&segment.key==="loading"&&<span className="chain-mark">↳</span>}
            <b>{time(segment.start)}–{time(segment.end)}{segment.key==="process"&&x.process_duration_minutes?` · ${hhmm(x.process_duration_minutes)}`:""}</b><span>{segment.label}</span><span>{x.batch_no}</span>
           </div>;
@@ -228,7 +228,7 @@ export default function ProductionTimelineClient({
          }${conflictIds.has(Number(x.id))?" conflict":""}${chainClass}`}
          key={x.id}
          style={style}
-         title={`${x.batch_no} · ${x.standard_operation} · ${time(x.planned_start)}–${time(x.planned_end)}${x.recipe_no?` · Recipe ${x.recipe_no}`:""}${chainTitle}${conflictIds.has(Number(x.id))?" · ⚠ XUNG ĐỘT":""}`}
+         title={`${x.batch_no} · ${x.standard_operation} · ${time(x.planned_start)}–${time(x.planned_end)}${x.recipe_no?` · Recipe ${x.recipe_no}`:""}${chainTitle}${conflictIds.has(Number(x.id))?" · XUNG ĐỘT":""}`}
         >
          <b>{time(x.planned_start)}–{time(x.planned_end)}</b>
          <span>{x.batch_no}</span>

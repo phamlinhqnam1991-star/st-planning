@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import Link from "next/link";
 import {AppTabs} from "@/components/app-tabs";
 import {OpenJobImporter} from "@/components/open-job-importer";
@@ -130,10 +131,7 @@ export default async function Page({
    ];
 
    return <main className="erp-shell erpkit-migrated-page">
-    <header className="erp-header">
-     <div><h1>ST Planning</h1></div>
-     <div className="erp-env">ALL OPEN JOBS</div>
-    </header>
+    <ErpAppHeader module="ALL OPEN JOBS"/>
 
     <AppTabs active="jobs"/>
 

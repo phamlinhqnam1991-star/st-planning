@@ -1070,320 +1070,12 @@
 .erpkit-migrated-page .auto-rule-summary .auto-rule-enabled td{background:#f7fcf9!important}.erpkit-migrated-page .auto-rule-editor{overflow:visible!important}.erpkit-migrated-page .auto-rule-body{padding:10px!important;display:grid!important;gap:9px!important}.erpkit-migrated-page .auto-rule-section{padding:10px!important;border:1px solid #e1e6ed!important;border-radius:6px!important;background:#fbfcfe!important}.erpkit-migrated-page .auto-rule-section h3{margin:0 0 8px!important;color:#344054!important;font-size:10.5px!important;font-weight:780!important}.erpkit-migrated-page .auto-rule-grid,.erpkit-migrated-page .auto-rule-limit-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}.erpkit-migrated-page .auto-rule-toggle-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}.erpkit-migrated-page .auto-rule-toggle{min-height:42px;padding:7px 8px!important;border:1px solid #e1e6ed!important;border-radius:5px!important;background:#fff!important;color:#475467!important;font-size:9.5px!important}.erpkit-migrated-page .auto-rule-section-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important}.erpkit-migrated-page .auto-rule-priority-list{display:grid!important;gap:6px!important}.erpkit-migrated-page .auto-rule-priority-row{display:grid!important;grid-template-columns:24px minmax(180px,1fr) 120px auto!important;gap:6px!important;align-items:center!important}.erpkit-migrated-page .auto-rule-priority-row>span{width:22px;height:22px;display:grid;place-items:center;border:1px solid #d8dee8;border-radius:4px;background:#f4f6f9;color:#667085;font-size:8.5px;font-weight:800}.erpkit-migrated-page .auto-rule-savebar{display:flex!important;justify-content:flex-end!important;padding-top:2px!important}
 @media(max-width:1050px){.erpkit-migrated-page .auto-rule-grid,.erpkit-migrated-page .auto-rule-limit-grid,.erpkit-migrated-page .auto-rule-toggle-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:700px){.erpkit-migrated-page .auto-rule-grid,.erpkit-migrated-page .auto-rule-limit-grid,.erpkit-migrated-page .auto-rule-toggle-grid{grid-template-columns:1fr!important}.erpkit-migrated-page .auto-rule-priority-row{grid-template-columns:24px 1fr!important}.erpkit-migrated-page .auto-rule-priority-row .input{grid-column:2!important}}
 
-/* ========================================================================
-   ERP KIT · DEEP APPLICATION POLISH v2
-   Presentation-only. Shared across all migrated tabs.
-   ======================================================================== */
-.erpkit-migrated-page{
-  --erp2-brand:#1464b8;
-  --erp2-brand-strong:#0f4f91;
-  --erp2-ink:#1b2738;
-  --erp2-muted:#687386;
-  --erp2-canvas:#f1f4f8;
-  --erp2-panel:#fff;
-  --erp2-soft:#f7f9fc;
-  --erp2-line:#d9e0e8;
-  --erp2-line-strong:#c5ced9;
-  --erp2-success:#237a50;
-  --erp2-warning:#a86700;
-  --erp2-danger:#b43a32;
-  --erp2-radius:8px;
-  --erp2-shadow:0 1px 2px rgba(16,24,40,.04),0 5px 16px rgba(16,24,40,.035);
-  background:
-    linear-gradient(180deg,#f7f9fc 0,#f1f4f8 165px,#f1f4f8 100%)!important;
-}
-
-/* Sticky application chrome */
-.erpkit-migrated-page>.erp-header{
-  position:sticky!important;top:0!important;z-index:420!important;
-  box-shadow:0 1px 0 rgba(255,255,255,.04),0 3px 10px rgba(9,30,66,.11)!important;
-}
-.erpkit-migrated-page>.erp-header .erp-env{
-  display:inline-flex!important;align-items:center!important;gap:6px!important;
-  min-height:26px!important;padding:4px 8px!important;border-color:#65809b!important;
-  background:rgba(255,255,255,.055)!important;
-}
-.erpkit-migrated-page>.erp-header .erp-env::before{
-  content:"";width:6px;height:6px;border-radius:50%;background:#6dd6a5;box-shadow:0 0 0 2px rgba(109,214,165,.14)
-}
-.erpkit-migrated-page>.erp-modules{
-  position:sticky!important;top:56px!important;z-index:410!important;
-  box-shadow:0 1px 3px rgba(16,24,40,.035)!important;
-}
-.erpkit-migrated-page>.erp-modules .erp-module{
-  gap:7px!important;letter-spacing:-.005em;
-}
-.erpkit-migrated-page>.erp-modules .erp-module.active::after{
-  content:"";position:absolute;left:11px;right:11px;bottom:-1px;height:2px;border-radius:2px 2px 0 0;background:var(--erp2-brand)
-}
-.erpkit-migrated-page>.erp-modules .erp-module-label{display:inline-block}
-.erpkit-migrated-page>.erp-modules .erp-module-short{
-  min-width:24px!important;height:22px!important;border-radius:5px!important;background:#f5f7fa!important;
-}
-.erpkit-migrated-page>.erp-modules .erp-module.active .erp-module-short{
-  background:#e9f3ff!important;border-color:#a9c8e9!important;box-shadow:inset 0 0 0 1px rgba(20,100,184,.04)
-}
-
-/* Workspace and navigation rail */
-.erpkit-migrated-page>.erp-workspace{align-items:start!important}
-.erpkit-migrated-page .erp-sidebar{
-  position:sticky!important;top:100px!important;max-height:calc(100vh - 100px)!important;overflow:auto!important;
-  scrollbar-width:thin;background:linear-gradient(180deg,#f8fafc 0,#f5f7fa 100%)!important;
-}
-.erpkit-migrated-page .erp-sidebar-title{
-  position:sticky;top:-14px;z-index:2;margin:-14px -10px 8px!important;padding:14px 18px 9px!important;
-  background:#f8fafc!important;border-bottom:1px solid #e6ebf0!important;
-}
-.erpkit-migrated-page .erp-subnav-item{position:relative!important;padding-left:10px!important}
-.erpkit-migrated-page .erp-subnav-item.active::before{
-  content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:0 2px 2px 0;background:var(--erp2-brand)
-}
-.erpkit-migrated-page .config-nav-group-title{margin-top:4px!important}
-
-/* Object-page heading */
-.erpkit-migrated-page .erp-content,.erpkit-migrated-page .erp-content-full{background:transparent!important}
-.erpkit-migrated-page .erp-page-head{
-  min-height:56px;padding:2px 0 13px!important;border-bottom:1px solid rgba(197,206,217,.8)!important;
-}
-.erpkit-migrated-page .erp-page-head>div:first-child{min-width:0}
-.erpkit-migrated-page .erp-page-head h2{color:var(--erp2-ink)!important;font-size:21px!important;font-weight:740!important}
-.erpkit-migrated-page .erp-page-head p{color:var(--erp2-muted)!important}
-.erpkit-migrated-page .erp-page-head>form,
-.erpkit-migrated-page .erp-page-head>.row{
-  display:flex!important;align-items:end!important;gap:7px!important;flex-wrap:wrap!important;
-}
-.erpkit-migrated-page .erp-page-head>form .input{min-width:150px!important}
-
-/* Panels / cards */
-.erpkit-migrated-page .erp-table-panel,
-.erpkit-migrated-page .erp-form-panel,
-.erpkit-migrated-page .card{
-  border-color:var(--erp2-line)!important;border-radius:var(--erp2-radius)!important;box-shadow:var(--erp2-shadow)!important;
-}
-.erpkit-migrated-page .erp-panel-head{
-  position:relative!important;min-height:44px!important;background:linear-gradient(180deg,#fcfdff,#f8fafc)!important;
-  border-bottom-color:#e1e6ec!important;
-}
-.erpkit-migrated-page .erp-panel-head::before{
-  content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 2px 2px 0;background:#7fa9d2
-}
-.erpkit-migrated-page .erp-panel-head>b,
-.erpkit-migrated-page .erp-panel-head>div>b{color:#24364c!important;font-size:11.5px!important;letter-spacing:-.005em}
-.erpkit-migrated-page .erp-panel-head small{display:block;margin-top:2px;color:#7b8797!important;font-size:8.5px!important}
-.erpkit-migrated-page .section+.section{margin-top:12px!important}
-
-/* Controls */
-.erpkit-migrated-page .btn,
-.erpkit-migrated-page button.btn{
-  border-radius:6px!important;font-weight:720!important;transition:background .12s ease,border-color .12s ease,color .12s ease,box-shadow .12s ease,transform .08s ease!important;
-}
-.erpkit-migrated-page .btn:hover:not(:disabled){box-shadow:0 1px 2px rgba(16,24,40,.06)!important}
-.erpkit-migrated-page .btn:active:not(:disabled){transform:translateY(1px)}
-.erpkit-migrated-page .btn:focus-visible,
-.erpkit-migrated-page .input:focus-visible,
-.erpkit-migrated-page select.input:focus-visible,
-.erpkit-migrated-page textarea.input:focus-visible{
-  outline:0!important;border-color:#68a0d5!important;box-shadow:0 0 0 3px rgba(20,100,184,.13)!important;
-}
-.erpkit-migrated-page .input,
-.erpkit-migrated-page select.input,
-.erpkit-migrated-page textarea.input{border-radius:6px!important;background:#fff!important}
-.erpkit-migrated-page .input:hover,
-.erpkit-migrated-page select.input:hover,
-.erpkit-migrated-page textarea.input:hover{border-color:#aeb9c7!important}
-.erpkit-migrated-page label{letter-spacing:.005em!important}
-.erpkit-migrated-page input[type="checkbox"],.erpkit-migrated-page input[type="radio"]{accent-color:var(--erp2-brand)}
-
-/* ERP data-grid behavior */
-.erpkit-migrated-page .table-wrap{
-  background:#fff!important;border-radius:0 0 var(--erp2-radius) var(--erp2-radius)!important;
-  scrollbar-color:#b9c5d2 #f4f6f8;scrollbar-width:thin;
-}
-.erpkit-migrated-page .erp-table thead th{
-  position:sticky!important;top:0!important;z-index:5!important;
-  background:linear-gradient(180deg,#f6f8fb 0,#f1f4f8 100%)!important;
-  border-bottom:1px solid #cbd4df!important;color:#4c5c70!important;font-size:9px!important;font-weight:820!important;
-  text-transform:none!important;letter-spacing:.012em!important;
-}
-.erpkit-migrated-page .erp-table td{height:36px!important}
-.erpkit-migrated-page .erp-table tbody tr{transition:background .08s ease}
-.erpkit-migrated-page .erp-table tbody tr:hover>td{background:#f2f7fd!important}
-.erpkit-migrated-page .erp-table tbody tr:focus-within>td{background:#eef5fd!important}
-.erpkit-migrated-page .erp-table td>b{color:#20334b;font-weight:760}
-.erpkit-migrated-page .erp-table td:first-child,.erpkit-migrated-page .erp-table th:first-child{border-left:0!important}
-.erpkit-migrated-page .erp-table .mono{font-size:10px!important}
-.erpkit-migrated-page .erp-table-panel>.table-wrap:first-child{border-radius:var(--erp2-radius)!important}
-.erpkit-migrated-page .pager{justify-content:center!important;gap:8px!important;padding:3px 0!important}
-.erpkit-migrated-page .pager .muted{min-width:110px;text-align:center;font-size:9.5px!important}
-
-/* Status language */
-.erpkit-migrated-page .badge,.erpkit-migrated-page .job-state{
-  min-height:20px!important;padding:2px 7px!important;border-radius:999px!important;font-variant-numeric:tabular-nums
-}
-.erpkit-migrated-page .b-ready,.erpkit-migrated-page .state-new{background:#edf5ff!important;border-color:#bad5f0!important;color:#145c9e!important}
-.erpkit-migrated-page .b-wait,.erpkit-migrated-page .state-changed{background:#fff6e5!important;border-color:#ebd3a1!important;color:#8e5a00!important}
-.erpkit-migrated-page .b-lock,.erpkit-migrated-page .state-closed{background:#fff1ef!important;border-color:#ecc2bd!important;color:#a2342a!important}
-.erpkit-migrated-page .state-unchanged{background:#f2f4f7!important;border-color:#d9dee5!important;color:#667085!important}
-.erpkit-migrated-page .notice{box-shadow:inset 3px 0 0 #d6a642!important}
-.erpkit-migrated-page .erp-empty{
-  min-height:74px;display:grid!important;place-items:center!important;border-top:0!important;
-  background:linear-gradient(180deg,#fff,#fbfcfe)!important;color:#7b8797!important;
-}
-
-/* Master Data and Configuration */
-.erpkit-migrated-page .config-page-meta,
-.erpkit-migrated-page .config-meta-grid{gap:8px!important}
-.erpkit-migrated-page .config-meta-chip{
-  position:relative;overflow:hidden;background:linear-gradient(180deg,#fff,#fbfcfe)!important;box-shadow:0 1px 2px rgba(16,24,40,.025)!important
-}
-.erpkit-migrated-page .config-meta-chip::before{
-  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#7da9d4
-}
-.erpkit-migrated-page .config-step-card{transition:border-color .12s ease,background .12s ease!important}
-.erpkit-migrated-page .config-step-card:hover{border-color:#c5d6e8!important;background:#fbfdff!important}
-.erpkit-migrated-page .config-step-card.ok:hover{border-color:#a9d4bd!important;background:#f5fbf7!important}
-.erpkit-migrated-page .wizard-panel{box-shadow:var(--erp2-shadow)!important}
-.erpkit-migrated-page .wizard-stepper{overflow:auto!important;scrollbar-width:thin}
-.erpkit-migrated-page .auto-rule-section{box-shadow:inset 0 1px 0 rgba(255,255,255,.7)!important}
-.erpkit-migrated-page .auto-rule-toggle:has(input:checked){border-color:#9fc4e8!important;background:#eef6ff!important;color:#174f80!important}
-
-/* Tracker / object detail */
-.erpkit-migrated-page .tracker-search{
-  position:relative!important;padding:10px!important;background:linear-gradient(180deg,#fff,#f9fbfd)!important;
-  border-color:#cbd8e5!important;box-shadow:0 2px 8px rgba(16,24,40,.035)!important
-}
-.erpkit-migrated-page .tracker-search::before{
-  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--erp2-brand);border-radius:8px 0 0 8px
-}
-.erpkit-migrated-page .part-summary-grid{
-  border-top:1px solid #e2e7ed!important;border-left:1px solid #e8ecf1!important;
-}
-.erpkit-migrated-page .part-summary-grid .kv,
-.erpkit-migrated-page .job-kv,
-.erpkit-migrated-page .kv{transition:background .1s ease}
-.erpkit-migrated-page .part-summary-grid .kv:hover,
-.erpkit-migrated-page .job-kv:hover,
-.erpkit-migrated-page .kv:hover{background:#f8fbff!important}
-.erpkit-migrated-page .kv span,.erpkit-migrated-page .job-kv span{color:#778398!important}
-.erpkit-migrated-page .kv b,.erpkit-migrated-page .job-kv b{font-variant-numeric:tabular-nums}
-.erpkit-migrated-page .erp-details summary{cursor:pointer!important;transition:background .1s ease,color .1s ease}
-.erpkit-migrated-page .erp-details summary:hover{background:#f4f8fd!important;color:#174f80!important}
-
-/* All Open Jobs */
-.erpkit-migrated-page .open-job-status-tabs{
-  position:sticky!important;top:100px!important;z-index:35!important;width:max-content;max-width:100%;overflow:auto!important;
-  box-shadow:0 2px 7px rgba(16,24,40,.04)!important;scrollbar-width:thin
-}
-.erpkit-migrated-page .open-job-status-tab{font-variant-numeric:tabular-nums;transition:background .1s ease,color .1s ease,border-color .1s ease!important}
-.erpkit-migrated-page .open-job-status-tab.active{box-shadow:inset 0 -2px 0 var(--erp2-brand)!important}
-.erpkit-migrated-page .open-job-search{
-  display:grid!important;grid-template-columns:minmax(280px,1fr) auto auto auto!important;gap:7px!important;align-items:center!important
-}
-.erpkit-migrated-page .open-job-table th:nth-child(2),.erpkit-migrated-page .open-job-table td:nth-child(2){font-variant-numeric:tabular-nums}
-.erpkit-migrated-page .open-job-table td.open-job-cell{max-width:220px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
-.erpkit-migrated-page .open-job-import-form{display:grid!important;grid-template-columns:minmax(260px,1fr) auto!important;gap:8px!important;align-items:center!important;padding:10px 12px!important}
-
-/* Import workspace */
-.erpkit-migrated-page .card:has(input[type="file"]),
-.erpkit-migrated-page .erp-form-panel:has(input[type="file"]){
-  border-style:dashed!important;border-color:#b7c9db!important;background:linear-gradient(180deg,#fbfdff,#f5f9fd)!important
-}
-.erpkit-migrated-page input[type="file"].input{padding:5px 7px!important;background:#fff!important}
-.erpkit-migrated-page .issue-list{margin:6px 0 0 16px!important;padding:0!important}
-
-/* Scheduling workspace */
-.erpkit-migrated-page .schedule-planner-view-tabs{position:relative!important;box-shadow:var(--erp2-shadow)!important}
-.erpkit-migrated-page .schedule-planner-view-tab{transition:background .1s ease,border-color .1s ease,color .1s ease!important}
-.erpkit-migrated-page .schedule-planner-view-tab.active{box-shadow:inset 0 -2px 0 var(--erp2-brand)!important}
-.erpkit-migrated-page .schedule-area-grid-stack{background:#f4f6f9!important;border-radius:8px!important}
-.erpkit-migrated-page .schedule-area-grid-block{box-shadow:0 1px 2px rgba(16,24,40,.025)!important}
-.erpkit-migrated-page .schedule-area-grid-title{position:sticky;left:0;z-index:3!important}
-.erpkit-migrated-page .schedule-area-unscheduled-strip{
-  border:1px solid #d9e1ea!important;border-radius:7px!important;background:#fff!important;box-shadow:var(--erp2-shadow)!important
-}
-.erpkit-migrated-page .schedule-area-unscheduled-card{
-  border:1px solid #dfe5ec!important;border-radius:6px!important;background:#fff!important;box-shadow:0 1px 2px rgba(16,24,40,.03)!important;
-  transition:border-color .1s ease,box-shadow .1s ease!important
-}
-.erpkit-migrated-page .schedule-area-unscheduled-card:hover{border-color:#a9c4df!important;box-shadow:0 2px 7px rgba(16,24,40,.06)!important}
-.erpkit-migrated-page .schedule-batch-section{
-  border:1px solid var(--erp2-line)!important;border-radius:8px!important;background:#fff!important;box-shadow:var(--erp2-shadow)!important;overflow:hidden
-}
-.erpkit-migrated-page .schedule-batch-section-title{background:linear-gradient(180deg,#fcfdff,#f7f9fc)!important;border-bottom:1px solid #e2e7ed!important}
-.erpkit-migrated-page .schedule-dnd-pool{border-color:#d8e0e9!important;background:#f8fafc!important;border-radius:7px!important}
-.erpkit-migrated-page .schedule-table td,.erpkit-migrated-page .schedule-table th{white-space:nowrap}
-.erpkit-migrated-page .schedule-calculated-end{font-weight:780!important;background:#eef6ff!important;color:#145b9e!important}
-.erpkit-migrated-page .handover-alert-panel.has-new{animation:erp2AlertIn .18s ease-out}
-@keyframes erp2AlertIn{from{opacity:.7;transform:translateY(-2px)}to{opacity:1;transform:none}}
-
-/* Timeline / resource board */
-.erpkit-migrated-page .production-timeline,
-.erpkit-migrated-page .timeline-board,
-.erpkit-migrated-page .schedule-timeline{
-  border-radius:8px!important;border-color:var(--erp2-line)!important;box-shadow:var(--erp2-shadow)!important;background:#fff!important
-}
-.erpkit-migrated-page .timeline-ruler,.erpkit-migrated-page .timeline-head{background:#f5f7fa!important;border-bottom-color:#d7dee7!important}
-
-/* Masking / Unmasking */
-.erpkit-migrated-page .support-summary>div{position:relative;overflow:hidden!important}
-.erpkit-migrated-page .support-summary>div::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#7da8d2}
-.erpkit-migrated-page .support-main>summary{cursor:pointer!important;transition:background .1s ease!important}
-.erpkit-migrated-page .support-main>summary:hover{background:#f3f8fd!important}
-.erpkit-migrated-page .support-main[open]>summary{border-bottom:1px solid #e1e6ed!important}
-.erpkit-migrated-page .support-type-head{font-weight:760!important}
-
-/* Logic & Guide */
-.erpkit-migrated-page .guide-jump{
-  top:100px!important;z-index:30!important;border-radius:7px!important;border-color:var(--erp2-line)!important;
-  background:rgba(249,251,253,.96)!important;backdrop-filter:blur(8px);box-shadow:0 2px 8px rgba(16,24,40,.045)!important
-}
-.erpkit-migrated-page .guide-jump a{transition:background .1s ease,border-color .1s ease,color .1s ease!important}
-.erpkit-migrated-page .guide-section{border-radius:8px!important;overflow:hidden!important;box-shadow:var(--erp2-shadow)!important}
-.erpkit-migrated-page .guide-rule{border-radius:6px!important;background:linear-gradient(180deg,#fff,#fbfcfe)!important}
-.erpkit-migrated-page .guide-rule-important{box-shadow:inset 3px 0 0 #397fc0!important}
-.erpkit-migrated-page .guide-rule-warning{box-shadow:inset 3px 0 0 #c78a1b!important}
-
-/* Toast / transient feedback */
-.erpkit-migrated-page .toast,.app-toast{
-  border-radius:8px!important;box-shadow:0 10px 30px rgba(16,24,40,.16)!important;border:1px solid #d5dce5!important
-}
-
-/* Better scrolling without visual noise */
-.erpkit-migrated-page *::-webkit-scrollbar{height:9px;width:9px}
-.erpkit-migrated-page *::-webkit-scrollbar-track{background:#f2f4f7}
-.erpkit-migrated-page *::-webkit-scrollbar-thumb{background:#bdc8d5;border:2px solid #f2f4f7;border-radius:999px}
-.erpkit-migrated-page *::-webkit-scrollbar-thumb:hover{background:#9eacbb}
-
-@media(max-width:1180px){
- .erpkit-migrated-page .open-job-search{grid-template-columns:minmax(240px,1fr) repeat(2,auto)!important}
- .erpkit-migrated-page .open-job-search>a:last-child{grid-column:auto}
-}
-@media(max-width:1000px){
- .erpkit-migrated-page .erp-sidebar{position:static!important;max-height:none!important}
- .erpkit-migrated-page .open-job-status-tabs{top:100px!important}
-}
-@media(max-width:760px){
- .erpkit-migrated-page>.erp-header{position:sticky!important}
- .erpkit-migrated-page>.erp-modules{top:56px!important}
- .erpkit-migrated-page>.erp-modules .erp-module-label{display:none}
- .erpkit-migrated-page>.erp-modules .erp-module-short{display:grid!important;min-width:31px!important}
- .erpkit-migrated-page .open-job-search{grid-template-columns:1fr!important}
- .erpkit-migrated-page .open-job-status-tabs{position:static!important;width:100%}
- .erpkit-migrated-page .erp-page-head>form{width:100%}
- .erpkit-migrated-page .erp-page-head>form .input{flex:1 1 170px!important}
-}
-
-@media(prefers-reduced-motion:reduce){
- .erpkit-migrated-page .handover-alert-panel.has-new{animation:none!important}
- .erpkit-migrated-page .btn{transition:none!important}
-}
-
 /* ERP overview metrics used by data/master/schedule object pages */
 .erpkit-migrated-page .erp-overview-metrics{
   display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px
 }
 .erpkit-migrated-page .erp-overview-metric{
-  position:relative;min-height:66px;padding:9px 11px 8px 13px;border:1px solid var(--erp2-line);border-radius:7px;
+  position:relative;min-height:66px;padding:9px 11px 8px 13px;border:1px solid var(--erp3-line);border-radius:7px;
   background:linear-gradient(180deg,#fff,#fbfcfe);box-shadow:0 1px 2px rgba(16,24,40,.025);overflow:hidden
 }
 .erpkit-migrated-page .erp-overview-metric::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#7da9d4}
@@ -1394,3 +1086,498 @@
 .erpkit-migrated-page .erp-overview-metric small{display:block;margin-top:4px;color:#8b95a5;font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:900px){.erpkit-migrated-page .erp-overview-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.erpkit-migrated-page .erp-overview-metrics{grid-template-columns:1fr}}
+
+/* ========================================================================
+   ERP STANDARD v3 · CANONICAL APPLICATION LANGUAGE
+   Deep presentation normalization across every non-Planning migrated tab.
+   Business logic/API/data flow are intentionally untouched.
+   ======================================================================== */
+.erpkit-migrated-page{
+  --erp3-font:"Segoe UI Variable","Segoe UI",Inter,system-ui,-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  --erp3-canvas:#f2f4f7;
+  --erp3-panel:#fff;
+  --erp3-subtle:#f8fafc;
+  --erp3-subtle-blue:#f3f7fc;
+  --erp3-line:#d6dde6;
+  --erp3-line-strong:#c4ced9;
+  --erp3-text:#1d2939;
+  --erp3-muted:#667085;
+  --erp3-brand:#135fa8;
+  --erp3-brand-dark:#153455;
+  --erp3-brand-soft:#eaf3fc;
+  --erp3-success:#247552;
+  --erp3-warning:#9a6200;
+  --erp3-danger:#b42318;
+  --erp3-radius:6px;
+  --erp3-shadow:0 1px 2px rgba(16,24,40,.035);
+  min-height:100vh;
+  background:var(--erp3-canvas)!important;
+  color:var(--erp3-text)!important;
+  font-family:var(--erp3-font)!important;
+  font-size:12px;
+  font-feature-settings:"tnum" 1,"ss01" 1;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+.erpkit-migrated-page *,
+.erpkit-migrated-page *::before,
+.erpkit-migrated-page *::after{box-sizing:border-box}
+.erpkit-migrated-page button,
+.erpkit-migrated-page input,
+.erpkit-migrated-page select,
+.erpkit-migrated-page textarea{font-family:var(--erp3-font)!important}
+
+/* Canonical ERP masthead — mirrors the native ERP Kit shell used by Planning. */
+.erpkit-migrated-page>.erp-app-header{
+  height:56px!important;min-height:56px!important;padding:0 18px!important;
+  background:var(--erp3-brand-dark)!important;border-bottom:1px solid #0d2742!important;
+  display:flex!important;align-items:center!important;justify-content:space-between!important;
+  box-shadow:none!important;
+}
+.erpkit-migrated-page .erp-brand-block{display:flex;align-items:center;gap:10px;min-width:0}
+.erpkit-migrated-page .erp-brand-mark{
+  width:32px;height:32px;display:grid;place-items:center;flex:0 0 32px;
+  border:1px solid rgba(255,255,255,.43);border-radius:6px;background:rgba(255,255,255,.075);
+  color:#fff;font-size:11px;font-weight:850;letter-spacing:.045em
+}
+.erpkit-migrated-page .erp-brand-copy{min-width:0;display:flex;flex-direction:column;justify-content:center;line-height:1.05}
+.erpkit-migrated-page .erp-brand-copy h1{margin:0!important;color:#fff!important;font-size:15px!important;font-weight:760!important;letter-spacing:-.01em}
+.erpkit-migrated-page .erp-brand-copy small{margin-top:4px;color:#c6d5e5;font-size:9px;font-weight:560;letter-spacing:.025em;white-space:nowrap}
+.erpkit-migrated-page .erp-header-context{display:flex;align-items:center;gap:8px;min-width:0}
+.erpkit-migrated-page .erp-workspace-label{color:#aebfd1;font-size:9px;font-weight:700;letter-spacing:.055em;text-transform:uppercase;white-space:nowrap}
+.erpkit-migrated-page>.erp-app-header .erp-env{
+  min-height:26px!important;padding:4px 8px!important;border:1px solid #55718e!important;border-radius:4px!important;
+  background:rgba(255,255,255,.055)!important;color:#e1eaf3!important;font-size:9px!important;font-weight:820!important;letter-spacing:.055em!important;
+  display:inline-flex!important;align-items:center!important;white-space:nowrap
+}
+.erpkit-migrated-page>.erp-app-header .erp-env::before{display:none!important;content:none!important}
+
+/* Canonical module navigation. */
+.erpkit-migrated-page>.erp-modules{
+  height:44px!important;min-height:44px!important;top:56px!important;padding:0 16px!important;
+  background:#fff!important;border-bottom:1px solid var(--erp3-line-strong)!important;box-shadow:none!important
+}
+.erpkit-migrated-page>.erp-modules .erp-module{
+  position:relative;min-height:44px!important;padding:0 13px!important;gap:7px!important;
+  border-right:0!important;border-left:0!important;border-bottom:3px solid transparent!important;
+  color:#475467!important;background:transparent!important;font-size:11px!important;font-weight:700!important
+}
+.erpkit-migrated-page>.erp-modules .erp-module:hover{background:#f6f9fd!important;color:var(--erp3-brand)!important}
+.erpkit-migrated-page>.erp-modules .erp-module.active{background:#f7faff!important;color:var(--erp3-brand)!important;border-bottom-color:var(--erp3-brand)!important}
+.erpkit-migrated-page>.erp-modules .erp-module.active::after{display:none!important;content:none!important}
+.erpkit-migrated-page>.erp-modules .erp-module-short{
+  display:grid!important;place-items:center!important;min-width:24px!important;height:22px!important;padding:0 5px!important;
+  border:1px solid #d6deea!important;border-radius:4px!important;background:#f8fafc!important;color:#667085!important;
+  font-size:8px!important;font-weight:800!important;letter-spacing:.035em
+}
+.erpkit-migrated-page>.erp-modules .erp-module.active .erp-module-short{border-color:#aec9e8!important;background:#edf5ff!important;color:var(--erp3-brand)!important}
+
+/* Workspace / navigation rail. */
+.erpkit-migrated-page>.erp-workspace{grid-template-columns:242px minmax(0,1fr)!important;min-height:calc(100vh - 100px)!important}
+.erpkit-migrated-page .erp-sidebar{
+  top:100px!important;max-height:calc(100vh - 100px)!important;padding:12px 9px!important;
+  background:#f8fafc!important;border-right:1px solid var(--erp3-line)!important
+}
+.erpkit-migrated-page .erp-config-sidebar{padding-top:0!important}
+.erpkit-migrated-page .erp-config-rail-head{
+  position:sticky;top:0;z-index:4;margin:0 -9px 7px;padding:11px 12px 9px;
+  background:rgba(248,250,252,.97);backdrop-filter:blur(7px);border-bottom:1px solid #e5eaf0
+}
+.erpkit-migrated-page .erp-config-rail-head .erp-sidebar-title{position:static!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important}
+.erpkit-migrated-page .erp-config-rail-readiness{display:flex;align-items:baseline;gap:4px;margin-top:6px;color:#667085}
+.erpkit-migrated-page .erp-config-rail-readiness b{font-size:16px;color:#25364a;font-weight:760;font-variant-numeric:tabular-nums}
+.erpkit-migrated-page .erp-config-rail-readiness span{font-size:8.5px;font-weight:650}
+.erpkit-migrated-page .erp-sidebar-title{
+  color:#667085!important;font-size:9px!important;font-weight:820!important;letter-spacing:.075em!important;text-transform:uppercase!important
+}
+.erpkit-migrated-page .erp-subnav{gap:1px!important}
+.erpkit-migrated-page .erp-subnav-item{
+  min-height:34px!important;padding:7px 9px!important;border:1px solid transparent!important;border-left:0!important;border-radius:5px!important;
+  color:#344054!important;font-size:10.5px!important;font-weight:650!important
+}
+.erpkit-migrated-page .erp-subnav-item.active::before{display:none!important;content:none!important}
+.erpkit-migrated-page .erp-subnav-item:hover{background:#eef4fb!important;color:var(--erp3-brand)!important}
+.erpkit-migrated-page .erp-subnav-item.active{background:#e9f2fd!important;border-color:#c8daf0!important;color:var(--erp3-brand)!important;font-weight:780!important}
+.erpkit-migrated-page .config-nav-group{padding:0 0 8px!important;margin:0 0 7px!important;border-bottom:1px solid #e4e9ef}
+.erpkit-migrated-page .config-nav-group:last-child{border-bottom:0}
+.erpkit-migrated-page .config-nav-group-title{display:flex!important;align-items:center;justify-content:space-between;gap:6px;margin:0 4px 4px!important;color:#59677a!important;font-size:8.5px!important;font-weight:820!important;letter-spacing:.035em!important;text-transform:uppercase}
+.erpkit-migrated-page .config-nav-group-title em{padding:2px 5px;border-radius:999px;background:#eef2f6;color:#7b8796;font-size:7px!important;font-style:normal!important;letter-spacing:.02em;text-transform:none}
+.erpkit-migrated-page .config-nav-hint{margin:0 4px 5px!important;color:#8b96a5!important;font-size:7.5px!important;line-height:1.35!important}
+.erpkit-migrated-page .flow-item{display:grid!important;grid-template-columns:24px minmax(0,1fr) 8px!important;gap:7px!important;align-items:center!important}
+.erpkit-migrated-page .flow-no{width:23px!important;height:23px!important;border-radius:4px!important;display:grid!important;place-items:center!important;font-size:8px!important;font-weight:850!important}
+.erpkit-migrated-page .flow-label{min-width:0;white-space:normal;line-height:1.22}
+.erpkit-migrated-page .flow-dot{width:7px!important;height:7px!important}
+
+/* Object pages / page hierarchy. */
+.erpkit-migrated-page .erp-content{padding:16px 20px 32px!important;min-width:0}
+.erpkit-migrated-page .erp-content-full{width:100%!important;max-width:none!important;margin:0!important;padding:16px 20px 32px!important}
+.erpkit-migrated-page .erp-page-head{
+  min-height:auto!important;margin:0 0 12px!important;padding:0 0 11px!important;border-bottom:1px solid var(--erp3-line)!important;
+  display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:14px!important
+}
+.erpkit-migrated-page .erp-page-head h2{margin:0!important;color:#1d2939!important;font-size:20px!important;line-height:1.22!important;font-weight:720!important;letter-spacing:-.012em!important}
+.erpkit-migrated-page .erp-page-head p{max-width:860px;margin:4px 0 0!important;color:#667085!important;font-size:10.5px!important;line-height:1.45!important}
+.erpkit-migrated-page .erp-object-eyebrow{margin:0 0 4px;color:#7b8796;font-size:8px;font-weight:820;letter-spacing:.08em;text-transform:uppercase}
+
+/* Configuration object header — purpose/impact are contextual fields, not loose notices. */
+.erpkit-migrated-page .erp-config-object-header{margin:0 0 12px;padding:12px 13px 11px;border:1px solid var(--erp3-line);border-radius:var(--erp3-radius);background:#fff;box-shadow:var(--erp3-shadow)}
+.erpkit-migrated-page .erp-config-object-header .erp-config-page-head{margin:0 0 10px!important;padding:0 0 10px!important}
+.erpkit-migrated-page .erp-config-context-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;margin:0!important}
+.erpkit-migrated-page .erp-context-card{min-height:57px;padding:8px 10px!important;border:1px solid #e0e5eb!important;border-radius:5px!important;background:#f9fbfd!important;color:#344054!important;line-height:1.35}
+.erpkit-migrated-page .erp-context-label{display:block;margin-bottom:4px;color:#778397;font-size:7.5px;font-weight:820;letter-spacing:.055em;text-transform:uppercase}
+.erpkit-migrated-page .erp-context-card strong{display:block;color:#344054;font-size:9.5px;font-weight:630;line-height:1.45}
+.erpkit-migrated-page .erp-context-card.config-meta-impact{background:#f7f9fc!important}
+.erpkit-migrated-page .erp-command-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+
+/* Canonical command bar / filters. */
+.erpkit-migrated-page .erp-filter-row,
+.erpkit-migrated-page .recipe-filter,
+.erpkit-migrated-page .process-time-filter,
+.erpkit-migrated-page .chemical-map-filter,
+.erpkit-migrated-page .batch-add-filter,
+.erpkit-migrated-page .candidate-filter-grid,
+.erpkit-migrated-page .tracker-search,
+.erpkit-migrated-page .open-job-search{
+  border:1px solid var(--erp3-line)!important;border-radius:var(--erp3-radius)!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important;
+}
+.erpkit-migrated-page .erp-filter-row,
+.erpkit-migrated-page .recipe-filter,
+.erpkit-migrated-page .process-time-filter,
+.erpkit-migrated-page .chemical-map-filter,
+.erpkit-migrated-page .batch-add-filter{min-height:44px;padding:7px!important;gap:7px!important;align-items:end!important}
+.erpkit-migrated-page .candidate-filter-grid{padding:8px!important;gap:7px!important}
+.erpkit-migrated-page .tracker-search{padding:9px 10px!important}
+.erpkit-migrated-page .tracker-search::before{display:none!important;content:none!important}
+.erpkit-migrated-page .open-job-search{padding:7px 8px!important}
+.erpkit-migrated-page .erp-filter-row label,
+.erpkit-migrated-page .recipe-filter label,
+.erpkit-migrated-page .process-time-filter label,
+.erpkit-migrated-page .candidate-filter-grid label,
+.erpkit-migrated-page .tracker-search label{color:#667085!important;font-size:8.5px!important;font-weight:760!important;letter-spacing:.018em!important}
+
+/* Controls — compact enterprise density. */
+.erpkit-migrated-page .btn,
+.erpkit-migrated-page button.btn{
+  min-height:32px!important;height:32px;padding:0 10px!important;border:1px solid #c7d0da!important;border-radius:5px!important;
+  background:#fff!important;color:#344054!important;font-size:10px!important;font-weight:720!important;line-height:1!important;box-shadow:none!important;
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap
+}
+.erpkit-migrated-page .btn:hover:not(:disabled){background:#f7f9fc!important;border-color:#aeb9c6!important;color:#24496b!important;box-shadow:none!important;transform:none!important}
+.erpkit-migrated-page .btn:active:not(:disabled){background:#eef3f8!important;transform:none!important}
+.erpkit-migrated-page .btn.primary{background:var(--erp3-brand)!important;border-color:var(--erp3-brand)!important;color:#fff!important}
+.erpkit-migrated-page .btn.primary:hover:not(:disabled){background:#0f5597!important;border-color:#0f5597!important;color:#fff!important}
+.erpkit-migrated-page .btn.small{min-height:28px!important;height:28px;padding:0 8px!important;font-size:9px!important}
+.erpkit-migrated-page .danger-btn{background:#fff!important;border-color:#e4b6b1!important;color:#a72d25!important}
+.erpkit-migrated-page .danger-btn:hover:not(:disabled){background:#fff5f4!important;border-color:#d99891!important;color:#92251f!important}
+.erpkit-migrated-page .input,
+.erpkit-migrated-page select.input,
+.erpkit-migrated-page textarea.input{
+  min-height:32px!important;height:32px;padding:0 9px!important;border:1px solid #c7d0da!important;border-radius:5px!important;background:#fff!important;
+  color:#1d2939!important;font-size:10px!important;font-weight:520!important;outline:0!important;box-shadow:none!important
+}
+.erpkit-migrated-page textarea.input{height:auto!important;min-height:72px!important;padding:7px 9px!important;line-height:1.4!important;resize:vertical}
+.erpkit-migrated-page .input::placeholder{color:#98a2b3!important}
+.erpkit-migrated-page .input:hover,
+.erpkit-migrated-page select.input:hover,
+.erpkit-migrated-page textarea.input:hover{border-color:#aeb9c6!important}
+.erpkit-migrated-page .input:focus-visible,
+.erpkit-migrated-page select.input:focus-visible,
+.erpkit-migrated-page textarea.input:focus-visible,
+.erpkit-migrated-page .btn:focus-visible{outline:0!important;border-color:#6e9fcf!important;box-shadow:0 0 0 2px rgba(19,95,168,.12)!important}
+.erpkit-migrated-page input[type="checkbox"],.erpkit-migrated-page input[type="radio"]{accent-color:var(--erp3-brand);width:14px;height:14px}
+.erpkit-migrated-page label{color:#556276;font-size:9px;font-weight:700}
+
+/* Generic forms become structured ERP editor surfaces. */
+.erpkit-migrated-page .erp-form-panel,
+.erpkit-migrated-page .area-form,
+.erpkit-migrated-page .mapping-form,
+.erpkit-migrated-page .group-form,
+.erpkit-migrated-page .schedule-area-form,
+.erpkit-migrated-page .recipe-form,
+.erpkit-migrated-page .chemical-multi-map-form,
+.erpkit-migrated-page .chemical-handling-form,
+.erpkit-migrated-page .process-condition-editor{
+  border:1px solid var(--erp3-line)!important;border-radius:var(--erp3-radius)!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important
+}
+.erpkit-migrated-page .area-form,
+.erpkit-migrated-page .mapping-form,
+.erpkit-migrated-page .group-form,
+.erpkit-migrated-page .schedule-area-form,
+.erpkit-migrated-page .recipe-form,
+.erpkit-migrated-page .chemical-multi-map-form,
+.erpkit-migrated-page .chemical-handling-form{padding:10px!important;gap:8px!important}
+.erpkit-migrated-page .area-form label,
+.erpkit-migrated-page .mapping-form label,
+.erpkit-migrated-page .group-form label,
+.erpkit-migrated-page .schedule-area-form label,
+.erpkit-migrated-page .recipe-form label,
+.erpkit-migrated-page .chemical-multi-map-form label,
+.erpkit-migrated-page .chemical-handling-form label{display:flex!important;flex-direction:column!important;gap:4px!important;color:#667085!important;font-size:8.5px!important;font-weight:760!important}
+.erpkit-migrated-page .area-form .input,
+.erpkit-migrated-page .mapping-form .input,
+.erpkit-migrated-page .group-form .input,
+.erpkit-migrated-page .schedule-area-form .input,
+.erpkit-migrated-page .recipe-form .input,
+.erpkit-migrated-page .chemical-multi-map-form .input,
+.erpkit-migrated-page .chemical-handling-form .input{margin-top:0!important}
+
+/* Panels / sections — one visual hierarchy across all editors. */
+.erpkit-migrated-page .card,
+.erpkit-migrated-page .erp-table-panel,
+.erpkit-migrated-page .erp-form-panel,
+.erpkit-migrated-page .section:not(.erp-content):not(.erp-content-full){
+  border-color:var(--erp3-line)!important;border-radius:var(--erp3-radius)!important;box-shadow:var(--erp3-shadow)!important
+}
+.erpkit-migrated-page .card{padding:12px!important;background:#fff!important}
+.erpkit-migrated-page .section{margin-top:12px!important}
+.erpkit-migrated-page .erp-table-panel{overflow:clip;background:#fff!important}
+.erpkit-migrated-page .erp-panel-head{
+  min-height:40px!important;height:auto!important;padding:7px 11px!important;border-bottom:1px solid #e1e6ec!important;
+  background:#f8fafc!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important
+}
+.erpkit-migrated-page .erp-panel-head::before{display:none!important;content:none!important}
+.erpkit-migrated-page .erp-panel-head>b,
+.erpkit-migrated-page .erp-panel-head>div>b{color:#25364a!important;font-size:10.5px!important;font-weight:760!important}
+.erpkit-migrated-page .erp-panel-head span{color:#778397!important;font-size:9px!important}
+.erpkit-migrated-page .row{gap:7px!important;flex-wrap:wrap!important}
+.erpkit-migrated-page .muted,.erpkit-migrated-page .planning-sub{color:#7b8796!important;font-size:9px!important;line-height:1.35}
+.erpkit-migrated-page .mono{font-family:"Cascadia Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace!important;font-variant-numeric:tabular-nums}
+
+/* Enterprise data grids. */
+.erpkit-migrated-page .table-wrap{
+  max-width:100%;overflow:auto!important;background:#fff!important;border-radius:0!important;scrollbar-gutter:stable
+}
+.erpkit-migrated-page .erp-table{width:100%;border-collapse:separate!important;border-spacing:0!important;background:#fff!important}
+.erpkit-migrated-page .erp-table th{
+  position:sticky!important;top:0!important;z-index:6!important;height:32px!important;padding:6px 8px!important;
+  background:#f3f6f9!important;border-bottom:1px solid #cbd4df!important;border-right:1px solid #e5e9ee!important;
+  color:#536174!important;font-size:8.5px!important;font-weight:820!important;letter-spacing:.012em!important;white-space:nowrap!important
+}
+.erpkit-migrated-page .erp-table td{
+  height:34px!important;padding:5px 8px!important;border-bottom:1px solid #e8ecf1!important;border-right:1px solid #f0f2f5!important;
+  color:#344054!important;font-size:9.5px!important;line-height:1.28!important;vertical-align:middle!important
+}
+.erpkit-migrated-page .erp-table th:last-child,.erpkit-migrated-page .erp-table td:last-child{border-right:0!important}
+.erpkit-migrated-page .erp-table tbody tr:nth-child(even)>td{background:#fcfdff!important}
+.erpkit-migrated-page .erp-table tbody tr:hover>td{background:#f3f8fd!important}
+.erpkit-migrated-page .erp-table tbody tr:focus-within>td{background:#edf5fd!important}
+.erpkit-migrated-page .erp-table td>b{color:#25364a!important;font-weight:720!important}
+.erpkit-migrated-page .erp-table .num{text-align:right!important;font-variant-numeric:tabular-nums}
+.erpkit-migrated-page .erp-table .action{text-align:right!important;width:1%;white-space:nowrap!important}
+.erpkit-migrated-page .erp-link{color:#155d9f!important;font-size:9px!important;font-weight:740!important;text-decoration:none!important}
+.erpkit-migrated-page .erp-link:hover{text-decoration:underline!important;text-underline-offset:2px}
+.erpkit-migrated-page .erp-pager,.erpkit-migrated-page .pager{min-height:38px;padding:5px 8px!important;border-top:1px solid #e4e9ef;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:7px!important;background:#fafbfd}
+
+/* Status / messages / empty states. */
+.erpkit-migrated-page .badge,
+.erpkit-migrated-page .job-state,
+.erpkit-migrated-page .status-pill{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:20px!important;padding:2px 7px!important;
+  border:1px solid #dce2e9!important;border-radius:999px!important;background:#f3f5f7!important;color:#5e6b7b!important;font-size:8px!important;font-weight:800!important;white-space:nowrap!important
+}
+.erpkit-migrated-page .b-ready,.erpkit-migrated-page .state-eligible{background:#edf5ff!important;border-color:#bed7ef!important;color:#155d9f!important}
+.erpkit-migrated-page .b-wait,.erpkit-migrated-page .state-changed{background:#fff6e5!important;border-color:#ead3a4!important;color:#8d5b00!important}
+.erpkit-migrated-page .b-lock,.erpkit-migrated-page .state-closed{background:#fff1ef!important;border-color:#ecc4bf!important;color:#9f322a!important}
+.erpkit-migrated-page .notice{
+  margin:0 0 10px!important;padding:9px 10px!important;border:1px solid #e3d0a7!important;border-radius:5px!important;background:#fff9ed!important;
+  color:#76520a!important;font-size:9.5px!important;line-height:1.45!important;box-shadow:none!important
+}
+.erpkit-migrated-page .erp-empty{
+  min-height:82px;padding:16px!important;display:grid!important;place-items:center!important;text-align:center!important;
+  background:#fbfcfe!important;color:#7b8796!important;font-size:9.5px!important
+}
+.erpkit-migrated-page .issue-list{font-size:9px!important;line-height:1.45}
+
+/* Configuration overview becomes a true readiness dashboard. */
+.erpkit-migrated-page .erp-guidance-banner{display:flex!important;align-items:center!important;min-height:62px!important;background:#f5f9fd!important;border-color:#cbddeb!important;color:#315b82!important}
+.erpkit-migrated-page .erp-guidance-banner>div{display:flex;flex-direction:column;gap:2px}
+.erpkit-migrated-page .erp-guidance-banner b{font-size:10px!important;color:#244f75!important}
+.erpkit-migrated-page .erp-guidance-banner small{font-size:8.5px!important;color:#617890!important}
+.erpkit-migrated-page .erp-guidance-kicker{color:#6b7f94;font-size:7.5px;font-weight:820;letter-spacing:.07em;text-transform:uppercase}
+.erpkit-migrated-page .config-progress{border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important}
+.erpkit-migrated-page .config-progress .bar{background:#e9eef3!important;border-radius:999px!important;overflow:hidden}
+.erpkit-migrated-page .config-progress .bar>div{background:#2d835b!important}
+.erpkit-migrated-page .config-issue{grid-template-columns:20px minmax(0,1fr) auto!important;align-items:center!important;background:#fff9ed!important}
+.erpkit-migrated-page .erp-issue-marker{width:18px;height:18px;display:grid;place-items:center;border:1px solid #e5c77f;border-radius:50%;background:#fff4d8;color:#8a5c00;font-size:9px;font-weight:900}
+.erpkit-migrated-page .config-step-card{min-height:64px!important;border-radius:6px!important;box-shadow:var(--erp3-shadow)!important}
+.erpkit-migrated-page .config-step-card:hover{transform:none!important;box-shadow:0 1px 4px rgba(16,24,40,.06)!important}
+.erpkit-migrated-page .config-step-go .btn{pointer-events:none}
+
+/* Rule/editor-specific surfaces. */
+.erpkit-migrated-page .auto-rule-editor,
+.erpkit-migrated-page .process-condition-editor,
+.erpkit-migrated-page .recipe-compare-section,
+.erpkit-migrated-page .recipe-diagnosis-panel,
+.erpkit-migrated-page .recipe-compare-panel{
+  border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important
+}
+.erpkit-migrated-page .auto-rule-section{
+  border:1px solid #e0e5eb!important;border-radius:5px!important;background:#f9fbfd!important;box-shadow:none!important
+}
+.erpkit-migrated-page .auto-rule-section h3,
+.erpkit-migrated-page .chemical-conditions-title,
+.erpkit-migrated-page .recipe-compare-title{color:#3d4b5e!important;font-size:9px!important;font-weight:800!important;letter-spacing:.025em!important;text-transform:uppercase!important}
+.erpkit-migrated-page .auto-rule-toggle,
+.erpkit-migrated-page .check-card,
+.erpkit-migrated-page .recipe-pair-field,
+.erpkit-migrated-page .recipe-source-pair{
+  border:1px solid #dfe5ec!important;border-radius:5px!important;background:#fff!important;box-shadow:none!important
+}
+.erpkit-migrated-page .auto-rule-toggle:has(input:checked),
+.erpkit-migrated-page .check-card:has(input:checked){border-color:#a8c7e5!important;background:#f0f7fe!important}
+.erpkit-migrated-page .process-condition-row,
+.erpkit-migrated-page .chemical-condition-row,
+.erpkit-migrated-page .recipe-apply-line{border-bottom-color:#e5e9ee!important}
+.erpkit-migrated-page .process-condition-warning,
+.erpkit-migrated-page .chemical-multi-map-note,
+.erpkit-migrated-page .recipe-source-help,
+.erpkit-migrated-page .recipe-multi-name-hint{border-radius:5px!important;font-size:8.5px!important;line-height:1.45!important}
+
+/* Planner assignment / master-detail boards. */
+.erpkit-migrated-page .planner-assignment-board{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+.erpkit-migrated-page .planner-assignment-column{border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important;overflow:hidden}
+.erpkit-migrated-page .planner-assignment-head{padding:8px 10px!important;background:#f7f9fc!important;border-bottom:1px solid #e2e7ed!important}
+.erpkit-migrated-page .planner-assignment-card{margin:7px!important;padding:8px!important;border:1px solid #dfe5ec!important;border-radius:5px!important;background:#fff!important}
+
+/* Tracker object pages. */
+.erpkit-migrated-page .part-summary-grid,
+.erpkit-migrated-page .job-summary-grid{border:1px solid var(--erp3-line)!important;border-radius:6px!important;overflow:hidden!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important}
+.erpkit-migrated-page .part-summary-grid .kv,
+.erpkit-migrated-page .job-kv,
+.erpkit-migrated-page .kv{min-height:58px!important;padding:9px 10px!important;background:#fff!important;border-color:#e7ebf0!important}
+.erpkit-migrated-page .kv span,.erpkit-migrated-page .job-kv span{margin-bottom:4px!important;color:#7b8796!important;font-size:7.5px!important;font-weight:800!important;letter-spacing:.045em!important;text-transform:uppercase!important}
+.erpkit-migrated-page .kv b,.erpkit-migrated-page .job-kv b{color:#25364a!important;font-size:10px!important;font-weight:720!important}
+.erpkit-migrated-page .erp-details{border:1px solid var(--erp3-line)!important;border-radius:6px!important;overflow:hidden!important;margin-top:9px!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important}
+.erpkit-migrated-page .erp-details+ .erp-details{margin-top:8px!important}
+.erpkit-migrated-page .erp-details summary{padding:9px 11px!important;background:#f7f9fc!important;border-bottom:0!important;color:#344054!important;font-size:9.5px!important;font-weight:760!important}
+.erpkit-migrated-page .erp-details[open] summary{border-bottom:1px solid #e2e7ed!important}
+
+/* Open jobs workspace. */
+.erpkit-migrated-page .open-job-status-tabs{top:100px!important;border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important}
+.erpkit-migrated-page .open-job-status-tab{min-height:32px!important;padding:0 10px!important;font-size:9px!important;font-weight:720!important}
+.erpkit-migrated-page .open-job-status-tab.active{background:#eef5fd!important;color:var(--erp3-brand)!important;box-shadow:inset 0 -2px 0 var(--erp3-brand)!important}
+.erpkit-migrated-page .open-job-import-form{border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important}
+
+/* Masking / Unmasking. */
+.erpkit-migrated-page .support-summary{gap:8px!important}
+.erpkit-migrated-page .support-summary>div{border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important}
+.erpkit-migrated-page .support-main{border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:#fff!important;overflow:hidden!important;box-shadow:var(--erp3-shadow)!important}
+.erpkit-migrated-page .support-main>summary{padding:9px 11px!important;background:#f7f9fc!important}
+.erpkit-migrated-page .support-type-head{padding:7px 9px!important;background:#fbfcfe!important;border-bottom:1px solid #e6eaf0!important}
+
+/* Scheduling / resource workspace. */
+.erpkit-migrated-page .schedule-planner-view-tabs{border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important;overflow:hidden!important}
+.erpkit-migrated-page .schedule-planner-view-tab{min-height:34px!important;padding:0 11px!important;font-size:9px!important;font-weight:720!important;border-radius:0!important}
+.erpkit-migrated-page .schedule-area-grid-block,
+.erpkit-migrated-page .schedule-batch-section,
+.erpkit-migrated-page .schedule-area-unscheduled-strip{border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important}
+.erpkit-migrated-page .schedule-area-grid-title,
+.erpkit-migrated-page .schedule-batch-section-title{min-height:38px!important;padding:7px 10px!important;background:#f7f9fc!important;border-bottom:1px solid #e2e7ed!important}
+.erpkit-migrated-page .schedule-operation-batch-card,
+.erpkit-migrated-page .schedule-area-unscheduled-card{border:1px solid #dfe5ec!important;border-radius:5px!important;background:#fff!important;box-shadow:none!important}
+.erpkit-migrated-page .schedule-operation-batch-card:hover,
+.erpkit-migrated-page .schedule-area-unscheduled-card:hover{border-color:#afc5da!important;box-shadow:none!important}
+.erpkit-migrated-page .schedule-time-group{border-radius:5px!important;background:#f8fafc!important;border-color:#dfe5ec!important}
+.erpkit-migrated-page .schedule-calculated-end{border-radius:4px!important;background:#eaf3fc!important;color:#155d9f!important;font-variant-numeric:tabular-nums!important}
+
+/* Production timeline. */
+.erpkit-migrated-page .production-timeline-panel{border-radius:6px!important;overflow:hidden!important}
+.erpkit-migrated-page .production-timeline-row{border-bottom-color:#e7ebf0!important}
+.erpkit-migrated-page .production-timeline-batch{border-radius:4px!important;box-shadow:none!important}
+
+/* Import. */
+.erpkit-migrated-page .card:has(input[type="file"]),
+.erpkit-migrated-page .erp-form-panel:has(input[type="file"]){
+  border:1px dashed #aebfd0!important;background:#f8fbfe!important;box-shadow:none!important
+}
+.erpkit-migrated-page input[type="file"].input{height:auto!important;min-height:34px!important;padding:5px 7px!important}
+
+/* Logic / guide. */
+.erpkit-migrated-page .guide-jump{top:100px!important;padding:6px!important;border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:rgba(248,250,252,.97)!important;box-shadow:var(--erp3-shadow)!important}
+.erpkit-migrated-page .guide-jump a{padding:5px 7px!important;border:1px solid #dbe2ea!important;border-radius:4px!important;background:#fff!important;color:#536174!important;font-size:8.5px!important;font-weight:720!important}
+.erpkit-migrated-page .guide-jump a:hover{background:#eef5fd!important;border-color:#bfd3e6!important;color:#155d9f!important}
+.erpkit-migrated-page .guide-section{border-radius:6px!important;box-shadow:var(--erp3-shadow)!important}
+.erpkit-migrated-page .guide-rule{border-radius:5px!important;font-size:9px!important;line-height:1.48!important;box-shadow:none!important}
+
+/* Login. */
+.erpkit-migrated-page .login{max-width:410px!important;margin:58px auto!important;padding:18px!important;border:1px solid var(--erp3-line)!important;border-radius:7px!important;background:#fff!important;box-shadow:0 10px 28px rgba(16,24,40,.08)!important}
+.erpkit-migrated-page .login h1{font-size:18px!important;font-weight:720!important}
+
+/* ERP KPI language. */
+.erpkit-migrated-page .erp-overview-metrics{gap:8px!important;margin-bottom:10px!important}
+.erpkit-migrated-page .erp-overview-metric{min-height:70px!important;padding:9px 10px 8px 12px!important;border-radius:6px!important;box-shadow:var(--erp3-shadow)!important}
+.erpkit-migrated-page .erp-overview-metric span{font-size:7.5px!important}
+.erpkit-migrated-page .erp-overview-metric b{font-size:18px!important}
+.erpkit-migrated-page .erp-overview-metric small{font-size:8px!important}
+
+/* Remove decorative motion from work surfaces; ERP interaction should be quiet. */
+.erpkit-migrated-page .btn,
+.erpkit-migrated-page .erp-table tbody tr,
+.erpkit-migrated-page .config-step-card,
+.erpkit-migrated-page .schedule-area-unscheduled-card,
+.erpkit-migrated-page .schedule-operation-batch-card{transition:background .1s ease,border-color .1s ease,color .1s ease!important}
+
+@media(max-width:1100px){
+ .erpkit-migrated-page>.erp-workspace{grid-template-columns:220px minmax(0,1fr)!important}
+ .erpkit-migrated-page .erp-config-context-grid{grid-template-columns:1fr!important}
+ .erpkit-migrated-page .planner-assignment-board{grid-template-columns:1fr!important}
+}
+@media(max-width:850px){
+ .erpkit-migrated-page>.erp-workspace{display:block!important}
+ .erpkit-migrated-page .erp-sidebar{position:static!important;max-height:none!important;padding:6px 8px!important;border-right:0!important;border-bottom:1px solid var(--erp3-line)!important}
+ .erpkit-migrated-page .erp-config-rail-head{display:none!important}
+ .erpkit-migrated-page .erp-subnav{display:flex!important;flex-direction:row!important;overflow-x:auto!important;gap:4px!important;padding:0!important}
+ .erpkit-migrated-page .config-nav-group{display:contents!important}
+ .erpkit-migrated-page .config-nav-group-title,.erpkit-migrated-page .config-nav-hint{display:none!important}
+ .erpkit-migrated-page .erp-subnav-item{flex:0 0 auto!important;min-height:32px!important;white-space:nowrap!important}
+ .erpkit-migrated-page .flow-item{display:flex!important}
+ .erpkit-migrated-page .flow-no,.erpkit-migrated-page .flow-dot{display:none!important}
+ .erpkit-migrated-page .erp-content,.erpkit-migrated-page .erp-content-full{padding:13px!important}
+}
+@media(max-width:680px){
+ .erpkit-migrated-page>.erp-app-header{padding:0 12px!important}
+ .erpkit-migrated-page .erp-brand-copy small,.erpkit-migrated-page .erp-workspace-label{display:none!important}
+ .erpkit-migrated-page>.erp-modules{padding:0 4px!important}
+ .erpkit-migrated-page>.erp-modules .erp-module{padding:0 9px!important}
+ .erpkit-migrated-page>.erp-modules .erp-module-label{display:none!important}
+ .erpkit-migrated-page .erp-page-head{flex-direction:column!important}
+ .erpkit-migrated-page .erp-page-head>form,.erpkit-migrated-page .erp-page-head>.row{width:100%!important}
+ .erpkit-migrated-page .erp-config-object-header{padding:10px!important}
+ .erpkit-migrated-page .erp-command-actions{justify-content:flex-start!important}
+}
+@media(prefers-reduced-motion:reduce){
+ .erpkit-migrated-page *{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+}
+
+/* ERP STANDARD v3.1 · cover remaining production work-surface classes. */
+.erpkit-migrated-page .auto-planning-rule-manager{display:grid;gap:10px}
+.erpkit-migrated-page .candidate-operation-picker{border:1px solid var(--erp3-line)!important;border-radius:5px!important;background:#fff!important;padding:7px!important}
+.erpkit-migrated-page .planning-load-skeleton{border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:linear-gradient(90deg,#f8fafc 20%,#eef2f6 38%,#f8fafc 56%)!important;background-size:240% 100%!important}
+.erpkit-migrated-page .process-time-note{margin-top:6px!important;padding:7px 8px!important;border:1px solid #dfe5ec!important;border-radius:5px!important;background:#f8fafc!important;color:#667085!important;font-size:8.5px!important;line-height:1.45!important}
+.erpkit-migrated-page .recipe-cell{min-width:130px}
+.erpkit-migrated-page .recipe-entry-mode{display:inline-flex!important;align-items:center!important;gap:5px!important;min-height:28px!important;padding:3px 5px!important;border:1px solid #dfe5ec!important;border-radius:5px!important;background:#f8fafc!important}
+.erpkit-migrated-page .schedule-area-direct-grid{border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important;overflow:auto!important}
+.erpkit-migrated-page .schedule-batch-selection-shell{border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important;padding:8px!important}
+.erpkit-migrated-page .error{color:var(--erp3-danger)!important}
+.erpkit-page-title-wrap{min-width:0}
+.erpkit-wizard-demo{display:grid;gap:10px}
+
+/* Native ERP Kit shell uses the same typography as migrated workspaces. */
+.erpkit-app-shell{
+  font-family:"Segoe UI Variable","Segoe UI",Inter,system-ui,-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif!important;
+  font-feature-settings:"tnum" 1,"ss01" 1;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+.erpkit-app-shell button,.erpkit-app-shell input,.erpkit-app-shell select,.erpkit-app-shell textarea{font-family:inherit!important}
+
+/* Canonical replacements for the final selectors retired with ERP polish v2. */
+.erpkit-migrated-page .open-job-table td.open-job-cell{max-width:220px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.erpkit-migrated-page .open-job-table th:nth-child(2),.erpkit-migrated-page .open-job-table td:nth-child(2){font-variant-numeric:tabular-nums}
+.erpkit-migrated-page .state-unchanged{background:#f2f4f7!important;border-color:#d9dee5!important;color:#667085!important}
+.erpkit-migrated-page .schedule-dnd-pool{border:1px dashed #c9d4df!important;border-radius:6px!important;background:#f8fafc!important}
+.erpkit-migrated-page .schedule-table td,.erpkit-migrated-page .schedule-table th{white-space:nowrap}
+.erpkit-migrated-page .production-timeline,.erpkit-migrated-page .timeline-board,.erpkit-migrated-page .schedule-timeline{border:1px solid var(--erp3-line)!important;border-radius:6px!important;background:#fff!important;box-shadow:var(--erp3-shadow)!important}
+.erpkit-migrated-page .timeline-ruler,.erpkit-migrated-page .timeline-head{background:#f5f7fa!important;border-bottom:1px solid #d7dee7!important}
+.erpkit-migrated-page .toast,.app-toast{border:1px solid #d5dce5!important;border-radius:6px!important;background:#fff!important;box-shadow:0 8px 24px rgba(16,24,40,.14)!important}
+.planning-erp-version .planning-load-skeleton{min-height:78px;display:grid;place-items:center;border:1px solid #d9e0e8;border-radius:6px;background:#f8fafc;color:#667085;font-size:10px;font-weight:650}

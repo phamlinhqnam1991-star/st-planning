@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import Link from "next/link";
 import {AppTabs} from "@/components/app-tabs";
 import {getPool} from "@/lib/db";
@@ -93,7 +94,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
  const activeMain=groups.filter(g=>g.masking.length||g.unmasking.length).length;
  const prev=shiftDate(date,-1),next=shiftDate(date,1),today=vnToday();
  return <main className="erp-shell erpkit-migrated-page">
-  <header className="erp-header"><div><h1>ST Planning</h1></div><span className="erp-env">MASKING / UNMASKING</span></header>
+  <ErpAppHeader module="MASKING / UNMASKING"/>
   <AppTabs active="masking"/>
   <section className="erp-content erp-content-full support-planning-page">
    <div className="erp-page-head"><div><h2>Masking / Unmasking Planning</h2><p>Ngày điều độ → Main Planning Order → Main Operation → Masking / Unmasking → Job · Batch · Time</p></div></div>
@@ -101,8 +102,8 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
 
    <div className="support-date-bar">
     <div className="support-view-tabs">
-     <Link className={`btn ${view==="scheduled"?"btn-primary":""}`} href={hrefWith({date,view:"scheduled",q})}>Theo ngày điều độ</Link>
-     <Link className={`btn ${view==="unscheduled"?"btn-primary":""}`} href={hrefWith({date,view:"unscheduled",q})}>Chưa điều độ</Link>
+     <Link className={`btn ${view==="scheduled"?"primary":""}`} href={hrefWith({date,view:"scheduled",q})}>Theo ngày điều độ</Link>
+     <Link className={`btn ${view==="unscheduled"?"primary":""}`} href={hrefWith({date,view:"unscheduled",q})}>Chưa điều độ</Link>
     </div>
     {view==="scheduled"?<div className="support-date-nav">
      <Link className="btn" href={hrefWith({date:prev,view,q})}>‹ Ngày trước</Link>
@@ -115,7 +116,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
    <form className="support-filter" method="get">
     <input type="hidden" name="date" value={date}/><input type="hidden" name="view" value={view}/>
     <input className="input" name="q" defaultValue={q} placeholder="Tìm Job / Part / Description / Main Operation / Batch / Support Operation..."/>
-    <button className="btn btn-primary" type="submit">Tìm</button>
+    <button className="btn primary" type="submit">Tìm</button>
     {q?<Link className="btn" href={hrefWith({date,view,q:""})}>Xóa lọc</Link>:null}
    </form>
 

@@ -1,10 +1,11 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
 import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 import {OpenJobColumnValueManager} from "@/components/open-job-column-value-manager";
 export const dynamic="force-dynamic";
 export default async function Page(){
  return <main className="erp-shell erpkit-migrated-page">
-  <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
+  <ErpAppHeader module="CONFIGURATION"/>
   <AppTabs active="config"/>
   <div className="erp-workspace">
    <ConfigSidebar active="openjobcolumnvalues"/>

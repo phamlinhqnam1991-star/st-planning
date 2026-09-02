@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {getPool} from "@/lib/db";
 import {AppTabs} from "@/components/app-tabs";
 import ScheduleBoardClient from "@/components/schedule-board-client";
@@ -478,10 +479,7 @@ export default async function Page({
   // remains attached to each scheduled Batch, so different Job routings are not altered.
 
   return <main className="erp-shell erpkit-migrated-page">
-   <header className="erp-header">
-    <div><h1>ST Planning</h1></div>
-    <span className="erp-env">SCHEDULING</span>
-   </header>
+   <ErpAppHeader module="SCHEDULING"/>
    <AppTabs active="schedule"/>
    <section className="erp-content erp-content-full">
     <div className="erp-page-head">

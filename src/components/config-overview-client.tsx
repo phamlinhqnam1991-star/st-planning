@@ -94,20 +94,20 @@ export function ConfigOverviewClient(){
  ];
 
  return <>
-  <div className="config-overview-intro"><b>Làm theo thứ tự bên dưới.</b> <b style={{color:"#16a34a"}}>Xanh</b> = bước đã đủ · <b style={{color:"#d97706"}}>Cam</b> = cần bổ sung (bấm vào để sửa). Muốn thêm 1 Operation mới → dùng <b>Trợ lý Operation</b> (bước 1).</div>
+  <div className="config-overview-intro erp-guidance-banner"><div><span className="erp-guidance-kicker">Configuration readiness</span><b>Làm theo thứ tự phụ thuộc để tránh cấu hình thiếu.</b><small>Đã đủ = sẵn sàng · Cần bổ sung = còn dependency chưa hoàn chỉnh. Thêm Operation mới bắt đầu từ Trợ lý Operation.</small></div></div>
   <div className="config-progress">
    <b>Tiến độ cấu hình: {overall}%</b>
    <div className="bar"><div style={{width:`${overall}%`}}/></div>
    <div className="meta"><span>Tầng 1 (định nghĩa công đoạn): {t1Done}/{t1Total} bước</span><span>Tầng 2 (công thức & rule): {t2Done}/{t2Total} mục</span></div>
   </div>
-  {issues.length>0&&<div className="config-issues">{issues.slice(0,4).map((x,i)=><div className="config-issue" key={i}><b>⚠</b><span>{x.text}</span><Link className="erp-link" href={x.href}>Sửa →</Link></div>)}</div>}
+  {issues.length>0&&<div className="config-issues">{issues.slice(0,4).map((x,i)=><div className="config-issue" key={i}><span className="erp-issue-marker">!</span><span>{x.text}</span><Link className="erp-link" href={x.href}>Mở cấu hình</Link></div>)}</div>}
   <div className="config-flow">
    {steps.map((st,i)=><div className="config-step" key={st.no}>
     <div className="config-step-rail"><div className={`config-step-dot ${st.status}`}>{st.no}</div>{i<steps.length-1&&<div className="config-step-line"/>}</div>
     <Link href={st.href} className={`config-step-card ${st.status}`} style={{textDecoration:"none"}}>
      <div className="config-step-body"><h3>{st.title}</h3><p>{st.desc}</p></div>
      <div className="config-step-status">{statusBadge(st.status)}<small>{st.badge} · {st.note}</small></div>
-     <div className="config-step-go"><span className="btn small">Mở →</span></div>
+     <div className="config-step-go"><span className="btn small">Mở</span></div>
     </Link>
    </div>)}
   </div>

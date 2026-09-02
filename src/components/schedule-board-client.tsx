@@ -752,7 +752,7 @@ export default function ScheduleBoardClient({
             {Number(b.total_jobs||0)===0&&
              <em className="schedule-empty-badge">EMPTY</em>}
             {Number(b.handover_alert_count||0)>0&&
-             <em className="schedule-impact-badge">⚠ {b.handover_alert_count}</em>}
+             <em className="schedule-impact-badge">Impact {b.handover_alert_count}</em>}
            </strong>
 
            <div className="schedule-operation-batch-actions">
@@ -845,7 +845,7 @@ export default function ScheduleBoardClient({
            <strong>
             {b.batch_no}
             {Number(b.handover_alert_count||0)>0&&
-             <em className="schedule-impact-badge">⚠ {b.handover_alert_count}</em>}
+             <em className="schedule-impact-badge">Impact {b.handover_alert_count}</em>}
            </strong>
            <div className="schedule-operation-batch-actions">
             <span>{b.scheduled_resource_code||"—"}</span>

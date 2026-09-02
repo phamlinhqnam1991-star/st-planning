@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {getPool} from "@/lib/db";
 import {AppTabs} from "@/components/app-tabs";
 import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
@@ -112,10 +113,7 @@ export default async function Page(){
   ];
 
   return <main className="erp-shell erpkit-migrated-page">
-   <header className="erp-header">
-    <div><h1>ST Planning</h1></div>
-    <div className="erp-env">CONFIGURATION</div>
-   </header>
+   <ErpAppHeader module="CONFIGURATION"/>
 
    <AppTabs active="config"/>
 

@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import Link from "next/link";
 import {getStats} from "@/lib/stats";
 import {AppTabs,SubTabs} from "@/components/app-tabs";
@@ -30,7 +31,7 @@ export default async function Page(){
   ["Part → Routing","Map Part + Revision → RoutingCode",c.md_part_routing,"/master/partrouting"],
  ];
  return <main className="erp-shell erpkit-migrated-page">
-  <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">MASTER DATA</div></header>
+  <ErpAppHeader module="MASTER DATA"/>
   <AppTabs active="master"/>
   <div className="erp-workspace">
    <aside className="erp-sidebar"><div className="erp-sidebar-title">MASTER DATA</div><SubTabs items={sub}/></aside>

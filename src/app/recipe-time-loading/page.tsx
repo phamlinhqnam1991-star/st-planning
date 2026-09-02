@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
 import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 import {ChemicalHandlingTimeManager} from "@/components/chemical-handling-time-manager";
@@ -10,7 +11,7 @@ export default async function Page(){
   const handlingRulesQ=await c.query(`select id,phase,priority,qty_min,qty_max,surface_min_dm2,surface_max_dm2,duration_minutes,note
             from md_chemical_handling_time_rule where is_active=true order by phase,priority,id`);
   return <main className="erp-shell erpkit-migrated-page">
-   <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
+   <ErpAppHeader module="CONFIGURATION"/>
    <AppTabs active="config"/>
    <div className="erp-workspace">
     <ConfigSidebar active="recipetimeloading"/>

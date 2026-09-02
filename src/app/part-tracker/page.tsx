@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import Link from "next/link";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {AppTabs} from "@/components/app-tabs";
@@ -41,10 +42,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
  const areaByGroup=new Map(areaMaps.map(m=>[m.st_group,areas.find(a=>a.id===m.area_id)?.area_name||""]));
  const opByStd=new Map(opMaster.map(x=>[x.standard_operation,x]));
  return <main className="erp-shell erpkit-migrated-page">
- <header className="erp-header">
-  <div><h1>ST Planning</h1></div>
-  <div className="erp-env">PART TRACKER</div>
- </header>
+ <ErpAppHeader module="PART TRACKER"/>
  <AppTabs active="tracker"/>
 
  <section className="erp-content erp-content-full">

@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
 import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 import {MainOperationRecipeMappingManager} from "@/components/main-operation-recipe-mapping-manager";
@@ -122,7 +123,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
                  order by p.revision_num,p.standard_operation`,[part]):Promise.resolve({rows:[]})
   ]);
   return <main className="erp-shell erpkit-migrated-page">
-   <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
+   <ErpAppHeader module="CONFIGURATION"/>
    <AppTabs active="config"/>
    <div className="erp-workspace">
     <ConfigSidebar active="recipeoperationmap"/>

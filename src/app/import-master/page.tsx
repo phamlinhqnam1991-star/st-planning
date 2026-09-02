@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {MasterImporter} from "@/components/master-importer";
 import {getStats} from "@/lib/stats";
 import {AppTabs} from "@/components/app-tabs";
@@ -6,7 +7,7 @@ export default async function Page(){
  const data=await getStats();
  const latest=data.imports?.[0]||null;
  return <main className="erp-shell erpkit-migrated-page">
-  <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">IMPORT MASTER</div></header>
+  <ErpAppHeader module="IMPORT MASTER"/>
   <AppTabs active="import"/>
   <section className="erp-content erp-content-full">
    <div className="erp-page-head"><div><h2>Import Master</h2><p>Cập nhật dữ liệu Master từ Excel.</p></div></div>

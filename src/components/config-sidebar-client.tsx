@@ -49,8 +49,14 @@ export function ConfigSidebar({active,initialHealth}:Props){
     };
   },[initialHealth]);
 
-  return <aside className="erp-sidebar">
-    <div className="erp-sidebar-title">CẤU HÌNH · THEO LUỒNG</div>
+  const allItems=CONFIG_FLOW.flatMap(g=>g.items);
+  const readyItems=allItems.filter(x=>healthStatus(health,x.statusKey)==="ok").length;
+
+  return <aside className="erp-sidebar erp-config-sidebar">
+    <div className="erp-config-rail-head">
+      <span className="erp-sidebar-title">CẤU HÌNH · THEO LUỒNG</span>
+      <div className="erp-config-rail-readiness"><b>{readyItems}</b><span>/ {allItems.length} mục đủ</span></div>
+    </div>
     <nav className="erp-subnav" aria-label="Cấu hình navigation">
       {CONFIG_FLOW.map(g=><div key={g.tier} className="config-nav-group">
         <div className="config-nav-group-title">{g.tier} <em>{g.tag}</em></div>

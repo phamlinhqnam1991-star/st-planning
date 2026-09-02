@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
 import {getPool} from "@/lib/db";
 
@@ -24,7 +25,7 @@ function Chain({steps}:{steps:{t:string;d?:string;c?:string}[]}){
  return <div className="lg-chain">
   {steps.map((s,i)=><span className="lg-chain-item" key={`${s.t}-${i}`}>
    <span className={`lg-chain-box lg-chain-${s.c||"blue"}`}>{s.t}{s.d&&<small>{s.d}</small>}</span>
-   {i<steps.length-1&&<span className="lg-chain-arrow">➜</span>}
+   {i<steps.length-1&&<span className="lg-chain-arrow" aria-hidden="true">→</span>}
   </span>)}
  </div>;
 }
@@ -156,10 +157,7 @@ export default async function Page(){
  }
 
  return <main className="erp-shell erpkit-migrated-page">
-  <header className="erp-header">
-   <div><h1>ST Planning</h1></div>
-   <span className="erp-env">LOGIC & GUIDE</span>
-  </header>
+  <ErpAppHeader module="LOGIC & GUIDE"/>
   <AppTabs active="guide"/>
 
   <section className="erp-content erp-content-full guide-page">

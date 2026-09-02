@@ -1,3 +1,4 @@
+export {ErpAppHeader} from "./erp-app-header";
 export { ErpAppShell, type ErpNavItem } from "./erp-shell";
 export { ErpPageHeader } from "./erp-page-header";
 export { ErpToolbar } from "./erp-toolbar";

@@ -99,3 +99,9 @@ Route baseline cũ đã được loại bỏ.
 ## ERP Deep UI
 Toàn bộ tab production dùng lớp ERP presentation chung. Xem `ERP_DEEP_UI_AUDIT.md` để biết phạm vi và validation.
 
+
+## ERP Standard V3
+
+Toàn bộ production tabs đã được chuẩn hóa thêm theo `ERP_STANDARD_V3.md`: masthead/navigation dùng chung, Configuration object header/readiness rail, enterprise form/data-grid density và visual hierarchy đồng nhất. Business logic/API/DB không thay đổi trong vòng UI này.
+
+> UI source of truth: `ERP_STANDARD_V3.md` + `src/components/erp/erp-kit.css`. Các tài liệu ERP Full/Deep cũ đã được loại để tránh hai nguồn thiết kế song song.

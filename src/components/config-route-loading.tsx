@@ -1,11 +1,9 @@
 import {AppTabs} from "@/components/app-tabs";
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 
 export function ConfigRouteLoading(){
- return <main className="erp-shell" aria-busy="true">
-  <header className="erp-header">
-   <div><h1>ST Planning</h1></div>
-   <div className="erp-env">CONFIGURATION</div>
-  </header>
+ return <main className="erp-shell erpkit-migrated-page" aria-busy="true">
+  <ErpAppHeader module="CONFIGURATION"/>
   <AppTabs active="config"/>
   <div className="erp-workspace">
    <aside className="erp-sidebar">

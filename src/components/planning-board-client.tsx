@@ -3271,22 +3271,22 @@ const currentPriorityMonth=useMemo(()=>{
        <button className="btn small" type="button" onClick={()=>setOperationPickerOpen(x=>!x)} title="Chọn NextOperation được hiển thị">Công đoạn ({effectiveStView.size}/{allNextOps.length})</button>
        <button className="btn small" type="button" onClick={()=>setFullView(x=>!x)} title="ESC để thoát Full View">{fullView?"Thoát toàn màn hình":"Toàn màn hình"}</button>
        <button className="btn small" type="button" onClick={runRecipeCompare} disabled={recipeCompareLoading} title="So sánh cấu hình Recipe (Công thức & Rule) với nhu cầu thực tế trên board — tìm mapping thiếu / mapping không được dùng">{recipeCompareLoading?"Đang so sánh…":"⇄ So sánh Recipe"}</button>
-       <button className="btn small" type="button" title="Ghim dòng tiêu đề và các cột bên trái." onClick={()=>{if(freezeMenuOpen){setFreezeMenuOpen(false);return;}if(freezePick){setFreezePick(false);setFreezeDraft(null);return;}if(freeze.mode==="off"){setFreezePick(true);return;}setFreezeMenuOpen(true);}}>{freezePick?"📌 Chọn cột…":freeze.mode==="off"?"📌 Ghim cột":`📌 ${freezeLabel}`}</button>
+       <button className="btn small" type="button" title="Ghim dòng tiêu đề và các cột bên trái." onClick={()=>{if(freezeMenuOpen){setFreezeMenuOpen(false);return;}if(freezePick){setFreezePick(false);setFreezeDraft(null);return;}if(freeze.mode==="off"){setFreezePick(true);return;}setFreezeMenuOpen(true);}}>{freezePick?"Chọn cột…":freeze.mode==="off"?"Ghim cột":freezeLabel}</button>
        <button className="btn small" disabled={busy} onClick={rebuild}>Rebuild Chain</button>
       </div>
      </div>}
 
     {freezePick&&!freezeDraft&&
-     <div className="freeze-hint-bar">{erpMode?<><b>Chọn cột cần ghim.</b> Các cột bên trái và hàng tiêu đề sẽ được cố định. Nhấn Esc để hủy.</>:<>📌 <b>Chọn vị trí freeze:</b> click vào <b>tiêu đề cột</b> trong bảng — các cột bên trái và dòng tiêu đề sẽ được ghìm (ESC để hủy).</>}</div>}
+     <div className="freeze-hint-bar">{erpMode?<><b>Chọn cột cần ghim.</b> Các cột bên trái và hàng tiêu đề sẽ được cố định. Nhấn Esc để hủy.</>:<><b>Chọn vị trí freeze:</b> click vào <b>tiêu đề cột</b> trong bảng — các cột bên trái và dòng tiêu đề sẽ được ghìm (ESC để hủy).</>}</div>}
     {freezeDraft&&
      <div className="freeze-confirm-bar">
-      {erpMode?"Ghim đến":"📌 Ghim đến cột"} <b>{freezeDraft.col}</b>: <b className="freeze-confirm-col">{freezeColumnLabels[Math.min(freezeDraft.col??1,FREEZE_MAX_COLS)-1]??`Cột ${freezeDraft.col}`}</b>
+      {erpMode?"Ghim đến":"Ghim đến cột"} <b>{freezeDraft.col}</b>: <b className="freeze-confirm-col">{freezeColumnLabels[Math.min(freezeDraft.col??1,FREEZE_MAX_COLS)-1]??`Cột ${freezeDraft.col}`}</b>
       <button className="btn small" type="button" onClick={()=>persistFreeze(freezeDraft)}>{erpMode?"Xác nhận":"✓ Chốt"}</button>
       <button className="btn small" type="button" onClick={()=>setFreezeDraft(null)}>Hủy</button>
      </div>}
     {freezeMenuOpen&&freeze.mode!=="off"&&
      <div className="freeze-menu">
-      <div className="freeze-menu-title">{erpMode?"Đang ghim:":"📌 Đang ghim:"} <b>{freezeLabel}</b></div>
+      <div className="freeze-menu-title">{erpMode?"Đang ghim:":"Đang ghim:"} <b>{freezeLabel}</b></div>
       <div className="row">
        <button type="button" className="btn small" onClick={()=>{setFreezeMenuOpen(false);setFreezePick(true);}}>Đổi vị trí…</button>
        <button type="button" className="btn small" onClick={()=>persistFreeze({mode:"header"})}>Chỉ dòng tiêu đề</button>

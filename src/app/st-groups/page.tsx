@@ -1,3 +1,4 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {getPool} from "@/lib/db";
 import {StGroupManager} from "@/components/st-group-manager";
 import {AppTabs} from "@/components/app-tabs";
@@ -12,7 +13,7 @@ export default async function Page(){
  `);
  const data=q.rows;
  return <main className="erp-shell erpkit-migrated-page">
-  <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
+  <ErpAppHeader module="CONFIGURATION"/>
   <AppTabs active="config"/>
   <div className="erp-workspace">
    <ConfigSidebar active="stgroup"/>
