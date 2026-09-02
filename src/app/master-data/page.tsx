@@ -13,7 +13,6 @@ const sub=[
  {key:"strouting",label:"ST Routing Master",href:"/master/strouting"},
  {key:"stroutingchain",label:"ST Routing Chain",href:"/master/stroutingchain"},
  {key:"partrouting",label:"Part → Routing",href:"/master/partrouting"},
- {key:"operationrecipemapping",label:"Main Op → Recipe",href:"/recipe-operation-map"},
 ];
 export default async function Page(){
  let data:any=null,err="";
@@ -29,17 +28,16 @@ export default async function Page(){
   ["ST Routing Master","Danh mục routing ST chuẩn hóa",c.md_st_routing_summary,"/master/strouting"],
   ["ST Routing Chain","Chuỗi operation ST chuẩn hóa",c.md_st_routing,"/master/stroutingchain"],
   ["Part → Routing","Map Part + Revision → RoutingCode",c.md_part_routing,"/master/partrouting"],
-  ["Main Operation → Recipe","Mapping Standard Operation → Recipe (reference)",c.md_operation_recipe_mapping,"/recipe-operation-map"]
  ];
  return <main className="erp-shell">
-  <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">MASTER DATA</div></header>
+  <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">MASTER DATA</div></header>
   <AppTabs active="master"/>
   <div className="erp-workspace">
    <aside className="erp-sidebar"><div className="erp-sidebar-title">MASTER DATA</div><SubTabs items={sub}/></aside>
    <section className="erp-content">
     <div className="erp-page-head"><div><h2>Master Data</h2><p>Dữ liệu nền dùng cho ST Planning</p></div><Link className="btn primary" href="/import-master">Import Master</Link></div>
     {err&&<div className="notice"><b>Lỗi kết nối:</b> {err}</div>}
-    {data?.issues?.length>0&&<div className="notice"><b>Database cần kiểm tra:</b><ul className="issue-list">{data.issues.map((x:string)=><li key={x}>{x}</li>)}</ul></div>}
+    {data?.issues?.length>0&&<div className="notice"><b>Cần kiểm tra dữ liệu:</b><ul className="issue-list">{data.issues.map((x:string)=><li key={x}>{x}</li>)}</ul></div>}
     <div className="erp-table-panel">
      <div className="erp-panel-head"><b>Master Data Overview</b><span>{rows.length} data groups</span></div>
      <div className="table-wrap"><table className="erp-table"><thead><tr><th>Master</th><th>Mô tả</th><th className="num">Records</th><th></th></tr></thead><tbody>

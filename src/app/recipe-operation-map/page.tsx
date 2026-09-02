@@ -1,7 +1,6 @@
 import {AppTabs} from "@/components/app-tabs";
 import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
 import {MainOperationRecipeMappingManager} from "@/components/main-operation-recipe-mapping-manager";
-import {OperationRecipeAllowedManager} from "@/components/operation-recipe-allowed-manager";
 import {ProcessRecipeManager} from "@/components/process-recipe-manager";
 import {getPool} from "@/lib/db";
 import {unstable_cache} from "next/cache";
@@ -24,16 +23,14 @@ const getRequirementCodes=unstable_cache(async()=>{
  }finally{c.release();}
 },["config-recipe-req-codes"],{revalidate:300,tags:["config-recipe"]});
 
-// Recipe Catalog + Runtime Operation Code → Recipe are maintained together here.
-// ① is the runtime mapping used by Planning Board; ② is the canonical Recipe Catalog.
-// ③ is a legacy/reference allowed-list, not the Planning Board proposal source.
+// Recipe Catalog + runtime Operation Code → Recipe are maintained together here.
 
 export default async function Page({searchParams}:{searchParams:Promise<{part?:string}>}){
  const sp=await searchParams;
  const part=(sp.part||"").trim().toUpperCase();
  const c=await getPool().connect();
  try{
-  const [sourceOpsQ,opsQ,chemicalRecipesQ,chemicalMapsQ,recipesQ,mapsQ,columnsQ,columnValuesQ,unmappedQ,masterValuesQ,masterReqCodesQ,timeRulesQ,partQ]=await Promise.all([
+  const [sourceOpsQ,opsQ,chemicalRecipesQ,chemicalMapsQ,recipesQ,columnsQ,columnValuesQ,unmappedQ,masterValuesQ,masterReqCodesQ,timeRulesQ,partQ]=await Promise.all([
    c.query(`select distinct o.operation_code,o.operation_name
             from md_operation o
             join md_st_operation_scope s
@@ -66,12 +63,6 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
                    batch_key,source_system,note,is_active
             from md_process_recipe where is_active=true
             order by process_family,recipe_group,recipe_no nulls last,recipe_name limit 3000`),
-   c.query(`select m.standard_operation,m.recipe_key,m.source_slot,m.is_default,
-                   r.recipe_no,r.recipe_name,r.recipe_group,r.process_family
-            from md_operation_recipe_mapping m
-            join md_process_recipe r on r.recipe_key=m.recipe_key
-            where m.is_active=true and r.is_active=true
-            order by m.standard_operation,r.process_family,r.recipe_group,r.recipe_no nulls last`),
    c.query(`select source_column
             from md_open_job_column_value
             where is_active=true
@@ -131,20 +122,19 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
                  order by p.revision_num,p.standard_operation`,[part]):Promise.resolve({rows:[]})
   ]);
   return <main className="erp-shell">
-   <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION</div></header>
+   <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
    <AppTabs active="config"/>
    <div className="erp-workspace">
     <ConfigSidebar active="recipeoperationmap"/>
     <section className="erp-content">
      <ConfigPageHeader
       title="Công thức & Rule"
-      subtitle="Quản lý Danh mục Recipe và mapping runtime Operation Code → Recipe (điều kiện, ưu tiên, Mã lô mẫu, Prefix số lô) dùng trực tiếp cho Planning Board."
-      purpose="Xác định Operation Code nào dùng Recipe nào (kèm độ ưu tiên, mặc định, điều kiện 'Áp dụng cho Job', Mã lô mẫu và Prefix số lô) — nguồn đề xuất Recipe trên Planning Board."
-      impact="Đây là cầu nối giữa cấu hình công đoạn và công thức sản xuất: Job không resolve được Recipe sẽ không tạo lô được. Thay đổi ở đây ảnh hưởng ngay tới đề xuất trên Planning Board."
+      subtitle="Quản lý Danh mục Recipe và quy tắc Operation Code → Recipe dùng trên Planning Board."
+      purpose="Xác định Operation Code dùng Recipe nào, điều kiện áp dụng, độ ưu tiên, Mã lô mẫu và Prefix số lô."
+      impact="Job chưa xác định được Recipe sẽ không tạo lô được. Thay đổi ở đây ảnh hưởng ngay tới Recipe đề xuất trên Planning Board."
       prev={{label:"Trợ lý Operation (ST Operation Flow)",href:"/st-operation-flow"}}
       next={{label:"Thời gian Loading / Unloading",href:"/recipe-time-loading"}}
      />
-     <div className="notice recipe-note"><b>Luồng chuẩn:</b> (1) tạo/sửa/ngưng Recipe ở <b>② Danh mục Recipe</b>; (2) gán Recipe cho <b>Operation Code</b> ở <b>① Công đoạn → Recipe</b>. Chỉ mapping ở phần ① mới được Planning Board dùng. Operation Code phải thuộc ST Scope loại <b>Planning Operation</b> và đã có Source → Main Mapping. Nếu nhiều Recipe cho cùng mã: Recipe có điều kiện khớp Job thắng trước; sau đó <b>Priority</b> nhỏ hơn → <b>Mặc định</b> → mapping cập nhật trước. Không có điều kiện = fallback cho mọi Job. Phần <b>③</b> chỉ là danh sách reference cũ, không điều khiển đề xuất Recipe.</div>
 
      {(()=>{
        const mdFixed:{key:string;label:string}[]=[
@@ -185,7 +175,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
      })()}
 
      <details className="config-section-collapsible" open>
-      <summary>② Danh mục Recipe — thêm / sửa / ngưng Recipe trước khi mapping vào Operation Code</summary>
+      <summary>Danh mục Recipe</summary>
       <ProcessRecipeManager
        recipes={recipesQ.rows as any}
        partRows={partQ.rows as any}
@@ -195,14 +185,6 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
       />
      </details>
 
-     <details className="config-section-collapsible" open={false}>
-      <summary>③ Công đoạn chính → Recipe được phép (nâng cao — ít cần đụng tới)</summary>
-      <OperationRecipeAllowedManager
-       operations={opsQ.rows as any}
-       recipes={recipesQ.rows as any}
-       mappings={mapsQ.rows as any}
-      />
-     </details>
     </section>
    </div>
   </main>

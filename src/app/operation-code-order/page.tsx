@@ -44,7 +44,7 @@ export default async function Page(){
 
   return <main className="erp-shell">
    <header className="erp-header">
-    <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
+    <div><h1>ST Planning</h1></div>
     <div className="erp-env">CONFIGURATION</div>
    </header>
 
@@ -63,10 +63,6 @@ export default async function Page(){
       next={{label:"Source → Main Mapping",href:"/master/operationmapping"}}
      />
 
-     <div className="notice section">
-      Ví dụ: CMSA = 10 · INSPLM = 25 · SCRB-CM = 27 · CHEMMILL = 30.
-      RAW NextOperation luôn kế thừa Main Planning Order qua ST Operation Mapping. Operation Code Order chỉ được xét sau đó như tie-breaker trong cùng Main (kể cả Intermediate khi cùng Main) và không can thiệp READY/WAIT hay Planning Chain. Để thêm Operation đầy đủ một lần, dùng <a href="/st-operation-flow">ST Operation Flow</a>.
-     </div>
 
      <OperationCodeOrderManager rows={q.rows as any}/>
     </section>

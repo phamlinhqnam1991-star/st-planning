@@ -12,7 +12,7 @@ export default async function LoginPage(){
 
  return <main className="erp-shell">
   <header className="erp-header">
-   <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
+   <div><h1>ST Planning</h1></div>
    <div className="erp-env">LOGIN</div>
   </header>
   <LoginForm/>

@@ -42,7 +42,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
  const opByStd=new Map(opMaster.map(x=>[x.standard_operation,x]));
  return <main className="erp-shell">
  <header className="erp-header">
-  <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
+  <div><h1>ST Planning</h1></div>
   <div className="erp-env">PART TRACKER</div>
  </header>
  <AppTabs active="tracker"/>
@@ -60,12 +60,6 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
    <button className="btn primary">Tìm Part</button>
   </form>
 
-  {!q&&<div className="erp-table-panel section">
-   <div className="erp-panel-head"><b>Part Information Search</b><span>Master Data lookup</span></div>
-   <div className="erp-empty">
-    Nhập Part Number để xem Revision, Material Finish, Process Requirement, Routing Detail, ST Routing, Standard Operation, ST Group, Area và Time Rule.
-   </div>
-  </div>}
 
   {q&&!part&&<div className="erp-table-panel section">
    <div className="erp-panel-head"><b>Kết quả tìm kiếm</b><span>{matches.length} matches</span></div>

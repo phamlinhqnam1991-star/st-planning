@@ -230,7 +230,7 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,sourceColumns,c
 
  return <div>
   <div className="erp-table-panel">
-   <div className="erp-panel-head"><b>{edit?"Sửa Process Recipe":"+ Thêm Process Recipe"}</b><span>Danh mục chuẩn dùng chung cho mọi công đoạn; tạo xong cần map ở phần ① để Planning Board đề xuất.</span></div>
+   <div className="erp-panel-head"><b>{edit?"Sửa Process Recipe":"+ Thêm Process Recipe"}</b><span>Danh mục Recipe dùng chung; tạo xong cần gán Recipe vào Operation Code để Planning Board đề xuất.</span></div>
    <div className="recipe-form recipe-form-open-job-source">
     <label>Process Family<input className="input" value={form.process_family} disabled={!!edit} onChange={e=>setForm({...form,process_family:e.target.value.toUpperCase()})}/></label>
 
@@ -291,7 +291,7 @@ export function ProcessRecipeManager({recipes,partRows,partQuery,sourceColumns,c
     <label>Batch Key<input className="input" value={form.batch_key} placeholder="Để trống = Family | Group | Tên Recipe" onChange={e=>setForm({...form,batch_key:e.target.value})}/></label>
     <label>Note<input className="input" value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/></label>
    </div>
-   {!edit&&<div className="notice recipe-multi-name-hint"><b>Có 2 cách khai báo:</b> chọn từ All Open Job để giữ liên kết cột nguồn, hoặc <b>Nhập tay</b> khi Recipe chưa có trong dữ liệu Open Job. 1 Recipe No vẫn có thể có nhiều Recipe Name; cùng No + Name sẽ cập nhật/reactivate đúng Recipe đã có.</div>}
+   {!edit&&<div className="notice recipe-multi-name-hint"><b>Có 2 cách khai báo:</b> chọn từ All Open Job để giữ liên kết cột nguồn, hoặc <b>Nhập tay</b> khi Recipe chưa có trong dữ liệu Open Job. 1 Recipe No vẫn có thể có nhiều Recipe Name; cùng No + Name sẽ cập nhật và kích hoạt lại đúng Recipe đã có.</div>}
    {edit&&<div className="notice"><b>Khóa Recipe được giữ nguyên:</b> Process Family, Recipe Group và Recipe No không thể đổi sau khi tạo vì đã liên kết mapping, batch và lịch sử. Recipe Name vẫn có thể chọn lại từ một cột All Open Job khác.</div>}
    <div className="recipe-actions"><button className="btn primary" disabled={busy} onClick={save}>{edit?"Lưu thay đổi":"Thêm Recipe"}</button>{edit&&<button className="btn" onClick={clear}>Hủy</button>}</div>
   </div>

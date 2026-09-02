@@ -200,7 +200,7 @@ export function OperationMasterManager({rows,stGroups}:{rows:Row[];stGroups:StGr
   <div className="erp-panel-head">
    <b>Operation Master</b>
    <div className="row" style={{gap:8}}>
-    <span>{activeCount} active{inactiveCount?` · ${inactiveCount} ngưng`:""}</span>
+    <span>{activeCount} đang dùng{inactiveCount?` · ${inactiveCount} ngưng`:""}</span>
     {inactiveCount>0&&<button className="btn small" type="button" onClick={()=>setShowInactive(x=>!x)} disabled={busy}>
      {showInactive?"Ẩn công đoạn ngưng":"Hiện công đoạn ngưng"}
     </button>}
@@ -245,18 +245,18 @@ export function OperationMasterManager({rows,stGroups}:{rows:Row[];stGroups:StGr
       <td>{editing===row.standard_operation
        ? <input className="input operation-name-input" value={name} onChange={e=>setName(e.target.value)} disabled={busy} autoFocus/>
        : <b>{row.standard_operation}</b>}</td>
-      <td>{row.is_active?<span className="status-pill done">ACTIVE</span>:<span className="status-pill">NGƯNG</span>}</td>
+      <td>{row.is_active?<span className="status-pill done">ĐANG DÙNG</span>:<span className="status-pill">NGƯNG</span>}</td>
       <td>{row.st_group}</td>
       <td>{prefixEditing===row.standard_operation
-       ? <div className="row operation-prefix-edit"><input className="input mono operation-prefix-input" value={prefixValue} maxLength={3} onChange={e=>setPrefixValue(e.target.value.toUpperCase())} disabled={busy}/><button className="btn primary small" type="button" disabled={busy} onClick={()=>savePrefix(row.standard_operation)}>Save</button><button className="btn small" type="button" disabled={busy} onClick={()=>setPrefixEditing(null)}>×</button></div>
+       ? <div className="row operation-prefix-edit"><input className="input mono operation-prefix-input" value={prefixValue} maxLength={3} onChange={e=>setPrefixValue(e.target.value.toUpperCase())} disabled={busy}/><button className="btn primary small" type="button" disabled={busy} onClick={()=>savePrefix(row.standard_operation)}>Lưu</button><button className="btn small" type="button" disabled={busy} onClick={()=>setPrefixEditing(null)}>×</button></div>
        : <button className="btn small mono operation-prefix-button" type="button" disabled={busy||!row.is_active} onClick={()=>beginPrefix(row)}>{row.batch_prefix||"ĐẶT"}</button>}</td>
       <td>{row.time_calc_type||""}</td>
       <td>{sortEditing===row.standard_operation
-       ? <div className="row"><input className="input" type="number" min="0" step="1" style={{width:80}} value={sortValue} onChange={e=>setSortValue(e.target.value)}/><button className="btn primary small" onClick={()=>saveSortOrder(row.standard_operation)} disabled={busy}>Save</button><button className="btn small" onClick={()=>setSortEditing(null)} disabled={busy}>×</button></div>
+       ? <div className="row"><input className="input" type="number" min="0" step="1" style={{width:80}} value={sortValue} onChange={e=>setSortValue(e.target.value)}/><button className="btn primary small" onClick={()=>saveSortOrder(row.standard_operation)} disabled={busy}>Lưu</button><button className="btn small" onClick={()=>setSortEditing(null)} disabled={busy}>×</button></div>
        : <button className="btn small mono" type="button" onClick={()=>{setSortEditing(row.standard_operation);setSortValue(row.planning_sort_order==null?"":String(row.planning_sort_order));}} disabled={busy||!row.is_active}>{row.planning_sort_order??"ĐẶT"}</button>}</td>
       <td>{row.priority??""}</td><td>{row.qty_min??""}</td><td>{row.qty_max??""}</td><td>{row.surface_min_dm2??""}</td><td>{row.surface_max_dm2??""}</td><td>{row.fixed_hours??""}</td><td>{row.standard_hours??""}</td><td>{row.note||""}</td>
       <td>{editing===row.standard_operation
-       ? <div className="row"><button className="btn primary small" type="button" disabled={busy} onClick={save}>Save</button><button className="btn small" type="button" disabled={busy} onClick={()=>setEditing(null)}>Cancel</button></div>
+       ? <div className="row"><button className="btn primary small" type="button" disabled={busy} onClick={save}>Lưu</button><button className="btn small" type="button" disabled={busy} onClick={()=>setEditing(null)}>Hủy</button></div>
        : <div className="row" style={{gap:5,flexWrap:"wrap"}}>
           {row.is_active&&<button className="btn small" type="button" disabled={busy} onClick={()=>begin(row)}>Đổi tên</button>}
           <button className="btn small" type="button" disabled={busy} onClick={()=>setActive(row,!row.is_active)}>{row.is_active?"Ngưng":"Kích hoạt"}</button>

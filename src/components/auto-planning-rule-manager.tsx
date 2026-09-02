@@ -59,7 +59,6 @@ type Rule={
 type FieldOption={
  key:string;
  label:string;
- source:string;
 };
 
 const nullable=(v:string)=>{
@@ -148,20 +147,20 @@ export function AutoPlanningRuleManager({
   <div className="erp-table-panel">
    <div className="erp-panel-head">
     <b>Auto Planning Rules</b>
-    <span>{rows.length} Standard Operations</span>
+    <span>{rows.length} công đoạn</span>
    </div>
 
    <div className="table-wrap">
     <table className="erp-table auto-rule-summary">
      <thead>
       <tr>
-       <th>Operation</th>
+       <th>Công đoạn</th>
        <th>ST Group</th>
-       <th>Enabled</th>
-       <th>Mode</th>
-       <th>Run Order</th>
-       <th>Actual WIP</th>
-       <th>Prev Batch</th>
+       <th>Bật</th>
+       <th>Chế độ</th>
+       <th>Thứ tự</th>
+       <th>WIP hiện tại</th>
+       <th>Batch trước</th>
        <th>Plan Ahead</th>
        <th>Recipe</th>
        <th>Max Jobs</th>
@@ -175,13 +174,13 @@ export function AutoPlanningRuleManager({
        <tr key={row.standard_operation} className={row.auto_plan_enabled?"auto-rule-enabled":""}>
         <td><b>{row.standard_operation}</b></td>
         <td>{row.st_group||"—"}</td>
-        <td>{row.auto_plan_enabled?"YES":"NO"}</td>
-        <td>{row.auto_plan_mode}</td>
+        <td>{row.auto_plan_enabled?"Có":"Không"}</td>
+        <td>{row.auto_plan_mode==="OFF"?"Tắt":row.auto_plan_mode==="SUGGEST"?"Đề xuất":"Tự động"}</td>
         <td>{row.auto_plan_order}</td>
-        <td>{row.allow_actual_wip_without_previous_batch?"YES":"NO"}</td>
-        <td>{row.allow_from_previous_batch?"YES":"NO"}</td>
-        <td>{row.allow_plan_ahead?"YES":"NO"}</td>
-        <td>{row.require_same_recipe?"SAME":"ANY"}</td>
+        <td>{row.allow_actual_wip_without_previous_batch?"Có":"Không"}</td>
+        <td>{row.allow_from_previous_batch?"Có":"Không"}</td>
+        <td>{row.allow_plan_ahead?"Có":"Không"}</td>
+        <td>{row.require_same_recipe?"Cùng":"Bất kỳ"}</td>
         <td>{row.max_jobs_per_batch??"—"}</td>
         <td>{row.max_qty_per_batch??"—"}</td>
         <td>{row.max_surface_dm2_per_batch??"—"}</td>
@@ -191,7 +190,7 @@ export function AutoPlanningRuleManager({
           type="button"
           onClick={()=>setOpen(open===row.standard_operation?null:row.standard_operation)}
          >
-          {open===row.standard_operation?"Close":"Configure"}
+          {open===row.standard_operation?"Đóng":"Cấu hình"}
          </button>
         </td>
        </tr>
@@ -204,14 +203,14 @@ export function AutoPlanningRuleManager({
   {rows.map(row=>open===row.standard_operation&&
    <section className="erp-table-panel section auto-rule-editor" key={`edit-${row.standard_operation}`}>
     <div className="erp-panel-head">
-     <b>{row.standard_operation} · Auto Planning Configuration</b>
+     <b>{row.standard_operation} · Cấu hình Auto Planning</b>
      <button
       className="btn primary small"
       type="button"
       disabled={busy===row.standard_operation}
       onClick={()=>save(row)}
      >
-      {busy===row.standard_operation?"Saving...":"Save Rule"}
+      {busy===row.standard_operation?"Đang lưu...":"Lưu Rule"}
      </button>
     </div>
 
@@ -220,25 +219,25 @@ export function AutoPlanningRuleManager({
       <h3>1. Kích hoạt & chế độ</h3>
       <div className="auto-rule-grid">
        <Toggle
-        label="AutoPlanEnabled"
+        label="Bật Auto Planning"
         checked={row.auto_plan_enabled}
         onChange={v=>patch(row.standard_operation,{auto_plan_enabled:v})}
         title="Bật/tắt Auto Planning cho riêng Standard Operation này."
        />
 
-       <label>AutoPlanMode
+       <label>Chế độ
         <select
          className="input"
          value={row.auto_plan_mode}
          onChange={e=>patch(row.standard_operation,{auto_plan_mode:e.target.value as Rule["auto_plan_mode"]})}
         >
-         <option value="OFF">OFF</option>
-         <option value="SUGGEST">SUGGEST</option>
-         <option value="FULL_AUTO">FULL_AUTO</option>
+         <option value="OFF">Tắt</option>
+         <option value="SUGGEST">Đề xuất</option>
+         <option value="FULL_AUTO">Tự động</option>
         </select>
        </label>
 
-       <label>AutoPlanOrder
+       <label>Thứ tự Auto Plan
         <input
          className="input"
          type="number"
@@ -251,46 +250,46 @@ export function AutoPlanningRuleManager({
      </div>
 
      <div className="auto-rule-section">
-      <h3>2. Eligibility · Job nào được Auto Plan</h3>
+      <h3>2. Điều kiện Job được Auto Plan</h3>
       <div className="auto-rule-toggle-grid">
        <Toggle
-        label="AllowFirstPlanOperation"
+        label="Cho phép công đoạn đầu"
         checked={row.allow_first_plan_operation}
         onChange={v=>patch(row.standard_operation,{allow_first_plan_operation:v})}
         title="Cho phép Job có Previous Main Plan Op = START."
        />
        <Toggle
-        label="AllowActualWipWithoutPreviousBatch"
+        label="Cho WIP hiện tại không cần Batch trước"
         checked={row.allow_actual_wip_without_previous_batch}
         onChange={v=>patch(row.standard_operation,{allow_actual_wip_without_previous_batch:v})}
         title="Ví dụ NextOperation/Next Main Plan Op đang là BSAUNSLD: cho phép tạo lô BSAUNSLD dù chưa có Batch trước."
        />
        <Toggle
-        label="AllowFromPreviousBatch"
+        label="Cho Job từ Batch trước"
         checked={row.allow_from_previous_batch}
         onChange={v=>patch(row.standard_operation,{allow_from_previous_batch:v})}
         title="Cho phép Job đi vào operation này vì operation chính trước đã có Batch."
        />
        <Toggle
-        label="AllowPlanAhead"
+        label="Cho Plan Ahead"
         checked={row.allow_plan_ahead}
         onChange={v=>patch(row.standard_operation,{allow_plan_ahead:v})}
-        title="YES: Previous Batch mới PLANNED là đủ; chưa cần hoàn thành thực tế."
+        title="Cho phép lập kế hoạch khi Batch trước đã được lên kế hoạch, chưa cần hoàn thành thực tế."
        />
        <Toggle
-        label="RequirePreviousCompleted"
+        label="Yêu cầu công đoạn trước hoàn thành"
         checked={row.require_previous_completed}
         onChange={v=>patch(row.standard_operation,{require_previous_completed:v})}
-        title="Bắt buộc công đoạn chính trước Completed trước khi Auto Plan."
+        title="Chỉ lập kế hoạch tự động khi công đoạn chính trước đã hoàn thành."
        />
        <Toggle
-        label="RecipeRequired"
+        label="Bắt buộc có Recipe"
         checked={row.recipe_required}
         onChange={v=>patch(row.standard_operation,{recipe_required:v})}
-        title="Không đưa Job vào Auto Planning nếu chưa resolve được Recipe."
+        title="Không đưa Job vào Auto Planning nếu chưa xác định được Recipe."
        />
        <Toggle
-        label="ExcludeOpenDMR"
+        label="Loại Job có Open DMR / Hold"
         checked={row.exclude_open_dmr}
         onChange={v=>patch(row.standard_operation,{exclude_open_dmr:v})}
         title="Loại Job đang có Open DMR/Hold khỏi Auto Planning."
@@ -301,41 +300,41 @@ export function AutoPlanningRuleManager({
      <div className="auto-rule-section">
       <h3>3. Điều kiện bắt buộc cùng nhóm</h3>
       <div className="auto-rule-toggle-grid">
-       <Toggle label="RequireSameRecipe" checked={row.require_same_recipe} onChange={v=>patch(row.standard_operation,{require_same_recipe:v})}/>
-       <Toggle label="GroupByPreviousBatch" checked={row.group_by_previous_batch} onChange={v=>patch(row.standard_operation,{group_by_previous_batch:v})}/>
-       <Toggle label="RequireSamePart" checked={row.require_same_part} onChange={v=>patch(row.standard_operation,{require_same_part:v})}/>
-       <Toggle label="RequireSameRevision" checked={row.require_same_revision} onChange={v=>patch(row.standard_operation,{require_same_revision:v})}/>
-       <Toggle label="RequireSameProgram" checked={row.require_same_program} onChange={v=>patch(row.standard_operation,{require_same_program:v})}/>
-       <Toggle label="RequireSamePrimer1" checked={row.require_same_primer1} onChange={v=>patch(row.standard_operation,{require_same_primer1:v})}/>
-       <Toggle label="RequireSamePrimer2" checked={row.require_same_primer2} onChange={v=>patch(row.standard_operation,{require_same_primer2:v})}/>
-       <Toggle label="RequireSamePrimer3" checked={row.require_same_primer3} onChange={v=>patch(row.standard_operation,{require_same_primer3:v})}/>
+       <Toggle label="Cùng Recipe" checked={row.require_same_recipe} onChange={v=>patch(row.standard_operation,{require_same_recipe:v})}/>
+       <Toggle label="Gom theo Batch trước" checked={row.group_by_previous_batch} onChange={v=>patch(row.standard_operation,{group_by_previous_batch:v})}/>
+       <Toggle label="Cùng Part" checked={row.require_same_part} onChange={v=>patch(row.standard_operation,{require_same_part:v})}/>
+       <Toggle label="Cùng Revision" checked={row.require_same_revision} onChange={v=>patch(row.standard_operation,{require_same_revision:v})}/>
+       <Toggle label="Cùng Program" checked={row.require_same_program} onChange={v=>patch(row.standard_operation,{require_same_program:v})}/>
+       <Toggle label="Cùng PRIMER1" checked={row.require_same_primer1} onChange={v=>patch(row.standard_operation,{require_same_primer1:v})}/>
+       <Toggle label="Cùng PRIMER2" checked={row.require_same_primer2} onChange={v=>patch(row.standard_operation,{require_same_primer2:v})}/>
+       <Toggle label="Cùng PRIMER3" checked={row.require_same_primer3} onChange={v=>patch(row.standard_operation,{require_same_primer3:v})}/>
       </div>
      </div>
 
      <div className="auto-rule-section">
       <h3>4. Giới hạn Batch</h3>
       <div className="auto-rule-limit-grid">
-       <label>MinJobsPerBatch
+       <label>Jobs tối thiểu
         <input className="input" type="number" min="0" value={row.min_jobs_per_batch??""}
          onChange={e=>patch(row.standard_operation,{min_jobs_per_batch:nullable(e.target.value)})}/>
        </label>
-       <label>MaxJobsPerBatch
+       <label>Jobs tối đa
         <input className="input" type="number" min="1" value={row.max_jobs_per_batch??""}
          onChange={e=>patch(row.standard_operation,{max_jobs_per_batch:nullable(e.target.value)})}/>
        </label>
-       <label>MinQtyPerBatch
+       <label>Qty tối thiểu
         <input className="input" type="number" min="0" step="any" value={row.min_qty_per_batch??""}
          onChange={e=>patch(row.standard_operation,{min_qty_per_batch:nullable(e.target.value)})}/>
        </label>
-       <label>MaxQtyPerBatch
+       <label>Qty tối đa
         <input className="input" type="number" min="0" step="any" value={row.max_qty_per_batch??""}
          onChange={e=>patch(row.standard_operation,{max_qty_per_batch:nullable(e.target.value)})}/>
        </label>
-       <label>MinSurfaceDm2PerBatch
+       <label>Surface tối thiểu (dm²)
         <input className="input" type="number" min="0" step="any" value={row.min_surface_dm2_per_batch??""}
          onChange={e=>patch(row.standard_operation,{min_surface_dm2_per_batch:nullable(e.target.value)})}/>
        </label>
-       <label>MaxSurfaceDm2PerBatch
+       <label>Surface tối đa (dm²)
         <input className="input" type="number" min="0" step="any" value={row.max_surface_dm2_per_batch??""}
          onChange={e=>patch(row.standard_operation,{max_surface_dm2_per_batch:nullable(e.target.value)})}/>
        </label>
@@ -345,86 +344,25 @@ export function AutoPlanningRuleManager({
      <div className="auto-rule-section">
       <h3>5. Điều kiện tách sang Batch mới</h3>
       <div className="auto-rule-toggle-grid">
-       <Toggle label="SplitOnRecipe" checked={row.split_on_recipe} onChange={v=>patch(row.standard_operation,{split_on_recipe:v})}/>
-       <Toggle label="SplitOnPreviousBatch" checked={row.split_on_previous_batch} onChange={v=>patch(row.standard_operation,{split_on_previous_batch:v})}/>
-       <Toggle label="SplitOnPart" checked={row.split_on_part} onChange={v=>patch(row.standard_operation,{split_on_part:v})}/>
-       <Toggle label="SplitOnRevision" checked={row.split_on_revision} onChange={v=>patch(row.standard_operation,{split_on_revision:v})}/>
-       <Toggle label="SplitOnProgram" checked={row.split_on_program} onChange={v=>patch(row.standard_operation,{split_on_program:v})}/>
-       <Toggle label="SplitOnPrimer1" checked={row.split_on_primer1} onChange={v=>patch(row.standard_operation,{split_on_primer1:v})}/>
-       <Toggle label="SplitOnPrimer2" checked={row.split_on_primer2} onChange={v=>patch(row.standard_operation,{split_on_primer2:v})}/>
-       <Toggle label="SplitOnPrimer3" checked={row.split_on_primer3} onChange={v=>patch(row.standard_operation,{split_on_primer3:v})}/>
+       <Toggle label="Tách khi khác Recipe" checked={row.split_on_recipe} onChange={v=>patch(row.standard_operation,{split_on_recipe:v})}/>
+       <Toggle label="Tách khi khác Batch trước" checked={row.split_on_previous_batch} onChange={v=>patch(row.standard_operation,{split_on_previous_batch:v})}/>
+       <Toggle label="Tách khi khác Part" checked={row.split_on_part} onChange={v=>patch(row.standard_operation,{split_on_part:v})}/>
+       <Toggle label="Tách khi khác Revision" checked={row.split_on_revision} onChange={v=>patch(row.standard_operation,{split_on_revision:v})}/>
+       <Toggle label="Tách khi khác Program" checked={row.split_on_program} onChange={v=>patch(row.standard_operation,{split_on_program:v})}/>
+       <Toggle label="Tách khi khác PRIMER1" checked={row.split_on_primer1} onChange={v=>patch(row.standard_operation,{split_on_primer1:v})}/>
+       <Toggle label="Tách khi khác PRIMER2" checked={row.split_on_primer2} onChange={v=>patch(row.standard_operation,{split_on_primer2:v})}/>
+       <Toggle label="Tách khi khác PRIMER3" checked={row.split_on_primer3} onChange={v=>patch(row.standard_operation,{split_on_primer3:v})}/>
       </div>
       <small className="muted">
-       Khi Max Jobs / Max Qty / Max Surface đạt giới hạn, engine cũng tự đóng Batch hiện tại và mở Batch kế tiếp.
-      </small>
-     </div>
-
-     <div className="auto-rule-section">
-      <h3>6. Empty Batch / Auto Schedule / Auto Fill Foundation</h3>
-      <div className="auto-rule-toggle-grid">
-       <Toggle
-        label="AllowEmptyBatch"
-        checked={row.allow_empty_batch}
-        onChange={v=>patch(row.standard_operation,{allow_empty_batch:v})}
-        title="Cho phép tạo Batch Jobs=0 trước khi WIP tới."
-       />
-       <Toggle
-        label="AllowScheduleEmptyBatch"
-        checked={row.allow_schedule_empty_batch}
-        onChange={v=>patch(row.standard_operation,{allow_schedule_empty_batch:v})}
-        title="Cho phép điều độ Batch trống rồi Fill Job sau."
-       />
-       <Toggle
-        label="AutoCreateEmptyBatch"
-        checked={row.auto_create_empty_batch}
-        onChange={v=>patch(row.standard_operation,{auto_create_empty_batch:v})}
-        title="Dành cho Auto Batch tương lai. v87 chưa tự tạo."
-       />
-       <Toggle
-        label="AutoFillScheduledBatch"
-        checked={row.auto_fill_scheduled_batch}
-        onChange={v=>patch(row.standard_operation,{auto_fill_scheduled_batch:v})}
-        title="Dành cho Auto Fill tương lai. v87 chưa tự Fill."
-       />
-       <Toggle
-        label="RequireRecipeBeforeSchedule"
-        checked={row.require_recipe_before_schedule}
-        onChange={v=>patch(row.standard_operation,{require_recipe_before_schedule:v})}
-        title="Rule chuẩn bị cho Auto Schedule."
-       />
-       <Toggle
-        label="RequirePaintTypeBeforeSchedule"
-        checked={row.require_paint_type_before_schedule}
-        onChange={v=>patch(row.standard_operation,{require_paint_type_before_schedule:v})}
-        title="Rule chuẩn bị cho Auto Schedule của các công đoạn sơn."
-       />
-      </div>
-
-      <div className="auto-rule-limit-grid auto-rule-lock-grid">
-       <label>BatchLockBeforeStartMinutes
-        <input
-         className="input"
-         type="number"
-         min="0"
-         step="1"
-         value={row.batch_lock_before_start_minutes??0}
-         onChange={e=>patch(row.standard_operation,{
-          batch_lock_before_start_minutes:Math.max(0,Number(e.target.value)||0)
-         })}
-        />
-       </label>
-      </div>
-
-      <small className="muted">
-       Các Auto flag chỉ là cấu hình nền ở v87; chưa tự chạy Auto Plan/Auto Batch/Auto Schedule.
+       Khi đạt giới hạn Jobs / Qty / Surface, hệ thống đóng Batch hiện tại và mở Batch kế tiếp.
       </small>
      </div>
 
      <div className="auto-rule-section">
       <div className="auto-rule-section-head">
-       <h3>7. Priority · tối đa 10 cấp</h3>
+       <h3>6. Thứ tự ưu tiên · tối đa 10 cấp</h3>
        <button className="btn small" type="button" onClick={()=>addPriority(row.standard_operation)} disabled={row.priority_rules.length>=10}>
-        + Priority Level
+        + Thêm mức ưu tiên
        </button>
       </div>
 
@@ -433,24 +371,24 @@ export function AutoPlanningRuleManager({
         <div className="auto-rule-priority-row" key={`${index}-${rule.field}`}>
          <span>{index+1}</span>
          <select className="input" value={rule.field} onChange={e=>patchPriority(row.standard_operation,index,{field:e.target.value})}>
-          <option value="">Select Candidate column...</option>
+          <option value="">Chọn cột Candidate...</option>
           {fieldOptions.map(f=>
-           <option key={f.key} value={f.key}>{f.label} · {f.source}</option>
+           <option key={f.key} value={f.key}>{f.label}</option>
           )}
          </select>
          <select className="input" value={rule.direction} onChange={e=>patchPriority(row.standard_operation,index,{direction:e.target.value as "asc"|"desc"})}>
-          <option value="asc">ASC</option>
-          <option value="desc">DESC</option>
+          <option value="asc">Tăng dần</option>
+          <option value="desc">Giảm dần</option>
          </select>
          <button className="btn small" type="button" onClick={()=>removePriority(row.standard_operation,index)}>×</button>
         </div>
        )}
-       {!row.priority_rules.length&&<div className="muted">Chưa đặt Priority. Engine sẽ dùng thứ tự ổn định theo Job.</div>}
+       {!row.priority_rules.length&&<div className="muted">Chưa đặt ưu tiên; hệ thống dùng thứ tự Job mặc định.</div>}
       </div>
      </div>
 
      <div className="auto-rule-section">
-      <h3>8. Note</h3>
+      <h3>7. Ghi chú</h3>
       <textarea
        className="input"
        rows={3}
@@ -467,7 +405,7 @@ export function AutoPlanningRuleManager({
        disabled={busy===row.standard_operation}
        onClick={()=>save(row)}
       >
-       {busy===row.standard_operation?"Saving...":`Save ${row.standard_operation}`}
+       {busy===row.standard_operation?"Đang lưu...":`Lưu ${row.standard_operation}`}
       </button>
      </div>
     </div>

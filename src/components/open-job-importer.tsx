@@ -61,7 +61,7 @@ export function OpenJobImporter(){
  return <div className="erp-table-panel">
    <div className="erp-panel-head">
      <b>Import All Open Jobs</b>
-     <span>Full snapshot · incremental comparison by JobNum</span>
+     <span>Import và cập nhật thay đổi theo Job</span>
    </div>
 
    <div className="open-job-import-form">

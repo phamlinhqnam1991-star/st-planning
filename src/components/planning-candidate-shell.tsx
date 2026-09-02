@@ -13,22 +13,6 @@ function useLoadElapsed(active:boolean){
  return seconds;
 }
 
-// v325: quick server+DB health probe used right after a Candidate timeout —
-// distinguishes "Candidate load itself is slow" from "connection is dead".
-async function probeServer():Promise<string>{
- const controller=new AbortController();
- const timer=setTimeout(()=>controller.abort(),8000);
- try{
-  const started=Date.now();
-  const r=await fetch("/api/config/health?fresh=1",{cache:"no-store",signal:controller.signal});
-  const d=await r.json().catch(()=>({}));
-  const ms=Date.now()-started;
-  return `Server+DB OK trong ${ms}ms (db=${(d as any).db?.label||"?"}, _timingMs=${(d as any)._timingMs??"?"})`;
- }catch{
-  return "Server+DB check FAILED trong 8s — server/Next không phản hồi, không phải lỗi payload";
- }finally{clearTimeout(timer);}
-}
-
 type Props={
  areas:any[];operations:any[];availableBatches:any[];mainOperations:any[];stOperations:any[];nextOperations:any[];sourceColumns:string[];operationMappings:any[];
  initial:{
@@ -63,7 +47,6 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
  const [loadingMore,setLoadingMore]=useState(false);
  const [routeLoading,setRouteLoading]=useState(false);
  const [error,setError]=useState("");
- const [errorDetail,setErrorDetail]=useState("");
  const [sourceDataError,setSourceDataError]=useState("");
  const [routeError,setRouteError]=useState("");
  const [boardKey,setBoardKey]=useState(`${initial.areaId}|${initial.op}|${initial.recipeKey}`);
@@ -288,7 +271,7 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
   const seq=++loadSeq.current;
   routeRequestedIds.current=new Set();
   routeActiveRequests.current=0;
-  setLoading(true);setLoadingMore(false);setRouteLoading(false);setError("");setErrorDetail("");setSourceDataError("");setRouteError("");
+  setLoading(true);setLoadingMore(false);setRouteLoading(false);setError("");setSourceDataError("");setRouteError("");
   // v323: hard client timeout — never let the board spin on a wedged request.
   let timedOut=false;
   const controller=new AbortController();
@@ -335,17 +318,8 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
     let d:any={};
     try{d=raw?JSON.parse(raw):{};}catch{}
     if(!r.ok){
-     // v321: keep the FULL technical detail so the failure can be diagnosed
-     // from the screen / browser console without extra tooling.
      const detail=String(d?.error||"").trim();
-     const tech=[
-      `HTTP ${r.status} ${r.statusText||""}`.trim(),
-      `URL: ${url}`,
-      detail?`Server: ${detail}`:"",
-      `Body: ${raw.slice(0,1200)}`
-     ].filter(Boolean).join("\n");
-     console.error(`[planning] candidates FAILED ${r.status} ${r.statusText}\n${tech}`);
-     setErrorDetail(tech);
+     console.error(`[planning] candidates FAILED ${r.status} ${r.statusText}`,detail||raw.slice(0,1200));
      throw new Error(detail||"Không tải được Candidate Jobs.");
     }
     return d;
@@ -396,11 +370,7 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
    if(seq===loadSeq.current){
     if(timedOut){
      console.error(`[planning] candidates TIMEOUT after 60s`);
-     // v325: self-diagnostic — probe the server+DB right after a timeout to
-     // tell apart a slow Candidate load from a dead connection.
-     const probe=await probeServer();
-     setErrorDetail(`Client timeout: request bị hủy sau 60s. ${probe}. Gửi dev dòng log [candidates]/[db] nếu có.`);
-     setError("Mất quá 60s khi tải Candidate (timeout) — kiểm tra kết nối DB/mạng, bấm Thử lại.");
+     setError("Mất quá 60s khi tải Candidate — kiểm tra kết nối và bấm Thử lại.");
     }else{
      // Page 1 failed = real error; later pages failed = keep rows, softer notice.
      const msg=e instanceof Error?e.message:String(e);
@@ -429,22 +399,21 @@ export function PlanningCandidateShell({areas,operations,availableBatches,mainOp
 
  return <>
   <form className="erp-form-panel planning-filter" onSubmit={submit}>
-   <label>Area<select className="input" value={areaId} onChange={e=>changeArea(e.target.value)}><option value="">All Areas</option>{areas.map(a=><option key={a.id} value={a.id}>{a.area_name}</option>)}</select></label>
-   <label>Standard Operation<select className="input" value={op} onChange={e=>{setOp(e.target.value);setRecipeKey("");}}><option value="">Select Operation...</option>{filteredOperations.map(x=><option key={`${x.area_id||"none"}-${x.standard_operation}`} value={x.standard_operation}>{x.standard_operation}{x.area_name?` · ${x.area_name}`:""}</option>)}</select>{areaId&&<small className="planning-sub">{filteredOperations.length} operations in selected Area</small>}</label>
-   <label>Recipe<select className="input" value={recipeKey} onChange={e=>setRecipeKey(e.target.value)}><option value="">All / Not Required</option>{recipeOptions.map(r=><option key={r.recipe_key} value={r.recipe_key}>{r.recipe_no||"—"} · {r.recipe_name||"CHƯA KHAI BÁO"}</option>)}</select></label>
+   <label>Area<select className="input" value={areaId} onChange={e=>changeArea(e.target.value)}><option value="">Tất cả Area</option>{areas.map(a=><option key={a.id} value={a.id}>{a.area_name}</option>)}</select></label>
+   <label>Standard Operation<select className="input" value={op} onChange={e=>{setOp(e.target.value);setRecipeKey("");}}><option value="">Chọn công đoạn...</option>{filteredOperations.map(x=><option key={`${x.area_id||"none"}-${x.standard_operation}`} value={x.standard_operation}>{x.standard_operation}{x.area_name?` · ${x.area_name}`:""}</option>)}</select>{areaId&&<small className="planning-sub">{filteredOperations.length} công đoạn</small>}</label>
+   <label>Recipe<select className="input" value={recipeKey} onChange={e=>setRecipeKey(e.target.value)}><option value="">Tất cả / Không yêu cầu</option>{recipeOptions.map(r=><option key={r.recipe_key} value={r.recipe_key}>{r.recipe_no||"—"} · {r.recipe_name||"CHƯA KHAI BÁO"}</option>)}</select></label>
    <label>Previous Batch No<input className="input" value={previousBatchNo} onChange={e=>setPreviousBatchNo(e.target.value)} placeholder="PB-000120"/></label>
-   <button className="btn primary" disabled={loading}>{loading?"Loading...":"Load Candidates"}</button>
+   <button className="btn primary" disabled={loading}>{loading?"Đang tải...":"Tải Candidate"}</button>
   </form>
-  {error&&<div className="notice section">Lỗi: {error}
-   {errorDetail&&<details className="planning-debug"><summary>Chi tiết kỹ thuật (copy gửi cho dev)</summary><pre>{errorDetail}</pre></details>}
+  {error&&<div className="notice section">{error}
    <div className="row" style={{marginTop:8}}><button className="btn primary" onClick={()=>void load()}>Thử lại</button></div>
   </div>}
-  {routeError&&<div className="notice section">Candidate đã tải; Route Matrix lỗi: {routeError}</div>}
+  {routeError&&<div className="notice section">Candidate đã tải; lỗi trạng thái công đoạn: {routeError}</div>}
   {sourceDataError&&<div className="notice section">{sourceDataError}</div>}
   {loading&&<div className="notice section">Đang tải Candidate Jobs… {loadElapsed>0&&<span className="muted">({loadElapsed}s)</span>}</div>}
   {!loading&&loadingMore&&<div className="notice section">Đang tải tiếp Jobs… đã hiển thị {candidates.length.toLocaleString("vi-VN")} dòng</div>}
-  {!loading&&routeLoading&&<div className="notice section">Candidate đã hiển thị. Route Matrix của các dòng đang xem đang tải dần…</div>}
-  {!op&&!areaId&&<div className="notice section">Chọn Area để xem toàn bộ Candidate thuộc Area, hoặc chọn thêm Standard Operation để lọc chi tiết.</div>}
+  {!loading&&routeLoading&&<div className="notice section">Đang tải trạng thái công đoạn cho các Job đang hiển thị…</div>}
+  {!op&&!areaId&&<div className="notice section">Chọn Area để xem Candidate, hoặc chọn thêm Main Operation để lọc chi tiết.</div>}
   <div className="section">
    <PlanningBoardClient
     key={boardKey}

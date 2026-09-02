@@ -271,8 +271,7 @@ export type ConfigBoardComparison={
 };
 
 /**
- * So sánh cấu hình Recipe (Công thức & Rule + Main Op → Recipe reference)
- * với nhu cầu thực tế trên Planning Board (các Job ELIGIBLE đang chờ).
+ * So sánh cấu hình Recipe runtime với nhu cầu thực tế trên Planning Board (các Job ELIGIBLE đang chờ).
  */
 export async function loadRecipeComparison(c:PoolClient):Promise<ConfigBoardComparison>{
  // 1) Operation Code mà board đang cần (ELIGIBLE, còn mở).
@@ -328,23 +327,6 @@ export async function loadRecipeComparison(c:PoolClient):Promise<ConfigBoardComp
   };
  });
 
- // 4) Mapping reference (Main Op → Recipe cũ) còn tồn tại — cảnh báo v280 không còn dùng.
- const refQ=await c.query(`
-   select standard_operation,count(*)::int n
-   from md_operation_recipe_mapping where is_active=true
-   group by standard_operation order by standard_operation
- `);
- if(refQ.rows.length){
-  // Chỉ thêm 1 dòng cảnh báo tổng (không lặp theo từng op để không tràn UI).
-  const total=refQ.rows.reduce((a:number,r:any)=>a+Number(r.n||0),0);
-  configUnused.unshift({
-   operation_code:"(bảng reference cũ)",
-   recipe_key:`${total} mapping`,
-   recipe_no:null,
-   recipe_name:"Main Op → Recipe (Master Data)",
-   issue:`Từ v280 bảng này chỉ để đối chiếu, KHÔNG điều khiển đề xuất Recipe trên board. Tạo lại trong Công thức & Rule.`
-  });
- }
 
  return{boardNeeds,configUnused};
 }

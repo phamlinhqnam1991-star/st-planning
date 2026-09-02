@@ -4,7 +4,7 @@ import {OpenJobColumnValueManager} from "@/components/open-job-column-value-mana
 export const dynamic="force-dynamic";
 export default async function Page(){
  return <main className="erp-shell">
-  <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION</div></header>
+  <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
   <AppTabs active="config"/>
   <div className="erp-workspace">
    <ConfigSidebar active="openjobcolumnvalues"/>
@@ -17,7 +17,6 @@ export default async function Page(){
      prev={{label:"Thời gian xử lý (Process)",href:"/recipe-time-process"}}
      next={undefined}
     />
-    <div className="notice recipe-note"><b>Cách dùng:</b> Bấm <b>Scan / Rebuild</b> để quét lại toàn bộ cột từ All Open Job hiện tại. Khi tạo rule, chọn cột là danh sách giá trị hiện ra tự động — không cần gõ tay.</div>
     <OpenJobColumnValueManager/>
    </section>
   </div>

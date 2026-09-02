@@ -52,7 +52,7 @@ function JobTable({rows,type}:{rows:SupportPlanJob[];type:"Masking"|"Unmasking"}
    <td>{row.lastOperation||"—"}</td>
    <td><b>{row.nextOperation||"—"}</b></td>
    <td>{row.priority||"—"}</td>
-   <td>{row.supportOperations.map((op)=><div key={`${op.seq}-${op.detailCode}`} className="support-operation-detail"><b>{op.detailCode}</b>{op.operationCode&&op.operationCode!==op.detailCode?<div className="muted">Raw: {op.operationCode}</div>:null}{op.name&&op.name!==op.detailCode?<div className="muted">{op.name}</div>:null}</div>)}</td>
+   <td>{row.supportOperations.map((op)=><div key={`${op.seq}-${op.detailCode}`} className="support-operation-detail"><b>{op.detailCode}</b>{op.name&&op.name!==op.detailCode?<div className="muted">{op.name}</div>:null}</div>)}</td>
    <td><Recipe row={row}/></td>
    <td><Link className="erp-link" href={`/planning/batches/${row.batchId}`}><b>{row.batchNo||`Batch #${row.batchId}`}</b></Link><div className="muted"><Status row={row}/></div></td>
    <td>{row.plannedStart?<b>{dt(row.plannedStart)}</b>:<><span className="muted">Chưa điều độ</span>{row.planningDate?<div className="muted">Batch date: {dOnly(String(row.planningDate).slice(0,10))}</div>:null}</>}</td>
@@ -93,12 +93,11 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
  const activeMain=groups.filter(g=>g.masking.length||g.unmasking.length).length;
  const prev=shiftDate(date,-1),next=shiftDate(date,1),today=vnToday();
  return <main className="erp-shell">
-  <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><span className="erp-env">MASKING / UNMASKING</span></header>
+  <header className="erp-header"><div><h1>ST Planning</h1></div><span className="erp-env">MASKING / UNMASKING</span></header>
   <AppTabs active="masking"/>
   <section className="erp-content erp-content-full support-planning-page">
    <div className="erp-page-head"><div><h2>Masking / Unmasking Planning</h2><p>Ngày điều độ → Main Planning Order → Main Operation → Masking / Unmasking → Job · Batch · Time</p></div></div>
 
-   <div className="notice support-rule"><b>Logic chuẩn:</b> Main Planning occurrence lấy trực tiếp từ Planning Chain nên các code thuộc ST Group <b>PRIMER</b> tự lần lượt thành <b>PRIMER1 / PRIMER2 / PRIMER3</b>, TOPCOAT tự thành <b>TOPCOAT1 / TOPCOAT2</b>, dù raw Operation Code khác nhau. Với từng Main, hệ thống chỉ xét Routing Detail nằm <b>sau Previous Main và trước Current Main</b>. Chỉ operation trung gian có raw code <b>MSKG</b> mới là support: <b>UNMSKG*</b> = Unmasking, còn lại = Masking. Cột hiển thị dùng <b>operation_detail_code</b>. Thời gian support luôn kế thừa Batch/Schedule của Main phía sau.</div>
 
    <div className="support-date-bar">
     <div className="support-view-tabs">

@@ -61,8 +61,7 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
  async function removeOperation(row:Row){
   const ok=window.confirm(
    `Bỏ ${row.operation_code} khỏi ST Scope?\n\n`+
-   `Operation sẽ được bỏ khỏi ST Scope; source catalog vẫn giữ. Mapping active của code này sẽ inactive, `+
-   `sau đó hệ thống mapping/sync lại toàn bộ Planning Chain tương lai.\n`+
+   `Job ở công đoạn này sẽ không còn thuộc phạm vi ST và Planning Chain sẽ được cập nhật lại.\n`+
    `Batch/Schedule lịch sử không bị xóa.`
   );
   if(!ok)return;
@@ -70,11 +69,8 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
   setBusy(true);
   setMessage("");
   try{
-   const d=await request({operation_code:row.operation_code},"DELETE");
-   setMessage(
-    `Đã bỏ ${row.operation_code} khỏi ST Scope; `+
-    `${d.deactivated_mappings||0} mapping được deactivate; đã mapping/sync lại toàn bộ.`
-   );
+   await request({operation_code:row.operation_code},"DELETE");
+   setMessage(`Đã bỏ ${row.operation_code} khỏi ST Scope và cập nhật lại Planning Chain.`);
    refreshConfigPage(router);
   }catch(e){
    setMessage(e instanceof Error?e.message:"Không remove được Operation Code.");
@@ -85,20 +81,10 @@ export function OperationCodeOrderManager({rows}:{rows:Row[]}){
 
  return <div className="section">
   <div className="erp-panel-head" style={{marginBottom:8}}>
-   <div>
-    <b>ST Scope & Operation Code Order</b>
-    <small className="planning-sub">
-     Operation Code Order là tie-breaker tùy chọn khi nhiều RAW NextOperation cùng thuộc một Main. Thứ tự chính kế thừa Main Planning Order. Thêm mới đầy đủ dùng ST Operation Flow.
-    </small>
-   </div>
-   <button className="btn primary" type="button" disabled={busy} onClick={()=>router.push("/st-operation-flow")}>＋ Add / Configure Full Flow</button>
+   <div><b>ST Scope & Operation Code Order</b></div>
+   <button className="btn primary" type="button" disabled={busy} onClick={()=>router.push("/st-operation-flow")}>＋ Thêm / cấu hình công đoạn</button>
   </div>
 
-
-
-  <div className="notice" style={{marginBottom:10}}>
-   <b>Nguồn chuẩn:</b> md_st_operation_scope quyết định Operation nào thuộc ST. Remove ở đây chỉ bỏ khỏi ST Scope, không xóa Operation khỏi catalog toàn nhà máy. Source→Main/Area/Schedule cấu hình tại ST Operation Flow.
-  </div>
 
   <div className="erp-table-panel table-wrap">
    <table className="erp-table">

@@ -479,7 +479,7 @@ export default async function Page({
 
   return <main className="erp-shell">
    <header className="erp-header">
-    <div><h1>ST Planning</h1><p>Production Planning & Scheduling</p></div>
+    <div><h1>ST Planning</h1></div>
     <span className="erp-env">SCHEDULING</span>
    </header>
    <AppTabs active="schedule"/>
@@ -515,11 +515,6 @@ export default async function Page({
      <span>{plannerOperations.join(" · ")}</span>
     </div>
 
-    <div className="schedule-rule-strip">
-     <b>Chemical Line</b>
-     <span>6 Flybars</span><span>Max 3 running simultaneously</span><span>Launch interval 01:00</span>
-     <b>Painting</b><span>CAB1</span><span>CAB2</span><span>CAB3</span><span>CAB4</span>
-    </div>
 
     <ManualScheduleGrid
      scheduleAreas={scheduleAreasQ.rows as any}

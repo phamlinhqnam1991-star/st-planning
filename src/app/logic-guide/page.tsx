@@ -157,7 +157,7 @@ export default async function Page(){
 
  return <main className="erp-shell">
   <header className="erp-header">
-   <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
+   <div><h1>ST Planning</h1></div>
    <span className="erp-env">LOGIC & GUIDE</span>
   </header>
   <AppTabs active="guide"/>
@@ -166,9 +166,8 @@ export default async function Page(){
    <div className="erp-page-head guide-head">
     <div>
      <h2>Logic & Hướng dẫn vận hành</h2>
-     <p>Source of truth · Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau — cập nhật theo code v358.</p>
+     <p>Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau theo logic hiện tại.</p>
     </div>
-    <div className="guide-version"><b>v358</b><span>{new Date().toLocaleDateString("vi-VN")}</span></div>
    </div>
 
    <div className="guide-jump">
@@ -246,7 +245,7 @@ export default async function Page(){
       <tr><td>Operation Code Order (tie-break)</td><td><code>md_operation.planning_sort_order</code></td><td>Main Planning Order (primary)</td></tr>
       <tr><td>Main Planning sequence / NextOperation presentation</td><td><code>md_operation_master.planning_sort_order</code> + canonical mapping/chain</td><td>Operation Code Order chỉ tie-break trong cùng Main</td></tr>
       <tr><td>Source → Main</td><td><code>md_st_operation_mapping</code></td><td>Recipe mapping</td></tr>
-      <tr><td>Recipe runtime</td><td><code>md_main_operation_recipe</code> + <code>selection_rule</code></td><td>Main Op → Recipe reference cũ</td></tr>
+      <tr><td>Recipe runtime</td><td><code>md_main_operation_recipe</code> + <code>selection_rule</code></td><td>Không dùng mapping khác thay thế</td></tr>
       <tr><td>Batch Compatibility</td><td>Recipe mapping <code>selection_rule</code> + selection lưu trên Batch</td><td>Process Time condition</td></tr>
       <tr><td>Process Time chuẩn</td><td><code>md_recipe_time_rule</code> + condition table</td><td>Duration planner override</td></tr>
       <tr><td>Planner ownership</td><td>Schedule Area → Planner Assignment</td><td>Danh sách Planner hard-code</td></tr>
@@ -269,7 +268,6 @@ export default async function Page(){
       <tr><td><b>ST Routing Master</b></td><td>Routing ST chuẩn hóa theo signature.</td><td>Canonical route, Part → Routing.</td><td>Ảnh hưởng route nào được Part dùng.</td></tr>
       <tr><td><b>ST Routing Chain</b></td><td>Chuỗi ST theo routing_code + seq + raw operation + standard operation.</td><td>Auto Intermediate Bridge, Planning Chain, Part Tracker.</td><td>Đây là nguồn quan trọng để suy ra operation trung gian giữa hai Main.</td></tr>
       <tr><td><b>Part → Routing</b></td><td>Map Part + Revision → routing_code.</td><td>Part Tracker và chain resolver.</td><td>Map sai sẽ làm Part chạy nhầm routing.</td></tr>
-      <tr><td><b>Main Op → Recipe</b></td><td>Danh sách reference cũ theo Standard Operation.</td><td>Tra cứu/reference.</td><td><b>Không phải</b> nguồn runtime để Planning Board đề xuất Recipe; runtime dùng Configuration → Công thức & Rule.</td></tr>
      </tbody>
     </table></div>
     <Rule title="Cách kiểm tra một Part" tone="important">
@@ -344,7 +342,7 @@ export default async function Page(){
 
     <details className="erp-details">
      <summary><b>⑦ Khu vực điều độ (Schedule Area / Lane)</b></summary>
-     <p>Định nghĩa lane trên Board Điều Độ: tên, thứ tự, resource group/resource, số dòng mặc định, các Main Operation được phép vào lane, Manual/Auto theo cấu hình hiện hành.</p>
+     <p>Định nghĩa lane trên Board Điều Độ: tên, thứ tự, resource group/resource, số dòng mặc định, các Main Operation được phép vào lane và trạng thái Điều độ tay.</p>
      <div className="notice"><b>Impact:</b> Main chưa gán Schedule Area sẽ không có lane phù hợp để điều độ. Gán sai Operation → kéo Batch vào lane có thể bị chặn.</div>
     </details>
 
@@ -649,7 +647,7 @@ export default async function Page(){
      <>Chọn file Master Excel đúng format.</>,
      <>Bấm <b>Import Master</b>; chờ thống kê Source / New / Changed / Unchanged / Routing.</>,
      <>Importer chỉ rebuild các ST derived data/routing signature bị ảnh hưởng theo logic incremental hiện tại.</>,
-     <>Nếu Auto Bridge incremental được tạo, importer tiếp tục process/finalize; nếu lỗi Bridge sau khi Master đã lưu, có thể Resume tại ST Operation Flow.</>,
+     <>Nếu cần cập nhật lại chuỗi công đoạn sau import, hệ thống tiếp tục tự xử lý; nếu bị gián đoạn, vào ST Operation Flow để tiếp tục.</>,
      <>Sau import, dùng Part Tracker kiểm tra một Part thay đổi để xác nhận Routing/Finish/Requirement.</>,
      <>Nếu cấu trúc/value All Open Job cũng thay đổi thì đó là luồng import riêng ở tab All Open Jobs; đừng nhầm hai file.</>
     ]}/>
@@ -774,7 +772,7 @@ export default async function Page(){
     <Faq q="Tạo Batch xong có reload toàn Board không?" a={<>Không. Luồng hiện tại dùng <b>Delta Refresh</b> cho affected Job/Route Matrix và refresh Target Batch. Rebuild Chain mới là thao tác có thể tải lại nhiều dữ liệu.</>}/>
     <Faq q="Recipe đúng nhưng Process Time = — / chưa xác định?" a={<>Kiểm tra Cấu hình → Thời gian xử lý. Batch có thể không match range Qty/Surface hoặc condition cụ thể; cần rule fallback không condition nếu muốn có thời gian cho trường hợp trộn value.</>}/>
     <Faq q="Job không xuất hiện ở All Open Jobs ST?" a={<>Kiểm tra RAW <b>NextOperation</b> của Job có nằm trong <code>md_st_operation_scope</code> active hay không. Source→Main Mapping không quyết định visibility của tab All Open Jobs.</>}/>
-    <Faq q="Job xuất hiện All Open Jobs nhưng không có READY?" a={<>Có thể Operation là ST_SCOPE_ONLY, chain chưa resolve, Main phía trước còn WAIT/gap, hoặc dữ liệu Last/Next/AllOperation/Bridge không định vị được. Với raw Operation lặp lại nhiều occurrence, engine sẽ ưu tiên occurrence sớm nhất chưa có Batch; dùng nút Job Planning Debug để xem occurrence nào đang được chọn. Kiểm tra Route Matrix/NO CHAIN và ST Operation Flow.</>}/>
+    <Faq q="Job xuất hiện All Open Jobs nhưng không có READY?" a={<>Có thể Operation là ST_SCOPE_ONLY, chain chưa resolve, Main phía trước còn WAIT/gap, hoặc dữ liệu Last/Next/AllOperation/Bridge không định vị được. Với raw Operation lặp lại nhiều occurrence, hệ thống ưu tiên occurrence sớm nhất chưa có Batch. Kiểm tra Route Matrix/NO CHAIN, Job Tracker và ST Operation Flow để xác định vị trí của Job.</>}/>
     <Faq q="Đổi Operation Code Order có cần Rebuild Chain?" a={<>Không. Operation Code Order chỉ dùng tie-break presentation. Rebuild Chain chỉ cần cho thay đổi cấu trúc Planning/Mapping/Bridge/Scope.</>}/>
     <Faq q="Ngưng Main Operation có mất Batch lịch sử không?" a={<>Không. Ngưng giữ lịch sử. Xóa vĩnh viễn chỉ được phép khi đã ngưng và không còn dependency; API sẽ chặn và báo các nhóm còn tham chiếu.</>}/>
     <Faq q="Import Master và Import All Open Job khác gì?" a={<>Import Master = dữ liệu kỹ thuật Part/Revision/Routing/Finish/Requirement. Import All Open Job = snapshot WIP/job thực tế. Hai luồng độc lập nhưng gặp nhau tại Planning resolver.</>}/>

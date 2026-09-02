@@ -23,7 +23,7 @@ export default async function Page(){
  const groups=[...new Set(masters.map((x:any)=>String(x.st_group)).filter(Boolean))];
  const sourceOperations=[...new Set(ops.map((x:any)=>String(x.operation_code)).filter(Boolean))];
  return <main className="erp-shell">
-  <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION</div></header>
+  <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
   <AppTabs active="config"/>
   <div className="erp-workspace">
    <ConfigSidebar active="operationmapping"/>
@@ -33,10 +33,9 @@ export default async function Page(){
      subtitle="Gán mỗi Operation Code vào ST Group + Công đoạn chính (Main Operation) + quy tắc."
      purpose="Quyết định Operation Code nguồn 'thành' công đoạn chính nào khi lập kế hoạch, kèm quy tắc ánh xạ (DIRECT / OCCURRENCE / SEQUENCE / SEQUENCE/FALLBACK)."
      impact="Mapping sai sẽ khiến Job đi vào sai công đoạn trên Planning Board. Chỉ Operation loại Planning Operation mới xuất hiện ở đây; ST_SCOPE_ONLY không tham gia Planning/Batch/Điều độ."
-     prev={{label:"ST Scope & Operation Order",href:"/operation-code-order"}}
+     prev={{label:"ST Scope · Operation Code Order",href:"/operation-code-order"}}
      next={{label:"Main Operation Master",href:"/master/operation"}}
     />
-    <div className="notice section"><b>Nguồn chuẩn:</b> Chỉ Operation có loại Planning Operation mới được Source → Main Mapping. ST_SCOPE_ONLY không xuất hiện tại đây và không tham gia Planning/Batch/Điều độ. Cấu hình loại tại <a href="/st-operation-flow">ST Operation Flow</a>.</div>
     <OperationMappingManager rows={(rows||[]) as any} groups={groups} sourceOperations={sourceOperations}/>
    </section>
   </div>

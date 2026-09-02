@@ -161,7 +161,6 @@ export function ManualScheduleGrid({
  const [dropTarget,setDropTarget]=useState<string|null>(null);
  const [suggestBusy,setSuggestBusy]=useState<string|null>(null);
  const [saveAllBusy,setSaveAllBusy]=useState<string|null>(null);
- const [healBusy,setHealBusy]=useState("");
 
 
  function areaOps(a:ScheduleArea){
@@ -696,32 +695,6 @@ export function ManualScheduleGrid({
   }finally{setSuggestBusy("");}
  }
 
- async function healChemicalLoading(a:ScheduleArea){
-  const ok=window.confirm(
-   "Rà toàn bộ lịch Chemical Line:\n"+
-   "• Lô có Loading = 0 phút mà KHÔNG phải nối tiếp thật (lô trước cùng FB vừa xong sát giờ)\n"+
-   "  → sẽ tính lại Loading theo Số lượng/Diện tích và đẩy Process/NDT/Unloading tương ứng.\n"+
-   "• Lô nối tiếp thật → giữ nguyên (không sửa).\n\nTiếp tục?"
-  );
-  if(!ok)return;
-  setHealBusy(a.schedule_area_code);setMessage("");
-  try{
-   const res=await fetch("/api/schedule/heal-chemical-loading",{method:"POST"});
-   const d=await safeJson(res);
-   if(!res.ok)throw new Error(d.error||"Không sửa được.");
-   const parts:string[]=[];
-   if(d.fixedCount)parts.push(`✅ Đã sửa ${d.fixedCount} lô: ${(d.fixed as any[]).map((x:any)=>`${x.batch_no} +${x.loading_minutes}'`).join(", ")}.`);
-   if(d.keptCount)parts.push(`↳ Giữ nguyên ${d.keptCount} lô nối tiếp thật (không loading).`);
-   if(d.failedCount)parts.push(`⚠️ ${d.failedCount} lô không tự sửa được (bị cấn giờ): ${(d.failed as any[]).map((x:any)=>x.batch_no).join(", ")} — vào Edit để chỉnh tay.`);
-   if(!d.fixedCount&&!d.keptCount&&!d.failedCount)parts.push("Không có lô nào cần sửa.");
-   setMessage(parts.join(" "));
-   await refreshRows();
-  }catch(e){
-   setMessage(e instanceof Error?e.message:"Không sửa được dữ liệu cũ.");
-  }finally{
-   setHealBusy("");
-  }
- }
 
  // Sau Đề xuất: sắp xếp lại các dòng nhập theo giờ Loading Start (dòng sớm lên trước),
  // dòng chưa có giờ xuống cuối; liên kết nối tiếp được remap theo vị trí mới
@@ -883,15 +856,6 @@ export function ManualScheduleGrid({
        </button>}
        {chemical&&<button type="button" className="btn" disabled={saveAllBusy===a.schedule_area_code} title="Lưu TẤT CẢ các dòng đề xuất cùng lúc (mỗi dòng tạo 1 Batch + Schedule). Lô nguồn lưu trước lô nối tiếp." onClick={()=>saveAll(a)}>
         {saveAllBusy===a.schedule_area_code?"Đang lưu...":"💾 Lưu tất cả"}
-       </button>}
-       {chemical&&<button
-        type="button"
-        className="btn"
-        disabled={healBusy===a.schedule_area_code}
-        title="Sửa dữ liệu cũ: lô nào Loading 0 phút sai (Loading Start = Process Start) sẽ được tính lại Loading, đẩy Process/NDT/Unloading tương ứng. Lô nối tiếp thật giữ nguyên."
-        onClick={()=>healChemicalLoading(a)}
-       >
-        {healBusy===a.schedule_area_code?"Đang sửa...":"🔧 Sửa Loading cũ"}
        </button>}
        {chemical&&hasSuggestedRows(a)&&<button type="button" className="btn" title="Xóa hết giờ/FB đề xuất, quay lại như chưa đề xuất" onClick={()=>{if(window.confirm("Xóa hết giờ/FB đã đề xuất ở vùng này? (Recipe và liên kết nối tiếp giữ nguyên)"))clearSuggestion(a);}}>↺ Xóa đề xuất</button>}
 
@@ -1322,8 +1286,8 @@ export function ManualScheduleGrid({
 
  return <section className="erp-table-panel section schedule-area-direct-grid">
   <div className="erp-panel-head">
-   <div><b>Direct Schedule Grid · Planner {planner} · Schedule Area</b>
-    <small className="planning-sub">Click Batch ở Unscheduled để đưa Batch đã có vào dòng trống rồi gán lịch; NEW dùng để tạo lô trống thủ công. Cả hai dùng chung Scheduling Engine, sẵn đường cho Auto Schedule.</small></div>
+   <div><b>Điều độ trực tiếp · Planner {planner}</b>
+    <small className="planning-sub">Chọn Batch ở Unscheduled để đưa lô vào dòng trống và gán lịch; NEW dùng để tạo lô trống thủ công.</small></div>
    <span>{scheduleAreas.length} areas</span>
   </div>
   <div className="schedule-area-grid-stack">

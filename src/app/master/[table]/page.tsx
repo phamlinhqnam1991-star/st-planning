@@ -23,7 +23,6 @@ const masterTabs=[
  {key:"finish",label:"Material Finish",href:"/master/finish"},{key:"requirement",label:"Process Requirement",href:"/master/requirement"},
  {key:"strouting",label:"ST Routing Master",href:"/master/strouting"},{key:"stroutingchain",label:"ST Routing Chain",href:"/master/stroutingchain"},
  {key:"partrouting",label:"Part → Routing",href:"/master/partrouting"},
- {key:"operationrecipemapping",label:"Main Op → Recipe",href:"/recipe-operation-map"}
 ];
 export const dynamic="force-dynamic";
 export default async function Page({params,searchParams}:{params:Promise<{table:string}>,searchParams:Promise<{q?:string;p?:string}>}){
@@ -115,13 +114,13 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
  }
  if(error){
    return <main className="erp-shell">
-    <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">{c.section==="master"?"MASTER DATA":"CONFIGURATION"}</div></header>
+    <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">{c.section==="master"?"MASTER DATA":"CONFIGURATION"}</div></header>
     <AppTabs active={c.section==="master"?"master":"config"}/>
     <div className="erp-workspace">
      {c.section==="master"?(<aside className="erp-sidebar"><div className="erp-sidebar-title">MASTER DATA</div><SubTabs items={masterTabs} active={key}/></aside>):(<ConfigSidebar active={key}/>)}
      <section className="erp-content">
       <div className="erp-page-head"><div><h2>{c.title}</h2><p>Không thể tải dữ liệu</p></div></div>
-      <div className="notice"><b>Database query error:</b> {error.message||JSON.stringify(error)}</div>
+      <div className="notice"><b>Không tải được dữ liệu:</b> {error.message||"Vui lòng thử lại."}</div>
      </section>
     </div>
    </main>
@@ -130,7 +129,7 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
  
  if(key==="operation"){
   return <main className="erp-shell">
-   <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">CONFIGURATION</div></header>
+   <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">CONFIGURATION</div></header>
    <AppTabs active="config"/>
    <div className="erp-workspace">
     <ConfigSidebar active="operation"/>
@@ -151,12 +150,12 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
   </main>
  }
  return <main className="erp-shell">
-  <header className="erp-header"><div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div><div className="erp-env">{c.section==="master"?"MASTER DATA":"CONFIGURATION"}</div></header>
+  <header className="erp-header"><div><h1>ST Planning</h1></div><div className="erp-env">{c.section==="master"?"MASTER DATA":"CONFIGURATION"}</div></header>
   <AppTabs active={c.section==="master"?"master":"config"}/>
   <div className="erp-workspace">
    {c.section==="master"?(<aside className="erp-sidebar"><div className="erp-sidebar-title">MASTER DATA</div><SubTabs items={masterTabs} active={key}/></aside>):(<ConfigSidebar active={key}/>)}
    <section className="erp-content">
-    <div className="erp-page-head"><div><h2>{c.title}</h2><p>{(count||0).toLocaleString()} active records</p></div></div>
+    <div className="erp-page-head"><div><h2>{c.title}</h2><p>{(count||0).toLocaleString()} bản ghi đang dùng</p></div></div>
     <form className="row erp-form-panel"><input className="input" name="q" defaultValue={q} placeholder={c.exactField==="part_num"?"Nhập chính xác Part Number...":"Tìm kiếm..."}/><button className="btn primary">Tìm</button></form>
     <div className="erp-table-panel section table-wrap"><table className="erp-table"><thead><tr>{cols.map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i}>{cols.map(x=><td key={x}>{String(r[x]??"")}</td>)}</tr>)}{!rows.length&&<tr><td className="muted">Không có dữ liệu.</td></tr>}</tbody></table></div>
     <div className="row pager"><Link className="btn" href={`?q=${encodeURIComponent(q)}&p=${Math.max(1,page-1)}`}>← Trước</Link><span className="muted">Trang {page} / {pages}</span><Link className="btn" href={`?q=${encodeURIComponent(q)}&p=${Math.min(pages,page+1)}`}>Sau →</Link></div>

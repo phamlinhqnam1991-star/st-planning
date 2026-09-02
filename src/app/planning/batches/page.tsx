@@ -33,7 +33,7 @@ export default async function Page(){
 
   return <main className="erp-shell">
    <header className="erp-header">
-    <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
+    <div><h1>ST Planning</h1></div>
     <div className="erp-env">PLANNING BATCHES</div>
    </header>
 
@@ -42,8 +42,8 @@ export default async function Page(){
    <section className="erp-content erp-content-full planning-page planning-batches-page">
     <div className="erp-page-head">
      <div>
-      <h2>Planning Board</h2>
-      <p>Quản lý các Planning Batch gần nhất và mở chi tiết Job trong từng lô</p>
+      <h2>Planning Batches</h2>
+      <p>Quản lý các lô đã tạo trên Planning Board.</p>
      </div>
     </div>
 
@@ -51,9 +51,9 @@ export default async function Page(){
 
     <div className="erp-table-panel section planning-batches-list">
      <div className="erp-panel-head">
-      <b>Recent Planning Batches</b>
+      <b>Planning Batches gần nhất</b>
       <div className="batch-panel-tools">
-       <span>{batchesQ.rows.length} latest batches</span>
+       <span>{batchesQ.rows.length} lô</span>
        <ResetAllBatchesButton/>
       </div>
      </div>

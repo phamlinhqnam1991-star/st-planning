@@ -48,7 +48,7 @@ export default async function Page({
 
    return <main className="erp-shell">
     <header className="erp-header">
-     <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
+     <div><h1>ST Planning</h1></div>
      <div className="erp-env">JOB HISTORY</div>
     </header>
 
@@ -56,7 +56,7 @@ export default async function Page({
 
     <section className="erp-content erp-content-full">
      <div className="erp-page-head">
-      <div><h2>All Open Job Change History</h2><p>Only NEW / CHANGED / CLOSED snapshots are stored</p></div>
+      <div><h2>All Open Job Change History</h2><p>Chỉ lưu các thay đổi NEW / CHANGED / CLOSED.</p></div>
       <Link className="btn" href="/all-open-jobs">← Current Jobs</Link>
      </div>
 

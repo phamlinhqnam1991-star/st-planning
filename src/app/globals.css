@@ -29,7 +29,7 @@ a{color:inherit;text-decoration:none}.shell{max-width:1180px;margin:0 auto;paddi
 body{background:#eef1f5}
 .erp-shell{min-height:100vh;background:#eef1f5}
 .erp-header{height:64px;background:var(--erp-header);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid #0f203b}
-.erp-header h1{font-size:20px;margin:0;font-weight:750}.erp-header p{font-size:12px;margin:3px 0 0;color:#c7d2e2}
+.erp-header h1{font-size:20px;margin:0;font-weight:750}
 .erp-env{font-size:11px;font-weight:750;letter-spacing:.08em;padding:6px 9px;border:1px solid #536986;background:var(--erp-header-2);border-radius:3px}
 .erp-modules{height:45px;display:flex;align-items:stretch;background:#fff;border-bottom:1px solid #cfd6df;padding:0 22px;overflow-x:auto}
 .erp-module{display:flex;align-items:center;padding:0 18px;font-size:13px;font-weight:700;color:#475467;border-right:1px solid #e4e7ec;white-space:nowrap;border-bottom:3px solid transparent}
@@ -103,7 +103,6 @@ button,a,input,select,textarea{touch-action:manipulation}
     gap:10px;
   }
   .erp-header h1{font-size:18px}
-  .erp-header p{font-size:11px}
   .erp-env{font-size:10px;padding:5px 7px}
 
   .erp-modules{
@@ -221,12 +220,6 @@ button,a,input,select,textarea{touch-action:manipulation}
     padding:8px 10px;
   }
   .erp-header h1{font-size:17px}
-  .erp-header p{
-    max-width:210px;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-  }
   .erp-env{
     max-width:120px;
     overflow:hidden;
@@ -360,7 +353,6 @@ button,a,input,select,textarea{touch-action:manipulation}
 
 /* Very small phones */
 @media (max-width: 380px){
-  .erp-header p{display:none}
   .erp-env{max-width:100px;font-size:9px}
   .erp-module{padding:0 10px}
   .erp-subnav-item{padding:0 9px}
@@ -369,17 +361,14 @@ button,a,input,select,textarea{touch-action:manipulation}
 
 
 /* Process Recipe Master v16 */
-.recipe-note{margin-bottom:14px}
 .recipe-form{display:grid;grid-template-columns:1fr 1fr .8fr 1.6fr 1.4fr 1.2fr;gap:10px;padding:12px}
-.recipe-form label,.recipe-map-form label{font-size:12px;color:#475467;font-weight:700}
-.recipe-form .input,.recipe-map-form .input{margin-top:5px}
+.recipe-form label{font-size:12px;color:#475467;font-weight:700}
+.recipe-form .input{margin-top:5px}
 .recipe-actions{display:flex;gap:8px;padding:0 12px 12px}
 .recipe-filter{min-width:150px;height:32px;padding:4px 8px}
-.recipe-map-form{display:grid;grid-template-columns:1.1fr 2fr .9fr auto auto;gap:10px;align-items:end;padding:12px;border-bottom:1px solid #d8dee7}
-.recipe-check{display:flex;align-items:center;gap:7px;min-height:42px;padding-bottom:1px}
 .recipe-part-search{display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px;border-bottom:1px solid #d8dee7}
-@media(max-width:1100px){.recipe-form{grid-template-columns:repeat(3,minmax(0,1fr))}.recipe-map-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:700px){.recipe-form,.recipe-map-form,.recipe-part-search{grid-template-columns:1fr}.recipe-filter{min-width:120px}.recipe-actions{flex-direction:column}.recipe-actions .btn{width:100%}}
+@media(max-width:1100px){.recipe-form{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.recipe-form,.recipe-part-search{grid-template-columns:1fr}.recipe-filter{min-width:120px}.recipe-actions{flex-direction:column}.recipe-actions .btn{width:100%}}
 
 
 /* Chemical Line Operation Code -> Recipe v22 */
@@ -878,9 +867,6 @@ button,a,input,select,textarea{touch-action:manipulation}
  border:1px solid #b2ccff;
 }
 /* Scheduling Board v38 */
-.schedule-rule-strip{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #cfd6df;padding:9px 12px;font-size:12px}
-.schedule-rule-strip span{padding:4px 8px;background:#f4f6f8;border:1px solid #e4e7ec}
-.schedule-rule-strip b:not(:first-child){margin-left:12px}
 .schedule-add-form{margin-top:12px;display:grid;grid-template-columns:2fr 1.3fr 1.3fr .7fr auto;gap:10px;align-items:end}
 .schedule-add-form label{font-size:12px;font-weight:700;color:#475467}
 .schedule-add-form label .input{margin-top:5px}
@@ -895,7 +881,7 @@ button,a,input,select,textarea{touch-action:manipulation}
 .schedule-chip.chemical-unloading{background:#ede9fe;border-color:#8b5cf6;color:#5b21b6}
 .schedule-chip.paint{background:#edf8ee;border-color:#aad7ae;color:#246b2d}
 .erp-page-head form{display:flex;gap:6px;align-items:center}
-@media(max-width:900px){.schedule-add-form{grid-template-columns:1fr 1fr}.schedule-rule-strip{align-items:flex-start}}
+@media(max-width:900px){.schedule-add-form{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.schedule-add-form{grid-template-columns:1fr}.schedule-add-form .btn{width:100%}.erp-page-head form{width:100%}.erp-page-head form .input{flex:1}}
 
 .schedule-chip.other{background:#f5f5f5;border-color:#d0d5dd;color:#344054}
@@ -2766,8 +2752,6 @@ button,a,input,select,textarea{touch-action:manipulation}
    ============================================================ */
 .guide-page{padding-bottom:48px}
 .guide-head{align-items:flex-start}
-.guide-version{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:11px}
-.guide-version span{opacity:.65}
 .guide-jump{
  position:sticky;top:0;z-index:20;
  display:flex;gap:6px;flex-wrap:wrap;
@@ -5815,14 +5799,6 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
   }
 }
 
-/* v321: diagnostics for Candidate load failures */
-.planning-debug{margin-top:8px;font-size:12px}
-.planning-debug summary{cursor:pointer;color:#175cd3;font-weight:650}
-.planning-debug pre{
- margin:8px 0 0;padding:10px;background:#0f203b;color:#d6e2f5;border-radius:8px;
- font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;
- white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;
-}
 
 /* v334: chip lọc trạng thái Candidate (ELIGIBLE / PLANNED / WAIT / NO CHAIN) */
 .status-chip{background:#eef2f7}
@@ -6094,7 +6070,6 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 
 /* v358 · Masking / Unmasking support planning */
 .support-planning-page{display:flex;flex-direction:column;gap:10px}
-.support-rule{margin:0}
 .support-filter{display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #cfd6df;padding:10px;border-radius:4px}
 .support-filter .input{flex:1;min-width:240px}
 .support-summary{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:8px}
@@ -6127,15 +6102,3 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 @media(max-width:900px){.support-date-bar{align-items:stretch;flex-direction:column}.support-date-nav{justify-content:space-between}.support-selected-date{flex:1}}
 
 /* v363 — Job Planning Debug (read-only). */
-.candidate-job-debug-cell{white-space:nowrap}
-.candidate-job-debug-btn{border:0;background:transparent;padding:0 0 0 5px;cursor:pointer;font-size:11px;opacity:.45;vertical-align:middle}
-.candidate-job-debug-cell:hover .candidate-job-debug-btn{opacity:1}
-.planning-job-debug-backdrop{position:fixed;inset:0;z-index:10020;background:rgba(15,23,42,.42);display:flex;align-items:flex-start;justify-content:center;padding:28px 18px;overflow:auto}
-.planning-job-debug-modal{width:min(1280px,96vw);max-height:calc(100vh - 56px);overflow:auto;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 24px 70px rgba(15,23,42,.25);padding:14px}
-.planning-job-debug-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;position:sticky;top:-14px;background:#fff;z-index:2;padding:10px 0;border-bottom:1px solid #e2e8f0;margin-bottom:10px}
-.planning-job-debug-head b{font-size:16px}.planning-job-debug-head small{display:block;color:#64748b;margin-top:2px}
-.planning-job-debug-result{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#dbe3ec;border:1px solid #dbe3ec;border-radius:7px;overflow:hidden;margin-bottom:10px}
-.planning-job-debug-result>div{background:#fff;padding:8px 10px}.planning-job-debug-result span{display:block;color:#64748b;font-size:10px;text-transform:uppercase}.planning-job-debug-result b{font-size:12px}.planning-job-debug-result.is-ok{border-color:#86efac}.planning-job-debug-result.is-blocked{border-color:#fca5a5}.planning-job-debug-result-reason{grid-column:1/-1}
-.planning-job-debug-warnings{display:grid;gap:5px;margin:8px 0;padding:8px 10px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;color:#92400e;font-size:12px}
-.planning-job-debug-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}.planning-job-debug-grid section,.planning-job-debug-section{border:1px solid #e2e8f0;border-radius:7px;padding:9px;background:#fcfdff}.planning-job-debug-grid h4,.planning-job-debug-section h4{margin:0 0 7px;font-size:12px}.planning-job-debug-grid dl{display:grid;grid-template-columns:145px 1fr;gap:5px 8px;margin:0;font-size:11px}.planning-job-debug-grid dt{color:#64748b}.planning-job-debug-grid dd{margin:0;overflow-wrap:anywhere}.planning-job-debug-section{margin-top:10px}.planning-job-debug-section .erp-table{font-size:10px}.planning-job-debug-section .row-muted{opacity:.48}
-@media(max-width:800px){.planning-job-debug-grid{grid-template-columns:1fr}.planning-job-debug-result{grid-template-columns:1fr 1fr}}

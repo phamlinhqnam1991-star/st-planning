@@ -53,7 +53,6 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
  const [codeOrderEditing,setCodeOrderEditing]=useState<string|null>(null);
  const [codeOrderValue,setCodeOrderValue]=useState("");
  const [bridgeRun,setBridgeRun]=useState<BridgeRun|null>(null);
- const [bridgeBatch,setBridgeBatch]=useState<{start:number|null;end:number|null}|null>(null);
  const [manualBridge,setManualBridge]=useState<ManualBridgeForm>(emptyManualBridge);
  const [bridgeSourceFilter,setBridgeSourceFilter]=useState<"ALL"|"AUTO_ROUTING"|"MANUAL">("ALL");
  usePopupMessage(message);
@@ -167,7 +166,7 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
   if(!scopeOnly&&(!form.standard_operation||!form.st_group||!form.area_id||!form.schedule_area_code||!["1","2"].includes(form.planner_owner))){
    setMessage("Planning Operation bắt buộc đủ Main Operation → ST Group → Physical Area → Schedule Area → Planner.");return;
   }
-  if(!scopeOnly&&!window.confirm("Lưu sẽ dựng lại ST Routing + Planning Chain.\n\nAuto Bridge đang ACTIVE sẽ được giữ nguyên; nếu Main/Routing thay đổi hãy chạy Rebuild Auto Bridge Segments theo tiến trình chunk ở phía dưới.\n\nLịch sử Batch/Schedule không bị xóa.\n\nTiếp tục?"))return;
+  if(!scopeOnly&&!window.confirm("Lưu sẽ cập nhật lại chuỗi công đoạn cho các Job liên quan.\n\nNếu thay đổi Main/Routing, hãy dựng lại Auto Bridge sau khi lưu. Lịch sử Batch/Schedule không bị xóa.\n\nTiếp tục?"))return;
   setBusy(true);setMessage("");
   try{
    const r=await fetch("/api/config/st-operation-flow",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
@@ -198,18 +197,14 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
  };
 
  const runBridgeUntilDone=async(initial:BridgeRun)=>{
-  let run=initial;setBridgeRun(run);setBridgeBatch(null);
+  let run=initial;setBridgeRun(run);
 
   // Process until the durable snapshot reaches 100%. FAILED is resumable.
   while(run.processedRoutings<run.totalRoutings||run.status==="RUNNING"||run.status==="FAILED"){
    const d=await bridgeRequest({action:"process",run_id:run.runId,chunk_size:run.chunkSize||150});
-   run=d.run as BridgeRun;setBridgeRun(run);setBridgeBatch({start:d.batchStart??null,end:d.batchEnd??null});
+   run=d.run as BridgeRun;setBridgeRun(run);
    const pct=run.totalRoutings?Math.floor(run.processedRoutings*100/run.totalRoutings):100;
-   const mainCount=Number(d.recognizedMainOccurrences||0);
-   const routeMainCount=Number(d.routesWithTwoOrMoreMains||0);
-   const segmentCount=Number(d.segmentsFound||0);
-   const sourceMapCount=Number(d.canonicalPlanningSourceMappings||0);
-   setMessage(`Auto Bridge: ${run.processedRoutings.toLocaleString()} / ${run.totalRoutings.toLocaleString()} routing · ${pct}% · chunk Main ${mainCount.toLocaleString()} · route ≥2 Main ${routeMainCount.toLocaleString()} · segment ${segmentCount.toLocaleString()} · Planning source ${sourceMapCount.toLocaleString()}`);
+   setMessage(`Đang dựng Auto Bridge: ${run.processedRoutings.toLocaleString()} / ${run.totalRoutings.toLocaleString()} routing · ${pct}%`);
    if(run.processedRoutings>=run.totalRoutings&&run.status==="READY_TO_FINALIZE")break;
    await new Promise(resolve=>setTimeout(resolve,25));
   }
@@ -217,35 +212,35 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
   // v306: once 100% is reached, always attempt Finalize. The server validates
   // remaining processed_at rows authoritatively and safely retries FAILED runs.
   if(run.processedRoutings>=run.totalRoutings&&run.status!=="COMPLETED"&&run.status!=="CANCELLED"){
-   setMessage(`Đã xử lý đủ ${run.processedRoutings.toLocaleString()} / ${run.totalRoutings.toLocaleString()} routing. Đang Finalize và chuyển bộ Bridge mới sang ACTIVE...`);
+   setMessage(`Đã xử lý đủ ${run.processedRoutings.toLocaleString()} / ${run.totalRoutings.toLocaleString()} routing. Đang hoàn tất Auto Bridge...`);
    const d=await bridgeRequest({action:"finalize",run_id:run.runId});
-   run=d.run as BridgeRun;setBridgeRun(null);setBridgeBatch(null);
-   setMessage(`Hoàn tất Auto Bridge: ${Number(d.segments||0).toLocaleString()} segment · ${Number(d.operationRows||0).toLocaleString()} intermediate occurrence. Planning Board dùng bộ mới sau commit. Nên Rebuild Chain nếu các Bridge vừa thay đổi.`);
+   run=d.run as BridgeRun;setBridgeRun(null);
+   setMessage(`Hoàn tất Auto Bridge: ${Number(d.segments||0).toLocaleString()} segment. Nếu Bridge vừa thay đổi, hãy Rebuild Chain.`);
    setTimeout(()=>location.reload(),1200);
   }
  };
 
  const rebuildAutoBridge=async()=>{
   if(bridgeRun&&["RUNNING","FAILED","READY_TO_FINALIZE"].includes(bridgeRun.status)){
-   setBusy(true);setMessage(`Tiếp tục Rebuild ${bridgeRun.processedRoutings.toLocaleString()} / ${bridgeRun.totalRoutings.toLocaleString()} routing...`);
-   try{await runBridgeUntilDone(bridgeRun)}catch(e){const latest=await refreshBridgeRun();setMessage(`Rebuild tạm dừng: ${e instanceof Error?e.message:String(e)}.${latest?.processedRoutings===latest?.totalRoutings?" Dữ liệu đã xử lý 100%; bấm Finalize Bridge để thử publish lại.":" Có thể bấm Tiếp tục để chạy từ vị trí hiện tại."}`)}finally{setBusy(false)}
+   setBusy(true);setMessage(`Tiếp tục rebuild ${bridgeRun.processedRoutings.toLocaleString()} / ${bridgeRun.totalRoutings.toLocaleString()} routing...`);
+   try{await runBridgeUntilDone(bridgeRun)}catch(e){const latest=await refreshBridgeRun();setMessage(`Rebuild tạm dừng: ${e instanceof Error?e.message:String(e)}.${latest?.processedRoutings===latest?.totalRoutings?" Dữ liệu đã xử lý 100%; bấm Hoàn tất để thử lại.":" Có thể bấm Tiếp tục để chạy từ vị trí hiện tại."}`)}finally{setBusy(false)}
    return;
   }
-  if(!window.confirm("Full Rebuild Auto Bridge Segments?\n\nHệ thống quét TOÀN BỘ routing_code trong ST Routing Chain · Standardized và xử lý 150 routing/request. Có thể Resume nếu mất mạng/timeout. Bộ Bridge ACTIVE hiện tại vẫn được Planning Board sử dụng cho tới khi Finalize xong.\n\nTiếp tục?"))return;
-  setBusy(true);setMessage("Đang khởi tạo Auto Bridge rebuild run...");
+  if(!window.confirm("Dựng lại toàn bộ Auto Bridge?\n\nHệ thống sẽ quét toàn bộ ST Routing Chain. Nếu bị gián đoạn có thể tiếp tục lại; Planning Board vẫn dùng cấu hình hiện tại cho tới khi rebuild hoàn tất.\n\nTiếp tục?"))return;
+  setBusy(true);setMessage("Đang chuẩn bị Auto Bridge...");
   try{
    const d=await bridgeRequest({action:"start",mode:"FULL",chunk_size:150});
    await runBridgeUntilDone(d.run as BridgeRun);
-  }catch(e){const latest=await refreshBridgeRun();setMessage(`Rebuild tạm dừng: ${e instanceof Error?e.message:String(e)}. Dữ liệu Bridge ACTIVE cũ vẫn an toàn.${latest?.processedRoutings===latest?.totalRoutings?" Bấm Finalize Bridge để thử publish lại.":" Bấm Tiếp tục để Resume."}`)}finally{setBusy(false)}
+  }catch(e){const latest=await refreshBridgeRun();setMessage(`Rebuild tạm dừng: ${e instanceof Error?e.message:String(e)}. Dữ liệu Bridge ACTIVE cũ vẫn an toàn.${latest?.processedRoutings===latest?.totalRoutings?" Bấm Hoàn tất để thử lại.":" Bấm Tiếp tục để chạy tiếp."}`)}finally{setBusy(false)}
  };
 
  const cancelBridgeRun=async()=>{
   if(!bridgeRun)return;
-  if(!window.confirm(`Hủy rebuild ${bridgeRun.runId} và làm lại FULL từ đầu?\n\nBridge ACTIVE hiện tại không bị thay đổi cho tới khi run mới Finalize.`))return;
+  if(!window.confirm("Hủy lần rebuild đang dở và làm lại từ đầu?\n\nCấu hình Bridge hiện tại vẫn được giữ cho tới khi rebuild mới hoàn tất."))return;
   setBusy(true);
   try{
    await bridgeRequest({action:"cancel",run_id:bridgeRun.runId});
-   setBridgeRun(null);setBridgeBatch(null);setMessage("Đã hủy run cũ. Đang tạo Full Rebuild mới...");
+   setBridgeRun(null);setMessage("Đã hủy lần rebuild cũ. Đang làm lại từ đầu...");
    const d=await bridgeRequest({action:"start",mode:"FULL",chunk_size:150});
    await runBridgeUntilDone(d.run as BridgeRun);
   }catch(e){setMessage(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
@@ -326,40 +321,40 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
    <div className="erp-panel-head"><div><b>Trợ lý cấu hình Main Planning / ST Scope Only</b><small className="planning-sub">Không cần chọn INTERMEDIATE. Hệ thống tự suy ra từ Routing giữa các Main Planning.</small></div><button className="btn" type="button" onClick={()=>{setForm(emptyForm);setStep(1)}} disabled={busy}>＋ Làm mới</button></div>
    <div className="wizard-stepper">{wsStep(1,"Operation Code","Chọn mã công đoạn")}<div className={`wizard-conn ${step>1?"done":""}`}/>{wsStep(2,"Công đoạn & Nhóm","Gán Main Planning")}<div className={`wizard-conn ${step>2?"done":""}`}/>{wsStep(3,"Khu vực & Planner","Chọn nơi chạy, ai lo")}</div>
    <div className="wizard-panel">
-    {step===1&&<><div className="notice" style={{marginBottom:10}}><b>Bước 1 · Operation Code.</b> Chỉ chọn <b>Planning Operation</b> hoặc <b>ST_SCOPE_ONLY</b>. Intermediate được suy ra tự động.</div><div className="candidate-filter-grid">
+    {step===1&&<><div className="candidate-filter-grid">
      <label>Mã công đoạn<input className="input" list="st-source-ops" value={form.source_operation_code} onChange={e=>selectSource(e.target.value.toUpperCase())} placeholder="VD: CPBILP"/><datalist id="st-source-ops">{rawOperations.map(x=><option key={x.operation_code} value={x.operation_code}>{x.operation_name||x.operation_code} · {x.open_jobs||0} job</option>)}</datalist></label>
      <label>Tên công đoạn<input className="input" value={form.source_operation_name} onChange={e=>setForm({...form,source_operation_name:e.target.value})}/></label>
      <label>Loại Operation<select className="input" value={form.operation_type} onChange={e=>{const type=e.target.value as FormState["operation_type"];setStep(1);if(type==="ST_SCOPE_ONLY")setForm({...form,operation_type:type,standard_operation:"",main_planning_order:"",batch_prefix:"",st_group:"",area_id:"",schedule_area_code:"",planner_owner:"",mapping_rule:"DIRECT"});else setForm({...form,operation_type:type})}}><option value="PLANNING_OPERATION">Planning Operation — tạo Main/Batch/Schedule</option><option value="ST_SCOPE_ONLY">ST_SCOPE_ONLY — chỉ hiển thị, không lập kế hoạch</option></select></label>
      <label>Operation Code Order (tie-break)<input className="input" type="number" value={form.source_planning_order} onChange={e=>setForm({...form,source_planning_order:e.target.value})}/></label>
     </div>{scopeOnly&&<div className="notice" style={{marginTop:10}}><b>ST_SCOPE_ONLY:</b> không sinh Planning Chain/Batch/Schedule.</div>}</>}
-    {step===2&&<><div className="notice" style={{marginBottom:10}}><b>Bước 2 · Công đoạn chính & Nhóm.</b></div><div className="candidate-filter-grid">
+    {step===2&&<><div className="candidate-filter-grid">
      <label>Công đoạn chính<input className="input" list="st-main-ops" value={form.standard_operation} onChange={e=>selectMain(e.target.value.toUpperCase())}/><datalist id="st-main-ops">{mainOperations.map(x=><option key={x.standard_operation} value={x.standard_operation}>{x.st_group}</option>)}</datalist></label>
      <label>Thứ tự Main<input className="input" type="number" value={form.main_planning_order} onChange={e=>setForm({...form,main_planning_order:e.target.value})}/></label>
      <label>Tiền tố số lô<input className="input" maxLength={3} value={form.batch_prefix} onChange={e=>setForm({...form,batch_prefix:e.target.value.toUpperCase()})}/></label>
      <label>Nhóm ST<select className="input" value={form.st_group} onChange={e=>setForm({...form,st_group:e.target.value})}><option value="">Chọn nhóm...</option>{groups.map(x=><option key={x.st_group} value={x.st_group}>{x.st_group} · {x.group_name}</option>)}</select></label>
      <label>Quy tắc mapping<select className="input" value={form.mapping_rule} onChange={e=>setForm({...form,mapping_rule:e.target.value})}><option>DIRECT</option><option>OCCURRENCE</option><option>SEQUENCE</option><option>SEQUENCE/FALLBACK</option></select></label>
     </div></>}
-    {step===3&&<><div className="notice" style={{marginBottom:10}}><b>Bước 3 · Khu vực & Planner.</b></div><div className="candidate-filter-grid">
+    {step===3&&<><div className="candidate-filter-grid">
      <label>Khu vực vật lý<select className="input" value={form.area_id} onChange={e=>setForm({...form,area_id:e.target.value})}><option value="">Chọn khu...</option>{areas.map(x=><option key={x.id} value={x.id}>{x.area_name}</option>)}</select></label>
      <label>Khu vực điều độ<select className="input" value={form.schedule_area_code} onChange={e=>selectScheduleArea(e.target.value)}><option value="">Chọn lane...</option>{scheduleAreas.map(x=><option key={x.schedule_area_code} value={x.schedule_area_code}>{x.schedule_area_name}</option>)}</select></label>
      <label>Planner<select className="input" value={form.planner_owner} onChange={e=>setForm({...form,planner_owner:e.target.value})}><option value="">Chọn...</option><option value="1">Planner 1</option><option value="2">Planner 2</option></select></label>
     </div>{chainPreview()}</>}
-    <div className="row" style={{marginTop:14,justifyContent:"space-between"}}><div className="row">{step>1&&<button className="btn" onClick={back} disabled={busy}>← Quay lại</button>}{step<maxStep&&<button className="btn primary" onClick={next} disabled={busy}>Tiếp tục →</button>}</div><div className="row">{step===maxStep&&<button className="btn primary" onClick={save} disabled={busy}>{busy?"Đang đồng bộ...":scopeOnly?"💾 Lưu ST_SCOPE_ONLY":"💾 Lưu + Dựng lại chuỗi"}</button>}<span className="muted" style={{fontSize:11}}>Intermediate tự động, không cần nhập.</span></div></div>
+    <div className="row" style={{marginTop:14,justifyContent:"space-between"}}><div className="row">{step>1&&<button className="btn" onClick={back} disabled={busy}>← Quay lại</button>}{step<maxStep&&<button className="btn primary" onClick={next} disabled={busy}>Tiếp tục →</button>}</div><div className="row">{step===maxStep&&<button className="btn primary" onClick={save} disabled={busy}>{busy?"Đang đồng bộ...":scopeOnly?"💾 Lưu ST_SCOPE_ONLY":"💾 Lưu + Dựng lại chuỗi"}</button>}</div></div>
    </div>
   </div>
 
   <div className="erp-table-panel section">
-   <div className="erp-panel-head"><div><b>Danh sách Operation</b><small className="planning-sub">Planning/ST Scope Only = cấu hình tay · Bridge Intermediate = AUTO hoặc MANUAL Segment. RAW NextOperation kế thừa Main Planning Order; Operation Code Order chỉ tie-break trong cùng Main.</small></div><div className="row"><span>Planning OK {statusCounts.OK||0}</span><span>Bridge Intermediate {autoIntermediateCount}</span><span>ST Scope Only {statusCounts.ST_SCOPE_ONLY||0}</span><input className="input" style={{width:220}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm Operation..."/></div></div>
+   <div className="erp-panel-head"><div><b>Danh sách Operation</b><small className="planning-sub">RAW NextOperation kế thừa Main Planning Order; Operation Code Order chỉ dùng để sắp xếp thêm trong cùng Main.</small></div><div className="row"><span>Planning OK {statusCounts.OK||0}</span><span>Bridge Intermediate {autoIntermediateCount}</span><span>ST Scope Only {statusCounts.ST_SCOPE_ONLY||0}</span><input className="input" style={{width:220}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm Operation..."/></div></div>
    <div className="table-wrap" style={{maxHeight:560}}><table className="erp-table"><thead><tr><th>Mã nguồn</th><th>Loại</th><th>Số Job</th><th>Operation Code Order</th><th>Main / Bridge</th><th>Rule</th><th>Nhóm ST</th><th>Khu vật lý</th><th>Khu điều độ</th><th>Planner</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
-    {filtered.map(r=>{const auto=r.operation_type==="BRIDGE_INTERMEDIATE";const valid=r.config_status==="OK"||r.config_status==="INTERMEDIATE_BRIDGE"||r.config_status==="ST_SCOPE_ONLY";return <tr key={r.operation_code} style={{background:valid?undefined:"#fff7ed"}}><td><b>{r.operation_code}</b><small className="planning-sub">{r.operation_name||""}</small></td><td><b>{r.operation_type==="ST_SCOPE_ONLY"?"Chỉ hiển thị":auto?"Bridge Intermediate":"Planning"}</b></td><td className="num">{r.open_jobs||0}</td><td style={{minWidth:145}}>{codeOrderEditing===r.operation_code?<div className="row" style={{flexWrap:"nowrap"}}><input className="input" type="number" min={0} step={1} value={codeOrderValue} onChange={e=>setCodeOrderValue(e.target.value)} style={{width:72}} autoFocus/><button className="btn small primary" type="button" disabled={busy} onClick={()=>saveCodeOrder(r)}>Lưu</button><button className="btn small" type="button" disabled={busy} onClick={()=>setCodeOrderEditing(null)}>Hủy</button></div>:<button className="btn small mono" type="button" disabled={busy} onClick={()=>beginCodeOrder(r)} title="Tie-break RAW NextOperation trong cùng Main; Main Planning Order vẫn là thứ tự chính">{r.planning_sort_order??"ĐẶT"}</button>}</td><td><b>{auto?(r.bridge_summary||"Auto Bridge"):(r.standard_operation||"—")}</b>{auto&&<small className="planning-sub">{r.bridge_count||0} segment</small>}</td><td>{auto?"AUTO ROUTING":(r.mapping_rule||"—")}</td><td>{r.st_group||"—"}</td><td>{r.area_name||"—"}</td><td>{r.schedule_area_name||"—"}</td><td>{r.planner_owner||"—"}</td><td><b>{r.config_status}</b></td><td>{auto?<span className="muted">Tự động</span>:<div className="row"><button className="btn small" onClick={()=>edit(r)}>Sửa</button><button className="btn small danger-btn" onClick={()=>deactivate(r.operation_code)} disabled={busy}>Bỏ khỏi ST</button></div>}</td></tr>})}
+    {filtered.map(r=>{const auto=r.operation_type==="BRIDGE_INTERMEDIATE";const valid=r.config_status==="OK"||r.config_status==="INTERMEDIATE_BRIDGE"||r.config_status==="ST_SCOPE_ONLY";return <tr key={r.operation_code} style={{background:valid?undefined:"#fff7ed"}}><td><b>{r.operation_code}</b><small className="planning-sub">{r.operation_name||""}</small></td><td><b>{r.operation_type==="ST_SCOPE_ONLY"?"Chỉ hiển thị":auto?"Bridge Intermediate":"Planning"}</b></td><td className="num">{r.open_jobs||0}</td><td style={{minWidth:145}}>{codeOrderEditing===r.operation_code?<div className="row" style={{flexWrap:"nowrap"}}><input className="input" type="number" min={0} step={1} value={codeOrderValue} onChange={e=>setCodeOrderValue(e.target.value)} style={{width:72}} autoFocus/><button className="btn small primary" type="button" disabled={busy} onClick={()=>saveCodeOrder(r)}>Lưu</button><button className="btn small" type="button" disabled={busy} onClick={()=>setCodeOrderEditing(null)}>Hủy</button></div>:<button className="btn small mono" type="button" disabled={busy} onClick={()=>beginCodeOrder(r)} title="Thứ tự phụ của Operation Code trong cùng Main; Main Planning Order vẫn là thứ tự chính">{r.planning_sort_order??"ĐẶT"}</button>}</td><td><b>{auto?(r.bridge_summary||"Auto Bridge"):(r.standard_operation||"—")}</b>{auto&&<small className="planning-sub">{r.bridge_count||0} segment</small>}</td><td>{auto?"AUTO ROUTING":(r.mapping_rule||"—")}</td><td>{r.st_group||"—"}</td><td>{r.area_name||"—"}</td><td>{r.schedule_area_name||"—"}</td><td>{r.planner_owner||"—"}</td><td><b>{r.config_status}</b></td><td>{auto?<span className="muted">Tự động</span>:<div className="row"><button className="btn small" onClick={()=>edit(r)}>Sửa</button><button className="btn small danger-btn" onClick={()=>deactivate(r.operation_code)} disabled={busy}>Bỏ khỏi ST</button></div>}</td></tr>})}
    </tbody></table></div>
   </div>
 
   <div className="erp-table-panel section">
-   <div className="erp-panel-head"><div><b>Intermediate Bridge Segments · AUTO + MANUAL</b><small className="planning-sub">AUTO được suy ra từ ST Routing Chain · Standardized. MANUAL dùng cho ngoại lệ và ưu tiên hơn AUTO khi cùng LastLaborOp + NextOperation. Rebuild AUTO chỉ thay AUTO_ROUTING, không xóa MANUAL.</small></div><div className="row"><span>{bridgeSegments.length} active · AUTO {autoBridgeCount} · MANUAL {manualBridgeCount}</span><button className="btn primary" type="button" onClick={rebuildAutoBridge} disabled={busy}>{busy?"Đang xử lý...":bridgeRun?.processedRoutings===bridgeRun?.totalRoutings?"✓ Finalize Bridge":bridgeRun?"▶ Tiếp tục Rebuild":"↻ Rebuild Auto Bridge Segments"}</button>{bridgeRun&&<button className="btn danger-btn" type="button" onClick={cancelBridgeRun} disabled={busy}>Hủy & làm lại</button>}</div></div>
-   {bridgeRun&&<div className="notice" style={{margin:"0 12px 12px"}}><div className="row" style={{justifyContent:"space-between"}}><div><b>Có Rebuild chưa hoàn tất · {bridgeRun.mode}</b><small className="planning-sub">Run {bridgeRun.runId}{bridgeRun.lastRoutingCode?` · Last ${bridgeRun.lastRoutingCode}`:""}</small></div><b>{bridgeRun.totalRoutings?Math.floor(bridgeRun.processedRoutings*100/bridgeRun.totalRoutings):100}%</b></div><div style={{height:8,background:"#e5e7eb",borderRadius:999,overflow:"hidden",marginTop:8}}><div style={{height:"100%",width:`${bridgeRun.totalRoutings?Math.min(100,bridgeRun.processedRoutings*100/bridgeRun.totalRoutings):100}%`,background:"currentColor"}}/></div><div className="row" style={{marginTop:8}}><span>Đã xử lý: <b>{bridgeRun.processedRoutings.toLocaleString()} / {bridgeRun.totalRoutings.toLocaleString()}</b> routing</span>{bridgeBatch?.start!=null&&<span>Current batch: <b>{bridgeBatch.start.toLocaleString()} → {(bridgeBatch.end??bridgeBatch.start).toLocaleString()}</b></span>}<span>Status: <b>{bridgeRun.status}</b></span></div>{bridgeRun.errorMessage&&<small className="planning-sub">Lần chạy trước dừng: {bridgeRun.errorMessage}</small>}</div>}
+   <div className="erp-panel-head"><div><b>Intermediate Bridge Segments · AUTO + MANUAL</b><small className="planning-sub">AUTO được suy ra từ ST Routing Chain. MANUAL dùng cho ngoại lệ và được ưu tiên hơn AUTO khi cùng điều kiện.</small></div><div className="row"><span>{bridgeSegments.length} active · AUTO {autoBridgeCount} · MANUAL {manualBridgeCount}</span><button className="btn primary" type="button" onClick={rebuildAutoBridge} disabled={busy}>{busy?"Đang xử lý...":bridgeRun?.processedRoutings===bridgeRun?.totalRoutings?"✓ Hoàn tất":bridgeRun?"▶ Tiếp tục":"↻ Dựng lại Auto Bridge"}</button>{bridgeRun&&<button className="btn danger-btn" type="button" onClick={cancelBridgeRun} disabled={busy}>Hủy & làm lại</button>}</div></div>
+   {bridgeRun&&<div className="notice" style={{margin:"0 12px 12px"}}><div className="row" style={{justifyContent:"space-between"}}><b>Rebuild Auto Bridge chưa hoàn tất</b><b>{bridgeRun.totalRoutings?Math.floor(bridgeRun.processedRoutings*100/bridgeRun.totalRoutings):100}%</b></div><div style={{height:8,background:"#e5e7eb",borderRadius:999,overflow:"hidden",marginTop:8}}><div style={{height:"100%",width:`${bridgeRun.totalRoutings?Math.min(100,bridgeRun.processedRoutings*100/bridgeRun.totalRoutings):100}%`,background:"currentColor"}}/></div><div className="row" style={{marginTop:8}}><span>Đã xử lý: <b>{bridgeRun.processedRoutings.toLocaleString()} / {bridgeRun.totalRoutings.toLocaleString()}</b> routing</span></div>{bridgeRun.errorMessage&&<small className="planning-sub">Lần chạy trước dừng: {bridgeRun.errorMessage}</small>}</div>}
    <div className="card" style={{margin:"0 12px 12px",padding:12}}>
-    <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}><div><b>＋ Manual Bridge Segment</b><small className="planning-sub">Dùng đúng chuỗi vật lý Previous Main → Intermediate(s) → Next Main. Resolver vẫn chỉ dùng LastLaborOp + NextOperation để định vị; MANUAL chỉ override Segment mapping.</small></div>{manualBridge.id&&<button className="btn small" type="button" onClick={resetManualBridge}>Tạo mới</button>}</div>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}><div><b>＋ Manual Bridge Segment</b><small className="planning-sub">Dùng cho ngoại lệ cần chỉ định rõ chuỗi Previous Main → Intermediate → Next Main.</small></div>{manualBridge.id&&<button className="btn small" type="button" onClick={resetManualBridge}>Tạo mới</button>}</div>
     <div className="candidate-filter-grid" style={{marginTop:10}}>
      <label>Previous Main<select className="input" value={manualBridge.previous_main_operation} onChange={e=>setManualBridge({...manualBridge,previous_main_operation:e.target.value})}><option value="">Chọn Main...</option>{mainOperations.map(x=><option key={`pm-${x.standard_operation}`} value={x.standard_operation}>{x.standard_operation}</option>)}</select></label>
      <label>Next Main<select className="input" value={manualBridge.next_main_operation} onChange={e=>setManualBridge({...manualBridge,next_main_operation:e.target.value})}><option value="">Chọn Main...</option>{mainOperations.map(x=><option key={`nm-${x.standard_operation}`} value={x.standard_operation}>{x.standard_operation}</option>)}</select></label>

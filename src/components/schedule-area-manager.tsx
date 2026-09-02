@@ -79,15 +79,14 @@ export function ScheduleAreaManager(){
     <select className="input" value={form.resource_code} onChange={e=>{
      const r=resources.find(x=>x.resource_code===e.target.value);
      setForm({...form,resource_code:e.target.value,resource_group:r?.resource_group||""});
-    }}><option value="">Resource / group only</option>{resources.map(r=><option key={r.resource_code} value={r.resource_code}>{r.resource_code} · {r.resource_name}</option>)}</select>
+    }}><option value="">Chỉ dùng nhóm Resource</option>{resources.map(r=><option key={r.resource_code} value={r.resource_code}>{r.resource_code} · {r.resource_name}</option>)}</select>
     <input className="input" placeholder="Resource Group" value={form.resource_group} onChange={e=>setForm({...form,resource_group:e.target.value})}/>
     <select className="input" value={form.planner_owner} onChange={e=>setForm({...form,planner_owner:e.target.value})}>
-     <option value="BOTH">Both planners</option><option value="1">Planner 1</option><option value="2">Planner 2</option>
+     <option value="BOTH">Cả hai Planner</option><option value="1">Planner 1</option><option value="2">Planner 2</option>
     </select>
-    <input className="input" type="number" placeholder="Order" value={form.display_order} onChange={e=>setForm({...form,display_order:e.target.value})}/>
+    <input className="input" type="number" placeholder="Thứ tự" value={form.display_order} onChange={e=>setForm({...form,display_order:e.target.value})}/>
     <input className="input" type="number" min="1" max="200" placeholder="Số dòng mặc định" value={form.default_rows} onChange={e=>setForm({...form,default_rows:e.target.value})}/>
-    <label><input type="checkbox" checked={form.allow_manual_plan} onChange={e=>setForm({...form,allow_manual_plan:e.target.checked})}/> Manual</label>
-    <label><input type="checkbox" checked={form.allow_auto_plan} onChange={e=>setForm({...form,allow_auto_plan:e.target.checked})}/> Auto future</label>
+    <label><input type="checkbox" checked={form.allow_manual_plan} onChange={e=>setForm({...form,allow_manual_plan:e.target.checked})}/> Điều độ tay</label>
     <button className="btn primary" onClick={saveArea}>Lưu khu vực</button>
    </div>
   </div>
@@ -95,12 +94,12 @@ export function ScheduleAreaManager(){
   <div className="card section table-wrap">
    <table className="erp-table"><thead><tr>
     <th>Thứ tự</th><th>Khu vực điều độ</th><th>Máy / Nhóm</th><th>Planner</th><th>Số dòng mặc định</th>
-    <th>Điều độ tay</th><th>Tự động</th><th>Công đoạn đã gán</th><th>Thao tác</th>
+    <th>Điều độ tay</th><th>Công đoạn đã gán</th><th>Thao tác</th>
    </tr></thead><tbody>
     {areas.map(a=><tr key={a.schedule_area_code}>
      <td>{a.display_order}</td><td><b>{a.schedule_area_name}</b><small className="planning-sub">{a.schedule_area_code}</small></td>
      <td>{a.resource_code||a.resource_group||"—"}</td><td>{a.planner_owner}</td><td>{a.default_rows}</td>
-     <td>{a.allow_manual_plan?"Yes":"No"}</td><td>{a.allow_auto_plan?"Yes":"No"}</td>
+     <td>{a.allow_manual_plan?"Có":"Không"}</td>
      <td>{a.operations?.map(x=>x.standard_operation).join(", ")||"—"}</td>
      <td><button className="btn small" onClick={()=>setSelected(a.schedule_area_code)}>Gán công đoạn</button>{" "}
       <button className="btn small" onClick={()=>edit(a)}>Sửa</button></td>
@@ -111,7 +110,7 @@ export function ScheduleAreaManager(){
   {chosen&&<div className="card section">
    <h2 style={{marginTop:0}}>ST Group / Standard Operation → {chosen.schedule_area_name}</h2>
    <p className="muted">ST Group lấy động từ Area Master. Chọn ST Group sẽ tự chọn toàn bộ Standard Operation hiện thuộc Group đó; mapping lưu xuống vẫn là Standard Operation để giữ nguyên logic Board Điều Độ / Auto Plan hiện tại.</p>
-   <h3>ST Groups from Area Master</h3>
+   <h3>ST Group</h3>
    <div className="group-grid">
     {stGroups.map(g=>{
      const related=ops.filter(x=>x.st_group===g.st_group);
@@ -147,7 +146,7 @@ export function ScheduleAreaManager(){
    </div>
    <div className="row" style={{marginTop:16}}>
     <button className="btn primary" onClick={saveOps}>Lưu gán</button>
-    <button className="btn" onClick={()=>setSelected("")}>Close</button>
+    <button className="btn" onClick={()=>setSelected("")}>Đóng</button>
    </div>
   </div>}
  </>;

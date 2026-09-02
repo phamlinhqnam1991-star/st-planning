@@ -35,7 +35,6 @@ export function ConfigOverviewClient(){
    <div className="config-progress" aria-busy="true">
     <b>Đang kiểm tra cấu hình…</b>
     <div className="bar"><div style={{width:"12%"}}/></div>
-    <div className="meta"><span>Health chạy nền, không chặn trang.</span></div>
    </div>
    <div className="card" style={{minHeight:180}}>
     {Array.from({length:5},(_,i)=><div key={i} style={{height:34,borderRadius:5,background:"rgba(148,163,184,.12)",marginBottom:9}}/>)}
@@ -59,7 +58,7 @@ export function ConfigOverviewClient(){
  const overall=Math.round(((t1Done+t2Done)/(t1Total+t2Total))*100);
 
  const issues:{text:string;href:string}[]=[];
- if(n(s.missing_jobs)>0)issues.push({text:`${n(s.missing_jobs)} Job đang mở nhưng CHƯA cấu hình ST (NextOperation chưa khai báo/mapping) → không hiện trên Planning Board.`,href:"/planning#missing-jobs"});
+ if(n(s.missing_jobs)>0)issues.push({text:`${n(s.missing_jobs)} Job đang mở chưa có cấu hình ST đầy đủ nên chưa vào Planning Board.`,href:"/st-operation-flow"});
  if(scopeTotal===0)issues.push({text:"Chưa khai báo Operation nào thuộc ST — bắt đầu từ Trợ lý Operation.",href:"/st-operation-flow"});
  if(mappingMissing>0)issues.push({text:`Còn ${mappingMissing} Operation chưa gán công đoạn chính.`,href:"/master/operationmapping"});
  if(n(s.master_total)===0)issues.push({text:"Chưa có công đoạn chính nào trong Main Operation Master.",href:"/master/operation"});
@@ -73,7 +72,7 @@ export function ConfigOverviewClient(){
 
  const steps:Step[]=[
   {no:1,title:"Trợ lý Operation (ST Operation Flow)",desc:"Khai báo 1 Operation Code hoàn chỉnh: loại, công đoạn chính, nhóm, khu vực, lane, Planner — làm trong 3 bước có hướng dẫn.",status:scopeTotal>0?"ok":"warn",badge:`${scopeTotal} code`,note:scopeTotal>0?`${chainOk}/${chainPlanning} đủ chuỗi`:"Chưa khai báo",href:"/st-operation-flow"},
-  {no:2,title:"ST Scope & Operation Order",desc:"Code nào thuộc ST + thứ tự công đoạn.",status:healthStatus(s,"scope_total"),badge:`${scopeTotal} code`,note:scopeTotal>0?"Đã khai báo":"Chưa có",href:"/operation-code-order"},
+  {no:2,title:"ST Scope & Operation Code Order",desc:"Xác định code thuộc ST; Operation Code Order chỉ tie-break trong cùng Main.",status:healthStatus(s,"scope_total"),badge:`${scopeTotal} code`,note:scopeTotal>0?"Đã khai báo":"Chưa có",href:"/operation-code-order"},
   {no:3,title:"Source → Main Mapping",desc:"Gán mỗi code nguồn vào công đoạn chính + quy tắc.",status:healthStatus(s,"mapping_missing"),badge:`${n(s.mapping_total)} mapping`,note:mappingMissing>0?`Thiếu ${mappingMissing}`:"Đủ",href:"/master/operationmapping"},
   {no:4,title:"Công đoạn chính (Main Operation)",desc:"Tên, thứ tự, tiền tố số lô.",status:healthStatus(s,"master_total"),badge:`${n(s.master_total)} công đoạn`,note:n(s.master_total)>0?"Đã có":"Chưa có",href:"/master/operation"},
   {no:5,title:"ST Group (nhóm công đoạn)",desc:"Gom công đoạn tương tự thành nhóm.",status:healthStatus(s,"group_total"),badge:`${n(s.group_total)} nhóm`,note:n(s.group_total)>0?"Đã có":"Chưa có",href:"/st-groups"},

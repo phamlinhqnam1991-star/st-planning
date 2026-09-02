@@ -321,11 +321,11 @@ export function MainOperationRecipeMappingManager({
      </div>
 
      <div className="chemical-multi-map-note">
-      Hệ thống TỰ CHỌN Recipe khi chọn Job vào lô theo thứ tự: <b>điều kiện khớp Job → Priority (số nhỏ trước) → Mặc định → cập nhật trước</b>. Không có điều kiện là fallback cho mọi Job. Cột <b>✓ Tự chọn</b> thể hiện thứ tự mặc định của Operation Code; Recipe thực tế vẫn phụ thuộc điều kiện của từng Job.
+      Hệ thống TỰ CHỌN Recipe khi chọn Job vào lô theo thứ tự: <b>điều kiện khớp Job → Priority (số nhỏ trước) → Mặc định → cập nhật trước</b>. Không có điều kiện là rule mặc định cho mọi Job. Cột <b>✓ Tự chọn</b> thể hiện thứ tự mặc định của Operation Code; Recipe thực tế vẫn phụ thuộc điều kiện của từng Job.
      </div>
 
      <div className="chemical-multi-map-note">
-      <b>v352 · Nhiều Rule cùng Recipe:</b> mỗi dòng là một <b>Recipe Rule</b> độc lập có <span className="mono">mapping_id</span> riêng. Cùng Operation Code + cùng Recipe vẫn có thể thêm nhiều dòng nếu bộ điều kiện khác nhau. Bấm <b>Sửa</b> chỉ cập nhật đúng Rule đó; bấm <b>+ Rule mới cùng Recipe</b> để tạo thêm rule mà không ghi đè.
+      <b>Nhiều Rule cùng Recipe:</b> mỗi dòng là một <b>Recipe Rule</b> độc lập. Cùng Operation Code + cùng Recipe vẫn có thể thêm nhiều dòng nếu bộ điều kiện khác nhau. Bấm <b>Sửa</b> chỉ cập nhật đúng Rule đó; bấm <b>+ Rule mới cùng Recipe</b> để tạo thêm rule mà không ghi đè.
      </div>
 
      <div className="chemical-multi-map-form">

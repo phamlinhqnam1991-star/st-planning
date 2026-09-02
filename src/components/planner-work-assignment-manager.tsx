@@ -20,7 +20,7 @@ async function readJsonSafe(response:Response){
  if(!text){
   return {
    ok:false,
-   error:`API không trả dữ liệu (${response.status} ${response.statusText||""}).`
+   error:"Không nhận được dữ liệu. Vui lòng thử lại."
   };
  }
 
@@ -29,7 +29,7 @@ async function readJsonSafe(response:Response){
  }catch{
   return {
    ok:false,
-   error:`API trả dữ liệu không hợp lệ (${response.status}).`
+   error:"Dữ liệu trả về không hợp lệ. Vui lòng thử lại."
   };
  }
 }
@@ -174,15 +174,6 @@ export function PlannerWorkAssignmentManager(){
   </div>;
 
  return <>
-  <div className="notice">
-   <b>Phân chia công việc điều độ</b>
-   <br/>
-   Chuyển khu vực giữa Planner 1 / Planner 2 tại đây.
-   Việc chuyển chỉ đổi người phụ trách điều độ, không đổi Standard Operation,
-   Routing, Batch hoặc logic công đoạn.
-  </div>
-
-
   {loading
    ? <div className="card section">Đang tải phân chia Planner...</div>
    : <div className="planner-assignment-board">

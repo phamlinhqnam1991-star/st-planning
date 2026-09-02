@@ -27,7 +27,7 @@ remove-stale-legacy.cmd
 npm run build
 ```
 
-Script dùng **manifest 39 source file legacy** đã được loại khỏi bản chuẩn và đồng thời xóa `.next` + `tsconfig.tsbuildinfo` để tránh cache cũ.
+Script dùng **manifest 43 source file legacy** đã được loại khỏi bản chuẩn và đồng thời xóa `.next` + `tsconfig.tsbuildinfo` để tránh cache cũ.
 
 Script **không xóa `.env.local`**.
 

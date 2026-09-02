@@ -1,11 +1,14 @@
-$ErrorActionPreference = "Stop"
-$stale = @(
+$ErrorActionPreference = "SilentlyContinue"
+$files = @(
   "src/app/api/config/batch-key-recipe-rules/route.ts",
   "src/app/api/config/st-operation-flow/bulk/route.ts",
   "src/app/api/config/st-operation-flow/impact/route.ts",
   "src/app/api/planning/candidate-metadata/route.ts",
+  "src/app/api/planning/job-debug/route.ts",
   "src/app/api/planning/snapshot/candidates/route.ts",
   "src/app/api/schedule/chemical-suggestion/route.ts",
+  "src/app/api/schedule/heal-chemical-loading/route.ts",
+  "src/app/api/process-recipe/operation-map/route.ts",
   "src/app/batch-key-recipe-rules/page.tsx",
   "src/app/master/operation-recipe-mapping/page.tsx",
   "src/app/planning/snapshot/loading.tsx",
@@ -18,6 +21,7 @@ $stale = @(
   "src/components/missing-jobs-panel.tsx",
   "src/components/missing-operations-manager.tsx",
   "src/components/operation-recipe-mapping-master-manager.tsx",
+  "src/components/operation-recipe-allowed-manager.tsx",
   "src/components/planning-area-operation-filter.tsx",
   "src/components/planning-snapshot-shell.tsx",
   "src/components/planning-v2/domain.ts",
@@ -38,18 +42,11 @@ $stale = @(
   "src/lib/planning/schedule-history.ts",
   "src/lib/planning/unlock-next-after-schedule.ts",
   "src/lib/st-operation-flow-apply.ts",
-  "src/proxy.ts",
+  "src/proxy.ts"
 )
-
-$removed = 0
-foreach ($p in $stale) {
-  if (Test-Path $p) {
-    Remove-Item -Force -Recurse $p
-    Write-Host "REMOVED $p"
-    $removed++
-  }
+foreach ($rel in $files) {
+  if (Test-Path $rel) { Remove-Item -Force -Recurse $rel }
 }
-
-Remove-Item -Force -Recurse -ErrorAction SilentlyContinue ".next"
-Remove-Item -Force -ErrorAction SilentlyContinue "tsconfig.tsbuildinfo"
-Write-Host "Done. Removed $removed stale source file(s)."
+if (Test-Path ".next") { Remove-Item -Force -Recurse ".next" }
+if (Test-Path "tsconfig.tsbuildinfo") { Remove-Item -Force "tsconfig.tsbuildinfo" }
+Write-Host "Done."

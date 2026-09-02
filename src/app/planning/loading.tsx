@@ -1,7 +1,7 @@
 export default function Loading(){
  return <main className="erp-shell">
   <header className="erp-header">
-   <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
+   <div><h1>ST Planning</h1></div>
    <div className="erp-env">PLANNING BOARD</div>
   </header>
   <section className="erp-content erp-content-full planning-page planning-candidate-page">

@@ -573,9 +573,6 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
  const [recipeCompare,setRecipeCompare]=useState<any|null>(null);
  const [recipeCompareLoading,setRecipeCompareLoading]=useState(false);
  const [recipeCompareOpen,setRecipeCompareOpen]=useState(false);
- // v363: Job Planning Debug — read-only explanation of why a Job is/is not READY.
- const [jobDebug,setJobDebug]=useState<any|null>(null);
- const [jobDebugLoading,setJobDebugLoading]=useState(false);
 useEffect(()=>{
   if(!fullView)return;
   const old=document.body.style.overflow;
@@ -1979,25 +1976,6 @@ const currentPriorityMonth=useMemo(()=>{
    }
  };
 
- const runJobPlanningDebug=async(row:Candidate)=>{
-  setJobDebugLoading(true);
-  setJobDebug({job:{job_num:row.job_num},loading:true});
-  try{
-   const r=await fetch("/api/planning/job-debug",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({job_num:row.job_num,candidate_id:Number(row.id)>0?Number(row.id):null})
-   });
-   const data=await safeJson(r);
-   if(!r.ok)throw new Error(data?.error||"Không debug được Job.");
-   setJobDebug(data);
-  }catch(e){
-   setJobDebug({job:{job_num:row.job_num},error:e instanceof Error?e.message:String(e)});
-  }finally{
-   setJobDebugLoading(false);
-  }
- };
-
  const runRecipeCompare=async()=>{
    setRecipeCompareLoading(true);
    try{
@@ -2337,7 +2315,7 @@ const currentPriorityMonth=useMemo(()=>{
   );
  const mainOperationSelectionReason=(operation:string)=>
   mainOperationSelectionDimmed(operation)
-   ?`Batch Selection Mode đang chọn ${batchSelectionOperation}. ${operation} tạm thời bị khóa.`
+   ?`Đang tạo lô cho ${batchSelectionOperation}; ${operation} tạm thời bị khóa.`
    :"";
 
 
@@ -2539,7 +2517,7 @@ const currentPriorityMonth=useMemo(()=>{
       });
      }catch(deltaError){
       console.error("[planning] batch delta refresh failed",deltaError);
-      setMessage(prev=>`${prev} · Cập nhật dòng tại chỗ lỗi; bấm Reload Candidates nếu cần.`);
+      setMessage(prev=>`${prev} · Danh sách chưa cập nhật hết; bấm Áp dụng & nạp Candidate nếu cần.`);
      }
    }catch(e){
      setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`);
@@ -2550,21 +2528,13 @@ const currentPriorityMonth=useMemo(()=>{
 
  async function rebuild(){
    setBusy(true);
-   setMessage("Đang rebuild Planning Chain (AllOperation theo từng Job)...");
+   setMessage("Đang dựng lại Planning Chain...");
 
    try{
      const r=await fetch("/api/planning/rebuild",{method:"POST"});
      const d=await safeJson(r);
 
-     setMessage(
-       `Rebuild xong: ${d.jobs} Jobs · ${d.operations} operations · `+
-       `${d.eligible} eligible · ${d.locked} locked · `+
-       `Bridge Pair ${d.bridgePairAnchored||0} · `+
-       `AllOperation fallback ${d.allOperationFallbackAnchored??d.rawPairAnchored??0} · `+
-       `NextOp=Current Main ${d.directNextMainAnchored||0} · `+
-       `NO CHAIN ${d.noChain??d.sequenceCheck??0} · `+
-       `AllOperation ${d.allOperationJobs||0}`
-     );
+     setMessage(`Đã dựng lại Planning Chain: ${d.jobs||0} Job · ${d.operations||0} công đoạn.`);
      setTimeout(()=>onAfterMutation?.(),800);
    }catch(e){
      setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`);
@@ -2988,7 +2958,7 @@ const currentPriorityMonth=useMemo(()=>{
      case "standard_operation":
       return <td key={key}><b>{x.standard_operation||"—"}</b><small className="planning-sub">{x.area_name||"—"}</small></td>;
      case "job":
-       return <td key={key} className="candidate-job-debug-cell"><b>{x.job_num}</b><button type="button" className="candidate-job-debug-btn" title="Debug READY / WAIT / NO CHAIN" onClick={e=>{e.stopPropagation();void runJobPlanningDebug(x);}}>🔎</button></td>;
+       return <td key={key}><b>{x.job_num}</b></td>;
 
      case "part_rev":
        return <td key={key}>
@@ -3180,19 +3150,19 @@ const currentPriorityMonth=useMemo(()=>{
       <span>·</span>
       <button type="button" className="btn small" onClick={()=>setStatusFilter("")}
        title="Bỏ lọc trạng thái — hiện tất cả">
-       Tất cả {pagination.totalCandidates} job (không phân trang)
+       Tất cả {pagination.totalCandidates} job
       </button>
       <button className="btn small" type="button" onClick={()=>setDisplayRulesOpen(x=>!x)}>
-       Sort / Filter
+       Sắp xếp / Lọc
       </button>
       <button className="btn small" type="button" onClick={()=>setColumnPickerOpen(x=>!x)}>
-       Columns ({configurableActiveColumns.length}/{configurableColumns.length}) · AOJ Group ({groupedSourceColumns.length}) · Main ({routeColumns.length})
+       Cột ({configurableActiveColumns.length}/{configurableColumns.length})
       </button>
-      <button className="btn small" type="button" onClick={()=>setOperationPickerOpen(x=>!x)} title="VIEW CÔNG ĐOẠN ST — chọn các NEXT OPERATION được hiển thị trên Candidate Jobs">
+      <button className="btn small" type="button" onClick={()=>setOperationPickerOpen(x=>!x)} title="Chọn NextOperation được hiển thị">
        Công đoạn ({effectiveStView.size}/{allNextOps.length})
       </button>
       <button className="btn small" type="button" onClick={()=>setFullView(x=>!x)} title="ESC để thoát Full View">
-       {fullView?"Exit Full View":"Full View"}
+       {fullView?"Thoát toàn màn hình":"Toàn màn hình"}
       </button>
       <button
        className="btn small"
@@ -3206,7 +3176,7 @@ const currentPriorityMonth=useMemo(()=>{
       <button
        className="btn small"
        type="button"
-       title="Freeze Pane kiểu Excel — bật, click tiêu đề cột để chọn vị trí, rồi Chốt. Ghìm dòng tiêu đề + các cột bên trái."
+       title="Ghim dòng tiêu đề và các cột bên trái."
        onClick={()=>{
         if(freezeMenuOpen){setFreezeMenuOpen(false);return;}
         if(freezePick){setFreezePick(false);setFreezeDraft(null);return;}
@@ -3214,7 +3184,7 @@ const currentPriorityMonth=useMemo(()=>{
         setFreezeMenuOpen(true);
        }}
       >
-       {freezePick?"📌 Chọn cột… (hủy)":freeze.mode==="off"?"📌 Freeze Pane":`📌 ${freezeLabel}`}
+       {freezePick?"📌 Chọn cột…":freeze.mode==="off"?"📌 Ghim cột":`📌 ${freezeLabel}`}
       </button>
       <button className="btn small" disabled={busy} onClick={rebuild}>
        Rebuild Chain
@@ -3227,17 +3197,16 @@ const currentPriorityMonth=useMemo(()=>{
     {freezeDraft&&
      <div className="freeze-confirm-bar">
       📌 Ghim đến cột <b>{freezeDraft.col}</b>: <b className="freeze-confirm-col">{freezeColumnLabels[Math.min(freezeDraft.col??1,FREEZE_MAX_COLS)-1]??`Cột ${freezeDraft.col}`}</b>
-      <span className="muted">· dòng tiêu đề luôn ghìm ·</span>
       <button className="btn small" type="button" onClick={()=>persistFreeze(freezeDraft)}>✓ Chốt</button>
       <button className="btn small" type="button" onClick={()=>setFreezeDraft(null)}>Hủy</button>
      </div>}
     {freezeMenuOpen&&freeze.mode!=="off"&&
      <div className="freeze-menu">
-      <div className="freeze-menu-title">📌 Freeze Pane đang ghìm: <b>{freezeLabel}</b></div>
+      <div className="freeze-menu-title">📌 Đang ghim: <b>{freezeLabel}</b></div>
       <div className="row">
        <button type="button" className="btn small" onClick={()=>{setFreezeMenuOpen(false);setFreezePick(true);}}>Đổi vị trí…</button>
        <button type="button" className="btn small" onClick={()=>persistFreeze({mode:"header"})}>Chỉ dòng tiêu đề</button>
-       <button type="button" className="btn small" onClick={()=>persistFreeze({mode:"off"})}>Không freeze</button>
+       <button type="button" className="btn small" onClick={()=>persistFreeze({mode:"off"})}>Bỏ ghim</button>
       </div>
      </div>}
 
@@ -3288,7 +3257,7 @@ const currentPriorityMonth=useMemo(()=>{
         <div className="recipe-compare-section">
          <div className="recipe-compare-title">
           <b>② CẤU HÌNH CÓ nhưng BOARD KHÔNG dùng</b>
-          <small>Mapping đã tạo nhưng không khớp Job nào trên board — có thể gõ sai mã, hoặc nằm ở bảng reference cũ không còn điều khiển đề xuất.</small>
+          <small>Mapping đã tạo nhưng hiện không khớp Job ELIGIBLE nào trên board.</small>
          </div>
          {recipeCompare.configUnused?.length?(
           <div className="table-wrap">
@@ -3317,22 +3286,22 @@ const currentPriorityMonth=useMemo(()=>{
      <div className="candidate-display-rules">
       <div className="candidate-display-rules-head">
        <div>
-        <b>Candidate Display Rules</b>
+        <b>Hiển thị & lọc Candidate</b>
         <small>
-         {`${exactViewLabel}${viewLoadedFor===exactViewKey?" · DEFAULT SAVED":""} · Thứ tự ưu tiên Load: Operation → Area → System.`}
+         {`${exactViewLabel}${viewLoadedFor===exactViewKey?" · đã lưu mặc định":""}`}
         </small>
        </div>
        <div className="row">
         <button className="btn small" type="button" onClick={saveCurrentDefault}>
-         Set Default
+         Lưu mặc định
         </button>
         <button className="btn small" type="button" onClick={resetToCurrentDefault}>
-         Load Default
+         Tải mặc định
         </button>
         <button className="btn small" type="button" onClick={deleteCurrentDefault} disabled={viewLoadedFor!==exactViewKey}>
-         Delete Default
+         Xóa mặc định
         </button>
-        <button className="btn small" type="button" onClick={resetDisplayRules}>Reset</button>
+        <button className="btn small" type="button" onClick={resetDisplayRules}>Đặt lại</button>
        </div>
       </div>
 
@@ -3341,35 +3310,35 @@ const currentPriorityMonth=useMemo(()=>{
       <div className="candidate-filter-grid">
        <label>Next Main Plan Op
         <select className="input" value={filterNextMain} onChange={e=>setFilterNextMain(e.target.value)}>
-         <option value="">All</option>
+         <option value="">Tất cả</option>
          {nextMainOptions.map(v=><option key={v} value={v}>{v}</option>)}
         </select>
        </label>
 
        <label>NextOperation
         <select className="input" value={filterNextOperation} onChange={e=>setFilterNextOperation(e.target.value)}>
-         <option value="">All</option>
+         <option value="">Tất cả</option>
          {nextOperationOptions.map(v=><option key={v} value={v}>{v}</option>)}
         </select>
        </label>
 
        <label>Part Master PRIMER1
         <select className="input" value={filterPrimer1} onChange={e=>setFilterPrimer1(e.target.value)}>
-         <option value="">All</option>
+         <option value="">Tất cả</option>
          {primer1Options.map(v=><option key={v} value={v}>{v}</option>)}
         </select>
        </label>
 
        <label>Part Master PRIMER2
         <select className="input" value={filterPrimer2} onChange={e=>setFilterPrimer2(e.target.value)}>
-         <option value="">All</option>
+         <option value="">Tất cả</option>
          {primer2Options.map(v=><option key={v} value={v}>{v}</option>)}
         </select>
        </label>
 
        <label>Part Master PRIMER3
         <select className="input" value={filterPrimer3} onChange={e=>setFilterPrimer3(e.target.value)}>
-         <option value="">All</option>
+         <option value="">Tất cả</option>
          {primer3Options.map(v=><option key={v} value={v}>{v}</option>)}
         </select>
        </label>
@@ -3396,7 +3365,7 @@ const currentPriorityMonth=useMemo(()=>{
             return next;
            });
           }}>
-           <option value="">All</option>
+           <option value="">Tất cả</option>
            <option value="__ANY__">Có occurrence</option>
            <option value="__NONE__">Không occurrence</option>
            {ROUTE_STATUS_FILTER_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
@@ -3465,7 +3434,7 @@ const currentPriorityMonth=useMemo(()=>{
       <div className="candidate-column-picker-head">
        <b>Chọn cột hiển thị</b>
        <small>
-        v293: <b>toàn bộ cột trong catalog All Open Job mặc định thuộc Nhóm cột All Open Job</b>. Cột nào bạn đưa ra Trước/Sau nhóm mới được tách khỏi gói. Nhóm không tự bật hiển thị toàn bộ cột, nên Planning Board vẫn nhẹ.
+        <b>Các cột All Open Job mặc định nằm trong nhóm All Open Job.</b> Cột được kéo ra trước/sau nhóm sẽ hiển thị riêng.
        </small>
        <input
         className="input"
@@ -3582,8 +3551,8 @@ const currentPriorityMonth=useMemo(()=>{
     {operationPickerOpen&&
      <div className="candidate-column-picker candidate-operation-picker">
       <div className="candidate-column-picker-head">
-       <b>VIEW CÔNG ĐOẠN ST — chọn công đoạn hiển thị trên Candidate Jobs</b>
-       <small>VIEW này chỉ lọc Job theo RAW NextOperation. Main Operation columns bên dưới được tự động sinh từ AllOperation của các Job đang hiển thị. "· hiện X/Y job": Y = tổng job trong All Open Jobs; X = số job đã tải trên Candidate Jobs. Tick/bỏ tick lọc ngay; chọn công đoạn mới chưa có trong trang thì bấm "Áp dụng & nạp Candidate".</small>
+       <b>Chọn công đoạn hiển thị</b>
+       <small>Lọc Job theo NextOperation. Tick/bỏ tick để đổi ngay các công đoạn đang xem; nếu cần nạp thêm dữ liệu, bấm “Áp dụng & nạp Candidate”.</small>
        <input
         className="input"
         value={opSearch}
@@ -3593,7 +3562,7 @@ const currentPriorityMonth=useMemo(()=>{
        <div className="row">
         <button className="btn small" type="button" onClick={()=>changeStView(allNextOps.map(o=>o.code))}>Chọn hết ({allNextOps.length})</button>
         <button className="btn small" type="button" onClick={()=>changeStView([])}>Bỏ hết</button>
-        <button className="btn small primary" type="button" title="Lưu view rồi nạp lại Candidate bằng API — không reload toàn trang" onClick={async()=>{
+        <button className="btn small primary" type="button" title="Lưu lựa chọn và nạp lại Candidate" onClick={async()=>{
          const views=readOperationViews();
          const existing=views[exactViewKey];
          const payload:CandidateViewPreset={
@@ -3785,7 +3754,6 @@ const currentPriorityMonth=useMemo(()=>{
          </div>:
          <div><span>Điều kiện</span><b>Recipe mapping không có điều kiện Open Job</b></div>}
         <small>{compatibilityLock.profile.source==="BATCH"?"Điều kiện được lưu theo Target Batch hiện tại":"Mặc định tích tất cả; bỏ tích condition để mở thêm Job cùng Recipe"}</small>
-        <small>Batch Selection Mode: các Main Operation khác đang được làm mờ và khóa tạm thời.</small>
        </>}
        {compatibilityLock.error&&<small className="planning-compatibility-error">{compatibilityLock.error}</small>}
       </div>}
@@ -3796,7 +3764,7 @@ const currentPriorityMonth=useMemo(()=>{
         <>
          <b>✓ Recipe đề xuất cho lô:</b>
          <span className="mono">{suggestionSummary.unanimousRecipeLabel||suggestionSummary.unanimousRecipe}</span>
-         <span>theo công đoạn đang Build Batch (Operation target → Recipe / Part)</span>
+         <span>theo cấu hình Recipe của công đoạn đang tạo lô</span>
          {suggestionSummary.unanimousKey&&<span className="mono">Batch Key: {suggestionSummary.unanimousKey}</span>}
          {suggestionSummary.unanimousPrefix&&<span className="mono">Prefix: {suggestionSummary.unanimousPrefix}</span>}
         </>
@@ -3856,7 +3824,7 @@ const currentPriorityMonth=useMemo(()=>{
          {recipeDiag.matchedRecipe&&
           <div className="recipe-diagnosis-matched">
            <b>✓ Rule đã match:</b>
-           <span className="mono">{recipeDiag.matchedRecipe.recipe_mapping_id?`#${recipeDiag.matchedRecipe.recipe_mapping_id}`:"Fallback"}</span>
+           <span className="mono">{recipeDiag.matchedRecipe.recipe_mapping_id?`#${recipeDiag.matchedRecipe.recipe_mapping_id}`:"Mặc định"}</span>
            <span className="mono">{recipeDiag.matchedRecipe.recipe_no||recipeDiag.matchedRecipe.recipe_key}{recipeDiag.matchedRecipe.recipe_name?` · ${recipeDiag.matchedRecipe.recipe_name}`:""}</span>
            {recipeDiag.matchedRecipe.selection_rule&&<small>{recipeDiag.matchedRecipe.selection_rule}</small>}
           </div>}
@@ -3963,74 +3931,6 @@ const currentPriorityMonth=useMemo(()=>{
 
     </div>
    </aside>
-
-   {/* v363: Job Planning Debug — explains the exact live engine for one Job. */}
-   {jobDebug&&<div className="planning-job-debug-backdrop" onMouseDown={()=>setJobDebug(null)}>
-    <div className="planning-job-debug-modal" onMouseDown={e=>e.stopPropagation()}>
-     <div className="planning-job-debug-head">
-      <div><b>🔎 Job Planning Debug</b><small>Đọc cùng engine Rebuild Chain — không thay đổi dữ liệu</small></div>
-      <button type="button" className="btn small" onClick={()=>setJobDebug(null)}>×</button>
-     </div>
-     {jobDebugLoading||jobDebug.loading?<div className="notice">Đang phân tích Job…</div>:jobDebug.error?<div className="notice">Lỗi: {jobDebug.error}</div>:<>
-      <div className={`planning-job-debug-result ${jobDebug.result?.selectable?"is-ok":"is-blocked"}`}>
-       <div><span>Job</span><b>{jobDebug.job?.job_num}</b></div>
-       <div><span>Part / Rev</span><b>{jobDebug.job?.part_num||"—"} / {jobDebug.job?.revision_num||"—"}</b></div>
-       <div><span>Last → Next</span><b>{jobDebug.job?.last_operation||"START"} → {jobDebug.job?.next_operation||"END"}</b></div>
-       <div><span>Checkbox</span><b>{jobDebug.result?.selectable?"MỞ / CÓ ELIGIBLE":"KHÓA"}</b></div>
-       <div className="planning-job-debug-result-reason"><span>Lý do</span><b>{jobDebug.result?.checkboxReason||"—"}</b></div>
-      </div>
-
-      {(jobDebug.result?.warnings||[]).length>0&&<div className="planning-job-debug-warnings">
-       {(jobDebug.result.warnings||[]).map((w:string,i:number)=><div key={i}>⚠ {w}</div>)}
-      </div>}
-
-      <div className="planning-job-debug-grid">
-       <section>
-        <h4>1. Current Main Resolver</h4>
-        <dl>
-         <dt>Anchor mode</dt><dd><b>{jobDebug.anchor?.mode||"—"}</b></dd>
-         <dt>Anchor reason</dt><dd>{jobDebug.anchor?.reason||"—"}</dd>
-         <dt>Main theo engine</dt><dd><b>{jobDebug.result?.theoreticalCurrentMain||"—"}</b> <span className="mono">{jobDebug.result?.theoreticalCurrentInstance||""}</span></dd>
-         <dt>Main active trong DB</dt><dd><b>{jobDebug.result?.activeDbCurrentMain||"—"}</b> <span className="mono">{jobDebug.result?.activeDbCurrentInstance||""}</span></dd>
-        </dl>
-       </section>
-       <section>
-        <h4>2. NextOperation = {jobDebug.nextOperation?.code||"—"}</h4>
-        <dl>
-         <dt>Vị trí trong AllOperation</dt><dd>{(jobDebug.nextOperation?.raw_positions||[]).join(", ")||"Không có"}</dd>
-         <dt>Mapping được chọn</dt><dd>{jobDebug.nextOperation?.chosen_mapping?<><b>{jobDebug.nextOperation.chosen_mapping.st_group}</b> → {jobDebug.nextOperation.chosen_mapping.standard_operation_rule} · {jobDebug.nextOperation.chosen_mapping.mapping_rule}</>:"Không có active Planning mapping"}</dd>
-         <dt>Occurrence sau standardize</dt><dd>{(jobDebug.nextOperation?.standardized_occurrences||[]).map((x:any)=>`${x.sourceCode}@${x.sourceSeq} → ${x.standardOperation} (${x.instanceKey})`).join("; ")||"Không có"}</dd>
-        </dl>
-       </section>
-      </div>
-
-      <section className="planning-job-debug-section">
-       <h4>3. Main route theo engine</h4>
-       <div className="table-wrap"><table className="erp-table"><thead><tr><th>Source Seq</th><th>Source Op</th><th>ST Group</th><th>Main</th><th>Instance</th><th>Trong chain hiện tại?</th></tr></thead><tbody>
-        {(jobDebug.standardizedRoute||[]).map((x:any,i:number)=>{const active=(jobDebug.theoreticalChain||[]).some((c:any)=>c.instanceKey===x.instanceKey);return <tr key={`${x.instanceKey}-${i}`} className={active?"":"row-muted"}><td className="mono">{x.sourceSeq}</td><td><b>{x.sourceCode}</b></td><td>{x.stGroup}</td><td><b>{x.standardOperation}</b></td><td className="mono">{x.instanceKey}</td><td>{active?"✓":""}</td></tr>})}
-       </tbody></table></div>
-      </section>
-
-      <section className="planning-job-debug-section">
-       <h4>4. Planning Chain đang lưu trong DB</h4>
-       <div className="table-wrap"><table className="erp-table"><thead><tr><th>ID</th><th>Instance</th><th>Source</th><th>Main</th><th>Status</th><th>Batch</th><th>Schedule</th></tr></thead><tbody>
-        {(jobDebug.persistedChain||[]).map((x:any)=><tr key={x.id} className={!x.is_active?"row-muted":""}><td className="mono">{x.id}</td><td className="mono">{x.operation_instance_key}</td><td>{x.source_operation_code} <small>#{x.source_seq}</small></td><td><b>{x.standard_operation}</b></td><td><span className={`job-state ${String(x.status).toUpperCase()==="ELIGIBLE"?"state-eligible":String(x.status).toUpperCase()==="PLANNED"?"state-planned":"state-changed"}`}>{x.status}{x.is_active?"":" · inactive"}</span></td><td>{x.batch_no||"—"}</td><td>{x.schedule_id?`${x.resource_code||""} ${x.planned_start||""}`:"—"}</td></tr>)}
-        {!(jobDebug.persistedChain||[]).length&&<tr><td colSpan={7} className="muted">Không có planning_job_operation.</td></tr>}
-       </tbody></table></div>
-      </section>
-
-      <section className="planning-job-debug-section">
-       <h4>5. Route Matrix thực tế trên Board</h4>
-       <div className="table-wrap"><table className="erp-table"><thead><tr><th>Source Seq</th><th>Source</th><th>Main</th><th>Route Status</th><th>Planning ID</th><th>Batch</th></tr></thead><tbody>
-        {(jobDebug.routeStatus||[]).map((x:any,i:number)=><tr key={`${x.route_key||i}`}><td className="mono">{x.source_seq}</td><td>{x.source_operation}</td><td><b>{x.standard_operation||"—"}</b></td><td><b>{x.route_status}</b></td><td className="mono">{x.planning_job_operation_id||"—"}</td><td>{x.batch_no||"—"}</td></tr>)}
-        {!(jobDebug.routeStatus||[]).length&&<tr><td colSpan={6} className="muted">Không có Route Matrix cho Candidate ID này.</td></tr>}
-       </tbody></table></div>
-      </section>
-
-      <details className="planning-debug"><summary>Dữ liệu kỹ thuật đầy đủ</summary><pre>{JSON.stringify(jobDebug,null,2)}</pre></details>
-     </>}
-    </div>
-   </div>}
 
    {/* v339: Excel-style column filter popup (fixed overlay, không bị cắt bởi scroll container) */}
    {colFilterMenu&&(()=>{

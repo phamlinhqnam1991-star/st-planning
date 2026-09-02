@@ -38,7 +38,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
 
   return <main className="erp-shell">
    <header className="erp-header">
-    <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
+    <div><h1>ST Planning</h1></div>
     <div style={{display:"flex",alignItems:"center",gap:10}}>
      <div className="erp-env">PLANNING BOARD</div>
      <LogoutButton/>
@@ -46,7 +46,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
    </header>
    <AppTabs active="planning"/>
    <section className="erp-content erp-content-full planning-page planning-candidate-page">
-    <div className="erp-page-head"><div><h2>Planning Board</h2><p>AllOperation sequence → Eligible Jobs → Candidate selection → Production Batch</p></div></div>
+    <div className="erp-page-head"><div><h2>Planning Board</h2></div></div>
     <PlanningViewTabs active="candidates"/>
     <PlanningCandidateShell
      areas={staticData.areas as any[]}

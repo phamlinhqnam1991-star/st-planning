@@ -79,7 +79,7 @@ export const CONFIG_FLOW: {
     tag: "làm 1 lần",
     items: [
       { key: "overview", label: "🏠 Tổng quan Cấu hình", href: "/settings" },
-      { key: "flow", label: "Trợ lý Operation (ST Operation Flow)", href: "/st-operation-flow", no: 1 },
+      { key: "flow", label: "Trợ lý Operation (ST Operation Flow)", href: "/st-operation-flow", no: 1, statusKey: "chain_ok" },
       { key: "operationcodeorder", label: "ST Scope", href: "/operation-code-order", no: 2, statusKey: "scope_total" },
       { key: "operationmapping", label: "Source → Main Mapping", href: "/master/operationmapping", no: 3, statusKey: "mapping_missing" },
       { key: "operation", label: "Công đoạn chính (Main Operation)", href: "/master/operation", no: 4, statusKey: "master_total" },
@@ -87,7 +87,6 @@ export const CONFIG_FLOW: {
       { key: "area", label: "Khu vực vật lý", href: "/area", no: 6, statusKey: "area_total" },
       { key: "schedulearea", label: "Khu vực điều độ (lane)", href: "/schedule-areas", no: 7, statusKey: "schedule_total" },
       { key: "plannerassignment", label: "Phân chia Planner", href: "/planner-work-assignment", no: 8, statusKey: "planner_assigned" },
-      { key: "chain", label: "Kết quả: Planning Chain", href: "/st-operation-flow", no: undefined, statusKey: "chain_ok" },
     ],
   },
   {

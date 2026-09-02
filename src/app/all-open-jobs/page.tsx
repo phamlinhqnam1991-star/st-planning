@@ -131,7 +131,7 @@ export default async function Page({
 
    return <main className="erp-shell">
     <header className="erp-header">
-     <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
+     <div><h1>ST Planning</h1></div>
      <div className="erp-env">ALL OPEN JOBS</div>
     </header>
 
@@ -141,15 +141,14 @@ export default async function Page({
      <div className="erp-page-head">
       <div>
        <h2>All Open Jobs</h2>
-       <p>ST Scope Jobs · nguồn từ latest imported snapshot · lọc bằng ST Operation Scope</p>
+       <p>Danh sách Job đang mở thuộc phạm vi ST.</p>
       </div>
      </div>
 
      <OpenJobImporter/>
 
      <div className="notice section">
-      <b>ST Scope filter:</b> Trang này chỉ hiển thị Job có <code>NextOperation</code> nằm trong <code>md_st_operation_scope</code> active.
-      <code>ST_SCOPE_ONLY</code> vẫn được hiển thị tại đây nhưng không tham gia Planning Chain, Batch hoặc Board Điều Độ. Cấu hình tập trung tại <a href="/st-operation-flow">ST Operation Flow</a>.
+      Trang này chỉ hiển thị Job có <code>NextOperation</code> thuộc phạm vi ST. <code>ST_SCOPE_ONLY</code> vẫn được hiển thị nhưng không tham gia Planning Chain, Batch hoặc Board Điều Độ.
      </div>
 
      <div className="open-job-status-tabs section">

@@ -334,7 +334,7 @@ export function ProcessTimeRuleManager({
        <div className="process-condition-head">
         <div>
          <b>Điều kiện theo All Open Job <span className="muted">(tùy chọn)</span></b>
-         <div className="muted">Không thêm điều kiện = rule mặc định/fallback. Nhiều cột = AND. Rule match nhiều điều kiện hơn được ưu tiên trước Priority.</div>
+         <div className="muted">Không thêm điều kiện = rule mặc định. Nhiều cột = AND. Rule khớp nhiều điều kiện hơn được ưu tiên trước Priority.</div>
         </div>
         <button type="button" className="btn small" onClick={addCondition}>+ Thêm cột điều kiện</button>
        </div>

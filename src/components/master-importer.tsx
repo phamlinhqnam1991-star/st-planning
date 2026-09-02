@@ -25,12 +25,12 @@ export function MasterImporter(){
    const d=await bridgeRequest({action:"process",run_id:run.runId,chunk_size:run.chunkSize||150});
    run=d.run as BridgeRun;
    const pct=run.totalRoutings?Math.floor(run.processedRoutings*100/run.totalRoutings):100;
-   setStatus(`Import đã lưu · đang cập nhật Auto Bridge: ${run.processedRoutings.toLocaleString()} / ${run.totalRoutings.toLocaleString()} routing · ${pct}%`);
+   setStatus(`Import đã lưu · đang cập nhật chuỗi công đoạn: ${pct}%`);
    if(run.status==="READY_TO_FINALIZE")break;
    await new Promise(resolve=>setTimeout(resolve,25));
   }
   if(run.status==="READY_TO_FINALIZE"){
-   setStatus("Import đã lưu · đang Finalize Auto Bridge incremental...");
+   setStatus("Import đã lưu · đang hoàn tất cập nhật chuỗi công đoạn...");
    await bridgeRequest({action:"finalize",run_id:run.runId});
   }
  }
@@ -52,10 +52,10 @@ export function MasterImporter(){
    if(d.bridgeRebuildRun){
     await finishIncrementalBridge(d.bridgeRebuildRun as BridgeRun);
    }
-   setStatus(`Hoàn tất: ${d.sourceRows.toLocaleString()} dòng · Mới ${d.newRows.toLocaleString()} · Thay đổi ${d.changedRows.toLocaleString()} · Không đổi ${d.unchangedRows.toLocaleString()}${d.affectedRoutingCodes?` · Auto Bridge incremental ${Number(d.affectedRoutingCodes).toLocaleString()} routing`:""}.`);
+   setStatus(`Hoàn tất: ${d.sourceRows.toLocaleString()} dòng · Mới ${d.newRows.toLocaleString()} · Thay đổi ${d.changedRows.toLocaleString()} · Không đổi ${d.unchangedRows.toLocaleString()}.`);
    setTimeout(()=>location.reload(),1800);
   }catch(e){
-   setStatus(`Lỗi: ${e instanceof Error?e.message:String(e)}${String(e).includes("Bridge")?". Import đã có thể hoàn tất; Auto Bridge có thể Resume tại ST Operation Flow.":""}`);
+   setStatus(`Lỗi: ${e instanceof Error?e.message:String(e)}${String(e).includes("Bridge")?". Dữ liệu import có thể đã lưu; vào ST Operation Flow để tiếp tục cập nhật chuỗi công đoạn.":""}`);
   }finally{setBusy(false)}
  }
 
@@ -72,7 +72,7 @@ export function MasterImporter(){
 
  return <div className="card">
   <h2 style={{marginTop:0}}>Import Master Excel</h2>
-  <p className="muted">Lần đầu Full Import. Từ lần 2 chỉ NEW/CHANGED được cập nhật; UNCHANGED bỏ qua. v298 chỉ rebuild Auto Bridge cho routing signature bị thay đổi.</p>
+  <p className="muted">Lần đầu import toàn bộ. Các lần sau chỉ cập nhật dữ liệu mới hoặc thay đổi; dữ liệu không đổi được bỏ qua.</p>
   <div className="row">
    <input className="input" type="file" accept=".xlsx" onChange={e=>setFile(e.target.files?.[0]||null)}/>
    <button className="btn primary" disabled={!file||busy||resetBusy} onClick={run}>{busy?"Đang xử lý...":"Import Master"}</button>

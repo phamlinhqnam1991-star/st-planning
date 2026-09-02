@@ -1,12 +1,15 @@
-#!/usr/bin/env sh
-set -eu
-
+#!/usr/bin/env bash
+set -e
+echo "Removing stale ST Planning source files..."
 rm -f -- 'src/app/api/config/batch-key-recipe-rules/route.ts'
 rm -f -- 'src/app/api/config/st-operation-flow/bulk/route.ts'
 rm -f -- 'src/app/api/config/st-operation-flow/impact/route.ts'
 rm -f -- 'src/app/api/planning/candidate-metadata/route.ts'
+rm -f -- 'src/app/api/planning/job-debug/route.ts'
 rm -f -- 'src/app/api/planning/snapshot/candidates/route.ts'
 rm -f -- 'src/app/api/schedule/chemical-suggestion/route.ts'
+rm -f -- 'src/app/api/schedule/heal-chemical-loading/route.ts'
+rm -f -- 'src/app/api/process-recipe/operation-map/route.ts'
 rm -f -- 'src/app/batch-key-recipe-rules/page.tsx'
 rm -f -- 'src/app/master/operation-recipe-mapping/page.tsx'
 rm -f -- 'src/app/planning/snapshot/loading.tsx'
@@ -19,6 +22,7 @@ rm -f -- 'src/components/intermediate-operations-panel.tsx'
 rm -f -- 'src/components/missing-jobs-panel.tsx'
 rm -f -- 'src/components/missing-operations-manager.tsx'
 rm -f -- 'src/components/operation-recipe-mapping-master-manager.tsx'
+rm -f -- 'src/components/operation-recipe-allowed-manager.tsx'
 rm -f -- 'src/components/planning-area-operation-filter.tsx'
 rm -f -- 'src/components/planning-snapshot-shell.tsx'
 rm -f -- 'src/components/planning-v2/domain.ts'
@@ -42,4 +46,4 @@ rm -f -- 'src/lib/st-operation-flow-apply.ts'
 rm -f -- 'src/proxy.ts'
 rm -rf -- '.next'
 rm -f -- 'tsconfig.tsbuildinfo'
-echo 'Done.'
+echo "Done."

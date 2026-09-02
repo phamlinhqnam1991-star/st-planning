@@ -39,7 +39,7 @@ export default async function Page({
 
    return <main className="erp-shell">
     <header className="erp-header">
-     <div><h1>ST Planning</h1><p>Surface Treatment Planning System</p></div>
+     <div><h1>ST Planning</h1></div>
      <div className="erp-env">JOB DETAIL</div>
     </header>
 
@@ -56,7 +56,7 @@ export default async function Page({
 
      <div className="erp-table-panel">
       <div className="erp-panel-head">
-       <b>Planning Input Summary</b>
+       <b>Thông tin Job</b>
        <span className={`job-state state-${String(r.last_import_status).toLowerCase()}`}>{r.last_import_status}</span>
       </div>
       <div className="job-detail-grid">
@@ -88,12 +88,12 @@ export default async function Page({
 
      <div className="erp-table-panel section">
       <div className="erp-panel-head">
-       <b>Full Source Data</b>
-       <span>{sourceEntries.length} source columns preserved</span>
+       <b>Dữ liệu nguồn</b>
+       <span>{sourceEntries.length} cột</span>
       </div>
       <div className="table-wrap">
        <table className="erp-table">
-        <thead><tr><th>Source Column</th><th>Value</th></tr></thead>
+        <thead><tr><th>Cột</th><th>Giá trị</th></tr></thead>
         <tbody>
          {sourceEntries.map(([k,v])=>
           <tr key={k}><td><b>{k}</b></td><td className="job-source-value">{V(v)}</td></tr>
@@ -104,7 +104,7 @@ export default async function Page({
      </div>
 
      <div className="erp-table-panel section">
-      <div className="erp-panel-head"><b>Job Change History</b><span>{historyQ.rows.length} recent changes</span></div>
+      <div className="erp-panel-head"><b>Lịch sử thay đổi Job</b><span>{historyQ.rows.length} thay đổi</span></div>
       <div className="table-wrap">
        <table className="erp-table">
         <thead>
