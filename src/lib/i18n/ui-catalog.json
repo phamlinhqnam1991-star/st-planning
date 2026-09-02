@@ -7170,6 +7170,391 @@
       "en": "Import Master = technical Part/Revision/Routing/Finish/Requirement data. Import All Open Job = actual WIP/job snapshot. The two flows are independent but meet in the Planning resolver.",
       "vi": "Import Master = dữ liệu kỹ thuật Part/Revision/Routing/Finish/Requirement. Import All Open Job = snapshot WIP/job thực tế. Hai luồng độc lập nhưng gặp nhau tại Planning resolver.",
       "mode": "exact"
+    },
+    {
+      "en": "ST Planning Dashboard",
+      "vi": "Dashboard ST Planning",
+      "mode": "exact"
+    },
+    {
+      "en": "Planning, Scheduling and Production Execution overview with read-only Groq AI analysis.",
+      "vi": "Tổng quan Planning, Scheduling và Production Execution với phân tích AI Groq chỉ đọc.",
+      "mode": "exact"
+    },
+    {
+      "en": "OPERATIONS · CONTROL TOWER",
+      "vi": "VẬN HÀNH · CONTROL TOWER",
+      "mode": "exact"
+    },
+    {
+      "en": "OPERATIONS HEALTH",
+      "vi": "TÌNH TRẠNG VẬN HÀNH",
+      "mode": "exact"
+    },
+    {
+      "en": "Selected production day",
+      "vi": "Ngày sản xuất đang chọn",
+      "mode": "exact"
+    },
+    {
+      "en": "AI Provider",
+      "vi": "Nhà cung cấp AI",
+      "mode": "exact"
+    },
+    {
+      "en": "AI mode",
+      "vi": "Chế độ AI",
+      "mode": "exact"
+    },
+    {
+      "en": "Read / Analyze / Recommend",
+      "vi": "Đọc / Phân tích / Đề xuất",
+      "mode": "exact"
+    },
+    {
+      "en": "Open Jobs",
+      "vi": "Job đang mở",
+      "mode": "exact"
+    },
+    {
+      "en": "current good WIP qty",
+      "vi": "Current Good WIP Qty",
+      "mode": "exact"
+    },
+    {
+      "en": "READY Jobs",
+      "vi": "Job READY",
+      "mode": "exact"
+    },
+    {
+      "en": "Eligible for the next planning action",
+      "vi": "Đủ điều kiện cho bước planning kế tiếp",
+      "mode": "exact"
+    },
+    {
+      "en": "Unscheduled Backlog",
+      "vi": "Backlog chưa điều độ",
+      "mode": "exact"
+    },
+    {
+      "en": "PLANNED / RELEASED batches without schedule",
+      "vi": "Batch PLANNED / RELEASED chưa có schedule",
+      "mode": "exact"
+    },
+    {
+      "en": "Scheduled Today",
+      "vi": "Đã điều độ hôm nay",
+      "mode": "exact"
+    },
+    {
+      "en": "planned resource hours",
+      "vi": "giờ resource đã điều độ",
+      "mode": "exact"
+    },
+    {
+      "en": "Execution Waiting",
+      "vi": "Execution đang chờ",
+      "mode": "exact"
+    },
+    {
+      "en": "work items in Production Execution",
+      "vi": "work item trong Production Execution",
+      "mode": "exact"
+    },
+    {
+      "en": "Currently reported as in progress",
+      "vi": "Đang được báo cáo là đang thực hiện",
+      "mode": "exact"
+    },
+    {
+      "en": "execution work-item completion",
+      "vi": "mức hoàn thành work item thực thi",
+      "mode": "exact"
+    },
+    {
+      "en": "Delayed Risk",
+      "vi": "Nguy cơ trễ",
+      "mode": "exact"
+    },
+    {
+      "en": "Not DONE after planned target / end",
+      "vi": "Chưa DONE sau mốc kế hoạch / thời gian kết thúc",
+      "mode": "exact"
+    },
+    {
+      "en": "Schedule Conflicts",
+      "vi": "Xung đột điều độ",
+      "mode": "exact"
+    },
+    {
+      "en": "Overlapping batches on the same resource",
+      "vi": "Batch chồng thời gian trên cùng resource",
+      "mode": "exact"
+    },
+    {
+      "en": "Open Surface",
+      "vi": "Surface đang mở",
+      "mode": "exact"
+    },
+    {
+      "en": "dm² in current open-job snapshot",
+      "vi": "dm² trong snapshot open job hiện tại",
+      "mode": "exact"
+    },
+    {
+      "en": "Area Execution & Bottleneck View",
+      "vi": "Thực thi & Bottleneck theo khu vực",
+      "mode": "exact"
+    },
+    {
+      "en": "Areas are ranked by delayed / waiting / on-going workload.",
+      "vi": "Khu vực được xếp theo workload trễ / waiting / on-going.",
+      "mode": "exact"
+    },
+    {
+      "en": "Delayed",
+      "vi": "Trễ",
+      "mode": "exact"
+    },
+    {
+      "en": "No execution work for this date.",
+      "vi": "Không có công việc thực thi cho ngày này.",
+      "mode": "exact"
+    },
+    {
+      "en": "Resource Workload",
+      "vi": "Workload theo Resource",
+      "mode": "exact"
+    },
+    {
+      "en": "Scheduled load by resource for the selected production day.",
+      "vi": "Tải điều độ theo resource cho ngày sản xuất đang chọn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Batches",
+      "vi": "Batch",
+      "mode": "exact"
+    },
+    {
+      "en": "Hours",
+      "vi": "Giờ",
+      "mode": "exact"
+    },
+    {
+      "en": "Window",
+      "vi": "Khung giờ",
+      "mode": "exact"
+    },
+    {
+      "en": "No scheduled resource load.",
+      "vi": "Không có tải resource đã điều độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "7-Day Schedule / Completion Trend",
+      "vi": "Xu hướng Điều độ / Hoàn thành 7 ngày",
+      "mode": "exact"
+    },
+    {
+      "en": "Batch schedule count and reported DONE batches.",
+      "vi": "Số Batch được điều độ và số Batch đã báo DONE.",
+      "mode": "exact"
+    },
+    {
+      "en": "Delayed / At-Risk Work",
+      "vi": "Công việc trễ / có rủi ro",
+      "mode": "exact"
+    },
+    {
+      "en": "Execution item is not DONE after its planned end or target time.",
+      "vi": "Work item chưa DONE sau thời gian kết thúc hoặc mốc kế hoạch.",
+      "mode": "exact"
+    },
+    {
+      "en": "shown",
+      "vi": "đang hiển thị",
+      "mode": "exact"
+    },
+    {
+      "en": "Plan",
+      "vi": "Kế hoạch",
+      "mode": "exact"
+    },
+    {
+      "en": "Priority Jobs",
+      "vi": "Job ưu tiên",
+      "mode": "exact"
+    },
+    {
+      "en": "No delayed execution work detected.",
+      "vi": "Không phát hiện công việc thực thi bị trễ.",
+      "mode": "exact"
+    },
+    {
+      "en": "READY Work Queue",
+      "vi": "Hàng chờ READY",
+      "mode": "exact"
+    },
+    {
+      "en": "First 20 ELIGIBLE Planning Chain rows; priority is shown when available.",
+      "vi": "20 dòng Planning Chain ELIGIBLE đầu tiên; hiển thị priority khi có.",
+      "mode": "exact"
+    },
+    {
+      "en": "total",
+      "vi": "tổng",
+      "mode": "exact"
+    },
+    {
+      "en": "Main Operation",
+      "vi": "Main Operation",
+      "mode": "exact"
+    },
+    {
+      "en": "No READY jobs.",
+      "vi": "Không có Job READY.",
+      "mode": "exact"
+    },
+    {
+      "en": "Unable to load Dashboard:",
+      "vi": "Không thể tải Dashboard:",
+      "mode": "exact"
+    },
+    {
+      "en": "Operations Dashboard & Groq AI — control tower and read-only analysis",
+      "vi": "Operations Dashboard & Groq AI — control tower và phân tích chỉ đọc",
+      "mode": "exact"
+    },
+    {
+      "en": "Deterministic KPI first; Groq reads a structured snapshot and returns management analysis without changing Planning / Batch / Schedule",
+      "vi": "KPI deterministic là nền tảng; Groq đọc snapshot có cấu trúc và trả về phân tích quản lý mà không thay đổi Planning / Batch / Schedule",
+      "mode": "exact"
+    },
+    {
+      "en": "Operational Sources",
+      "vi": "Nguồn vận hành",
+      "mode": "exact"
+    },
+    {
+      "en": "Open Jobs · Planning Chain · Batch · Schedule · Execution",
+      "vi": "Open Jobs · Planning Chain · Batch · Schedule · Execution",
+      "mode": "exact"
+    },
+    {
+      "en": "Dashboard KPI Engine",
+      "vi": "Dashboard KPI Engine",
+      "mode": "exact"
+    },
+    {
+      "en": "Counts · workload · delay · conflict · 7-day trend",
+      "vi": "Số lượng · workload · trễ · xung đột · xu hướng 7 ngày",
+      "mode": "exact"
+    },
+    {
+      "en": "Analyze · explain · recommend",
+      "vi": "Phân tích · giải thích · đề xuất",
+      "mode": "exact"
+    },
+    {
+      "en": "Planner / Manager",
+      "vi": "Planner / Manager",
+      "mode": "exact"
+    },
+    {
+      "en": "Review and decide",
+      "vi": "Xem xét và quyết định",
+      "mode": "exact"
+    },
+    {
+      "en": "Dashboard remains deterministic",
+      "vi": "Dashboard vẫn deterministic",
+      "mode": "exact"
+    },
+    {
+      "en": "Open Jobs, READY, Unscheduled Backlog, Scheduled Today, Execution WAITING / ON-GOING / DONE, delayed work, resource load and schedule conflicts are calculated by application / SQL logic. AI does not calculate or replace these source-of-truth values.",
+      "vi": "Open Jobs, READY, Unscheduled Backlog, Scheduled Today, Execution WAITING / ON-GOING / DONE, công việc trễ, tải resource và xung đột điều độ được tính bằng logic ứng dụng / SQL. AI không tính thay hoặc thay thế các giá trị nguồn chuẩn này.",
+      "mode": "exact"
+    },
+    {
+      "en": "Groq is read-only",
+      "vi": "Groq chỉ đọc",
+      "mode": "exact"
+    },
+    {
+      "en": "Groq receives only the structured Dashboard snapshot. It may summarize bottlenecks, risks, priority workload and recommendations, but it cannot create/delete Batch, change Recipe, move Schedule, change READY/WAIT or update Production Execution.",
+      "vi": "Groq chỉ nhận snapshot Dashboard có cấu trúc. AI có thể tóm tắt bottleneck, rủi ro, workload ưu tiên và khuyến nghị, nhưng không thể tạo/xóa Batch, đổi Recipe, di chuyển Schedule, đổi READY/WAIT hoặc cập nhật Production Execution.",
+      "mode": "exact"
+    },
+    {
+      "en": "AI failure does not block operations",
+      "vi": "AI lỗi không chặn vận hành",
+      "mode": "exact"
+    },
+    {
+      "en": "If GROQ_API_KEY is missing, Groq times out, or the provider is unavailable, the normal Dashboard still loads and all deterministic KPI remain usable.",
+      "vi": "Nếu thiếu GROQ_API_KEY, Groq timeout hoặc provider không khả dụng, Dashboard thường vẫn tải và toàn bộ KPI deterministic vẫn sử dụng được.",
+      "mode": "exact"
+    },
+    {
+      "en": "Server-side provider configuration",
+      "vi": "Cấu hình provider phía server",
+      "mode": "exact"
+    },
+    {
+      "en": "GROQ_API_KEY stays server-side in Vercel Environment Variables. The default production model is configured by GROQ_MODEL and can be changed later without changing Dashboard business logic.",
+      "vi": "GROQ_API_KEY được giữ phía server trong Vercel Environment Variables. Model production mặc định được cấu hình bằng GROQ_MODEL và có thể đổi sau mà không thay logic nghiệp vụ Dashboard.",
+      "mode": "exact"
+    },
+    {
+      "en": "Open Operations → Dashboard and select the production date.",
+      "vi": "Mở Operations → Dashboard và chọn ngày sản xuất.",
+      "mode": "exact"
+    },
+    {
+      "en": "Review Operations Health, KPI, Area Execution, Resource Workload, delayed risk, READY queue and 7-day trend.",
+      "vi": "Xem Operations Health, KPI, Area Execution, Resource Workload, rủi ro trễ, hàng chờ READY và xu hướng 7 ngày.",
+      "mode": "exact"
+    },
+    {
+      "en": "The Groq panel automatically analyzes the same date snapshot after the Dashboard loads.",
+      "vi": "Panel Groq tự động phân tích snapshot của cùng ngày sau khi Dashboard tải.",
+      "mode": "exact"
+    },
+    {
+      "en": "Use Refresh AI when operational data changes, or type a question in Ask AI to analyze the current snapshot.",
+      "vi": "Dùng Refresh AI khi dữ liệu vận hành thay đổi, hoặc nhập câu hỏi trong Ask AI để phân tích snapshot hiện tại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Treat AI recommendations as decision support. Confirm the affected Batch / Resource / Job in the source screen before making an operational change.",
+      "vi": "Xem khuyến nghị AI như hỗ trợ quyết định. Xác nhận Batch / Resource / Job bị ảnh hưởng tại màn hình nguồn trước khi thay đổi vận hành.",
+      "mode": "exact"
+    },
+    {
+      "en": "Dashboard / Groq AI config",
+      "vi": "Cấu hình Dashboard / Groq AI",
+      "mode": "exact"
+    },
+    {
+      "en": "Dashboard analysis and AI narrative.",
+      "vi": "Phân tích Dashboard và nhận định AI.",
+      "mode": "exact"
+    },
+    {
+      "en": "Does not change Planning / Batch / Schedule / Execution source data.",
+      "vi": "Không thay đổi dữ liệu nguồn Planning / Batch / Schedule / Execution.",
+      "mode": "exact"
+    },
+    {
+      "en": "Refresh Dashboard / Refresh AI; no Rebuild Chain.",
+      "vi": "Refresh Dashboard / Refresh AI; không cần Rebuild Chain.",
+      "mode": "exact"
+    },
+    {
+      "en": "Resource concurrency exceeds configured capacity",
+      "vi": "Số công việc đồng thời vượt capacity đã cấu hình của resource",
+      "mode": "exact"
     }
   ]
 }

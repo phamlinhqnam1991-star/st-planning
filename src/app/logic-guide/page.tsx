@@ -221,6 +221,7 @@ export default async function Page(){
     <a href="#schedule">Board Điều Độ</a>
     <a href="#import">Import Master</a>
     <a href="#production">Production Execution</a>
+    <a href="#dashboard">Dashboard & AI</a>
     <a href="#impact">Impact Matrix</a>
     <a href="#live">Mapping đang chạy</a>
     <a href="#faq">FAQ</a>
@@ -236,6 +237,7 @@ export default async function Page(){
      {t:"E · Masking / Unmasking",d:"Main Batch → support operation → Start",c:"teal"},
      {t:"F · Board Điều Độ",d:"Unscheduled Batch → Resource/Time",c:"green"},
      {t:"G · Handoff",d:"Batch mở Main kế tiếp",c:"orange"},
+     {t:"H · Dashboard",d:"KPI → Risk → Groq AI Analysis",c:"green"},
     ]}/>
     <div className="lg-key lg-key-2">
      <Rule title="Nguyên tắc 1 · Master ≠ Config" tone="important">
@@ -710,7 +712,30 @@ export default async function Page(){
     </div>
    </Section>
 
-   <Section id="impact" title="12 · Impact Matrix — sửa ở đâu thì phía sau thay đổi gì?"
+   <Section id="dashboard" title="12 · Operations Dashboard & Groq AI — control tower and read-only analysis"
+    sub="Deterministic KPI first; Groq reads a structured snapshot and returns management analysis without changing Planning / Batch / Schedule">
+    <Chain steps={[
+     {t:"Operational Sources",d:"Open Jobs · Planning Chain · Batch · Schedule · Execution",c:"blue"},
+     {t:"Dashboard KPI Engine",d:"Counts · workload · delay · conflict · 7-day trend",c:"teal"},
+     {t:"Groq AI",d:"Analyze · explain · recommend",c:"green"},
+     {t:"Planner / Manager",d:"Review and decide",c:"orange"},
+    ]}/>
+    <div className="lg-key lg-key-2">
+     <Rule title="Dashboard remains deterministic" tone="important">Open Jobs, READY, Unscheduled Backlog, Scheduled Today, Execution WAITING / ON-GOING / DONE, delayed work, resource load and schedule conflicts are calculated by application / SQL logic. AI does not calculate or replace these source-of-truth values.</Rule>
+     <Rule title="Groq is read-only">Groq receives only the structured Dashboard snapshot. It may summarize bottlenecks, risks, priority workload and recommendations, but it cannot create/delete Batch, change Recipe, move Schedule, change READY/WAIT or update Production Execution.</Rule>
+     <Rule title="AI failure does not block operations">If GROQ_API_KEY is missing, Groq times out, or the provider is unavailable, the normal Dashboard still loads and all deterministic KPI remain usable.</Rule>
+     <Rule title="Server-side provider configuration">GROQ_API_KEY stays server-side in Vercel Environment Variables. The default production model is configured by GROQ_MODEL and can be changed later without changing Dashboard business logic.</Rule>
+    </div>
+    <StepList items={[
+     <>Open <b>Operations → Dashboard</b> and select the production date.</>,
+     <>Review Operations Health, KPI, Area Execution, Resource Workload, delayed risk, READY queue and 7-day trend.</>,
+     <>The Groq panel automatically analyzes the same date snapshot after the Dashboard loads.</>,
+     <>Use <b>Refresh AI</b> when operational data changes, or type a question in <b>Ask AI</b> to analyze the current snapshot.</>,
+     <>Treat AI recommendations as decision support. Confirm the affected Batch / Resource / Job in the source screen before making an operational change.</>
+    ]}/>
+   </Section>
+
+   <Section id="impact" title="13 · Impact Matrix — sửa ở đâu thì phía sau thay đổi gì?"
     sub="Bảng này dùng trước khi chỉnh cấu hình production để biết phạm vi ảnh hưởng">
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Thay đổi</th><th>Ảnh hưởng trực tiếp</th><th>Ảnh hưởng phía sau</th><th>Cần làm sau đó</th></tr></thead>
@@ -728,14 +753,15 @@ export default async function Page(){
       <tr><td>Planner Assignment</td><td>Ai thấy/điều độ area.</td><td>Handover alert/Planner view.</td><td>Không rebuild routing.</td></tr>
       <tr><td>Import All Open Job</td><td>NextOperation/LastOperation/source_data mới.</td><td>Candidate/Recipe/condition/physical progress.</td><td>Scan Column Values nếu có cột/value mới.</td></tr>
       <tr><td>Import Master</td><td>Part/Rev/Routing/Finish/Requirement.</td><td>Part Tracker, route, recipe master-condition lookup.</td><td>Kiểm tra changed Part và derived Bridge.</td></tr>
+      <tr><td>Dashboard / Groq AI config</td><td>Dashboard analysis and AI narrative.</td><td>Does not change Planning / Batch / Schedule / Execution source data.</td><td>Refresh Dashboard / Refresh AI; no Rebuild Chain.</td></tr>
      </tbody>
     </table></div>
    </Section>
 
-   <Section id="live" title="13 · Mapping đang chạy — đọc trực tiếp database"
+   <Section id="live" title="14 · Mapping đang chạy — đọc trực tiếp database"
     sub="Dùng để đối chiếu tài liệu với cấu hình production hiện tại; bảng này không phải dữ liệu mẫu">
 
-    <div className="lg-subtitle">13.0 · Bảng kết nối tổng hợp — Main Operation → Recipe → Schedule → Planner</div>
+    <div className="lg-subtitle">14.0 · Bảng kết nối tổng hợp — Main Operation → Recipe → Schedule → Planner</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Main Operation</th><th>ST Group</th><th>Batch Prefix</th><th>Planning Order</th><th>Source Ops</th><th>Recipe Rules</th><th>Schedule Area</th><th>Planner</th></tr></thead>
      <tbody>{mainLinks.map((x:any,i)=><tr key={`main-link-${i}`}>
@@ -743,7 +769,7 @@ export default async function Page(){
      </tr>)}{!mainLinks.length&&<tr><td colSpan={8} className="muted">Chưa đọc được bảng kết nối Main Operation.</td></tr>}</tbody>
     </table></div>
 
-    <div className="lg-subtitle">13.0.1 · Bảng kết nối tổng hợp — ST Group → Area → Schedule Area → Planner</div>
+    <div className="lg-subtitle">14.0.1 · Bảng kết nối tổng hợp — ST Group → Area → Schedule Area → Planner</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>ST Group</th><th>Tên nhóm</th><th>Main Operations</th><th>Physical Area</th><th>Schedule Area</th><th>Planner</th></tr></thead>
      <tbody>{groupLinks.map((x:any,i)=><tr key={`group-link-${i}`}>
@@ -751,7 +777,7 @@ export default async function Page(){
      </tr>)}{!groupLinks.length&&<tr><td colSpan={6} className="muted">Chưa đọc được bảng kết nối ST Group.</td></tr>}</tbody>
     </table></div>
 
-    <div className="lg-subtitle">13.1 · Main Operation — Planning Order nội bộ + Batch Prefix</div>
+    <div className="lg-subtitle">14.1 · Main Operation — Planning Order nội bộ + Batch Prefix</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Main Operation</th><th>ST Group</th><th>Batch Prefix</th><th>Main Planning Order</th><th>Active</th></tr></thead>
      <tbody>{mainOps.map((x:any,i)=><tr key={`${x.standard_operation}-${i}`}>
@@ -759,7 +785,7 @@ export default async function Page(){
      </tr>)}{!mainOps.length&&<tr><td colSpan={5} className="muted">Không đọc được Main Operation.</td></tr>}</tbody>
     </table></div>
 
-    <div className="lg-subtitle">13.2 · Operation Code Order — tie-breaker trong cùng Main</div>
+    <div className="lg-subtitle">14.2 · Operation Code Order — tie-breaker trong cùng Main</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Operation Code</th><th>Loại</th><th>Operation Name</th><th>Operation Code Order</th></tr></thead>
      <tbody>{nextOps.map((x:any,i)=><tr key={`${x.operation_code}-${i}`}>
@@ -767,7 +793,7 @@ export default async function Page(){
      </tr>)}{!nextOps.length&&<tr><td colSpan={4} className="muted">Không đọc được Operation Code Order.</td></tr>}</tbody>
     </table></div>
 
-    <div className="lg-subtitle">13.3 · Source → Main Mapping</div>
+    <div className="lg-subtitle">14.3 · Source → Main Mapping</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>ST Group</th><th>Source Operation</th><th>Main/Rule</th><th>Mapping Rule</th></tr></thead>
      <tbody>{mappings.map((m:any,i)=><tr key={i}><td>{m.st_group}</td><td className="mono">{m.source_operation_code}</td><td>{m.standard_operation_rule||"—"}</td><td>{m.mapping_rule||"—"}</td></tr>)}
@@ -775,7 +801,7 @@ export default async function Page(){
      </tbody>
     </table></div>
 
-    <div className="lg-subtitle">13.4 · Operation Code → Recipe Mapping runtime</div>
+    <div className="lg-subtitle">14.4 · Operation Code → Recipe Mapping runtime</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Rule ID</th><th>Operation Code</th><th>Main</th><th>Recipe Key</th><th>Priority</th><th>Default</th><th>Selection Rule</th></tr></thead>
      <tbody>{recipeMaps.map((m:any,i)=><tr key={i}>
@@ -783,7 +809,7 @@ export default async function Page(){
      </tr>)}{!recipeMaps.length&&<tr><td colSpan={6} className="muted">Chưa có Recipe mapping.</td></tr>}</tbody>
     </table></div>
 
-    <div className="lg-subtitle">13.5 · Recipe Catalog</div>
+    <div className="lg-subtitle">14.5 · Recipe Catalog</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Recipe No</th><th>Recipe Name</th><th>Family</th><th>Operation mapping đầu tiên</th></tr></thead>
      <tbody>{recipes.map((r:any,i)=><tr key={i}><td className="mono"><b>{r.recipe_no||"—"}</b></td><td>{r.recipe_name||"—"}</td><td>{r.process_family||"—"}</td><td>{r.default_operation?badge(String(r.default_operation),"green"):badge("Chưa map","warning")}</td></tr>)}
@@ -791,7 +817,7 @@ export default async function Page(){
      </tbody>
     </table></div>
 
-    <div className="lg-subtitle">13.6 · Process Time Rules</div>
+    <div className="lg-subtitle">14.6 · Process Time Rules</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Recipe</th><th>Mode</th><th>Priority</th><th>Qty</th><th>Surface dm²</th><th>Fixed</th><th>Standard</th></tr></thead>
      <tbody>{timeRules.map((r:any,i)=><tr key={i}>
@@ -799,7 +825,7 @@ export default async function Page(){
      </tr>)}{!timeRules.length&&<tr><td colSpan={7} className="muted">Chưa có Process Time.</td></tr>}</tbody>
     </table></div>
 
-    <div className="lg-subtitle">13.7 · Loading / Unloading Rules</div>
+    <div className="lg-subtitle">14.7 · Loading / Unloading Rules</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Phase</th><th>Priority</th><th>Qty</th><th>Surface dm²</th><th>Minutes</th></tr></thead>
      <tbody>{handlingRules.map((r:any,i)=><tr key={i}><td>{r.phase}</td><td className="num">{r.priority}</td><td>{r.qty_min??"—"} – {r.qty_max??"—"}</td><td>{r.surface_min_dm2??"—"} – {r.surface_max_dm2??"—"}</td><td className="num"><b>{r.duration_minutes}</b></td></tr>)}
@@ -807,7 +833,7 @@ export default async function Page(){
      </tbody>
     </table></div>
 
-    <div className="lg-subtitle">13.8 · Physical Area / ST Group</div>
+    <div className="lg-subtitle">14.8 · Physical Area / ST Group</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Area</th><th>ST Groups</th></tr></thead>
      <tbody>{areas.map((a:any,i)=><tr key={i}><td><b>{a.area_name}</b><small className="planning-sub"> {a.area_code}</small></td><td>{a.st_groups}</td></tr>)}
@@ -815,7 +841,7 @@ export default async function Page(){
      </tbody>
     </table></div>
 
-    <div className="lg-subtitle">13.9 · Schedule Area → Planner → Main Operation</div>
+    <div className="lg-subtitle">14.9 · Schedule Area → Planner → Main Operation</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Schedule Area</th><th>Resource Group</th><th>Resource</th><th>Rows</th><th>Planner</th><th>Main Operations</th></tr></thead>
      <tbody>{scheduleAreas.map((s:any,i)=><tr key={i}><td><b>{s.schedule_area_name}</b><small className="planning-sub"> {s.schedule_area_code}</small></td><td>{s.resource_group||"—"}</td><td>{s.resource_code||"—"}</td><td className="num">{s.default_rows}</td><td>{s.planner_owner||"—"}</td><td>{String(s.operations||"").split(", ").map((o:string)=><span key={o}>{badge(o,"blue")} </span>)}</td></tr>)}
@@ -823,7 +849,7 @@ export default async function Page(){
      </tbody>
     </table></div>
 
-    <div className="lg-subtitle">13.10 · Schedule Resources</div>
+    <div className="lg-subtitle">14.10 · Schedule Resources</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Resource</th><th>Group</th><th>Sort</th><th>Max Concurrent</th></tr></thead>
      <tbody>{resources.map((r:any,i)=><tr key={i}><td><b>{r.resource_code}</b><small className="planning-sub"> {r.resource_name||""}</small></td><td>{r.resource_group||"—"}</td><td className="num">{r.sort_order}</td><td className="num">{r.max_concurrent||"—"}</td></tr>)}
@@ -832,7 +858,7 @@ export default async function Page(){
     </table></div>
    </Section>
 
-   <Section id="faq" title="14 · FAQ / Chẩn đoán nhanh">
+   <Section id="faq" title="15 · FAQ / Chẩn đoán nhanh">
     <Faq q="Vì sao Next Operation không sort theo chữ ABC?" a={<>Đó là chủ ý. Khi Sort Priority dùng <b>NextOperation</b>, Board resolve RAW NextOperation → Main và dùng <b>Main Planning Order</b>. Operation Code Order chỉ tie-break trong cùng Main. Kiểm tra Cấu hình → Main Operation và ST Scope.</>}/>
     <Faq q="Vì sao một Job READY nhưng click xong các READY khác bị mờ?" a={<>Bạn đang ở <b>Batch Selection Mode</b>. Main khác bị dim; cùng Main nhưng khác Recipe hoặc không thỏa các condition đang tích cũng bị dim/disable. Clear Selection để thoát mode.</>}/>
     <Faq q="Vì sao không thấy checkbox condition trong Batch Compatibility?" a={<>Checkbox lấy từ <b>Operation Code → Recipe → Điều kiện áp dụng cho Job</b> của đúng Recipe mapping. Process Time condition không tạo checkbox. Nếu mapping Recipe không có condition, panel sẽ báo chỉ khóa theo Recipe.</>}/>

@@ -1,6 +1,7 @@
 import type {ErpNavItem} from "@/components/erp/erp-shell";
 
 export type StErpLeafKey=
+ |"dashboard"
  |"master"
  |"config"
  |"tracker"
@@ -27,8 +28,9 @@ export type StErpModuleGroup=ErpNavItem&{
  */
 export const ST_ERP_MODULE_GROUPS:StErpModuleGroup[]=[
  {
-  key:"operations",label:"Vận hành",href:"/planning",shortLabel:"OP",
+  key:"operations",label:"Vận hành",href:"/dashboard",shortLabel:"OP",
   items:[
+   {key:"dashboard",label:"Dashboard",href:"/dashboard",shortLabel:"DB"},
    {key:"jobs",label:"All Open Jobs",href:"/all-open-jobs",shortLabel:"OJ"},
    {key:"planning",label:"Planning Board",href:"/planning",shortLabel:"PL"},
    {key:"masking",label:"Masking / Unmasking",href:"/masking-unmasking-planning",shortLabel:"MU"},

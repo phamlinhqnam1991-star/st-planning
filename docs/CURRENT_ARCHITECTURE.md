@@ -9,7 +9,9 @@
 5. Planning Chain controls READY / WAIT / PLANNED handoff.
 6. Planning Board selects Jobs and creates/updates Batch.
 7. Board Điều Độ assigns existing Batch to Resource / Date / Start / Duration.
-8. Job Tracker and Part Tracker are read-only trace views.
+8. Production Execution reads scheduled Batch plus Masking/Unmasking support work and stores WAITING / ON-GOING / DONE separately from Planning/Schedule state.
+9. Operations Dashboard reads deterministic KPI/risks from operational data; Groq AI receives only a structured read-only snapshot for analysis/recommendation.
+10. Job Tracker and Part Tracker are read-only trace views.
 
 ## Candidate presentation order
 
@@ -35,3 +37,13 @@ This presentation order does not change READY / WAIT, Batch, Schedule, or Auto P
 ## Database cleanup
 
 Migrations are append-only. Historical migrations 058/059 are preserved. Migration 066 removes the abandoned Planning snapshot cache and dirty triggers because current Candidate reads are canonical-only.
+
+## Dashboard / Groq AI architecture
+
+`Operational sources -> Dashboard KPI Engine -> Structured Snapshot -> Groq AI -> Read-only Insights`
+
+- Deterministic Dashboard KPI remain source-of-truth calculations from application/SQL logic.
+- Groq does not create/delete Batch, change Recipe, move Schedule, change READY/WAIT, or update Production Execution.
+- Provider secret is server-side only: `GROQ_API_KEY` in Vercel Environment Variables.
+- Default model is configured by `GROQ_MODEL` (current default: `openai/gpt-oss-20b`) and can be changed without changing Dashboard business logic.
+- If Groq is unavailable or not configured, the Dashboard still renders normal KPI, workload, risk, resource, READY queue, and trend data.
