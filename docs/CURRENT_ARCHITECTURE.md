@@ -33,7 +33,7 @@
 
 - When the first READY cell establishes Batch Selection Mode, the matrix still narrows to Jobs compatible with that Main Operation.
 - The Main matrix is compressed to two business-context columns, not one physical column per upstream Main.
-- **Previous Main** is a virtual read-only column. Each row independently resolves that Job's immediate upstream Main occurrence and shows its Main name, Batch No, schedule status/time and Resource when available. Example: five PRIMER Jobs from BSASLD and five from BSAUNSLD remain in one Previous Main column; the cell content differs by Job.
+- **Previous Main** is a virtual read-only column. Each row independently resolves that Job's immediate upstream Main occurrence and shows its Main name, compact status badge (D/R/W/U/S/P/RN/H), Batch No, schedule time and Resource when available. Example: five PRIMER Jobs from BSASLD and five from BSAUNSLD remain in one Previous Main column; the cell content and prior status differ by Job.
 - **Next Main** is the selected READY Main. It keeps the existing READY click/Recipe Compatibility lock and also shows that Job's resolved Recipe when one exists. Operations without Recipe keep the normal status-only cell.
 - All unrelated physical Main Planning columns remain hidden during Batch Selection Mode and return after Clear Selection.
 - Compact density uses smaller rows. Matrix zoom is a presentation-only control (70%..130%, persisted locally) and does not change data, filters, Planning Chain, Batch, or Schedule.

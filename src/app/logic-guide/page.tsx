@@ -583,7 +583,7 @@ export default async function Page(){
     <div className="lg-subtitle">7.5 · Chọn READY đầu tiên → Batch Selection Mode</div>
     <StepList items={[
      <>Click/checkbox/drag một cell <b>READY</b>. Main Operation của occurrence đó trở thành Main đang build Batch.</>,
-     <>Board thu gọn ma trận về đúng <b>2 cột ngữ cảnh nghiệp vụ</b>: một cột ảo <b>Previous Main</b> dùng chung cho mọi Job và một cột <b>Next Main</b> đang build Batch. Mỗi ô Previous Main tự hiện Main trước thực tế của Job + Batch + giờ điều độ; vì vậy Job đi từ BSASLD/BSAUNSLD vẫn nằm chung một cột. Ô Next Main giữ READY/lock và hiện Recipe của chính Job khi có Recipe.</>,
+     <>Board thu gọn ma trận về đúng <b>2 cột ngữ cảnh nghiệp vụ</b>: một cột ảo <b>Previous Main</b> dùng chung cho mọi Job và một cột <b>Next Main</b> đang build Batch. Mỗi ô Previous Main tự hiện Main trước thực tế của Job + badge trạng thái (D/R/W/U/S/P/RN/H) + Batch + giờ điều độ; vì vậy Job đi từ BSASLD/BSAUNSLD vẫn nằm chung một cột. Ô Next Main giữ READY/lock và hiện Recipe của chính Job khi có Recipe.</>,
      <>Trong Main active, server resolve Recipe thật của từng Job. READY khác Recipe bị làm mờ/disable.</>,
      <>Nếu Recipe mapping có condition, panel <b>Batch Compatibility</b> hiện checkbox theo condition của <code>md_main_operation_recipe.selection_rule</code>.</>,
      <>Mặc định tích tất cả condition. Bỏ tích condition nào → condition đó không còn dùng để khóa membership. Bỏ hết → chỉ cần cùng Main + cùng Recipe.</>,

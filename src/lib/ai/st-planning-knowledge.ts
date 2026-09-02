@@ -41,7 +41,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"planning-ready-focus",
   title:"Planning Board READY focus context",
-  content:`When a READY Main establishes Batch Selection Mode, the board narrows Jobs to that Main but keeps the selected Main plus the union of each visible Job's immediate Previous Main Planning. Previous Main columns are read-only context showing prior Batch No and scheduled start when available; unrelated Main columns stay hidden. Compact row density and 70%-130% table zoom are presentation-only and never change Planning Chain, Batch, Recipe, or Schedule.`
+  content:`When a READY Main establishes Batch Selection Mode, the board narrows Jobs to that Main but keeps the selected Main plus the union of each visible Job's immediate Previous Main Planning. The virtual Previous Main column is read-only context showing each Job's actual previous Main Operation, its status badge, prior Batch No, resource and scheduled time when available; unrelated Main columns stay hidden. Compact row density and 70%-130% table zoom are presentation-only and never change Planning Chain, Batch, Recipe, or Schedule.`
  },
  {
   key:"chemical-line",

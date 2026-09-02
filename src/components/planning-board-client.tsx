@@ -2776,6 +2776,8 @@ const currentPriorityMonth=useMemo(()=>{
        return "route-status-ready";
      case "PLANNED-UNSCHEDULED":
        return "route-status-unscheduled";
+     case "PLANNED":
+       return "route-status-planned";
      case "SCHEDULED":
        return "route-status-scheduled";
      case "RUNNING":
@@ -2942,18 +2944,19 @@ const currentPriorityMonth=useMemo(()=>{
     ctx.plannedEnd?`End: ${routeDateTime(ctx.plannedEnd)}`:"",
     ctx.status?`Status: ${routeStatusLongLabel(ctx.status)}`:""
    ].filter(Boolean).join(" · ");
-   return <td
+   const statusClass=ctx.status?routeStatusClass(ctx.status):"route-status-na";
+  return <td
     key={ERP_BATCH_PREVIOUS_CONTEXT_KEY}
-    className="route-status-cell route-context-previous-cell"
+    className={`route-status-cell route-context-previous-cell ${statusClass}`}
     title={title}
    >
     <div className="route-context-prev-line">
-     <b>{ctx.mainOperation}</b>
-     {ctx.batchNo&&<span className="route-context-prev-batch">{ctx.batchNo}</span>}
+     <span className="route-context-prev-operation">{ctx.mainOperation}</span>
+     {statusCode&&<b className="route-context-prev-status">{statusCode}</b>}
     </div>
-    <small className="route-context-prev-meta">
-     {[statusCode,scheduleText,ctx.resourceCode].filter(Boolean).join(" · ")||"—"}
-    </small>
+    <span className="route-context-prev-meta">
+     {[ctx.batchNo,scheduleText,ctx.resourceCode].filter(Boolean).join(" · ")||"—"}
+    </span>
    </td>;
  };
 

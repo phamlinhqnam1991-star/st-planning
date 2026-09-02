@@ -160,6 +160,7 @@
 .planning-erp-version .planning-erp-matrix-table td.route-status-ready{background:#eef6ff!important;color:#0d5ea8!important;border-right:1px solid #d9e6f2!important;border-bottom:1px solid #d9e6f2!important}.planning-erp-version .planning-erp-matrix-table td.route-status-ready>b{background:#dbeeff!important;border-color:#86b9e8!important;color:#0d5ea8!important}.planning-erp-version .planning-erp-matrix-table td.route-status-ready.route-status-clickable:hover{background:#e8f3ff!important;box-shadow:none!important}
 .planning-erp-version .planning-erp-matrix-table td.route-status-waiting,.planning-erp-version .planning-erp-matrix-table td.route-status-wait-prev,.planning-erp-version .planning-erp-matrix-table td.route-status-wait-future{background:#fffaf0!important;color:#945c00!important}.planning-erp-version .planning-erp-matrix-table td.route-status-waiting>b,.planning-erp-version .planning-erp-matrix-table td.route-status-wait-prev>b,.planning-erp-version .planning-erp-matrix-table td.route-status-wait-future>b{background:#fff0cf!important;border-color:#e9cb8c!important;color:#945c00!important}
 .planning-erp-version .planning-erp-matrix-table td.route-status-unscheduled{background:#f8f5fe!important;color:#6549a3!important}.planning-erp-version .planning-erp-matrix-table td.route-status-unscheduled>b{background:#eee8fb!important;border-color:#cbbce9!important;color:#6549a3!important}
+.planning-erp-version .planning-erp-matrix-table td.route-status-planned{background:#f6f7fb!important;color:#475467!important}.planning-erp-version .planning-erp-matrix-table td.route-status-planned>b{background:#eceef5!important;border-color:#c8cedc!important;color:#475467!important}
 .planning-erp-version .planning-erp-matrix-table td.route-status-scheduled,.planning-erp-version .planning-erp-matrix-table td.route-status-running{background:#f2f7fd!important;color:#1768b8!important}.planning-erp-version .planning-erp-matrix-table td.route-status-scheduled>b,.planning-erp-version .planning-erp-matrix-table td.route-status-running>b{background:#e0edfb!important;border-color:#a9c9e9!important;color:#1768b8!important}
 .planning-erp-version .planning-erp-matrix-table td.route-status-hold{background:#fff4f2!important;color:#b42318!important}.planning-erp-version .planning-erp-matrix-table td.route-status-hold>b{background:#ffe8e4!important;border-color:#efb9b2!important;color:#b42318!important}.planning-erp-version .planning-erp-matrix-table td.route-status-na{background:#fafbfc!important;color:#c4cbd5!important;opacity:1!important;text-align:center!important}
 .planning-erp-version .planning-erp-matrix-table td.route-status-current{box-shadow:inset 0 0 0 1px rgba(19,95,184,.28)!important}
@@ -2515,13 +2516,32 @@
 .planning-erp-version .planning-erp-matrix-table .route-context-prev-line{
   display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap;overflow:hidden;
 }
-.planning-erp-version .planning-erp-matrix-table .route-context-prev-line>b{
-  flex:0 0 auto;display:inline!important;margin:0!important;padding:0!important;background:transparent!important;border:0!important;
-  min-width:0!important;min-height:0!important;color:#344054!important;font-size:6.5px!important;line-height:1.05!important;
+.planning-erp-version .planning-erp-matrix-table .route-context-prev-operation{
+  flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:#344054!important;font-size:6.5px!important;font-weight:850!important;line-height:1.05!important;
 }
-.planning-erp-version .planning-erp-matrix-table .route-context-prev-batch{
-  min-width:0;overflow:hidden;text-overflow:ellipsis;color:#344054;font:750 6.3px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+.planning-erp-version .planning-erp-matrix-table .route-context-prev-status{
+  flex:0 0 auto;display:inline-flex!important;align-items:center;justify-content:center;
+  min-width:22px!important;min-height:15px!important;margin:0!important;padding:0 5px!important;
+  border:1px solid #d8dee8!important;border-radius:4px!important;background:#f5f7fa!important;
+  color:#667085!important;font-size:7px!important;font-weight:900!important;line-height:13px!important;letter-spacing:.02em;
 }
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-done{background:#f0faf4!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-done .route-context-prev-status{background:#dff3e8!important;border-color:#b6dfc8!important;color:#16794b!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-ready{background:#eef6ff!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-ready .route-context-prev-status{background:#dbeeff!important;border-color:#86b9e8!important;color:#0d5ea8!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-waiting{background:#fffaf0!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-waiting .route-context-prev-status{background:#fff0cf!important;border-color:#e9cb8c!important;color:#945c00!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-unscheduled{background:#f8f5fe!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-unscheduled .route-context-prev-status{background:#eee8fb!important;border-color:#cbbce9!important;color:#6549a3!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-planned{background:#f6f7fb!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-planned .route-context-prev-status{background:#eceef5!important;border-color:#c8cedc!important;color:#475467!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-scheduled,
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-running{background:#f2f7fd!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-scheduled .route-context-prev-status,
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-running .route-context-prev-status{background:#e0edfb!important;border-color:#a9c9e9!important;color:#1768b8!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-hold{background:#fff4f2!important}
+.planning-erp-version .planning-erp-matrix-table td.route-context-previous-cell.route-status-hold .route-context-prev-status{background:#ffe8e4!important;border-color:#efb9b2!important;color:#b42318!important}
 .planning-erp-version .planning-erp-matrix-table .route-context-prev-meta{
   display:block!important;max-width:180px!important;margin:2px 0 0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
   color:#667085!important;text-align:left!important;font:700 6px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace!important;
