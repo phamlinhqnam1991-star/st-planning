@@ -7605,6 +7605,86 @@
       "en": "Use Refresh AI when operational data changes. Treat AI recommendations as decision support and confirm the affected Batch / Resource / Job in the source screen before making an operational change.",
       "vi": "Dùng Refresh AI khi dữ liệu vận hành thay đổi. Xem khuyến nghị AI như hỗ trợ quyết định và xác nhận Batch / Resource / Job bị ảnh hưởng tại màn hình nguồn trước khi thay đổi vận hành.",
       "mode": "exact"
+    },
+    {
+      "en": "Planning, Scheduling and Production Execution overview with a read-only Groq database analysis agent.",
+      "vi": "Tổng quan Planning, Scheduling và Production Execution với AI Agent Groq đọc database chỉ đọc.",
+      "mode": "exact"
+    },
+    {
+      "en": "Read DB / Analyze / Recommend",
+      "vi": "Đọc DB / Phân tích / Đề xuất",
+      "mode": "exact"
+    },
+    {
+      "en": "Operations Dashboard & Groq AI — control tower and read-only database agent",
+      "vi": "Operations Dashboard & Groq AI — control tower và AI Agent database chỉ đọc",
+      "mode": "exact"
+    },
+    {
+      "en": "Deterministic KPI first; Groq starts from the Dashboard snapshot and can read deeper database evidence through controlled read-only tools",
+      "vi": "KPI deterministic là nền tảng; Groq bắt đầu từ snapshot Dashboard và có thể đọc sâu thêm bằng chứng database qua các tool chỉ đọc có kiểm soát",
+      "mode": "exact"
+    },
+    {
+      "en": "Groq AI Agent",
+      "vi": "Groq AI Agent",
+      "mode": "exact"
+    },
+    {
+      "en": "Snapshot + read-only DB tools",
+      "vi": "Snapshot + tool DB chỉ đọc",
+      "mode": "exact"
+    },
+    {
+      "en": "Groq starts with the structured Dashboard snapshot. When Ask AI needs deeper evidence, the server exposes controlled read-only tools for public application tables/views, Job context, Batch context, daily operations and ST logic. No write tool is exposed, so AI cannot create/delete Batch, change Recipe, move Schedule, change READY/WAIT, edit configuration or update Production Execution.",
+      "vi": "Groq bắt đầu với snapshot Dashboard có cấu trúc. Khi Ask AI cần bằng chứng sâu hơn, server cung cấp các tool chỉ đọc có kiểm soát cho bảng/view ứng dụng public, ngữ cảnh Job, Batch, vận hành theo ngày và logic ST. Không có tool ghi nên AI không thể tạo/xóa Batch, đổi Recipe, di chuyển Schedule, đổi READY/WAIT, sửa cấu hình hoặc cập nhật Production Execution.",
+      "mode": "exact"
+    },
+    {
+      "en": "AI data access is visible",
+      "vi": "Quyền truy cập dữ liệu AI được hiển thị",
+      "mode": "exact"
+    },
+    {
+      "en": "The AI panel shows the initial Dashboard snapshot plus database access mode. Ask AI can discover/read application tables and aggregate filtered data through validated tools, but cannot execute arbitrary SQL. Every answer reports which tools/tables were used and how many rows were inspected.",
+      "vi": "Panel AI hiển thị snapshot Dashboard ban đầu và chế độ truy cập database. Ask AI có thể khám phá/đọc bảng ứng dụng và tổng hợp dữ liệu đã lọc qua tool được kiểm soát, nhưng không thể chạy SQL tự do. Mỗi câu trả lời báo tool/bảng đã dùng và số dòng đã đọc.",
+      "mode": "exact"
+    },
+    {
+      "en": "Ask AI keeps recent user/assistant turns for follow-up questions. Previous AI answers are conversation context only; factual evidence must come from the current Dashboard snapshot or database tool results from the current request.",
+      "vi": "Ask AI giữ các lượt hỏi/đáp gần đây để hỏi tiếp. Câu trả lời AI trước chỉ là ngữ cảnh hội thoại; bằng chứng dữ kiện phải đến từ snapshot Dashboard hiện tại hoặc kết quả tool database của yêu cầu hiện tại.",
+      "mode": "exact"
+    },
+    {
+      "en": "If GROQ_API_KEY is missing, Groq times out, rate-limits, a read-only tool fails, or the provider is unavailable, the normal Dashboard still loads and all deterministic KPI remain usable. The server also normalizes malformed AI output to the structured dashboard schema when possible.",
+      "vi": "Nếu thiếu GROQ_API_KEY, Groq timeout, bị rate-limit, tool chỉ đọc lỗi hoặc provider không khả dụng, Dashboard vẫn tải và toàn bộ KPI deterministic vẫn dùng được. Server cũng chuẩn hóa output AI sai format về schema Dashboard khi có thể.",
+      "mode": "exact"
+    },
+    {
+      "en": "GROQ_API_KEY stays server-side in Vercel Environment Variables. GROQ_MODEL selects the model. GROQ_AI_MAX_TOOL_ROUNDS optionally limits database tool rounds (default 4) to protect the free Groq quota without changing Dashboard business logic.",
+      "vi": "GROQ_API_KEY được giữ phía server trong Vercel Environment Variables. GROQ_MODEL chọn model. GROQ_AI_MAX_TOOL_ROUNDS tùy chọn giới hạn số vòng tool database (mặc định 4) để bảo vệ quota Groq miễn phí mà không đổi logic nghiệp vụ Dashboard.",
+      "mode": "exact"
+    },
+    {
+      "en": "The Groq panel automatically analyzes the same date snapshot after the Dashboard loads without deep database reads unless needed.",
+      "vi": "Panel Groq tự động phân tích snapshot cùng ngày sau khi Dashboard tải mà không đọc sâu database nếu chưa cần.",
+      "mode": "exact"
+    },
+    {
+      "en": "Use Test connection to verify provider/model/tool readiness and open AI data access to see the read-only database boundary.",
+      "vi": "Dùng Kiểm tra kết nối để xác minh provider/model/tool sẵn sàng và mở Quyền dữ liệu AI để xem ranh giới database chỉ đọc.",
+      "mode": "exact"
+    },
+    {
+      "en": "Use a suggested question or type a question in Ask AI. For specific Job/Batch/Area/Resource/logic questions, the agent calls the minimum read-only tools needed. The input clears immediately after Enter/Ask and the answer is appended to the visible conversation history.",
+      "vi": "Dùng câu hỏi gợi ý hoặc nhập câu hỏi trong Ask AI. Với câu hỏi cụ thể về Job/Batch/Area/Resource/logic, agent chỉ gọi số tool đọc tối thiểu cần thiết. Ô nhập được xóa ngay sau Enter/Ask và câu trả lời được thêm vào lịch sử hội thoại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Under each AI answer, review Data used for this answer to see tool names, tables and inspected row counts.",
+      "vi": "Dưới mỗi câu trả lời AI, xem Dữ liệu đã dùng cho câu trả lời này để biết tên tool, bảng và số dòng đã đọc.",
+      "mode": "exact"
     }
   ]
 }

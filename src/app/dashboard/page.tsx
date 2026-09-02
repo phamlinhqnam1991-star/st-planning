@@ -39,7 +39,7 @@ export default async function DashboardPage({searchParams}:{searchParams:Promise
     <div>
      <div className="erp-object-eyebrow">OPERATIONS · CONTROL TOWER</div>
      <h2>ST Planning Dashboard</h2>
-     <p>Planning, Scheduling and Production Execution overview with read-only Groq AI analysis.</p>
+     <p>Planning, Scheduling and Production Execution overview with a read-only Groq database analysis agent.</p>
     </div>
     <div className="dashboard-date-nav">
      <Link className="btn" href={`/dashboard?date=${prev}`}>‹ Previous</Link>
@@ -54,7 +54,7 @@ export default async function DashboardPage({searchParams}:{searchParams:Promise
      <div className={`dashboard-health ${attention.toLowerCase()}`}><span>OPERATIONS HEALTH</span><b>{attention}</b></div>
      <div><span>Selected production day</span><b>{displayDate(date)}</b></div>
      <div><span>AI Provider</span><b>Groq</b></div>
-     <div><span>AI mode</span><b>Read / Analyze / Recommend</b></div>
+     <div><span>AI mode</span><b>Read DB / Analyze / Recommend</b></div>
     </section>
 
     <section className="dashboard-kpi-grid">

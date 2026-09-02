@@ -712,29 +712,30 @@ export default async function Page(){
     </div>
    </Section>
 
-   <Section id="dashboard" title="12 · Operations Dashboard & Groq AI — control tower and read-only analysis"
-    sub="Deterministic KPI first; Groq reads a structured snapshot and returns management analysis without changing Planning / Batch / Schedule">
+   <Section id="dashboard" title="12 · Operations Dashboard & Groq AI — control tower and read-only database agent"
+    sub="Deterministic KPI first; Groq starts from the Dashboard snapshot and can read deeper database evidence through controlled read-only tools">
     <Chain steps={[
      {t:"Operational Sources",d:"Open Jobs · Planning Chain · Batch · Schedule · Execution",c:"blue"},
      {t:"Dashboard KPI Engine",d:"Counts · workload · delay · conflict · 7-day trend",c:"teal"},
-     {t:"Groq AI",d:"Analyze · explain · recommend",c:"green"},
+     {t:"Groq AI Agent",d:"Snapshot + read-only DB tools",c:"green"},
      {t:"Planner / Manager",d:"Review and decide",c:"orange"},
     ]}/>
     <div className="lg-key lg-key-2">
      <Rule title="Dashboard remains deterministic" tone="important">Open Jobs, READY, Unscheduled Backlog, Scheduled Today, Execution WAITING / ON-GOING / DONE, delayed work, resource load and schedule conflicts are calculated by application / SQL logic. AI does not calculate or replace these source-of-truth values.</Rule>
-     <Rule title="Groq is read-only">Groq receives only the structured Dashboard snapshot. It may summarize bottlenecks, risks, priority workload and recommendations, but it cannot create/delete Batch, change Recipe, move Schedule, change READY/WAIT or update Production Execution.</Rule>
+     <Rule title="Groq is read-only">Groq starts with the structured Dashboard snapshot. When Ask AI needs deeper evidence, the server exposes controlled read-only tools for public application tables/views, Job context, Batch context, daily operations and ST logic. No write tool is exposed, so AI cannot create/delete Batch, change Recipe, move Schedule, change READY/WAIT, edit configuration or update Production Execution.</Rule>
      <Rule title="AI connection is explicit">Dashboard shows Groq connection state and provides <b>Test connection</b>. The test checks provider access and configured model availability without exposing GROQ_API_KEY to the browser.</Rule>
-     <Rule title="AI data scope is visible">The AI panel lists exactly which Dashboard snapshot sections/fields are sent to Groq and the row limits. Groq does not receive unrestricted database access; if a requested fact is outside the snapshot, the answer must say that more source data is required.</Rule>
-     <Rule title="Conversation keeps context, not new facts">Ask AI keeps recent user/assistant turns for follow-up questions. Previous AI answers are conversation context only; the current Dashboard snapshot remains the only factual source.</Rule>
-     <Rule title="AI failure does not block operations">If GROQ_API_KEY is missing, Groq times out, rate-limits, or the provider is unavailable, the normal Dashboard still loads and all deterministic KPI remain usable. If Groq responds in non-JSON text, the panel shows the text fallback instead of incorrectly reporting a connection failure.</Rule>
-     <Rule title="Server-side provider configuration">GROQ_API_KEY stays server-side in Vercel Environment Variables. The default production model is configured by GROQ_MODEL and can be changed later without changing Dashboard business logic.</Rule>
+     <Rule title="AI data access is visible">The AI panel shows the initial Dashboard snapshot plus database access mode. Ask AI can discover/read application tables and aggregate filtered data through validated tools, but cannot execute arbitrary SQL. Every answer reports which tools/tables were used and how many rows were inspected.</Rule>
+     <Rule title="Conversation keeps context, not new facts">Ask AI keeps recent user/assistant turns for follow-up questions. Previous AI answers are conversation context only; factual evidence must come from the current Dashboard snapshot or database tool results from the current request.</Rule>
+     <Rule title="AI failure does not block operations">If GROQ_API_KEY is missing, Groq times out, rate-limits, a read-only tool fails, or the provider is unavailable, the normal Dashboard still loads and all deterministic KPI remain usable. The server also normalizes malformed AI output to the structured dashboard schema when possible.</Rule>
+     <Rule title="Server-side provider configuration">GROQ_API_KEY stays server-side in Vercel Environment Variables. GROQ_MODEL selects the model. GROQ_AI_MAX_TOOL_ROUNDS optionally limits database tool rounds (default 4) to protect the free Groq quota without changing Dashboard business logic.</Rule>
     </div>
     <StepList items={[
      <>Open <b>Operations → Dashboard</b> and select the production date.</>,
      <>Review Operations Health, KPI, Area Execution, Resource Workload, delayed risk, READY queue and 7-day trend.</>,
-     <>The Groq panel automatically analyzes the same date snapshot after the Dashboard loads.</>,
-     <>Use <b>Test connection</b> to verify Groq/provider/model status and open <b>AI data scope</b> to see exactly what the model can read.</>,
-     <>Use a suggested question or type a question in <b>Ask AI</b>. The input clears immediately after Enter/Ask and the answer is appended to the visible conversation history.</>,
+     <>The Groq panel automatically analyzes the same date snapshot after the Dashboard loads without deep database reads unless needed.</>,
+     <>Use <b>Test connection</b> to verify provider/model/tool readiness and open <b>AI data access</b> to see the read-only database boundary.</>,
+     <>Use a suggested question or type a question in <b>Ask AI</b>. For specific Job/Batch/Area/Resource/logic questions, the agent calls the minimum read-only tools needed. The input clears immediately after Enter/Ask and the answer is appended to the visible conversation history.</>,
+     <>Under each AI answer, review <b>Data used for this answer</b> to see tool names, tables and inspected row counts.</>,
      <>Use <b>Refresh AI</b> when operational data changes. Treat AI recommendations as decision support and confirm the affected Batch / Resource / Job in the source screen before making an operational change.</>
     ]}/>
    </Section>
