@@ -14,9 +14,9 @@ export default function Page(){
    <section className="erp-content">
     <ConfigPageHeader
      title="Process Requirement Import Filter"
-     subtitle="Store only Process Requirements required by Recipe Rules or explicitly marked Keep by the planner."
-     purpose="Reduce md_process_requirement size: active MD:REQ Recipe Rules are retained automatically; the planner marks only additional Requirements that must remain available for lookup. Blank values are not imported."
-     impact="After changing a Rule or Keep setting, re-import Master to synchronize Requirements. Cleanup truncates only md_process_requirement; Part, Routing, Planning Chain, Batch, Schedule and Production Execution are untouched."
+     subtitle="Part-level Gate first, then store only Process Requirements required by Recipe Rules or explicitly marked Keep."
+     purpose="Reduce md_process_requirement size in two levels: a Part/Revision Gate can skip all 38 Requirements (default ST = NO), then active MD:REQ Recipe Rules + Manual Keep decide which non-blank values remain."
+     impact="After changing a Gate, Recipe Rule or Keep setting, re-import Master to synchronize Requirements. Blocked Part/Revision rows are removed even when source hash is unchanged. Cleanup truncates only md_process_requirement."
      prev={{label:"Recipe & Batch Rules",href:"/recipe-operation-map"}}
      next={{label:"Open Job Column Values",href:"/open-job-column-values"}}
     />

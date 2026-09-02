@@ -54,7 +54,7 @@ export function MasterImporter(){
    if(d.bridgeRebuildRun){
     await finishIncrementalBridge(d.bridgeRebuildRun as BridgeRun);
    }
-   setStatus(`Hoàn tất: ${d.sourceRows.toLocaleString()} dòng · Mới ${d.newRows.toLocaleString()} · Thay đổi ${d.changedRows.toLocaleString()} · Không đổi ${d.unchangedRows.toLocaleString()} · Process Requirement ${Number(d.requirementRows||0).toLocaleString()} dòng / ${Array.isArray(d.requiredRequirementCodes)?d.requiredRequirementCodes.length:0} mã.`);
+   setStatus(`Hoàn tất: ${d.sourceRows.toLocaleString()} dòng · Mới ${d.newRows.toLocaleString()} · Thay đổi ${d.changedRows.toLocaleString()} · Không đổi ${d.unchangedRows.toLocaleString()} · Gate bỏ ${Number(d.requirementGateSkippedParts||0).toLocaleString()} Part/Rev · Process Requirement ${Number(d.requirementRows||0).toLocaleString()} dòng / ${Array.isArray(d.requiredRequirementCodes)?d.requiredRequirementCodes.length:0} mã.`);
    setTimeout(()=>location.reload(),1800);
   }catch(e){
    setStatus(`Lỗi: ${e instanceof Error?e.message:String(e)}${String(e).includes("Bridge")?". Dữ liệu import có thể đã lưu; vào ST Operation Flow để tiếp tục cập nhật chuỗi công đoạn.":""}`);

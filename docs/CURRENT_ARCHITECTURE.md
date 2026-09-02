@@ -37,11 +37,13 @@ This presentation order does not change READY / WAIT, Batch, Schedule, or Auto P
 
 ## Process Requirement storage
 
-`Active MD:REQ Recipe Rules + Manual Keep -> Filtered Master Import -> md_process_requirement`
+`Part/Revision Gate -> Active MD:REQ Recipe Rules + Manual Keep -> Filtered Master Import -> md_process_requirement`
 
-- `md_process_requirement` is no longer a full 38-column-per-Part/Revision expansion.
-- Only supported Requirement codes referenced by an active `md_main_operation_recipe.selection_rule` (`MD:REQ:*`) or marked in `md_process_requirement_keep` are imported. Blank values are skipped.
-- Requirement extraction runs even for UNCHANGED Part/Revision source hashes so a one-time TRUNCATE followed by re-import of the same Master Excel rebuilds only the small required subset.
+- V375 adds configurable **Part/Revision Gate Rules** before Requirement-row import. Default migration 070 seeds `ST = NO`.
+- If any active Gate Rule matches a Master row, that Part/Revision stores **zero** `md_process_requirement` rows. For example `ST = NO` removes/skips all 38 Process Requirements for that Part/Revision, including the ST row itself.
+- Gate evaluation runs even for UNCHANGED Part/Revision source hashes. Re-import removes old Process Requirement rows belonging to a newly blocked Part/Revision.
+- Parts that pass the Gate use the V374 second-level filter: only supported Requirement codes referenced by an active `md_main_operation_recipe.selection_rule` (`MD:REQ:*`) or marked in `md_process_requirement_keep` are imported; blank values are skipped.
+- Requirement extraction runs even for UNCHANGED source hashes so a one-time TRUNCATE followed by re-import of the same Master Excel rebuilds only the small required subset.
 - Planning Chain derives the active MD:REQ code set first and queries only those Requirement codes; it no longer scans all active Process Requirement rows.
 - Recipe & Batch Rules still expose all 38 supported Master Requirement fields for configuration even when the filtered table currently contains no rows for a code.
 

@@ -11,7 +11,16 @@ export type ProcessRequirementUsage={
  operations:string[];
 };
 
+export type ProcessRequirementGateRule={
+ id:number;
+ requirementCode:string;
+ blockedValues:string[];
+ isActive:boolean;
+ note:string;
+};
+
 export const normalizeRequirementCode=(value:unknown)=>String(value??"").trim().replace(/\s+/g," ").toUpperCase();
+export const normalizeRequirementValue=(value:unknown)=>String(value??"").trim().replace(/\s+/g," ").toUpperCase();
 
 const HEADER_BY_NORMALIZED=new Map(
  PROCESS_REQUIREMENT_HEADERS.map(code=>[normalizeRequirementCode(code),String(code)])
@@ -75,10 +84,47 @@ export async function loadManualProcessRequirementKeepCodes(c:PoolClient):Promis
  }
 }
 
+export async function loadProcessRequirementGateRules(c:PoolClient):Promise<ProcessRequirementGateRule[]>{
+ try{
+  const q=await c.query(`
+   select id,requirement_code,blocked_values,is_active,note
+   from public.md_process_requirement_gate_rule
+   order by requirement_code,id
+  `);
+  return q.rows.map((row:any)=>( {
+   id:Number(row.id),
+   requirementCode:canonicalRequirementCode(row.requirement_code),
+   blockedValues:Array.isArray(row.blocked_values)
+    ? row.blocked_values.map((value:unknown)=>normalizeRequirementValue(value)).filter(Boolean)
+    : [],
+   isActive:Boolean(row.is_active),
+   note:String(row.note??"").trim(),
+  }));
+ }catch(error:any){
+  // Migration 070 may not have been applied yet. No gate is safer than failing Master Import.
+  if(error?.code==="42P01")return [];
+  throw error;
+ }
+}
+
+export function isPartBlockedByProcessRequirementGate(
+ sourceRow:Record<string,unknown>,
+ rules:ProcessRequirementGateRule[]
+):{blocked:boolean;rule:ProcessRequirementGateRule|null;value:string}{
+ for(const rule of rules){
+  if(!rule.isActive||!rule.blockedValues.length)continue;
+  const canonical=canonicalRequirementCode(rule.requirementCode);
+  const value=normalizeRequirementValue(sourceRow[canonical]);
+  if(value&&rule.blockedValues.includes(value))return {blocked:true,rule,value};
+ }
+ return {blocked:false,rule:null,value:""};
+}
+
 export async function loadEffectiveProcessRequirementCodes(c:PoolClient){
- const [usage,manualKeep]=await Promise.all([
+ const [usage,manualKeep,gateRules]=await Promise.all([
   loadRecipeRequirementUsage(c),
   loadManualProcessRequirementKeepCodes(c),
+  loadProcessRequirementGateRules(c),
  ]);
  const effective=new Map<string,string>();
  for(const item of usage)effective.set(normalizeRequirementCode(item.requirementCode),canonicalRequirementCode(item.requirementCode));
@@ -88,6 +134,7 @@ export async function loadEffectiveProcessRequirementCodes(c:PoolClient){
  return {
   usage,
   manualKeep,
+  gateRules,
   effectiveCodes:[...effective.values()].sort((a,b)=>a.localeCompare(b)),
   importableCodes:importable.sort((a,b)=>a.localeCompare(b)),
   unknownCodes:unknown.sort((a,b)=>a.localeCompare(b)),

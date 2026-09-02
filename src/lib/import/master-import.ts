@@ -2,7 +2,11 @@ import ExcelJS from "exceljs";
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { ST_OPERATION_SCOPE, LEGACY_ROUTING_SUMMARIES, OPERATION_HEADERS, MATERIAL_FINISH_HEADERS, PROCESS_REQUIREMENT_HEADERS } from "@/data/master-config";
-import {loadEffectiveProcessRequirementCodes,normalizeRequirementCode} from "@/lib/process-requirement-filter";
+import {
+ isPartBlockedByProcessRequirementGate,
+ loadEffectiveProcessRequirementCodes,
+ normalizeRequirementCode,
+} from "@/lib/process-requirement-filter";
 
 type Obj=Record<string,unknown>;
 const clean=(v:unknown)=>v==null?"":String(v).trim();
@@ -145,8 +149,20 @@ export async function importMasterXlsx(filePath:string,c:PoolClient,batchId:stri
  const requirementFilter=await loadEffectiveProcessRequirementCodes(c);
  const requiredRequirementCodes=new Set(requirementFilter.importableCodes.map(normalizeRequirementCode));
  const workbook=new ExcelJS.stream.xlsx.WorkbookReader(filePath,{worksheets:"emit",sharedStrings:"cache",styles:"ignore",hyperlinks:"ignore"});
- let sourceRows=0,routingRows=0,requirementRows=0,newRows=0,changedRows=0,unchangedRows=0; const seenOps=new Set<string>();
+ let sourceRows=0,routingRows=0,requirementRows=0,newRows=0,changedRows=0,unchangedRows=0,requirementGateSkippedParts=0; const seenOps=new Set<string>();
  let partRows:unknown[][]=[],revRows:unknown[][]=[],finishRows:unknown[][]=[],reqRows:unknown[][]=[],routeRows:unknown[][]=[],snapshotRows:unknown[][]=[],recipeRows:unknown[][]=[],opRecipeRows:unknown[][]=[],partRecipeRows:unknown[][]=[];
+ let blockedRequirementParts:{part:string;rev:string}[]=[];
+ const flushBlockedRequirementParts=async(force=false)=>{
+  if(blockedRequirementParts.length<500&&!force)return;
+  if(!blockedRequirementParts.length)return;
+  const chunk=blockedRequirementParts.splice(0,blockedRequirementParts.length);
+  const parts=chunk.map(x=>x.part),revs=chunk.map(x=>x.rev);
+  await c.query(`
+   delete from public.md_process_requirement r
+   using unnest($1::text[],$2::text[]) as x(part_num,revision_num)
+   where r.part_num=x.part_num and r.revision_num=x.revision_num
+  `,[parts,revs]);
+ };
  const flush=async(force=false)=>{
   if(partRows.length>=1000||force){await upsertRows(c,"public.md_part",["part_num","part_description","program","part_cluster","surface_dm2","is_active","updated_at","last_import_batch_id"],partRows,["part_num"]);partRows=[]}
   if(revRows.length>=3000||force){await upsertRows(c,"public.md_part_revision",["part_num","revision_num","is_active","updated_at","last_import_batch_id"],revRows,["part_num","revision_num"]);revRows=[]}
@@ -160,17 +176,27 @@ export async function importMasterXlsx(filePath:string,c:PoolClient,batchId:stri
  };
  for await(const ws of workbook){let headers:string[]=[];for await(const row of ws){const vals=(row.values as unknown[]).slice(1);if(!headers.length){headers=vals.map(clean);continue}const o:Obj={};headers.forEach((h,i)=>o[h]=vals[i]);const part=clean(o.PartNum),rev=clean(o.RevisionNum);if(!part||!rev)continue;sourceRows++;
   const key=`${part}\u0001${rev}`,hash=createHash("sha256").update(headers.map(h=>clean(o[h])).join("\u001f")).digest("hex"),previous=existing.get(key);snapshotRows.push([part,rev,hash,batchId,new Date()]);
-  // v374: Requirement import is independent from the Part/Revision source hash.
-  // A controlled TRUNCATE + re-import can therefore repopulate only required
-  // MD:REQ rows even when the Master Excel itself is unchanged.
-  for(const h of PROCESS_REQUIREMENT_HEADERS){
-   if(!requiredRequirementCodes.has(normalizeRequirementCode(h)))continue;
-   const v=clean(o[h]);
-   if(!v)continue;
-   reqRows.push([part,rev,h,v,true,new Date(),batchId]);
-   requirementRows++;
+  // v375: apply Part/Revision-level gate BEFORE any Requirement row is written.
+  // Example: ST = NO -> store ZERO Process Requirement rows for this Part/Rev.
+  // Gate evaluation is independent from the source hash so changing a Gate Rule
+  // and re-importing the same Master also removes old rows for UNCHANGED parts.
+  const requirementGate=isPartBlockedByProcessRequirementGate(o,requirementFilter.gateRules);
+  if(requirementGate.blocked){
+   requirementGateSkippedParts++;
+   blockedRequirementParts.push({part,rev});
+   if(blockedRequirementParts.length>=500)await flushBlockedRequirementParts();
+  }else{
+   // v374 filtered import remains the second-level filter:
+   // Active MD:REQ Recipe Rule OR Manual Keep, and non-blank value only.
+   for(const h of PROCESS_REQUIREMENT_HEADERS){
+    if(!requiredRequirementCodes.has(normalizeRequirementCode(h)))continue;
+    const v=clean(o[h]);
+    if(!v)continue;
+    reqRows.push([part,rev,h,v,true,new Date(),batchId]);
+    requirementRows++;
+   }
   }
-  if(previous===hash){unchangedRows++;if(sourceRows%1000===0)await flush();continue} previous==null?newRows++:changedRows++;
+  if(previous===hash){unchangedRows++;if(sourceRows%1000===0){await flush();await flushBlockedRequirementParts();}continue} previous==null?newRows++:changedRows++;
   await c.query("update md_routing_detailed set is_active=false,last_import_batch_id=$3,updated_at=now() where part_num=$1 and revision_num=$2",[part,rev,batchId]); await c.query("update md_process_requirement set is_active=false,last_import_batch_id=$3,updated_at=now() where part_num=$1 and revision_num=$2",[part,rev,batchId]); await c.query("update md_part_process_recipe set is_active=false,last_import_batch_id=$3,updated_at=now() where part_num=$1 and revision_num=$2",[part,rev,batchId]);
   partRows.push([part,clean(o.PartDescription)||null,clean(o.Program)||null,clean(o.PartCluster)||null,num(o["Surface (dm2)"]),true,new Date(),batchId]);revRows.push([part,rev,true,new Date(),batchId]);finishRows.push([part,rev,...MATERIAL_FINISH_HEADERS.map(h=>clean(o[h])||null),true,new Date(),batchId]);
   for(const pr of paintRecipeSourcesFromRow(o)){
@@ -214,10 +240,17 @@ export async function importMasterXlsx(filePath:string,c:PoolClient,batchId:stri
      true,new Date(),batchId
    ]);
   }
-  const ops=OPERATION_HEADERS.map((h,i)=>({seq:(i+1)*10,code:clean(o[h])})).filter(x=>x.code);for(const x of ops)seenOps.add(x.code);for(const x of detailOps(ops))routeRows.push([part,rev,x.seq,x.code,x.next==="END"?null:x.next,x.detailCode,x.detailName,true,new Date(),batchId]);if(sourceRows%500===0)await flush();}}
+  const ops=OPERATION_HEADERS.map((h,i)=>({seq:(i+1)*10,code:clean(o[h])})).filter(x=>x.code);for(const x of ops)seenOps.add(x.code);for(const x of detailOps(ops))routeRows.push([part,rev,x.seq,x.code,x.next==="END"?null:x.next,x.detailCode,x.detailName,true,new Date(),batchId]);if(sourceRows%500===0){await flush();await flushBlockedRequirementParts();}}}
  await flush(true);
+ await flushBlockedRequirementParts(true);
  for(const table of ["md_part_revision","md_routing_detailed","md_material_finish","md_process_requirement","md_part_process_recipe"]){await c.query(`update ${table} d set is_active=false,updated_at=now(),last_import_batch_id=$1 where d.is_active=true and not exists(select 1 from md_source_snapshot s where s.part_num=d.part_num and s.revision_num=d.revision_num and s.last_seen_batch_id=$1)`,[batchId])}
  await c.query(`update md_part p set is_active=false,updated_at=now() where p.is_active=true and not exists(select 1 from md_source_snapshot s where s.part_num=p.part_num and s.last_seen_batch_id=$1)`,[batchId]);
  const opRows=[...seenOps].map(x=>[x,x,true,new Date(),batchId]);for(let i=0;i<opRows.length;i+=3000)await upsertRows(c,"public.md_operation",["operation_code","operation_name","is_active","updated_at","last_import_batch_id"],opRows.slice(i,i+3000),["operation_code"]);
- return {sourceRows,routingRows,requirementRows,newRows,changedRows,unchangedRows,requiredRequirementCodes:requirementFilter.importableCodes,ignoredUnknownRequirementCodes:requirementFilter.unknownCodes};
+ return {
+  sourceRows,routingRows,requirementRows,newRows,changedRows,unchangedRows,
+  requirementGateSkippedParts,
+  requirementGateRules:requirementFilter.gateRules.filter(x=>x.isActive).map(x=>({requirementCode:x.requirementCode,blockedValues:x.blockedValues})),
+  requiredRequirementCodes:requirementFilter.importableCodes,
+  ignoredUnknownRequirementCodes:requirementFilter.unknownCodes
+ };
 }

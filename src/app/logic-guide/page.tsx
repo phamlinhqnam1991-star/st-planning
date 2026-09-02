@@ -414,12 +414,13 @@ export default async function Page(){
 
     <details className="erp-details">
      <summary><b>⑩ Process Requirement Import Filter</b></summary>
-     <p>Giảm dung lượng <code>md_process_requirement</code> theo logic: <b>Active MD:REQ Recipe Rule + Manual Keep</b>. Chỉ những code trong tập này và có value không rỗng mới được ghi khi Import Master.</p>
+     <p>Giảm dung lượng <code>md_process_requirement</code> theo 2 tầng: <b>Part/Revision Gate → Active MD:REQ Recipe Rule + Manual Keep</b>. Gate mặc định V375 là <b>ST = NO</b>.</p>
      <div className="lg-key lg-key-2">
-      <Rule title="Không hard-code code đang dùng">Recipe Rule active tự động quyết định Requirement bắt buộc. Manual Keep chỉ dùng khi planner muốn giữ thêm Requirement để tra cứu dù chưa có rule.</Rule>
-      <Rule title="Re-import cả khi UNCHANGED" tone="important">V374 vẫn đọc các cột Requirement cần thiết trên mọi Part/Revision, kể cả source hash UNCHANGED. Vì vậy có thể TRUNCATE riêng bảng Requirement rồi import lại cùng file Master để dựng lại tập dữ liệu nhỏ.</Rule>
+      <Rule title="Part-level Gate" tone="important">Nếu một Gate active khớp, ví dụ <code>ST = NO</code>, Part/Revision đó lưu <b>0 Process Requirement row</b>; toàn bộ 38 Requirement đều bị bỏ, kể cả dòng ST. Gate có thể cấu hình thêm Requirement/blocked value khác.</Rule>
+      <Rule title="Không hard-code code đang dùng">Nếu Part vượt Gate, Recipe Rule active tự động quyết định Requirement bắt buộc. Manual Keep chỉ dùng khi planner muốn giữ thêm Requirement để tra cứu dù chưa có rule; value rỗng vẫn bỏ.</Rule>
+      <Rule title="Re-import cả khi UNCHANGED" tone="important">V375 đánh giá Gate và đọc Requirement cần thiết trên mọi Part/Revision, kể cả source hash UNCHANGED. Nếu Gate mới chặn một Part/Revision, Import Master lại sẽ xóa Requirement cũ của Part đó.</Rule>
      </div>
-     <div className="notice"><b>Cleanup:</b> TRUNCATE chỉ <code>md_process_requirement</code> rồi Import Master lại. Không xóa Part, Routing, Planning Chain, Batch, Schedule hay Production Execution.</div>
+     <div className="notice"><b>Cleanup:</b> chạy migration 069 + 070, kiểm tra Gate, TRUNCATE chỉ <code>md_process_requirement</code> rồi Import Master lại. Không xóa Part, Routing, Planning Chain, Batch, Schedule hay Production Execution.</div>
     </details>
 
     <details className="erp-details">
