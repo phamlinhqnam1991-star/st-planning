@@ -3557,11 +3557,6 @@
       "mode": "exact"
     },
     {
-      "en": "Operations",
-      "vi": "Vận hành",
-      "mode": "exact"
-    },
-    {
       "en": "Look up the full Job lifecycle: All Open Job → Routing → Planning → Recipe → Batch → Scheduling → Handover.",
       "vi": "Tra cứu toàn bộ vòng đời Job: All Open Job → Routing → Planning → Recipe → Batch → Điều độ → Handover.",
       "mode": "exact"
@@ -4142,7 +4137,7 @@
       "mode": "phrase"
     },
     {
-      "en": "Board Điều Độ provides Batch / Resource / Planned Time. Masking / Unmasking provides support work. This page stores only execution status and Actual Start/End.",
+      "en": "Scheduling Board provides Batch / Resource / Planned Time. Masking / Unmasking provides support work. This page stores only execution status and Actual Start/End.",
       "vi": "Board Điều Độ cung cấp Batch / Resource / thời gian kế hoạch. Masking / Unmasking cung cấp công việc hỗ trợ. Trang này chỉ lưu trạng thái thực hiện và thời gian bắt đầu/kết thúc thực tế.",
       "mode": "phrase"
     },
@@ -4209,6 +4204,2971 @@
     {
       "en": "Production worklist & completion reporting",
       "vi": "Danh sách việc & báo cáo hoàn thành",
+      "mode": "exact"
+    },
+    {
+      "en": "Job × Main Operation matrix · select READY to create a new Batch or add the Job to a Batch.",
+      "vi": "Ma trận Job × Main Operation · chọn READY để tạo mới hoặc bổ sung Job vào Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Select an Area or Main Operation to narrow the planning scope.",
+      "vi": "Chọn khu vực hoặc Main Operation để thu hẹp phạm vi kế hoạch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Build Batch",
+      "vi": "Lập Batch",
+      "mode": "exact"
+    },
+    {
+      "en": "Select a READY cell in the matrix to start building a Batch.",
+      "vi": "Chọn một cell READY trong ma trận để bắt đầu tạo Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Jobs",
+      "vi": "Số Job",
+      "mode": "exact"
+    },
+    {
+      "en": "Total Qty",
+      "vi": "Tổng Qty",
+      "mode": "exact"
+    },
+    {
+      "en": "Total Surface",
+      "vi": "Tổng diện tích",
+      "mode": "exact"
+    },
+    {
+      "en": "Target Batch",
+      "vi": "Batch đích",
+      "mode": "exact"
+    },
+    {
+      "en": "System layout",
+      "vi": "Bố cục hệ thống",
+      "mode": "exact"
+    },
+    {
+      "en": "Area layout",
+      "vi": "Bố cục khu vực",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save the default layout.",
+      "vi": "Không lưu được bố cục mặc định.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save the Default View.",
+      "vi": "Không lưu được Default View.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not check Batch grouping conditions.",
+      "vi": "Không kiểm tra được điều kiện gom Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not check Batch Compatibility.",
+      "vi": "Không kiểm tra được Batch Compatibility.",
+      "mode": "exact"
+    },
+    {
+      "en": "Select at least 1 Candidate Job.",
+      "vi": "Chọn ít nhất 1 Candidate Job.",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe and Batch conditions are being checked. Please wait a moment.",
+      "vi": "Đang kiểm tra Recipe và điều kiện Batch. Vui lòng chờ một chút.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not determine the Main Operation.",
+      "vi": "Không xác định được Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not determine the Standard Operation.",
+      "vi": "Không xác định được Standard Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "A Batch can contain Jobs from only one Main Operation.",
+      "vi": "Một Batch chỉ được chứa Job của cùng Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "A Batch can contain Jobs from only one Standard Operation.",
+      "vi": "Một Batch chỉ được chứa Job của cùng Standard Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Displayed data is not fully synchronized; click Apply to reload.",
+      "vi": "Dữ liệu hiển thị chưa đồng bộ hết; bấm Áp dụng để nạp lại.",
+      "mode": "exact"
+    },
+    {
+      "en": "The list is not fully updated; click Apply & load Candidates if needed.",
+      "vi": "Danh sách chưa cập nhật hết; bấm Áp dụng & nạp Candidate nếu cần.",
+      "mode": "exact"
+    },
+    {
+      "en": "Rebuilding the Planning Chain…",
+      "vi": "Đang dựng lại chuỗi kế hoạch…",
+      "mode": "exact"
+    },
+    {
+      "en": "Rebuilding Planning Chain...",
+      "vi": "Đang dựng lại Planning Chain...",
+      "mode": "exact"
+    },
+    {
+      "en": "This operation has no Main Operation configured.",
+      "vi": "Công đoạn này chưa xác định được Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "The previous Main Operation has not been completed or scheduled.",
+      "vi": "Main Operation trước chưa hoàn tất hoặc chưa được lập lịch.",
+      "mode": "exact"
+    },
+    {
+      "en": "This Main Operation is not ready yet. Only the next operation in the chain can be READY.",
+      "vi": "Chưa tới lượt Main Operation này. Chỉ công đoạn kế tiếp trong chuỗi mới được READY.",
+      "mode": "exact"
+    },
+    {
+      "en": "The Next Main Planning step is not ready yet. Only the Main immediately after handoff can be READY.",
+      "vi": "Next Main Planning chưa tới lượt. Chỉ Main ngay sau handoff mới được READY.",
+      "mode": "exact"
+    },
+    {
+      "en": "Full screen",
+      "vi": "Toàn màn hình",
+      "mode": "exact"
+    },
+    {
+      "en": "Exit full screen",
+      "vi": "Thoát toàn màn hình",
+      "mode": "exact"
+    },
+    {
+      "en": "Comparing…",
+      "vi": "Đang so sánh…",
+      "mode": "exact"
+    },
+    {
+      "en": "⇄ Compare Recipes",
+      "vi": "⇄ So sánh Recipe",
+      "mode": "exact"
+    },
+    {
+      "en": "The left columns and header row will be frozen. Press Esc to cancel.",
+      "vi": "Các cột bên trái và hàng tiêu đề sẽ được cố định. Nhấn Esc để hủy.",
+      "mode": "exact"
+    },
+    {
+      "en": "in the table — the left columns and header row will be frozen (ESC to cancel).",
+      "vi": "trong bảng — các cột bên trái và dòng tiêu đề sẽ được ghìm (ESC để hủy).",
+      "mode": "exact"
+    },
+    {
+      "en": "Freeze through",
+      "vi": "Ghim đến",
+      "mode": "exact"
+    },
+    {
+      "en": "Freeze through column",
+      "vi": "Ghim đến cột",
+      "mode": "exact"
+    },
+    {
+      "en": "✓ Confirm",
+      "vi": "✓ Chốt",
+      "mode": "exact"
+    },
+    {
+      "en": "⇄ Compare Recipe Configuration ↔ Board",
+      "vi": "⇄ So sánh Cấu hình Recipe ↔ Board",
+      "mode": "exact"
+    },
+    {
+      "en": "Operation Codes of ELIGIBLE Jobs waiting on the board — without a mapping, a Job shows \"No Recipe\".",
+      "vi": "Operation Code của các Job ELIGIBLE đang chờ trên board — nếu chưa có mapping thì Job báo \"Chưa có Recipe\".",
+      "mode": "exact"
+    },
+    {
+      "en": "Reference Job",
+      "vi": "Job tham chiếu",
+      "mode": "exact"
+    },
+    {
+      "en": "Sample Job",
+      "vi": "Job mẫu",
+      "mode": "exact"
+    },
+    {
+      "en": "Configuration is not currently used",
+      "vi": "Cấu hình hiện chưa được sử dụng",
+      "mode": "exact"
+    },
+    {
+      "en": "The mapping exists but currently matches no ELIGIBLE Job on the board.",
+      "vi": "Mapping đã tạo nhưng hiện không khớp Job ELIGIBLE nào trên board.",
+      "mode": "exact"
+    },
+    {
+      "en": "Issue",
+      "vi": "Vấn đề",
+      "mode": "exact"
+    },
+    {
+      "en": "Every enabled configuration matches at least one Job in the current scope.",
+      "vi": "Mọi cấu hình đang bật đều khớp ít nhất một Job trong phạm vi hiện tại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Every active mapping matches at least 1 Job on the board.",
+      "vi": "Mọi mapping đang hoạt động đều khớp ít nhất 1 Job trên board.",
+      "mode": "exact"
+    },
+    {
+      "en": "Display settings",
+      "vi": "Thiết lập hiển thị",
+      "mode": "exact"
+    },
+    {
+      "en": "Sort order",
+      "vi": "Thứ tự sắp xếp",
+      "mode": "exact"
+    },
+    {
+      "en": "+ Add level",
+      "vi": "+ Thêm mức",
+      "mode": "exact"
+    },
+    {
+      "en": "Select and reorder columns.",
+      "vi": "Chọn và sắp xếp cột.",
+      "mode": "exact"
+    },
+    {
+      "en": "Columns moved before/after the group are displayed separately.",
+      "vi": "Cột được kéo ra trước/sau nhóm sẽ hiển thị riêng.",
+      "mode": "exact"
+    },
+    {
+      "en": "Hide all",
+      "vi": "Ẩn tất cả",
+      "mode": "exact"
+    },
+    {
+      "en": "Open Job · outside group",
+      "vi": "Open Job · ngoài nhóm",
+      "mode": "exact"
+    },
+    {
+      "en": "All Open Job columns are inside the group by default. Move a column Before/After the group to separate it; the checkbox only controls visibility.",
+      "vi": "Tất cả cột All Open Job mặc định ở trong nhóm. Đưa Trước/Sau nhóm để tách cột ra; checkbox chỉ điều khiển ẩn/hiện.",
+      "mode": "exact"
+    },
+    {
+      "en": "Hidden",
+      "vi": "Đang ẩn",
+      "mode": "exact"
+    },
+    {
+      "en": "Filter Jobs by NextOperation. Check/uncheck to change visible operations immediately; if more data is needed, click “Apply & load Candidates”.",
+      "vi": "Lọc Job theo NextOperation. Tick/bỏ tick để đổi ngay các công đoạn đang xem; nếu cần nạp thêm dữ liệu, bấm “Áp dụng & nạp Candidate”.",
+      "mode": "exact"
+    },
+    {
+      "en": "Save the operation scope and reload data",
+      "vi": "Lưu phạm vi công đoạn và nạp lại dữ liệu",
+      "mode": "exact"
+    },
+    {
+      "en": "Save selection and reload Candidates",
+      "vi": "Lưu lựa chọn và nạp lại Candidate",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save the operation scope.",
+      "vi": "Không lưu được phạm vi công đoạn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save the ST OPERATION VIEW.",
+      "vi": "Không lưu được VIEW CÔNG ĐOẠN ST.",
+      "mode": "exact"
+    },
+    {
+      "en": "Apply and reload",
+      "vi": "Áp dụng và nạp lại",
+      "mode": "exact"
+    },
+    {
+      "en": "Apply & load Candidates",
+      "vi": "Áp dụng & nạp Candidate",
+      "mode": "exact"
+    },
+    {
+      "en": "No operation selected. Select at least one Operation Code to display Jobs.",
+      "vi": "Chưa chọn công đoạn. Chọn ít nhất một Operation Code để hiển thị Job.",
+      "mode": "exact"
+    },
+    {
+      "en": "All selections cleared — Candidate Jobs are EMPTY (no Jobs shown). Check the boxes above to display Jobs again.",
+      "vi": "Đã bỏ hết — Candidate Jobs TRỐNG (không hiện job nào). Tick lại các ô bên trên để hiện.",
+      "mode": "exact"
+    },
+    {
+      "en": "rows · scroll down to load more.",
+      "vi": "dòng · cuộn xuống để tải thêm.",
+      "mode": "exact"
+    },
+    {
+      "en": "rows — scroll down to load more.",
+      "vi": "dòng — cuộn xuống để tải thêm.",
+      "mode": "exact"
+    },
+    {
+      "en": "not empty",
+      "vi": "không rỗng",
+      "mode": "exact"
+    },
+    {
+      "en": "empty",
+      "vi": "rỗng",
+      "mode": "exact"
+    },
+    {
+      "en": "Conditions are inherited from the Target Batch",
+      "vi": "Điều kiện đang kế thừa từ Batch đích",
+      "mode": "exact"
+    },
+    {
+      "en": "Conditions are saved on the current Target Batch",
+      "vi": "Điều kiện được lưu theo Target Batch hiện tại",
+      "mode": "exact"
+    },
+    {
+      "en": "All conditions are used by default; uncheck some to include more Jobs with the same Recipe",
+      "vi": "Mặc định dùng toàn bộ điều kiện; có thể bỏ chọn để mở rộng Job cùng Recipe",
+      "mode": "exact"
+    },
+    {
+      "en": "All conditions are selected by default; uncheck conditions to include more Jobs with the same Recipe",
+      "vi": "Mặc định tích tất cả; bỏ tích condition để mở thêm Job cùng Recipe",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipes are not consistent",
+      "vi": "Recipe không đồng nhất",
+      "mode": "exact"
+    },
+    {
+      "en": "Jobs do not have a Recipe — configure it at",
+      "vi": "Job chưa có Recipe — cấu hình tại",
+      "mode": "exact"
+    },
+    {
+      "en": "Analyzing…",
+      "vi": "Đang phân tích…",
+      "mode": "exact"
+    },
+    {
+      "en": "View reason",
+      "vi": "Xem lý do",
+      "mode": "exact"
+    },
+    {
+      "en": "🔍 View reason",
+      "vi": "🔍 Xem lý do",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe Diagnosis",
+      "vi": "Chẩn đoán Recipe",
+      "mode": "exact"
+    },
+    {
+      "en": "🔍 Recipe Diagnosis",
+      "vi": "🔍 Chẩn đoán Recipe",
+      "mode": "exact"
+    },
+    {
+      "en": "Existing Recipe configurations for",
+      "vi": "Các cấu hình Recipe hiện có cho",
+      "mode": "exact"
+    },
+    {
+      "en": "Existing mappings for",
+      "vi": "Các mapping hiện có cho",
+      "mode": "exact"
+    },
+    {
+      "en": "Conclusion:",
+      "vi": "Kết luận:",
+      "mode": "exact"
+    },
+    {
+      "en": "Operation Code Order must be an integer >= 0 or left blank.",
+      "vi": "Operation Code Order phải là số nguyên >= 0 hoặc để trống.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save Operation Code Order.",
+      "vi": "Không lưu được Operation Code Order.",
+      "mode": "exact"
+    },
+    {
+      "en": "Saving will refresh the operation chain for related Jobs. If Main/Routing changes, rebuild Auto Bridge after saving. Batch/Schedule history is not deleted. Continue?",
+      "vi": "Lưu sẽ cập nhật lại chuỗi công đoạn cho các Job liên quan. Nếu thay đổi Main/Routing, hãy dựng lại Auto Bridge sau khi lưu. Lịch sử Batch/Schedule không bị xóa. Tiếp tục?",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save ST Operation Flow.",
+      "vi": "Không lưu được ST Operation Flow.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not process Auto Bridge rebuild.",
+      "vi": "Không xử lý được Auto Bridge rebuild.",
+      "mode": "exact"
+    },
+    {
+      "en": "Data processing reached 100%; click Complete to retry.",
+      "vi": "Dữ liệu đã xử lý 100%; bấm Hoàn tất để thử lại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Rebuild all Auto Bridges? The system will scan the full ST Routing Chain. If interrupted, it can resume; Planning Board continues using the current configuration until rebuild finishes. Continue?",
+      "vi": "Dựng lại toàn bộ Auto Bridge? Hệ thống sẽ quét toàn bộ ST Routing Chain. Nếu bị gián đoạn có thể tiếp tục lại; Planning Board vẫn dùng cấu hình hiện tại cho tới khi rebuild hoàn tất. Tiếp tục?",
+      "mode": "exact"
+    },
+    {
+      "en": "Click Complete to retry.",
+      "vi": "Bấm Hoàn tất để thử lại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Cancel the in-progress rebuild and start over? The current Bridge configuration is retained until the new rebuild finishes.",
+      "vi": "Hủy lần rebuild đang dở và làm lại từ đầu? Cấu hình Bridge hiện tại vẫn được giữ cho tới khi rebuild mới hoàn tất.",
+      "mode": "exact"
+    },
+    {
+      "en": "Manual Bridge: add at least 1 Intermediate Operation.",
+      "vi": "Manual Bridge: thêm ít nhất 1 Intermediate Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save Manual Bridge Segment.",
+      "vi": "Không lưu được Manual Bridge Segment.",
+      "mode": "exact"
+    },
+    {
+      "en": "Manual Bridge saved. MANUAL has priority over AUTO for the same LastLaborOp + NextOperation. Rebuild Chain to apply it to current Candidates.",
+      "vi": "Đã lưu Manual Bridge. MANUAL sẽ ưu tiên hơn AUTO khi cùng LastLaborOp + NextOperation. Hãy Rebuild Chain để áp dụng cho Candidate hiện tại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not deactivate Manual Bridge.",
+      "vi": "Không ngưng được Manual Bridge.",
+      "mode": "exact"
+    },
+    {
+      "en": "Manual Bridge deactivated. Rebuild Chain so Candidates use Auto Bridge again when available.",
+      "vi": "Đã ngưng Manual Bridge. Hãy Rebuild Chain để Candidate dùng lại Auto Bridge nếu có.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not deactivate ST Operation.",
+      "vi": "Không deactivate được ST Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Main Planning / ST Scope Only Configuration Assistant",
+      "vi": "Trợ lý cấu hình Main Planning / ST Scope Only",
+      "mode": "exact"
+    },
+    {
+      "en": "Select where it runs and who owns it",
+      "vi": "Chọn nơi chạy, ai lo",
+      "mode": "exact"
+    },
+    {
+      "en": "Synchronizing...",
+      "vi": "Đang đồng bộ...",
+      "mode": "exact"
+    },
+    {
+      "en": "Save + Rebuild Chain",
+      "vi": "Lưu + Dựng lại chuỗi",
+      "mode": "exact"
+    },
+    {
+      "en": "SET",
+      "vi": "ĐẶT",
+      "mode": "exact"
+    },
+    {
+      "en": "↻ Rebuild Auto Bridge",
+      "vi": "↻ Dựng lại Auto Bridge",
+      "mode": "exact"
+    },
+    {
+      "en": "No Segment in this filter. AUTO uses Rebuild; MANUAL uses the form above.",
+      "vi": "Chưa có Segment trong bộ lọc này. AUTO dùng Rebuild; MANUAL dùng form phía trên.",
+      "mode": "exact"
+    },
+    {
+      "en": "Select an Operation Code",
+      "vi": "Chọn mã công đoạn",
+      "mode": "exact"
+    },
+    {
+      "en": "Operation & Group",
+      "vi": "Công đoạn & Nhóm",
+      "mode": "exact"
+    },
+    {
+      "en": "Assign Main Planning",
+      "vi": "Gán Main Planning",
+      "mode": "exact"
+    },
+    {
+      "en": "Area & Planner",
+      "vi": "Khu vực & Planner",
+      "mode": "exact"
+    },
+    {
+      "en": "Operation List",
+      "vi": "Danh sách Operation",
+      "mode": "exact"
+    },
+    {
+      "en": "Source Code",
+      "vi": "Mã nguồn",
+      "mode": "exact"
+    },
+    {
+      "en": "ST Group",
+      "vi": "Nhóm ST",
+      "mode": "exact"
+    },
+    {
+      "en": "Physical Area",
+      "vi": "Khu vật lý",
+      "mode": "phrase"
+    },
+    {
+      "en": "Schedule Area",
+      "vi": "Khu điều độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "Automatic",
+      "vi": "Tự động",
+      "mode": "exact"
+    },
+    {
+      "en": "Remove from ST",
+      "vi": "Bỏ khỏi ST",
+      "mode": "exact"
+    },
+    {
+      "en": "Edit / Move",
+      "vi": "Sửa / Chuyển",
+      "mode": "exact"
+    },
+    {
+      "en": "Operation name cannot be blank.",
+      "vi": "Tên công đoạn không được để trống.",
+      "mode": "exact"
+    },
+    {
+      "en": "The system will update related Planning/Recipe/Batch links.",
+      "vi": "Hệ thống sẽ cập nhật các liên kết Planning/Recipe/Batch liên quan.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not rename the operation.",
+      "vi": "Không đổi được tên công đoạn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save Planning Order.",
+      "vi": "Không lưu được Planning Order.",
+      "mode": "exact"
+    },
+    {
+      "en": "Batch number prefix must be exactly 3 characters A-Z or 0-9.",
+      "vi": "Tiền tố số lô phải đúng 3 ký tự A-Z hoặc 0-9.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save Batch Prefix.",
+      "vi": "Không lưu được Batch Prefix.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not add Main Operation.",
+      "vi": "Không thêm được Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Activate",
+      "vi": "Kích hoạt",
+      "mode": "exact"
+    },
+    {
+      "en": "Permanent deletion is allowed only when no Mapping / Recipe / Planning / Batch / history reference remains.",
+      "vi": "Chỉ xóa được khi không còn Mapping / Recipe / Planning / Batch / lịch sử tham chiếu.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not delete Main Operation.",
+      "vi": "Không xóa được Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Hide deactivated operations",
+      "vi": "Ẩn công đoạn ngưng",
+      "mode": "exact"
+    },
+    {
+      "en": "Show deactivated operations",
+      "vi": "Hiện công đoạn ngưng",
+      "mode": "exact"
+    },
+    {
+      "en": "Rename",
+      "vi": "Đổi tên",
+      "mode": "exact"
+    },
+    {
+      "en": "ACTIVE",
+      "vi": "ĐANG DÙNG",
+      "mode": "phrase"
+    },
+    {
+      "en": "Define the lane/resource used on Scheduling Board.",
+      "vi": "Định nghĩa lane/resource dùng trên Board Điều Độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "After creating a lane, assign Main Operations in the list below.",
+      "vi": "Sau khi tạo lane, gán Main Operation ở danh sách bên dưới.",
+      "mode": "exact"
+    },
+    {
+      "en": "ST Groups are loaded dynamically from Area Master. Selecting a Group checks all Main Operations currently in that Group; saved data remains Main Operation so Scheduling Board / Auto Plan logic does not change.",
+      "vi": "ST Group lấy động từ Area Master. Chọn một Group sẽ đánh dấu toàn bộ Main Operation hiện thuộc Group đó; dữ liệu lưu vẫn là Main Operation để không thay logic Board Điều Độ / Auto Plan.",
+      "mode": "exact"
+    },
+    {
+      "en": "Add scheduling area",
+      "vi": "Thêm khu vực điều độ",
+      "mode": "exact"
+    },
+    {
+      "en": "Lane code",
+      "vi": "Mã lane",
+      "mode": "exact"
+    },
+    {
+      "en": "Display name",
+      "vi": "Tên hiển thị",
+      "mode": "exact"
+    },
+    {
+      "en": "Use Resource Group only",
+      "vi": "Chỉ dùng nhóm Resource",
+      "mode": "exact"
+    },
+    {
+      "en": "Both Planners",
+      "vi": "Cả hai Planner",
+      "mode": "exact"
+    },
+    {
+      "en": "Order",
+      "vi": "Thứ tự",
+      "mode": "exact"
+    },
+    {
+      "en": "Default row count",
+      "vi": "Số dòng mặc định",
+      "mode": "exact"
+    },
+    {
+      "en": "Manual scheduling",
+      "vi": "Điều độ tay",
+      "mode": "exact"
+    },
+    {
+      "en": "Allows the Planner to assign Resource/Start/Duration directly.",
+      "vi": "Cho phép planner gán trực tiếp Resource/Start/Duration.",
+      "mode": "exact"
+    },
+    {
+      "en": "Save area",
+      "vi": "Lưu khu vực",
+      "mode": "exact"
+    },
+    {
+      "en": "Do not change Main Operation mapping when editing lane information.",
+      "vi": "Không thay mapping Main Operation khi sửa thông tin lane.",
+      "mode": "exact"
+    },
+    {
+      "en": "This mapping determines which lane can schedule each Main Operation.",
+      "vi": "Mapping này quyết định lane nào có thể điều độ từng Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Save assignments",
+      "vi": "Lưu gán",
+      "mode": "exact"
+    },
+    {
+      "en": "Assign Operations",
+      "vi": "Gán công đoạn",
+      "mode": "exact"
+    },
+    {
+      "en": "1 Operation Code can be assigned multiple Recipes — applies to ALL operations",
+      "vi": "1 Operation Code có thể gán nhiều Recipe — áp dụng cho MỌI công đoạn",
+      "mode": "exact"
+    },
+    {
+      "en": "The system AUTO-SELECTS a Recipe when adding a Job to a Batch in this order:",
+      "vi": "Hệ thống TỰ CHỌN Recipe khi chọn Job vào lô theo thứ tự:",
+      "mode": "exact"
+    },
+    {
+      "en": "matching Job conditions → Priority (lowest number first) → Default → most recently updated",
+      "vi": "điều kiện khớp Job → Priority (số nhỏ trước) → Mặc định → cập nhật trước",
+      "mode": "exact"
+    },
+    {
+      "en": "shows the default order of the Operation Code; the actual Recipe still depends on each Job's conditions.",
+      "vi": "thể hiện thứ tự mặc định của Operation Code; Recipe thực tế vẫn phụ thuộc điều kiện của từng Job.",
+      "mode": "exact"
+    },
+    {
+      "en": "Multiple Rules for the same Recipe:",
+      "vi": "Nhiều Rule cùng Recipe:",
+      "mode": "exact"
+    },
+    {
+      "en": "to create another rule without overwriting.",
+      "vi": "để tạo thêm rule mà không ghi đè.",
+      "mode": "exact"
+    },
+    {
+      "en": "Apply to Job (optional)",
+      "vi": "Áp dụng cho Job (tùy chọn)",
+      "mode": "exact"
+    },
+    {
+      "en": "Leave blank = apply to EVERY Job of this operation. Matching conditions → this Recipe is preferred for that Job.",
+      "vi": "Để trống = áp dụng cho MỌI Job của công đoạn này. Khớp điều kiện → recipe này được ưu tiên chọn cho đúng Job đó.",
+      "mode": "exact"
+    },
+    {
+      "en": "— Select column —",
+      "vi": "— Chọn cột —",
+      "mode": "exact"
+    },
+    {
+      "en": "Loading values...",
+      "vi": "Đang tải giá trị...",
+      "mode": "exact"
+    },
+    {
+      "en": "— Select a unique value —",
+      "vi": "— Chọn giá trị unique —",
+      "mode": "exact"
+    },
+    {
+      "en": "Value...",
+      "vi": "Giá trị...",
+      "mode": "exact"
+    },
+    {
+      "en": "+ Add condition",
+      "vi": "+ Thêm điều kiện",
+      "mode": "exact"
+    },
+    {
+      "en": "operation codes are missing — click \"Configure\" to fill the form above",
+      "vi": "mã công đoạn còn thiếu — bấm \"Cấu hình\" để điền form bên trên",
+      "mode": "exact"
+    },
+    {
+      "en": "All Open Job column values",
+      "vi": "Giá trị cột All Open Job",
+      "mode": "exact"
+    },
+    {
+      "en": "values",
+      "vi": "giá trị",
+      "mode": "exact"
+    },
+    {
+      "en": "columns",
+      "vi": "cột",
+      "mode": "exact"
+    },
+    {
+      "en": "Rescan data",
+      "vi": "Quét lại dữ liệu",
+      "mode": "exact"
+    },
+    {
+      "en": "All columns",
+      "vi": "Tất cả cột",
+      "mode": "exact"
+    },
+    {
+      "en": "50 / page",
+      "vi": "50 / trang",
+      "mode": "exact"
+    },
+    {
+      "en": "100 / page",
+      "vi": "100 / trang",
+      "mode": "exact"
+    },
+    {
+      "en": "200 / page",
+      "vi": "200 / trang",
+      "mode": "exact"
+    },
+    {
+      "en": "New column (e.g. NextOperation)",
+      "vi": "Cột mới (vd NextOperation)",
+      "mode": "exact"
+    },
+    {
+      "en": "New value",
+      "vi": "Giá trị mới",
+      "mode": "exact"
+    },
+    {
+      "en": "Add value",
+      "vi": "Thêm giá trị",
+      "mode": "exact"
+    },
+    {
+      "en": "Source column",
+      "vi": "Cột nguồn",
+      "mode": "exact"
+    },
+    {
+      "en": "Source value",
+      "vi": "Giá trị nguồn",
+      "mode": "exact"
+    },
+    {
+      "en": "Opening ERP Planning Board…",
+      "vi": "Đang mở ERP Planning Board…",
+      "mode": "exact"
+    },
+    {
+      "en": "LOADING",
+      "vi": "ĐANG TẢI",
+      "mode": "exact"
+    },
+    {
+      "en": "Loading filters and planning matrix…",
+      "vi": "Đang tải bộ lọc và ma trận kế hoạch…",
+      "mode": "exact"
+    },
+    {
+      "en": "Products",
+      "vi": "Sản phẩm",
+      "mode": "exact"
+    },
+    {
+      "en": "Product catalog",
+      "vi": "Danh mục Part",
+      "mode": "exact"
+    },
+    {
+      "en": "Full routing by Part + Revision",
+      "vi": "Routing đầy đủ theo Part + Revision",
+      "mode": "exact"
+    },
+    {
+      "en": "Standardized ST routing catalog",
+      "vi": "Danh mục routing ST chuẩn hóa",
+      "mode": "exact"
+    },
+    {
+      "en": "Standardized ST operation chain",
+      "vi": "Chuỗi operation ST chuẩn hóa",
+      "mode": "exact"
+    },
+    {
+      "en": "Master Data Overview",
+      "vi": "Tổng quan Master Data",
+      "mode": "exact"
+    },
+    {
+      "en": "data groups",
+      "vi": "nhóm dữ liệu",
+      "mode": "exact"
+    },
+    {
+      "en": "Source operation from Master file",
+      "vi": "Operation nguồn từ file Master",
+      "mode": "exact"
+    },
+    {
+      "en": "Process requirement by Part + Revision",
+      "vi": "Yêu cầu process theo Part + Revision",
+      "mode": "exact"
+    },
+    {
+      "en": "Source operation",
+      "vi": "Operation nguồn",
+      "mode": "exact"
+    },
+    {
+      "en": "Process requirement",
+      "vi": "Yêu cầu process",
+      "mode": "exact"
+    },
+    {
+      "en": "Connection error:",
+      "vi": "Lỗi kết nối:",
+      "mode": "exact"
+    },
+    {
+      "en": "Data to review:",
+      "vi": "Cần kiểm tra dữ liệu:",
+      "mode": "exact"
+    },
+    {
+      "en": "Open",
+      "vi": "Mở",
+      "mode": "exact"
+    },
+    {
+      "en": "Deactivate",
+      "vi": "Ngưng",
+      "mode": "exact"
+    },
+    {
+      "en": "Remove",
+      "vi": "Bỏ",
+      "mode": "exact"
+    },
+    {
+      "en": "Yes",
+      "vi": "Có",
+      "mode": "exact"
+    },
+    {
+      "en": "No",
+      "vi": "Không",
+      "mode": "exact"
+    },
+    {
+      "en": "Close",
+      "vi": "Đóng",
+      "mode": "exact"
+    },
+    {
+      "en": "Job has not been added to a Batch.",
+      "vi": "Job chưa được đưa vào Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "most recent event",
+      "vi": "sự kiện gần nhất",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not load data:",
+      "vi": "Không tải được dữ liệu:",
+      "mode": "exact"
+    },
+    {
+      "en": "Please try again.",
+      "vi": "Vui lòng thử lại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Enter the exact Part Number...",
+      "vi": "Nhập chính xác Part Number...",
+      "mode": "exact"
+    },
+    {
+      "en": "Scheduling Table · Planner 1 + Planner 2 Summary",
+      "vi": "Bảng điều độ · Tổng hợp Planner 1 + Planner 2",
+      "mode": "exact"
+    },
+    {
+      "en": "No Batch is scheduled for this date.",
+      "vi": "Chưa có Batch được xếp lịch cho ngày này.",
+      "mode": "exact"
+    },
+    {
+      "en": "Warning",
+      "vi": "Cảnh báo",
+      "mode": "exact"
+    },
+    {
+      "en": "Create the Area first, then assign ST Groups to the Area in the table below.",
+      "vi": "Tạo Area trước, sau đó gán ST Group vào Area ở bảng bên dưới.",
+      "mode": "exact"
+    },
+    {
+      "en": "Only Area information is updated; ST Group mapping is managed separately.",
+      "vi": "Chỉ cập nhật thông tin Area; mapping ST Group được quản lý riêng.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save Auto Planning Rule.",
+      "vi": "Không lưu được Auto Planning Rule.",
+      "mode": "exact"
+    },
+    {
+      "en": "Any",
+      "vi": "Bất kỳ",
+      "mode": "exact"
+    },
+    {
+      "en": "Require previous operation to be completed",
+      "vi": "Yêu cầu công đoạn trước hoàn thành",
+      "mode": "exact"
+    },
+    {
+      "en": "No priority configured; the system uses the default Job order.",
+      "vi": "Chưa đặt ưu tiên; hệ thống dùng thứ tự Job mặc định.",
+      "mode": "exact"
+    },
+    {
+      "en": "Select at least one Job to add to the Batch.",
+      "vi": "Chọn ít nhất một Job để thêm vào Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not add Job to Batch.",
+      "vi": "Không thêm được Job vào Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not remove Job from Batch.",
+      "vi": "Không bỏ được Job khỏi Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "to complete the configuration.",
+      "vi": "để bổ sung cấu hình.",
+      "mode": "exact"
+    },
+    {
+      "en": "A rule requires at least 1 condition.",
+      "vi": "Rule cần ít nhất 1 điều kiện.",
+      "mode": "exact"
+    },
+    {
+      "en": "ALL — all conditions must be true",
+      "vi": "ALL — mọi điều kiện đều đúng",
+      "mode": "exact"
+    },
+    {
+      "en": "ANY — at least 1 condition must be true",
+      "vi": "ANY — ít nhất 1 điều kiện đúng",
+      "mode": "exact"
+    },
+    {
+      "en": "PAINT|PRIMER|{PRIMER1} — {COLUMN} uses the Job's actual value",
+      "vi": "PAINT|PRIMER|{PRIMER1} — {COT} lấy giá trị thật của Job",
+      "mode": "exact"
+    },
+    {
+      "en": "Batch number pattern",
+      "vi": "Mẫu mã lô",
+      "mode": "exact"
+    },
+    {
+      "en": "Prefix",
+      "vi": "Tiền tố",
+      "mode": "exact"
+    },
+    {
+      "en": "No rules yet. Create the first rule above.",
+      "vi": "Chưa có rule nào. Tạo rule đầu tiên ở phía trên.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not load Recipe.",
+      "vi": "Không tải được Recipe.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not update Recipe.",
+      "vi": "Không sửa được Recipe.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not delete Batch.",
+      "vi": "Không xóa được Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Duration must be in HH:MM format and greater than 00:00.",
+      "vi": "Duration phải theo HH:MM và lớn hơn 00:00.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save rule.",
+      "vi": "Không lưu được rule.",
+      "mode": "exact"
+    },
+    {
+      "en": "These Jobs cannot enter Planning Board through the correct flow yet.",
+      "vi": "Các Job này chưa thể đi vào Planning Board đúng flow.",
+      "mode": "exact"
+    },
+    {
+      "en": "Source Operation is not fully mapped to Main Operation.",
+      "vi": "Source Operation chưa map đầy đủ vào Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe / Batch Rule is incomplete",
+      "vi": "Recipe / Batch Rule chưa hoàn chỉnh",
+      "mode": "exact"
+    },
+    {
+      "en": "A Job may not get a Recipe proposal or may fail to create a Batch according to the rule.",
+      "vi": "Job có thể không đề xuất được Recipe hoặc không tạo Batch đúng rule.",
+      "mode": "exact"
+    },
+    {
+      "en": "Needs attention",
+      "vi": "Cần bổ sung",
+      "mode": "exact"
+    },
+    {
+      "en": "Standardized foundation data used throughout ST Planning.",
+      "vi": "Dữ liệu nền chuẩn hóa dùng xuyên suốt ST Planning.",
+      "mode": "exact"
+    },
+    {
+      "en": "Define Operations",
+      "vi": "Định nghĩa Operation",
+      "mode": "exact"
+    },
+    {
+      "en": "Organization & ownership",
+      "vi": "Tổ chức & trách nhiệm",
+      "mode": "exact"
+    },
+    {
+      "en": "Data dictionary used by rules",
+      "vi": "Từ điển dữ liệu dùng cho rule",
+      "mode": "exact"
+    },
+    {
+      "en": "Configuration flow in dependency order before Planning.",
+      "vi": "Luồng cấu hình theo đúng thứ tự phụ thuộc trước khi Planning.",
+      "mode": "exact"
+    },
+    {
+      "en": "Show only issues that require user action.",
+      "vi": "Chỉ hiển thị vấn đề cần người dùng xử lý.",
+      "mode": "exact"
+    },
+    {
+      "en": "Create or complete an Operation through the required configuration chain.",
+      "vi": "Tạo hoặc hoàn thiện một Operation theo đúng chuỗi cấu hình bắt buộc.",
+      "mode": "exact"
+    },
+    {
+      "en": "Assign planner responsibility by Schedule Area / Operation.",
+      "vi": "Phân chia trách nhiệm planner theo Schedule Area / Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Standard form shared by configuration screens.",
+      "vi": "Form chuẩn dùng chung cho các màn hình cấu hình.",
+      "mode": "exact"
+    },
+    {
+      "en": "Briefly shows where this configuration is used.",
+      "vi": "Hiển thị ngắn gọn nơi cấu hình này được sử dụng.",
+      "mode": "exact"
+    },
+    {
+      "en": "Search a Part to view related Master, Routing, Recipe and ST chain data.",
+      "vi": "Tìm Part để xem Master, Routing, Recipe và chuỗi ST liên quan.",
+      "mode": "exact"
+    },
+    {
+      "en": "Standardized Main Operation chain from Routing Master.",
+      "vi": "Chuỗi Main Operation đã chuẩn hóa từ Routing Master.",
+      "mode": "exact"
+    },
+    {
+      "en": "One place to find all information related to a Job, Routing, Batch and Scheduling.",
+      "vi": "Một nơi để tìm toàn bộ thông tin liên quan tới Job, Routing, Batch và điều độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Open-work snapshot and source data for Candidate Jobs.",
+      "vi": "Snapshot công việc đang mở và dữ liệu nguồn cho Candidate Jobs.",
+      "mode": "exact"
+    },
+    {
+      "en": "Job × Main Operation matrix for viewing the full chain, selecting READY and creating a Batch.",
+      "vi": "Matrix theo Job × Main Operation để nhìn toàn bộ chuỗi, chọn READY và tạo Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "The matrix locks selection to the same Main Operation.",
+      "vi": "Matrix khóa lựa chọn theo cùng Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Summary of conditions from selected Jobs.",
+      "vi": "Tóm tắt điều kiện từ các Job đang chọn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Compact timeline lane demo; drag/drop will be enabled when the real screen is migrated.",
+      "vi": "Demo lane timeline compact; kéo/thả sẽ được áp khi migrate thật.",
+      "mode": "exact"
+    },
+    {
+      "en": "First import is Full; later imports process NEW / CHANGED only, preserve history and deactivate data missing from the file.",
+      "vi": "Full lần đầu; các lần sau chỉ xử lý NEW / CHANGED, giữ lịch sử và inactive dữ liệu mất khỏi file.",
+      "mode": "exact"
+    },
+    {
+      "en": "Drag and drop or select the Master Excel file.",
+      "vi": "Kéo thả hoặc chọn file Excel Master.",
+      "mode": "exact"
+    },
+    {
+      "en": "Overall flow",
+      "vi": "Luồng tổng thể",
+      "mode": "exact"
+    },
+    {
+      "en": "Overall ST Planning flow",
+      "vi": "Luồng tổng thể ST Planning",
+      "mode": "exact"
+    },
+    {
+      "en": "From source data to Planning and Scheduling.",
+      "vi": "Từ dữ liệu nguồn đến kế hoạch và điều độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "A created Batch is then assigned Resource and time.",
+      "vi": "Batch đã tạo mới được gán tài nguyên và thời gian.",
+      "mode": "exact"
+    },
+    {
+      "en": "Every change should show which downstream functions are affected.",
+      "vi": "Mỗi thay đổi cần biết downstream nào sẽ bị tác động.",
+      "mode": "exact"
+    },
+    {
+      "en": "Clearly show downstream impact before saving configuration.",
+      "vi": "Hiển thị rõ chức năng downstream bị ảnh hưởng trước khi Save cấu hình.",
+      "mode": "exact"
+    },
+    {
+      "en": "All data on this page is sample data; it does not read/write the database. Use the tabs below to review the UI before the real migration.",
+      "vi": "Toàn bộ dữ liệu trong trang này là dữ liệu mẫu, không đọc/ghi database. Bấm các tab bên dưới để duyệt giao diện trước khi migrate thật.",
+      "mode": "exact"
+    },
+    {
+      "en": "This is the Template Kit showcase page. The data below is sample data, does not read/write the database, and does not change the current flow.",
+      "vi": "Đây là trang showcase của Template Kit. Dữ liệu bên dưới là dữ liệu mẫu, không đọc/ghi database và không thay đổi flow hiện tại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Standard UI sample for data-dense screens: page header, KPI, toolbar, grid, status and detail form.",
+      "vi": "Mẫu giao diện chuẩn cho màn hình dữ liệu mật độ cao: page header, KPI, toolbar, grid, status và form detail.",
+      "mode": "exact"
+    },
+    {
+      "en": "Search sample data",
+      "vi": "Tìm dữ liệu mẫu",
+      "mode": "exact"
+    },
+    {
+      "en": "sample rows",
+      "vi": "dòng mẫu",
+      "mode": "exact"
+    },
+    {
+      "en": "Sample create/edit form for master data or Batch properties.",
+      "vi": "Mẫu create/edit master data hoặc Batch properties.",
+      "mode": "exact"
+    },
+    {
+      "en": "Leave blank if the system generates the Batch code automatically.",
+      "vi": "Để trống nếu hệ thống tự sinh mã Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Interface language",
+      "vi": "Ngôn ngữ giao diện",
+      "mode": "exact"
+    },
+    {
+      "en": "Non-main operation (masking, unmasking, inspection, preparation…) — a Job currently here will",
+      "vi": "Công đoạn không phải công đoạn chính (che chắn, gỡ che, kiểm tra, chuẩn bị…) — Job đang ở đây sẽ",
+      "mode": "exact"
+    },
+    {
+      "en": "attach to the NEXT main operation",
+      "vi": "neo vào công đoạn chính KẾ TIẾP",
+      "mode": "exact"
+    },
+    {
+      "en": "Reason: intermediate operation",
+      "vi": "Lý do là trung gian",
+      "mode": "exact"
+    },
+    {
+      "en": "on this page to attach it again. To make an operation a main operation → add mapping for it (the \"➕ Operations not shown\" panel or Configuration → Operation Assistant).",
+      "vi": "trên trang này để neo lại. Muốn 1 công đoạn trở thành công đoạn chính → thêm mapping cho nó (panel \"➕ Operations chưa hiện\" hoặc Cấu hình → Trợ lý Operation).",
+      "mode": "exact"
+    },
+    {
+      "en": "Signing in...",
+      "vi": "Đang đăng nhập...",
+      "mode": "exact"
+    },
+    {
+      "en": "Sign in",
+      "vi": "Đăng nhập",
+      "mode": "exact"
+    },
+    {
+      "en": "blank / empty",
+      "vi": "trống / rỗng",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save row count.",
+      "vi": "Không lưu được số dòng.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not update Schedule.",
+      "vi": "Không sửa được Schedule.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not update Batch.",
+      "vi": "Không sửa được Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save order.",
+      "vi": "Không lưu được thứ tự.",
+      "mode": "exact"
+    },
+    {
+      "en": ". Select an Operation in the dropdown next to Recipe (or go to Configuration → Process Recipe → Operation Code → Recipe Mapping to map it).",
+      "vi": ". Hãy chọn Operation trong ô xổ xuống cạnh Recipe (hoặc vào Cấu hình → Process Recipe → mục Operation Code → Recipe Mapping để map).",
+      "mode": "exact"
+    },
+    {
+      "en": ". Select a Recipe so the system can find the Operation automatically, or drag the Batch from Unscheduled into a row.",
+      "vi": ". Hãy chọn Recipe để hệ thống tự tìm Operation, hoặc kéo lô từ Unscheduled vào dòng.",
+      "mode": "exact"
+    },
+    {
+      "en": "Pinned rows are kept unchanged; no other rows were suggested.",
+      "vi": "Các dòng đang giữ được giữ nguyên; không có dòng nào khác được đề xuất.",
+      "mode": "exact"
+    },
+    {
+      "en": "No rows were suggested.",
+      "vi": "Không có dòng nào được đề xuất.",
+      "mode": "exact"
+    },
+    {
+      "en": "No suggestion available.",
+      "vi": "Không đề xuất được.",
+      "mode": "exact"
+    },
+    {
+      "en": "Operation not determined",
+      "vi": "chưa xác định được Operation",
+      "mode": "exact"
+    },
+    {
+      "en": "Clear all suggested times/FB assignments in this area?",
+      "vi": "Xóa hết giờ/FB đã đề xuất ở vùng này?",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe and continuation links are preserved.",
+      "vi": "Recipe và liên kết nối tiếp được giữ nguyên.",
+      "mode": "exact"
+    },
+    {
+      "en": "Keep this row (not removed by Clear Suggestions; highlighted for tracking)",
+      "vi": "Giữ dòng này (không bị Xóa đề xuất, có màu theo dõi)",
+      "mode": "exact"
+    },
+    {
+      "en": "lane · each cabin is scheduled independently (logic unchanged)",
+      "vi": "lane · từng cabin điều độ riêng (logic giữ nguyên)",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not process Incremental Auto Bridge.",
+      "vi": "Không xử lý được Incremental Auto Bridge.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not prepare Storage upload.",
+      "vi": "Không chuẩn bị được Storage upload.",
+      "mode": "exact"
+    },
+    {
+      "en": "Comparing NEW / CHANGED...",
+      "vi": "Đang so sánh NEW / CHANGED...",
+      "mode": "exact"
+    },
+    {
+      "en": "Import can automatically refresh Auto Bridge for affected routing.",
+      "vi": "Import có thể tự cập nhật lại Auto Bridge cho routing bị ảnh hưởng.",
+      "mode": "exact"
+    },
+    {
+      "en": "Comparing NEW / CHANGED / UNCHANGED / CLOSED...",
+      "vi": "Đang so sánh NEW / CHANGED / UNCHANGED / CLOSED...",
+      "mode": "exact"
+    },
+    {
+      "en": "Open Jobs not shown on the board (ST is not configured)",
+      "vi": "Job đang mở nhưng KHÔNG hiện trên bảng (chưa cấu hình ST)",
+      "mode": "exact"
+    },
+    {
+      "en": "These Jobs' NextOperation is not declared/mapped in ST or the chain has not been rebuilt → there is no READY (ELIGIBLE) row, so the board does not show them.",
+      "vi": "NextOperation của các Job này chưa khai báo/mapping ST hoặc chain chưa dựng lại → không có dòng \"Sẵn sàng\" (ELIGIBLE) nên bảng không hiển thị.",
+      "mode": "exact"
+    },
+    {
+      "en": "Reason",
+      "vi": "Lý do",
+      "mode": "exact"
+    },
+    {
+      "en": "💡 After fixing ST configuration (declaration/mapping), open Planning Board and click",
+      "vi": "💡 Sau khi sửa cấu hình ST (khai báo/mapping), mở Planning Board và bấm",
+      "mode": "exact"
+    },
+    {
+      "en": "so these Jobs appear again. See Configuration → Overview for more guidance.",
+      "vi": "để các Job này xuất hiện trở lại. Xem thêm hướng dẫn trong Cấu hình → Tổng quan.",
+      "mode": "exact"
+    },
+    {
+      "en": "Each Operation will be created with the FULL mapping chain: ST Scope → Source→Main → Main Operation → ST Group → Physical Area → Schedule Area → Planner.",
+      "vi": "Mỗi Operation sẽ được tạo ĐỦ mapping: ST Scope → Source→Main → Công đoạn chính → Nhóm ST → Khu vật lý → Khu điều độ → Planner.",
+      "mode": "exact"
+    },
+    {
+      "en": "After adding, the system rebuilds the full operation chain (this may take tens of seconds). Continue?",
+      "vi": "Sau khi thêm, hệ thống dựng lại toàn bộ chuỗi công đoạn (có thể mất vài chục giây). Tiếp tục?",
+      "mode": "exact"
+    },
+    {
+      "en": "➕ Operations not shown on Planning Board",
+      "vi": "➕ Operations chưa hiện trên Planning Board",
+      "mode": "exact"
+    },
+    {
+      "en": "Missing Jobs. Select → fill default configuration → Add: the system automatically creates ALL related mappings.",
+      "vi": "Job mất tích. Tích chọn → điền cấu hình mặc định → Thêm: hệ thống tự tạo ĐỦ mapping liên quan.",
+      "mode": "exact"
+    },
+    {
+      "en": "Automatic per-Operation suggestion",
+      "vi": "Tự động theo gợi ý từng Operation",
+      "mode": "exact"
+    },
+    {
+      "en": "Responsible Planner",
+      "vi": "Planner phụ trách",
+      "mode": "exact"
+    },
+    {
+      "en": "If filled, this overrides Main Operation for EVERY selected Operation (leave blank to use suggestions)",
+      "vi": "Điền sẽ ghi đè Công đoạn chính cho MỌI Operation được chọn (có thể để trống = dùng gợi ý)",
+      "mode": "exact"
+    },
+    {
+      "en": "Main Operation (override, optional)",
+      "vi": "Công đoạn chính (ghi đè, tùy chọn)",
+      "mode": "exact"
+    },
+    {
+      "en": "Leave blank = use suggestion",
+      "vi": "Để trống = dùng gợi ý",
+      "mode": "exact"
+    },
+    {
+      "en": "Adding + rebuilding chain...",
+      "vi": "Đang thêm + dựng lại chuỗi...",
+      "mode": "exact"
+    },
+    {
+      "en": "Only groups ① ② ③ can be added (④ requires Rebuild Chain; ⑤ is waiting — not an error).",
+      "vi": "Chỉ các nhóm ① ② ③ mới thêm được (④ cần bấm Rebuild Chain, ⑤ là đang chờ — không phải lỗi).",
+      "mode": "exact"
+    },
+    {
+      "en": "Suggested Main Operation",
+      "vi": "Gợi ý Công đoạn chính",
+      "mode": "exact"
+    },
+    {
+      "en": "Suggested ST Group",
+      "vi": "Gợi ý Nhóm ST",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not update Operation Code.",
+      "vi": "Không cập nhật được Operation Code.",
+      "mode": "exact"
+    },
+    {
+      "en": "Jobs at this operation will no longer be in ST scope and Planning Chain will be refreshed.",
+      "vi": "Job ở công đoạn này sẽ không còn thuộc phạm vi ST và Planning Chain sẽ được cập nhật lại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not remove Operation Code.",
+      "vi": "Không remove được Operation Code.",
+      "mode": "exact"
+    },
+    {
+      "en": "Please enter ST Group, Operation Code and Main Operation.",
+      "vi": "Vui lòng nhập đủ ST Group, Operation Code và Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save mapping.",
+      "vi": "Không lưu được mapping.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not remove mapping.",
+      "vi": "Không bỏ được mapping.",
+      "mode": "exact"
+    },
+    {
+      "en": "The new mapping will be used when Planning Chain is rebuilt; Batch/Schedule history is not deleted.",
+      "vi": "Mapping mới sẽ được dùng khi dựng Planning Chain; lịch sử Batch/Schedule không bị xóa.",
+      "mode": "exact"
+    },
+    {
+      "en": "Standard Operation → Recipe (allowed list)",
+      "vi": "Standard Operation → Recipe (danh sách được phép)",
+      "mode": "exact"
+    },
+    {
+      "en": "Note:",
+      "vi": "Lưu ý:",
+      "mode": "exact"
+    },
+    {
+      "en": "do not use this table for automatic Recipe proposals",
+      "vi": "không dùng bảng này để tự đề xuất Recipe",
+      "mode": "exact"
+    },
+    {
+      "en": "No data received. Please try again.",
+      "vi": "Không nhận được dữ liệu. Vui lòng thử lại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Invalid response data. Please try again.",
+      "vi": "Dữ liệu trả về không hợp lệ. Vui lòng thử lại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not load Planner assignments.",
+      "vi": "Không tải được phân chia Planner.",
+      "mode": "exact"
+    },
+    {
+      "en": "Loading Planner assignments...",
+      "vi": "Đang tải phân chia Planner...",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not load matrix status.",
+      "vi": "Không tải được trạng thái ma trận.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not load Route Matrix.",
+      "vi": "Không tải được Route Matrix.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not refresh the Job after its Batch changed.",
+      "vi": "Không cập nhật được Job vừa thay đổi Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not refresh the Candidate after creating the Batch.",
+      "vi": "Không cập nhật được Candidate vừa tạo Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not load extended Open Job fields — the matrix still works normally.",
+      "vi": "Không tải được các trường Open Job mở rộng — ma trận vẫn hoạt động bình thường.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not load All Open Source columns (slow network) — the board still works normally.",
+      "vi": "Không tải được cột All Open Source (mạng chậm) — board vẫn hoạt động bình thường.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not load Planning Board data.",
+      "vi": "Không tải được dữ liệu Planning Board.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not load Candidate Jobs.",
+      "vi": "Không tải được Candidate Jobs.",
+      "mode": "exact"
+    },
+    {
+      "en": "Candidate loading exceeded 60s — check the connection and click Retry.",
+      "vi": "Mất quá 60s khi tải Candidate — kiểm tra kết nối và bấm Thử lại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Job data loaded, but operation status failed:",
+      "vi": "Dữ liệu Job đã tải, nhưng trạng thái công đoạn gặp lỗi:",
+      "mode": "exact"
+    },
+    {
+      "en": "Job data loaded, but Route Matrix status failed:",
+      "vi": "Dữ liệu Job đã tải, nhưng trạng thái Route Matrix gặp lỗi:",
+      "mode": "exact"
+    },
+    {
+      "en": "Synchronizing operation status…",
+      "vi": "Đang đồng bộ trạng thái công đoạn…",
+      "mode": "exact"
+    },
+    {
+      "en": "Synchronizing Route Matrix status…",
+      "vi": "Đang đồng bộ trạng thái Route Matrix…",
+      "mode": "exact"
+    },
+    {
+      "en": "Loading Planning Board UI…",
+      "vi": "Đang tải giao diện Planning Board…",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not load auxiliary Planning data.",
+      "vi": "Không tải được dữ liệu phụ Planning.",
+      "mode": "exact"
+    },
+    {
+      "en": "CACHE MISS · snapshot just built",
+      "vi": "CACHE MISS · vừa xây snapshot",
+      "mode": "exact"
+    },
+    {
+      "en": "Rebuild Snapshot",
+      "vi": "Xây lại Snapshot",
+      "mode": "exact"
+    },
+    {
+      "en": "Candidates are visible. Route Matrix for visible rows is loading progressively…",
+      "vi": "Candidate đã hiển thị. Route Matrix của các dòng đang xem đang tải dần…",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not update production status.",
+      "vi": "Không cập nhật được trạng thái sản xuất.",
+      "mode": "exact"
+    },
+    {
+      "en": "No production work matches the current filters.",
+      "vi": "Không có công việc sản xuất phù hợp bộ lọc hiện tại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Production status",
+      "vi": "Trạng thái sản xuất",
+      "mode": "exact"
+    },
+    {
+      "en": "Server+DB check FAILED within 8s — server/Next did not respond; this is not a payload error",
+      "vi": "Server+DB check FAILED trong 8s — server/Next không phản hồi, không phải lỗi payload",
+      "mode": "exact"
+    },
+    {
+      "en": "Candidate loading exceeded 60s (timeout) — check DB/network connectivity and click Retry.",
+      "vi": "Mất quá 60s khi tải Candidate (timeout) — kiểm tra kết nối DB/mạng, bấm Thử lại.",
+      "mode": "exact"
+    },
+    {
+      "en": "The server returned non-JSON content.",
+      "vi": "Máy chủ trả về nội dung không phải JSON.",
+      "mode": "exact"
+    },
+    {
+      "en": "usually because the route ran too long and was terminated (Vercel time limit) ",
+      "vi": "thường do route chạy quá lâu bị cắt (giới hạn thời gian Vercel) ",
+      "mode": "exact"
+    },
+    {
+      "en": "or the route failed. Retry; if Rebuild Chain / Import still fails → report it to the assistant.",
+      "vi": "hoặc route lỗi. Hãy thử lại; nếu là Rebuild Chain / Import mà vẫn lỗi → báo trợ lý.",
+      "mode": "exact"
+    },
+    {
+      "en": "You do not have permission to use this function.",
+      "vi": "Bạn không có quyền sử dụng chức năng này.",
+      "mode": "exact"
+    },
+    {
+      "en": "Your session has expired. Please sign in again.",
+      "vi": "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Select a different Flybar or change Loading Start time.",
+      "vi": "Hãy chọn Flybar khác hoặc đổi giờ Loading Start.",
+      "mode": "exact"
+    },
+    {
+      "en": "Change Loading Start time or select a later free slot.",
+      "vi": "Hãy đổi giờ Loading Start hoặc chọn khoảng trống sau.",
+      "mode": "exact"
+    },
+    {
+      "en": "Batch does not have Process Time. Enter Duration HH:MM.",
+      "vi": "Batch chưa có Process Time. Hãy nhập Duration HH:MM.",
+      "mode": "exact"
+    },
+    {
+      "en": "Duration must be in HH:MM format and greater than 00:00.",
+      "vi": "Duration phải theo định dạng HH:MM và lớn hơn 00:00.",
+      "mode": "phrase"
+    },
+    {
+      "en": " · CONFLICT",
+      "vi": " · XUNG ĐỘT",
+      "mode": "exact"
+    },
+    {
+      "en": "Engine resolved the route but DB has no active planning_job_operation. Rebuild Chain to synchronize.",
+      "vi": "Engine resolve được route nhưng DB chưa có planning_job_operation active. Cần Rebuild Chain để đồng bộ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Only up to 8 Apply-to-Job conditions may be declared.",
+      "vi": "Chỉ được khai báo tối đa 8 điều kiện áp dụng cho Job.",
+      "mode": "exact"
+    },
+    {
+      "en": "Error: a Batch can contain only one Standard Operation.",
+      "vi": "Lỗi: một Batch chỉ được chứa cùng Standard Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not create Batch.",
+      "vi": "Không tạo được Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "UI/architecture rewritten from scratch · Business logic uses the current standard shared APIs",
+      "vi": "UI/architecture viết lại từ đầu · Business logic dùng chung API chuẩn hiện tại",
+      "mode": "exact"
+    },
+    {
+      "en": "Technical details (copy and send to developer)",
+      "vi": "Chi tiết kỹ thuật (copy gửi cho dev)",
+      "mode": "exact"
+    },
+    {
+      "en": "Candidates are visible; Route Matrix is loading progressively for the visible rows…",
+      "vi": "Candidate đã hiển thị; Route Matrix đang tải dần cho các rows đang xem…",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not load suggested Recipe Names.",
+      "vi": "Không tải được Recipe Name đề xuất.",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe No is part of the Recipe key and cannot be changed, to preserve mappings, Batches and history.",
+      "vi": "Recipe No là một phần của khóa Recipe và không được đổi để bảo toàn mapping, Batch và lịch sử.",
+      "mode": "exact"
+    },
+    {
+      "en": "Auto-selected.",
+      "vi": "Đã tự chọn.",
+      "mode": "exact"
+    },
+    {
+      "en": "There are 2 ways to define it:",
+      "vi": "Có 2 cách khai báo:",
+      "mode": "exact"
+    },
+    {
+      "en": "when the Recipe does not exist in Open Job data. One Recipe No can still have multiple Recipe Names; the same No + Name updates and reactivates the existing Recipe.",
+      "vi": "khi Recipe chưa có trong dữ liệu Open Job. 1 Recipe No vẫn có thể có nhiều Recipe Name; cùng No + Name sẽ cập nhật và kích hoạt lại đúng Recipe đã có.",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe key is preserved:",
+      "vi": "Khóa Recipe được giữ nguyên:",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe Name returned from Process Recipe Master",
+      "vi": "Recipe Name trả về từ Process Recipe Master",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not load Open Job values.",
+      "vi": "Không tải được giá trị Open Job.",
+      "mode": "exact"
+    },
+    {
+      "en": "Each rule can have at most 8 condition columns.",
+      "vi": "Mỗi rule được tối đa 8 cột điều kiện.",
+      "mode": "exact"
+    },
+    {
+      "en": "The same column cannot be selected more than once in a Time Rule.",
+      "vi": "Không được chọn lặp cùng một cột trong một Time Rule.",
+      "mode": "exact"
+    },
+    {
+      "en": "No conditions = default rule. Multiple columns = AND. Rules matching more conditions are preferred before Priority.",
+      "vi": "Không thêm điều kiện = rule mặc định. Nhiều cột = AND. Rule khớp nhiều điều kiện hơn được ưu tiên trước Priority.",
+      "mode": "exact"
+    },
+    {
+      "en": "This rule applies to every Job of the Recipe unless a more specific conditional rule matches.",
+      "vi": "Rule này đang áp dụng cho mọi Job của Recipe nếu không có rule điều kiện cụ thể hơn match.",
+      "mode": "exact"
+    },
+    {
+      "en": "Corresponding schedules are cancelled and Jobs return to the state before Batch creation.",
+      "vi": "Lịch điều độ tương ứng bị hủy và Job được trả về trạng thái chưa lập Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Corresponding schedules are cancelled and all Jobs return to the unbatched chain.",
+      "vi": "Schedule tương ứng bị hủy và toàn bộ Job sẽ trở về chuỗi chưa lập lô.",
+      "mode": "exact"
+    },
+    {
+      "en": "This action cannot be undone.",
+      "vi": "Thao tác này không thể hoàn tác.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not reset Batches.",
+      "vi": "Không đặt lại được các Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not reset the Batches.",
+      "vi": "Không Reset được các lô.",
+      "mode": "exact"
+    },
+    {
+      "en": "Main Operation cannot be blank.",
+      "vi": "Công đoạn chính không được để trống.",
+      "mode": "exact"
+    },
+    {
+      "en": "The system will update mappings and rebuild the full operation chain (this may take tens of seconds). Continue?",
+      "vi": "Hệ thống sẽ cập nhật mapping và dựng lại toàn bộ chuỗi công đoạn (có thể mất vài chục giây). Tiếp tục?",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not save.",
+      "vi": "Không lưu được.",
+      "mode": "exact"
+    },
+    {
+      "en": "• Jobs at this operation will NO LONGER appear on Planning Board (immediately).",
+      "vi": "• Job của công đoạn này sẽ KHÔNG hiện trên Planning Board nữa (ngay lập tức).",
+      "mode": "exact"
+    },
+    {
+      "en": "• This is a QUICK action — it does not rebuild the full chain; use Rebuild Chain on Planning Board later when convenient to clean up.",
+      "vi": "• Thao tác NHANH — không dựng lại toàn bộ chuỗi; nên bấm Rebuild Chain trên Planning Board để làm sạch khi thuận tiện.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not remove.",
+      "vi": "Không bỏ được.",
+      "mode": "exact"
+    },
+    {
+      "en": "to edit the configuration here (Main Operation, group, area, lane, planner); after saving, the system automatically rebuilds the chain.",
+      "vi": "để chỉnh cấu hình ngay tại đây (công đoạn chính, nhóm, khu vực, lane, planner); lưu xong hệ thống tự dựng lại chuỗi.",
+      "mode": "exact"
+    },
+    {
+      "en": "Jobs currently visible",
+      "vi": "Job đang hiện",
+      "mode": "exact"
+    },
+    {
+      "en": "💡 Editing here applies immediately: updates Source→Main Mapping, Main Master, ST Group, Physical Area, Schedule Area, Planner, then rebuilds the full operation chain.",
+      "vi": "💡 Sửa tại đây áp dụng ngay: cập nhật Source→Main Mapping, Main Master, Nhóm ST, Khu vật lý, Khu điều độ, Planner rồi dựng lại toàn bộ chuỗi công đoạn.",
+      "mode": "exact"
+    },
+    {
+      "en": "foundation",
+      "vi": "nền tảng",
+      "mode": "exact"
+    },
+    {
+      "en": "Attach Main Operations to groups, Physical Areas, scheduling lanes and responsible Planners.",
+      "vi": "Gắn Main Operation vào nhóm, khu vực vật lý, lane điều độ và Planner phụ trách.",
+      "mode": "exact"
+    },
+    {
+      "en": "Configure Recipe proposals, Batch Keys, compatibility conditions and value sources from All Open Jobs.",
+      "vi": "Cấu hình Recipe proposal, Batch Key, điều kiện tương thích và nguồn giá trị từ All Open Job.",
+      "mode": "exact"
+    },
+    {
+      "en": "Define standard times used when creating Batches and Scheduling.",
+      "vi": "Định nghĩa thời gian chuẩn dùng khi tạo Batch và điều độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "The ST Routing/Main Planning source changed during Rebuild. Cancel & restart to avoid mixing two generations.",
+      "vi": "Nguồn ST Routing/Main Planning đã thay đổi trong lúc Rebuild. Hãy Hủy & làm lại để tránh trộn hai generation.",
+      "mode": "exact"
+    },
+    {
+      "en": "The Auto Bridge rebuild run was cancelled; create a new Full Rebuild.",
+      "vi": "Auto Bridge rebuild run đã bị hủy; hãy tạo Full Rebuild mới.",
+      "mode": "exact"
+    },
+    {
+      "en": "The ST Routing/Main Planning source changed after Rebuild started. Do not Finalize the old generation; Cancel & restart.",
+      "vi": "Nguồn ST Routing/Main Planning đã thay đổi sau khi Rebuild bắt đầu. Không Finalize generation cũ; hãy Hủy & làm lại.",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe found by Part + Revision (paint fallback).",
+      "vi": "Đã tìm thấy Recipe theo Part + Revision (fallback sơn).",
+      "mode": "exact"
+    },
+    {
+      "en": "No changes are required. If the board still reports it missing, reload the page.",
+      "vi": "Không cần chỉnh sửa. Nếu board vẫn báo thiếu, hãy tải lại trang.",
+      "mode": "exact"
+    },
+    {
+      "en": "Open the Recipe catalog (section ②), reactivate the Recipe, or change the mapping to another Recipe.",
+      "vi": "Mở danh mục Recipe (phần ②), kích hoạt lại recipe, hoặc đổi mapping sang recipe khác.",
+      "mode": "exact"
+    },
+    {
+      "en": "Mappings exist but none was selected.",
+      "vi": "Có mapping nhưng không mapping nào được chọn.",
+      "mode": "exact"
+    },
+    {
+      "en": "A Recipe exists by Part + Revision but is not being used (abnormal — contact the assistant).",
+      "vi": "Có Recipe theo Part + Revision nhưng không được dùng (bất thường — liên hệ trợ lý).",
+      "mode": "exact"
+    },
+    {
+      "en": "Not applicable — only paint operations use this fallback.",
+      "vi": "Không áp dụng — chỉ công đoạn sơn mới dùng fallback này.",
+      "mode": "exact"
+    },
+    {
+      "en": "No mapping — Job will show No Recipe",
+      "vi": "Chưa có mapping — job sẽ báo Chưa có Recipe",
+      "mode": "exact"
+    },
+    {
+      "en": "Recipe is deactivated — mapping is invalid",
+      "vi": "Recipe đã ngưng dùng — mapping vô hiệu",
+      "mode": "exact"
+    },
+    {
+      "en": "is technical data from the source file;",
+      "vi": "là dữ liệu kỹ thuật từ file nguồn;",
+      "mode": "exact"
+    },
+    {
+      "en": ") is still treated as the previous Main already planned. Therefore the next Main can become READY immediately; Scheduling is not a required gate for opening the next Main.",
+      "vi": ") vẫn được xem là Main trước đã plan. Vì vậy Main kế tiếp có thể READY ngay; Scheduling không phải điều kiện bắt buộc để mở Main kế tiếp.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not read part of the live Mapping from the database:",
+      "vi": "Không đọc được một phần Mapping sống từ database:",
+      "mode": "exact"
+    },
+    {
+      "en": "Data flows from technical definition → planning definition → job snapshot → batch → schedule; upstream changes propagate downstream",
+      "vi": "Dữ liệu đi từ kỹ thuật → định nghĩa planning → snapshot job → batch → schedule; thay đổi upstream sẽ lan xuống downstream",
+      "mode": "exact"
+    },
+    {
+      "en": "2.2 · How does a Job enter Planning?",
+      "vi": "2.2 · Một Job được đưa vào Planning như thế nào?",
+      "mode": "exact"
+    },
+    {
+      "en": "must be active before it appears in ST All Open Jobs.",
+      "vi": "active thì mới xuất hiện ở All Open Jobs của ST.",
+      "mode": "exact"
+    },
+    {
+      "en": ", the Job still appears in All Open Jobs, but that Operation does not become a Main Planning step, does not create a Batch, and does not appear on Scheduling Board.",
+      "vi": ", Job vẫn thấy ở All Open Jobs nhưng Operation đó không trở thành Main Planning, không tạo Batch và không vào Board Điều Độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Sequential state: the first unplanned Main in the current suffix =",
+      "vi": "Trạng thái tuần tự: Main chưa plan đầu tiên trong suffix hiện tại =",
+      "mode": "exact"
+    },
+    {
+      "en": "When a Batch is created for READY, the server updates that exact Job and recalculates the chain; only the next Main is opened as READY. The client uses",
+      "vi": "Khi tạo Batch cho READY, server cập nhật đúng Job đó và tính lại chain; chỉ Main kế tiếp được mở READY. Client dùng",
+      "mode": "exact"
+    },
+    {
+      "en": ", without reloading the entire Planning Board.",
+      "vi": ", không reload toàn Planning Board.",
+      "mode": "exact"
+    },
+    {
+      "en": "Do not use another mapping as a replacement",
+      "vi": "Không dùng mapping khác thay thế",
+      "mode": "exact"
+    },
+    {
+      "en": "Mostly read-only after Import Master; used to inspect Part/Revision/Routing and as input to the resolver",
+      "vi": "Phần lớn là read-only sau Import Master; dùng để kiểm tra Part/Revision/Routing và làm nguồn cho resolver",
+      "mode": "exact"
+    },
+    {
+      "en": "Use this when you need to confirm whether technical data was imported correctly, inspect the Routing for a Part/Revision, see which Finish/Primer/Topcoat/Requirement is attached to a Part, or understand why the Planning resolver sees an operation.",
+      "vi": "Khi muốn xác nhận dữ liệu kỹ thuật đã import đúng chưa, Routing của Part/Revision là gì, Finish/Primer/Topcoat/Requirement nào đang gắn với Part, hoặc vì sao Planning resolver nhìn thấy một operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Affects Part lookup and calculations based on Surface.",
+      "vi": "Ảnh hưởng lookup Part và các phép tính dựa Surface.",
+      "mode": "exact"
+    },
+    {
+      "en": "Original Operation Code catalog from Master; includes",
+      "vi": "Danh mục Operation Code gốc từ Master; có",
+      "mode": "exact"
+    },
+    {
+      "en": "Full operation chain by Part + Revision, including seq and Next Operation.",
+      "vi": "Chuỗi operation đầy đủ theo Part + Revision, có seq và Next Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "Builds standardized ST Routing, Bridge Intermediate, and Part Tracker.",
+      "vi": "Dựng ST Routing standardized, Bridge Intermediate, Part Tracker.",
+      "mode": "exact"
+    },
+    {
+      "en": "Can make a Job resolve to a different paint Recipe.",
+      "vi": "Có thể làm Job resolve sang Recipe sơn khác.",
+      "mode": "exact"
+    },
+    {
+      "en": "Standardized ST Routing by signature.",
+      "vi": "Routing ST chuẩn hóa theo signature.",
+      "mode": "exact"
+    },
+    {
+      "en": "Affects which route a Part uses.",
+      "vi": "Ảnh hưởng route nào được Part dùng.",
+      "mode": "exact"
+    },
+    {
+      "en": "instead of opening each table: find Part → select Revision → check Finish/Requirement → Routing Detail → ST Routing/Planning Chain. If something is wrong, return to the corresponding Master/Configuration screen to fix the source.",
+      "vi": "thay vì mở từng bảng: tìm Part → chọn Revision → kiểm tra Finish/Requirement → Routing Detail → ST Routing/Planning Chain. Nếu sai, quay về Master/Configuration tương ứng để sửa nguồn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Layer 1 defines operation/ownership; Layer 2 defines Recipe and time. Configure them in the dependency order shown on the left",
+      "vi": "Tầng 1 định nghĩa công đoạn/ownership; Tầng 2 định nghĩa Recipe và thời gian. Nên cấu hình theo đúng thứ tự bên trái",
+      "mode": "exact"
+    },
+    {
+      "en": "4.1 · Layer 1 — Operation Definition",
+      "vi": "4.1 · Tầng 1 — Định nghĩa công đoạn",
+      "mode": "exact"
+    },
+    {
+      "en": "Defines an Operation Code as",
+      "vi": "Định nghĩa một Operation Code là",
+      "mode": "exact"
+    },
+    {
+      "en": "in ST Routing Chain to infer raw operations between two consecutive Mains. Manual Bridge is for exceptions and has priority over Auto at the same physical position.",
+      "vi": "trong ST Routing Chain để suy ra các raw operation nằm giữa hai Main liên tiếp. Manual Bridge dùng cho ngoại lệ và được ưu tiên hơn Auto khi cùng vị trí physical.",
+      "mode": "exact"
+    },
+    {
+      "en": "If it only needs to be visible in ST scope but not planned: select",
+      "vi": "Nếu chỉ cần hiện trong phạm vi ST nhưng không plan: chọn",
+      "mode": "exact"
+    },
+    {
+      "en": "Save. When routing/bridge structure changes, use the appropriate rebuild function; after large chain changes, Rebuild Planning Chain on Planning Board.",
+      "vi": "Lưu. Khi thay đổi cấu trúc routing/bridge, dùng chức năng rebuild phù hợp; sau thay đổi chain lớn nên Rebuild Planning Chain ở Planning Board.",
+      "mode": "exact"
+    },
+    {
+      "en": "this is a high-impact upstream configuration. A wrong Operation type can make Jobs disappear/appear incorrectly in Planning; wrong Area/Planner mapping affects Scheduling Board. Existing Batch/Schedule history is not deleted just because the chain is rebuilt.",
+      "vi": "đây là cấu hình upstream mạnh. Sai loại Operation có thể làm Job biến mất/ xuất hiện sai ở Planning, mapping sai Area/Planner sẽ ảnh hưởng Board Điều Độ. Lịch sử Batch/Schedule cũ không bị xóa chỉ vì rebuild chain.",
+      "mode": "exact"
+    },
+    {
+      "en": ". It",
+      "vi": ". Nó",
+      "mode": "exact"
+    },
+    {
+      "en": "Select the appropriate ST Group/Main and mapping rule (DIRECT/OCCURRENCE/SEQUENCE/... according to routing needs).",
+      "vi": "Chọn ST Group/Main phù hợp và mapping rule (DIRECT/OCCURRENCE/SEQUENCE/... theo nhu cầu route).",
+      "mode": "exact"
+    },
+    {
+      "en": "Add / Rename / Batch Prefix / Planning Order / Deactivate / Activate / Safe Delete",
+      "vi": "Thêm / Đổi tên / Batch Prefix / Planning Order / Ngưng / Kích hoạt / Xóa an toàn",
+      "mode": "exact"
+    },
+    {
+      "en": ": the API updates related links; still recheck Recipe, Area and Board after a rename.",
+      "vi": ": API cập nhật các liên kết liên quan; vẫn nên kiểm tra lại Recipe, Area và Board sau rename.",
+      "mode": "exact"
+    },
+    {
+      "en": "renaming/deactivating a Group can make a Main lose its Area link; the system blocks deactivation while the Group has important dependencies.",
+      "vi": "đổi/ngưng Group có thể làm Main mất liên kết Area; hệ thống chặn deactivate khi Group còn dependency quan trọng.",
+      "mode": "exact"
+    },
+    {
+      "en": "is used to organize work and bridge to Schedule Area. Changing Area does not change Recipe, but can change the scheduling location/group.",
+      "vi": "dùng để tổ chức công việc và làm cầu nối tới Schedule Area. Thay Area không đổi Recipe nhưng có thể đổi nơi/nhóm điều độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "⑧ Planner Assignment",
+      "vi": "⑧ Phân chia Planner",
+      "mode": "exact"
+    },
+    {
+      "en": "moving a Planner only changes who sees/owns scheduling work and handover alerts; it does not change Routing, Recipe, or Batch membership.",
+      "vi": "chuyển Planner chỉ đổi người nhìn/chịu trách nhiệm scheduling và handover alert; không đổi Routing, Recipe hay membership của Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "4.2 · Layer 2 — Recipes & Rules",
+      "vi": "4.2 · Tầng 2 — Công thức & Rule",
+      "mode": "exact"
+    },
+    {
+      "en": "If an Operation has multiple Recipes: rules with matching Job conditions are evaluated; then lower Priority → Default → stable order. A rule without conditions is the fallback.",
+      "vi": "Nếu một Operation có nhiều Recipe: rule có điều kiện khớp Job được xét; sau đó Priority nhỏ hơn → Default → thứ tự ổn định. Rule không condition là fallback.",
+      "mode": "exact"
+    },
+    {
+      "en": "of the Recipe mapping is the source for the “Recipe conditions used to group Batch” checkboxes. The Planner can uncheck some conditions to broaden Jobs with the same Recipe; the selection is saved on the Batch.",
+      "vi": "của Recipe mapping là nguồn checkbox “Điều kiện Recipe dùng để gom lô”. Planner có thể bỏ tích một số condition để mở rộng Job cùng Recipe; lựa chọn được lưu trên Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": ". READY Jobs are selected according to",
+      "vi": ". READY Job được chọn theo",
+      "mode": "exact"
+    },
+    {
+      "en": "effective Recipe + Recipe Rule + the currently selected Batch Compatibility conditions",
+      "vi": "effective Recipe + Recipe Rule + các condition Batch Compatibility đang tích",
+      "mode": "exact"
+    },
+    {
+      "en": ". Therefore a Job is not locked simply because a Part Master paint field is blank if the Recipe resolver has already found a valid Recipe.",
+      "vi": ". Vì vậy Job không bị khóa chỉ vì field Part Master paint trống nếu Recipe resolver đã xác định được Recipe hợp lệ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Set Priority/Default, Batch Key template and Prefix when needed.",
+      "vi": "Đặt Priority/Default, Batch Key template và Prefix nếu dùng.",
+      "mode": "exact"
+    },
+    {
+      "en": "affects Loading End/Unloading End, Flybar occupancy and Loading-station conflicts. It does not change the standard Process Time.",
+      "vi": "ảnh hưởng Loading End/Unloading End, chiếm dụng Flybar và xung đột trạm Loading. Không thay Process Time chuẩn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Rules matching more conditions are preferred first; then lower Priority; then lower ID.",
+      "vi": "Rule match nhiều condition hơn được ưu tiên trước; sau đó Priority nhỏ hơn; sau đó ID nhỏ hơn.",
+      "mode": "exact"
+    },
+    {
+      "en": "matches the condition; a Batch mixing values falls back to a no-condition rule if one exists.",
+      "vi": "thỏa condition; Batch trộn giá trị rơi về fallback không condition nếu có.",
+      "mode": "exact"
+    },
+    {
+      "en": "Create/Add/Remove Job or changing Recipe recalculates Process Time. An unscheduled Batch can update to the standard duration. A planner duration override on Schedule is the actual scheduling duration and is not written back to the standard rule.",
+      "vi": "Create/Add/Remove Job hoặc đổi Recipe sẽ tính lại Process Time. Batch chưa schedule có thể cập nhật duration chuẩn. Duration planner override trên Schedule là thời gian điều độ thực tế và không ghi ngược vào rule chuẩn.",
+      "mode": "exact"
+    },
+    {
+      "en": "⑫ All Open Job Columns (dictionary)",
+      "vi": "⑫ Cột All Open Job (từ điển)",
+      "mode": "exact"
+    },
+    {
+      "en": "After importing All Open Job with new structure/values, click",
+      "vi": "Sau khi import All Open Job có cấu trúc/giá trị mới, bấm",
+      "mode": "exact"
+    },
+    {
+      "en": "Inactive values do not appear in condition dropdowns.",
+      "vi": "Inactive value không hiện trong dropdown condition.",
+      "mode": "exact"
+    },
+    {
+      "en": "this is a configuration-support dictionary; scanning does not modify Jobs/Batches. But if you do not scan after the source gains a new column, rule dropdowns will not see the new values.",
+      "vi": "đây là từ điển hỗ trợ cấu hình; scan không tự đổi Job/Batch. Nhưng không scan sau khi nguồn có cột mới sẽ khiến dropdown rule chưa thấy giá trị mới.",
+      "mode": "exact"
+    },
+    {
+      "en": "Read-only diagnostic: combines multiple Master/Mapping tables on one screen by Part Number",
+      "vi": "Read-only diagnostic: gom nhiều bảng Master/Mapping vào một màn hình theo Part Number",
+      "mode": "exact"
+    },
+    {
+      "en": "if the Recipe rule depends on a requirement.",
+      "vi": "nếu Recipe rule phụ thuộc requirement.",
+      "mode": "exact"
+    },
+    {
+      "en": "Check ST Scope → Source→Main Mapping → Bridge/Planning Chain. After major changes, rebuild the derived chain.",
+      "vi": "Kiểm tra ST Scope → Source→Main Mapping → Bridge/Planning Chain. Sau thay đổi lớn, rebuild derived chain.",
+      "mode": "exact"
+    },
+    {
+      "en": "Enter exactly",
+      "vi": "Nhập chính xác",
+      "mode": "exact"
+    },
+    {
+      "en": "to see Last Operation, Next Operation, the Main currently READY/SCHEDULED, latest Batch, Resource, and scheduled time range.",
+      "vi": "để biết Last Operation, Next Operation, Main đang READY/SCHEDULED, Batch gần nhất, Resource và khoảng thời gian điều độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "to view the Job’s complete real source_data; this data is used by Recipe conditions and Process Time conditions.",
+      "vi": "để xem toàn bộ source_data thật của Job; đây là dữ liệu dùng bởi Recipe condition và Process Time condition.",
+      "mode": "exact"
+    },
+    {
+      "en": ": Process Requirement, Routing Detail and ST Routing Master to understand how the chain was formed.",
+      "vi": ": Process Requirement, Routing Detail và ST Routing Master để biết chain được hình thành từ đâu.",
+      "mode": "exact"
+    },
+    {
+      "en": "to trace snapshot changes or Add/Remove Job impacts between Planners.",
+      "vi": "để lần lại các thay đổi snapshot hoặc tác động Add/Remove Job giữa các Planner.",
+      "mode": "exact"
+    },
+    {
+      "en": "This tab is read/diagnostic only. To change Recipe/Mapping/Time/Area, return to Configuration; to change a Batch, use Planning Board; to change time/resource, use Scheduling Board.",
+      "vi": "Tab này chỉ đọc/đối chiếu. Muốn sửa Recipe/Mapping/Time/Area phải quay về Cấu hình; muốn sửa Batch vào Planning Board; muốn sửa giờ/resource vào Board Điều Độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Route status uses the same Route Matrix logic as Planning Board; Recipe uses the live Recipe resolver; Schedule reads planning_schedule directly. Therefore Job Tracker is a cross-module diagnostic screen, not a separate engine.",
+      "vi": "Route status dùng cùng logic Route Matrix của Planning Board; Recipe dùng live Recipe resolver; Schedule đọc trực tiếp planning_schedule. Vì vậy Job Tracker là màn chẩn đoán cross-module, không tạo một engine riêng.",
+      "mode": "exact"
+    },
+    {
+      "en": "Runtime source for Job, LastOperation, NextOperation and all source_data used by Planning/Recipe/Process conditions",
+      "vi": "Nguồn runtime của Job, LastOperation, NextOperation và toàn bộ source_data dùng bởi Planning/Recipe/Process condition",
+      "mode": "exact"
+    },
+    {
+      "en": "The file is uploaded to Storage; the API compares snapshots by",
+      "vi": "File được upload vào Storage; API so sánh snapshot theo",
+      "mode": "exact"
+    },
+    {
+      "en": "Classification results:",
+      "vi": "Kết quả phân loại:",
+      "mode": "exact"
+    },
+    {
+      "en": "if they need to be used in a rule.",
+      "vi": "nếu cần dùng chúng trong rule.",
+      "mode": "exact"
+    },
+    {
+      "en": "6.2 · Which Jobs appear?",
+      "vi": "6.2 · Job nào xuất hiện?",
+      "mode": "exact"
+    },
+    {
+      "en": "ST_SCOPE_ONLY still appears, but does not participate in Planning Chain/Batch/Schedule.",
+      "vi": "ST_SCOPE_ONLY vẫn hiện nhưng không tham gia Planning Chain/Batch/Schedule.",
+      "mode": "exact"
+    },
+    {
+      "en": "6.3 · View modes",
+      "vi": "6.3 · Các chế độ xem",
+      "mode": "exact"
+    },
+    {
+      "en": "of the current page; use it to confirm the exact column name/value before creating a rule.",
+      "vi": "của page hiện tại; dùng để xác nhận chính xác tên cột/value trước khi tạo rule.",
+      "mode": "exact"
+    },
+    {
+      "en": "6.4 · Special columns that affect downstream",
+      "vi": "6.4 · Các cột đặc biệt tác động downstream",
+      "mode": "exact"
+    },
+    {
+      "en": "Locates the physical position in route/bridge.",
+      "vi": "Định vị physical position trong route/bridge.",
+      "mode": "exact"
+    },
+    {
+      "en": "Fallback route positioning when bridge/direct evidence is insufficient.",
+      "vi": "Fallback định vị route khi bridge/direct evidence không đủ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Highlight, filter, sort, and Recipe conditions when configured.",
+      "vi": "Highlight, filter, sort, recipe condition nếu được cấu hình.",
+      "mode": "exact"
+    },
+    {
+      "en": "any source_data",
+      "vi": "source_data bất kỳ",
+      "mode": "exact"
+    },
+    {
+      "en": "Changing the value can change Recipe, compatibility, or Process Time if a rule references that column.",
+      "vi": "Đổi value có thể đổi Recipe, compatibility hoặc Process Time nếu rule tham chiếu cột đó.",
+      "mode": "exact"
+    },
+    {
+      "en": "This is the central screen where the planner selects Jobs, locks compatibility, creates/adds Batches, and sequentially opens the next Main",
+      "vi": "Đây là màn hình trung tâm để planner chọn Job, khóa compatibility, tạo/thêm Batch và mở tuần tự Main kế tiếp",
+      "mode": "exact"
+    },
+    {
+      "en": ". When a READY Main is added to a Batch, only the next Main is opened as READY.",
+      "vi": ". Khi Main READY được đưa vào Batch, chỉ Main kế tiếp được mở READY.",
+      "mode": "exact"
+    },
+    {
+      "en": ") is treated as a handoff. There is no need to wait for Schedule to open the next Main.",
+      "vi": ") được xem là handoff. Không cần chờ Schedule để mở Main kế tiếp.",
+      "mode": "exact"
+    },
+    {
+      "en": "The current Main is allowed to be planned.",
+      "vi": "Main hiện tại được phép plan.",
+      "mode": "exact"
+    },
+    {
+      "en": "A continuous Previous Main has not handed off yet.",
+      "vi": "Previous Main liên tục chưa handoff.",
+      "mode": "exact"
+    },
+    {
+      "en": "Do not create a duplicate; this is already a handoff.",
+      "vi": "Không tạo lặp; đây đã là handoff.",
+      "mode": "exact"
+    },
+    {
+      "en": "The resolver could not determine a valid canonical Main.",
+      "vi": "Resolver không xác định được canonical Main hợp lệ.",
+      "mode": "exact"
+    },
+    {
+      "en": "A raw Operation Code can appear multiple times in the same Job, for example",
+      "vi": "Một raw Operation Code có thể xuất hiện nhiều lần trong cùng Job, ví dụ",
+      "mode": "exact"
+    },
+    {
+      "en": "the first occurrence can normalize to PRIMER1 and the next to PRIMER2, or",
+      "vi": "lần đầu chuẩn hóa thành PRIMER1 và lần sau thành PRIMER2, hoặc",
+      "mode": "exact"
+    },
+    {
+      "en": "can appear at before blasting / after plating / normal HE-BAKE. If",
+      "vi": "xuất hiện ở before blasting / after plating / HE-BAKE thường. Nếu",
+      "mode": "exact"
+    },
+    {
+      "en": "still repeats across multiple occurrences, or",
+      "vi": "vẫn trùng ở nhiều occurrence, hoặc",
+      "mode": "exact"
+    },
+    {
+      "en": ", the resolver does not return NO CHAIN just because NextOperation repeats. The system evaluates each occurrence’s Batch history using the",
+      "vi": ", resolver không trả NO CHAIN chỉ vì NextOperation lặp. Hệ thống xét Batch history của từng occurrence theo đúng",
+      "mode": "exact"
+    },
+    {
+      "en": "earliest occurrence without a Batch",
+      "vi": "occurrence sớm nhất chưa có Batch",
+      "mode": "exact"
+    },
+    {
+      "en": "; if there is no progress context, it selects the first occurrence by route. Example: PRIMER1 unplanned → PRIMER1 READY; after PRIMER1 has a Batch → the next SIPT/PRIMER2 becomes Current Main. For START → HE-BAKE, the first unplanned HE-BAKE occurrence (e.g. HE-BAKE before blasting) is Current Main. If all repeated occurrences have already been planned, the resolver keeps the first occurrence so sequential gating can replay the planned chain and open the next unplanned Main. This logic applies to every repeated raw Operation; it does not hard-code SIPT or HE-BAKE.",
+      "vi": "; nếu chưa có progress context thì chọn occurrence đầu tiên theo route. Ví dụ PRIMER1 chưa plan → PRIMER1 READY; PRIMER1 đã có Batch → SIPT kế tiếp/PRIMER2 trở thành Current Main. Với START → HE-BAKE, occurrence HE-BAKE đầu tiên chưa plan (ví dụ HE-BAKE before blasting) là Current Main. Nếu tất cả occurrence lặp lại đã plan, resolver giữ occurrence đầu để sequential gating replay chuỗi đã plan và mở Main chưa plan tiếp theo. Logic này áp dụng chung cho mọi raw Operation lặp, không hard-code SIPT hay HE-BAKE.",
+      "mode": "exact"
+    },
+    {
+      "en": "freezes the leading columns for horizontal Route Matrix scrolling.",
+      "vi": "đóng băng các cột đầu để cuộn ngang Route Matrix.",
+      "mode": "exact"
+    },
+    {
+      "en": "each header has distinct values + search + Select All/Clear; multiple columns combine with AND.",
+      "vi": "mỗi header có distinct values + search + Select All/Clear; nhiều cột kết hợp AND.",
+      "mode": "exact"
+    },
+    {
+      "en": "this column has been removed from Planning Board and is no longer used for operations.",
+      "vi": "cột này đã bị loại khỏi Planning Board; không dùng để điều hành nữa.",
+      "mode": "exact"
+    },
+    {
+      "en": "is only a tie-break within the same Main. Duplicate raw NextOperation names from source_data are still excluded from the Sort list to prevent selecting an ambiguous text sort.",
+      "vi": "chỉ tie-break trong cùng Main. NextOperation raw từ source_data trùng tên vẫn bị loại khỏi danh sách Sort để tránh chọn nhầm text sort.",
+      "mode": "exact"
+    },
+    {
+      "en": "7.4 · Paint Recipe must match the correct PRIMER/TOPCOAT occurrence",
+      "vi": "7.4 · Recipe sơn phải đúng occurrence PRIMER/TOPCOAT",
+      "mode": "exact"
+    },
+    {
+      "en": "can serve PRIMER1, PRIMER2 or PRIMER3. When resolving",
+      "vi": "có thể phục vụ PRIMER1, PRIMER2 hoặc PRIMER3. Khi resolve",
+      "mode": "exact"
+    },
+    {
+      "en": ", a rule with a paint-specific condition pointing to",
+      "vi": ", rule có condition paint-specific trỏ tới",
+      "mode": "exact"
+    },
+    {
+      "en": "is removed before the Priority step; PRIMER2 evaluates only PRIMER2 conditions; PRIMER3 only PRIMER3; TOPCOAT1/TOPCOAT2 likewise. Shared conditions such as Program, Category, Group still apply to every occurrence. This prevents a Job with PRIMER1=10P4 and PRIMER2=LR-200 from making PRIMER1 choose the LR-200 rule intended for PRIMER2. If the Operation Code has no suitable Recipe Rule and falls back by Part/Revision, the fallback also follows the correct occurrence:",
+      "vi": "bị loại trước bước Priority; PRIMER2 chỉ xét condition PRIMER2; PRIMER3 chỉ xét PRIMER3; TOPCOAT1/TOPCOAT2 tương tự. Condition chung như Program, Category, Group vẫn dùng cho mọi occurrence. Nhờ vậy Job có đồng thời PRIMER1=10P4 và PRIMER2=LR-200 không thể làm PRIMER1 chọn nhầm rule LR-200 của PRIMER2.\n     Nếu Operation Code không có Recipe Rule phù hợp và phải fallback theo Part/Revision, fallback cũng bám đúng occurrence:",
+      "mode": "exact"
+    },
+    {
+      "en": ". The Main Operation of that occurrence becomes the Main currently building the Batch.",
+      "vi": ". Main Operation của occurrence đó trở thành Main đang build Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "The Board dims and temporarily locks all READY cells of",
+      "vi": "Board làm mờ và khóa tạm thời toàn bộ READY của",
+      "mode": "exact"
+    },
+    {
+      "en": ". The Job information columns on the left remain readable.",
+      "vi": ". Các cột thông tin Job bên trái vẫn đọc được.",
+      "mode": "exact"
+    },
+    {
+      "en": "Within the active Main, the server resolves each Job’s actual Recipe. READY Jobs with a different Recipe are dimmed/disabled.",
+      "vi": "Trong Main active, server resolve Recipe thật của từng Job. READY khác Recipe bị làm mờ/disable.",
+      "mode": "exact"
+    },
+    {
+      "en": "shows checkboxes from the conditions of",
+      "vi": "hiện checkbox theo condition của",
+      "mode": "exact"
+    },
+    {
+      "en": "All conditions are selected by default. Unchecking a condition means it no longer locks membership. Unchecking all means only same Main + same Recipe is required.",
+      "vi": "Mặc định tích tất cả condition. Bỏ tích condition nào → condition đó không còn dùng để khóa membership. Bỏ hết → chỉ cần cùng Main + cùng Recipe.",
+      "mode": "exact"
+    },
+    {
+      "en": "Only compatible READY cells remain bright and can be added. Select All also selects only the compatible set.",
+      "vi": "Chỉ READY compatible mới giữ sáng và được phép thêm. Select All cũng chỉ chọn tập compatible.",
+      "mode": "exact"
+    },
+    {
+      "en": "7.6 · Batch Compatibility — exactly where do the conditions come from?",
+      "vi": "7.6 · Batch Compatibility — chính xác lấy điều kiện từ đâu?",
+      "mode": "exact"
+    },
+    {
+      "en": "Checkboxes only relax/remove conditions; they never allow different Recipes to be mixed in one Batch.",
+      "vi": "Checkbox chỉ mở/bỏ bớt condition; không bao giờ cho phép trộn Recipe khác nhau trong cùng Batch.",
+      "mode": "exact"
+    },
+    {
+      "en": "that the first Job matched. Therefore the same Operation Code + same Recipe can still have multiple independent condition sets. They are not taken from Process Time Rule.",
+      "vi": "mà Job đầu tiên đã match. Vì vậy cùng Operation Code + cùng Recipe vẫn có thể có nhiều bộ condition độc lập. Không lấy từ Process Time Rule.",
+      "mode": "exact"
+    },
+    {
+      "en": "When an existing Target Batch is selected, the Batch becomes the anchor and its saved checkbox selection is restored. A condition cannot be re-enabled if current members are already inconsistent on that condition.",
+      "vi": "Khi chọn Target Batch có sẵn, Batch trở thành anchor; checkbox đã lưu được khôi phục. Không thể bật lại một condition nếu các member hiện tại đã không đồng nhất theo condition đó.",
+      "mode": "exact"
+    },
+    {
+      "en": "The UI is only a UX layer. Create/Add Batch APIs re-resolve Recipe and revalidate selected conditions so external requests cannot bypass the rules.",
+      "vi": "UI chỉ là lớp UX. API Create/Add Batch re-resolve Recipe và revalidate selected condition để không thể bypass bằng request ngoài UI.",
+      "mode": "exact"
+    },
+    {
+      "en": "checks that the Batch has the same Main/Recipe, validates compatibility with existing members, then adds Job/totals/process.",
+      "vi": "kiểm tra Batch cùng Main/Recipe, compatibility với member hiện có, rồi cộng Job/totals/process.",
+      "mode": "exact"
+    },
+    {
+      "en": "exits Batch Selection Mode; all Main/READY cells return to normal.",
+      "vi": "thoát Batch Selection Mode, tất cả Main/READY trở lại bình thường.",
+      "mode": "exact"
+    },
+    {
+      "en": "There is no need to rebuild just because a Batch was created or Operation Code Order changed. Rebuild after structural changes such as ST Scope/Main Mapping/Bridge/Planning chain rules, or when old chain data was generated under older logic. Rebuild is a heavy operation and may reload Candidates.",
+      "vi": "Không cần rebuild chỉ vì tạo Batch hoặc đổi Operation Code Order. Nên rebuild sau thay đổi cấu trúc như ST Scope/Main Mapping/Bridge/Planning chain rule hoặc khi dữ liệu chain cũ được tạo trước logic mới. Rebuild là thao tác nặng và có thể tải lại Candidates.",
+      "mode": "exact"
+    },
+    {
+      "en": "The distinction between",
+      "vi": "Việc phân biệt",
+      "mode": "exact"
+    },
+    {
+      "en": "is not hard-coded to a raw Operation Code. The tab uses the occurrence already standardized by Planning Chain from",
+      "vi": "không hard-code theo một raw Operation Code. Tab dùng chính occurrence đã được Planning Chain chuẩn hóa từ",
+      "mode": "exact"
+    },
+    {
+      "en": "ST Group + order of appearance in routing",
+      "vi": "ST Group + thứ tự xuất hiện trong routing",
+      "mode": "exact"
+    },
+    {
+      "en": ". Therefore PPRSLVT then FULTKAPP can still be PRIMER1 then PRIMER2 respectively.",
+      "vi": ". Vì vậy PPRSLVT rồi FULTKAPP vẫn có thể lần lượt là PRIMER1 rồi PRIMER2.",
+      "mode": "exact"
+    },
+    {
+      "en": "A support operation is considered only when it lies physically",
+      "vi": "Một support operation chỉ được xét khi nằm vật lý",
+      "mode": "exact"
+    },
+    {
+      "en": "against Routing Detail because AllOperation may omit intermediates such as MSKG. The system rebuilds Main occurrences directly from",
+      "vi": "với Routing Detail vì AllOperation có thể bỏ intermediate như MSKG. Hệ thống dựng lại Main occurrence trực tiếp trên",
+      "mode": "exact"
+    },
+    {
+      "en": "Only raw routing operations containing",
+      "vi": "Chỉ raw routing operation có chữ",
+      "mode": "exact"
+    },
+    {
+      "en": "are treated as Masking/Unmasking.",
+      "vi": "mới được coi là Masking/Unmasking.",
+      "mode": "exact"
+    },
+    {
+      "en": "= Unmasking; all other MSKG codes = Masking. Main Planning codes containing MSKG such as FMSKG-CM are excluded by Operation Type and are not misclassified as support.",
+      "vi": "= Unmasking; các code MSKG còn lại = Masking. Main Planning có chữ MSKG như FMSKG-CM được loại bằng Operation Type, không bị nhận nhầm thành support.",
+      "mode": "exact"
+    },
+    {
+      "en": "The planner-facing column uses",
+      "vi": "Cột planner nhìn thấy sử dụng",
+      "mode": "exact"
+    },
+    {
+      "en": "to distinguish details such as",
+      "vi": "để phân biệt chi tiết như",
+      "mode": "exact"
+    },
+    {
+      "en": "... Raw operation_code is still retained for traceability.",
+      "vi": "... Raw operation_code vẫn được giữ để trace.",
+      "mode": "exact"
+    },
+    {
+      "en": ": only Jobs whose Main Batch is scheduled on the selected date appear. The date comes from",
+      "vi": ": chỉ Job có Batch Main được schedule đúng ngày đang chọn mới xuất hiện. Ngày lấy từ",
+      "mode": "exact"
+    },
+    {
+      "en": "Batch No., Recipe, Process Time, Start, End and Resource all come from",
+      "vi": "Batch No., Recipe, Process Time, Start, End và Resource đều lấy từ",
+      "mode": "exact"
+    },
+    {
+      "en": ". The tab does not store a separate support-time copy.",
+      "vi": ". Tab không lưu một bản thời gian support riêng.",
+      "mode": "exact"
+    },
+    {
+      "en": "When the planner changes date/time/resource on Scheduling Board, support Jobs automatically move dates and update Start/End from the new schedule data on the next open/refresh.",
+      "vi": "Khi planner đổi ngày/giờ/resource trên Board Điều Độ, Job support tự chuyển ngày và cập nhật Start/End theo dữ liệu schedule mới ở lần mở/refresh tiếp theo.",
+      "mode": "exact"
+    },
+    {
+      "en": ". This is a derived planning view that reuses the existing source-of-truth data.",
+      "vi": ". Đây là derived planning view dùng chung dữ liệu chuẩn hiện có.",
+      "mode": "exact"
+    },
+    {
+      "en": "Standardized Main occurrence; PRIMER/TOPCOAT occurrences use the same Planning Board logic.",
+      "vi": "Occurrence Main đã chuẩn hóa; PRIMER/TOPCOAT occurrence dùng cùng logic Planning Board.",
+      "mode": "exact"
+    },
+    {
+      "en": "Build Main occurrences directly from Routing Detail, then include only support operations lying between the physical source_seq values of two Mains.",
+      "vi": "Dựng Main occurrence trực tiếp từ Routing Detail, sau đó chỉ lấy support operation nằm giữa source_seq vật lý của hai Main.",
+      "mode": "exact"
+    },
+    {
+      "en": "Detailed code the planner uses to identify which operation/occurrence the support work precedes.",
+      "vi": "Code chi tiết planner dùng để biết support trước operation nào/lần nào.",
+      "mode": "exact"
+    },
+    {
+      "en": "Current Job information, same as Planning Board.",
+      "vi": "Thông tin Job hiện tại giống Planning Board.",
+      "mode": "exact"
+    },
+    {
+      "en": "Always the Batch of the Current Main served by this support work.",
+      "vi": "Luôn là Batch của Current Main mà support phục vụ.",
+      "mode": "exact"
+    },
+    {
+      "en": ". If PPRSLVT is Current Main and the Batch is scheduled for 05/09 at 10:30, the Job is located at",
+      "vi": ". Nếu PPRSLVT là Current Main và Batch được điều độ 05/09 lúc 10:30, Job nằm tại",
+      "mode": "exact"
+    },
+    {
+      "en": ". Because both PPRSLVT and FULTKAPP belong to ST Group PRIMER, the first occurrence is",
+      "vi": ". Vì cả PPRSLVT và FULTKAPP thuộc ST Group PRIMER, occurrence đầu là",
+      "mode": "exact"
+    },
+    {
+      "en": ". UNMSKG/MSKG between the two occurrences is attached to",
+      "vi": ". UNMSKG/MSKG nằm giữa hai occurrence được gắn vào",
+      "mode": "exact"
+    },
+    {
+      "en": "Scheduling receives Batches from Planning; it does not decide Recipe membership and is not a gate for opening the next Main",
+      "vi": "Scheduling nhận Batch từ Planning; không quyết định Recipe membership và không phải điều kiện để mở Main kế tiếp",
+      "mode": "exact"
+    },
+    {
+      "en": "8.1 · Operating sequence",
+      "vi": "8.1 · Trình tự sử dụng",
+      "mode": "exact"
+    },
+    {
+      "en": ": these Batches were created in Planning but do not yet have resource/time assigned.",
+      "vi": ": đây là các Batch đã được tạo ở Planning nhưng chưa xếp resource/time.",
+      "mode": "exact"
+    },
+    {
+      "en": "A Flybar is occupied continuously from Loading Start through Unloading End.",
+      "vi": "Một Flybar bị chiếm liên tục từ Loading Start đến Unloading End.",
+      "mode": "exact"
+    },
+    {
+      "en": "Chemical Line shares the Loading point; overlapping Loading schedules are blocked by the server.",
+      "vi": "Chemical Line dùng chung điểm Loading; lịch trùng Loading bị server chặn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Concurrent process is limited by resource/config (Chemical uses configured max concurrency by default).",
+      "vi": "Giới hạn process đồng thời theo resource/config (Chemical mặc định dùng max concurrency cấu hình).",
+      "mode": "exact"
+    },
+    {
+      "en": "Pre-clean Recipes apply NDT using the current rule; the server checks spacing/concurrency.",
+      "vi": "Các recipe pre-clean áp NDT theo rule hiện hành; server kiểm tra khoảng cách/concurrency.",
+      "mode": "exact"
+    },
+    {
+      "en": "8.3 · Other areas/lanes",
+      "vi": "8.3 · Các vùng/lane khác",
+      "mode": "exact"
+    },
+    {
+      "en": "list of scheduled Batches for the selected Planner.",
+      "vi": "danh sách Batch đã xếp của Planner đang chọn.",
+      "mode": "exact"
+    },
+    {
+      "en": "Schedule Table · Summary:",
+      "vi": "Schedule Table · Tổng hợp:",
+      "mode": "exact"
+    },
+    {
+      "en": "shows both Planner 1 + Planner 2 for the day.",
+      "vi": "xem cả Planner 1 + Planner 2 trong ngày.",
+      "mode": "exact"
+    },
+    {
+      "en": "production day 06:00 → 06:00 next day, extendable if a chain runs longer.",
+      "vi": "ngày sản xuất 06:00 → 06:00 hôm sau, có thể mở rộng nếu chuỗi kéo dài.",
+      "mode": "exact"
+    },
+    {
+      "en": "changes from another Planner that affect your operations are shown/acknowledged; the client refreshes periodically.",
+      "vi": "thay đổi từ Planner khác có ảnh hưởng công đoạn của bạn được hiển thị/acknowledge; client refresh theo chu kỳ.",
+      "mode": "exact"
+    },
+    {
+      "en": "can connect a following Batch on the same resource when rule/handoff allows, or the planner can create a manual link in the UI.",
+      "vi": "có thể nối lô sau trên cùng resource khi thỏa rule/handoff hoặc planner tạo liên kết thủ công theo UI.",
+      "mode": "exact"
+    },
+    {
+      "en": "Sequential READY logic currently treats",
+      "vi": "Logic Sequential READY hiện coi",
+      "mode": "exact"
+    },
+    {
+      "en": "as running; it is not used to decide whether the Job can open the next Main.",
+      "vi": "chạy; không dùng để quyết định Job có được mở Main kế tiếp hay không.",
+      "mode": "exact"
+    },
+    {
+      "en": "Incremental: NEW/CHANGED are updated; UNCHANGED are skipped; data no longer present is marked inactive instead of deleting history when the importer logic specifies.",
+      "vi": "Incremental: NEW/CHANGED cập nhật; UNCHANGED bỏ qua; dữ liệu không còn được đánh inactive thay vì xóa lịch sử khi logic importer quy định.",
+      "mode": "exact"
+    },
+    {
+      "en": "; wait for Source / New / Changed / Unchanged / Routing statistics.",
+      "vi": "; chờ thống kê Source / New / Changed / Unchanged / Routing.",
+      "mode": "exact"
+    },
+    {
+      "en": "If the operation chain needs to be refreshed after import, the system continues processing automatically; if interrupted, open ST Operation Flow to resume.",
+      "vi": "Nếu cần cập nhật lại chuỗi công đoạn sau import, hệ thống tiếp tục tự xử lý; nếu bị gián đoạn, vào ST Operation Flow để tiếp tục.",
+      "mode": "exact"
+    },
+    {
+      "en": "If All Open Job structure/values also changed, that is a separate import flow under the All Open Jobs tab; do not confuse the two files.",
+      "vi": "Nếu cấu trúc/value All Open Job cũng thay đổi thì đó là luồng import riêng ở tab All Open Jobs; đừng nhầm hai file.",
+      "mode": "exact"
+    },
+    {
+      "en": "Use with great care. The UI requires confirmation; reset Master/Import History according to the current API and preserve the system ST Operation Scope. After reset, import Master again and verify derived routing/mapping before Planning.",
+      "vi": "Dùng rất thận trọng. UI sẽ yêu cầu xác nhận; reset Master/Lịch sử Import theo API hiện hành và giữ lại ST Operation Scope hệ thống. Sau reset phải import Master lại và kiểm tra derived routing/mapping trước khi Planning.",
+      "mode": "exact"
+    },
+    {
+      "en": "12 · Impact Matrix — what changes downstream when you edit something?",
+      "vi": "12 · Impact Matrix — sửa ở đâu thì phía sau thay đổi gì?",
+      "mode": "exact"
+    },
+    {
+      "en": "Use this table before changing production configuration to understand the impact scope",
+      "vi": "Bảng này dùng trước khi chỉnh cấu hình production để biết phạm vi ảnh hưởng",
+      "mode": "exact"
+    },
+    {
+      "en": "Locates the physical pair between Mains.",
+      "vi": "Định vị physical pair giữa Main.",
+      "mode": "exact"
+    },
+    {
+      "en": "Tests READY Jobs; Existing Batches do not automatically change Recipe.",
+      "vi": "Test READY Job; Existing Batch không tự đổi Recipe.",
+      "mode": "exact"
+    },
+    {
+      "en": "Broadens/narrows which Jobs with the same Recipe are grouped.",
+      "vi": "Mở rộng/thu hẹp Job cùng Recipe được gom.",
+      "mode": "exact"
+    },
+    {
+      "en": "Defines lane and Main scheduling eligibility.",
+      "vi": "Lane và Main được phép điều độ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Controls where an Unscheduled Batch appears/can be dragged.",
+      "vi": "Unscheduled Batch xuất hiện/kéo được ở đâu.",
+      "mode": "exact"
+    },
+    {
+      "en": "13.0 · Consolidated linkage — Main Operation → Recipe → Schedule → Planner",
+      "vi": "13.0 · Bảng kết nối tổng hợp — Main Operation → Recipe → Schedule → Planner",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not read the Main Operation linkage table.",
+      "vi": "Chưa đọc được bảng kết nối Main Operation.",
+      "mode": "exact"
+    },
+    {
+      "en": "13.0.1 · Consolidated linkage — ST Group → Area → Schedule Area → Planner",
+      "vi": "13.0.1 · Bảng kết nối tổng hợp — ST Group → Area → Schedule Area → Planner",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not read the ST Group linkage table.",
+      "vi": "Chưa đọc được bảng kết nối ST Group.",
+      "mode": "exact"
+    },
+    {
+      "en": "Why is Next Operation not sorted alphabetically?",
+      "vi": "Vì sao Next Operation không sort theo chữ ABC?",
+      "mode": "exact"
+    },
+    {
+      "en": "That is intentional. When Sort Priority uses",
+      "vi": "Đó là chủ ý. Khi Sort Priority dùng",
+      "mode": "exact"
+    },
+    {
+      "en": "Why does one READY Job cause other READY Jobs to become dim after I click it?",
+      "vi": "Vì sao một Job READY nhưng click xong các READY khác bị mờ?",
+      "mode": "exact"
+    },
+    {
+      "en": "You are in",
+      "vi": "Bạn đang ở",
+      "mode": "exact"
+    },
+    {
+      "en": ". Other Mains are dimmed; in the same Main, Jobs with a different Recipe or that do not satisfy the selected conditions are also dimmed/disabled. Clear Selection to exit this mode.",
+      "vi": ". Main khác bị dim; cùng Main nhưng khác Recipe hoặc không thỏa các condition đang tích cũng bị dim/disable. Clear Selection để thoát mode.",
+      "mode": "exact"
+    },
+    {
+      "en": "from the exact Recipe mapping. Process Time conditions do not create checkboxes. If the Recipe mapping has no conditions, the panel reports that it is locked by Recipe only.",
+      "vi": "của đúng Recipe mapping. Process Time condition không tạo checkbox. Nếu mapping Recipe không có condition, panel sẽ báo chỉ khóa theo Recipe.",
+      "mode": "exact"
+    },
+    {
+      "en": "If I uncheck every condition, can different Recipes be mixed?",
+      "vi": "Tôi bỏ tích hết condition thì có trộn Recipe được không?",
+      "mode": "exact"
+    },
+    {
+      "en": "Why is the next Main READY even though the previous Batch is not Scheduled?",
+      "vi": "Vì sao Main kế tiếp READY dù Batch trước chưa Schedule?",
+      "mode": "exact"
+    },
+    {
+      "en": "is already a valid handoff. Scheduling only assigns resource/time; it is not the gate that opens the next Main.",
+      "vi": "đã là handoff hợp lệ. Scheduling chỉ xếp resource/time; không phải gate mở Main kế tiếp.",
+      "mode": "exact"
+    },
+    {
+      "en": "Only the immediate next Main opens after handoff. Later Mains remain WAIT until the continuous previous chain has Batch/DONE.",
+      "vi": "Chỉ immediate next Main được mở sau handoff. Các Main sau nữa giữ WAIT cho đến khi chuỗi previous liên tục đã có Batch/DONE.",
+      "mode": "exact"
+    },
+    {
+      "en": "Does creating a Batch reload the entire Board?",
+      "vi": "Tạo Batch xong có reload toàn Board không?",
+      "mode": "exact"
+    },
+    {
+      "en": "Check Configuration → Process Time. The Batch may not match the Qty/Surface range or a specific condition; add a fallback rule without conditions if mixed values should still have a duration.",
+      "vi": "Kiểm tra Cấu hình → Thời gian xử lý. Batch có thể không match range Qty/Surface hoặc condition cụ thể; cần rule fallback không condition nếu muốn có thời gian cho trường hợp trộn value.",
+      "mode": "exact"
+    },
+    {
+      "en": "Job does not appear in ST All Open Jobs?",
+      "vi": "Job không xuất hiện ở All Open Jobs ST?",
+      "mode": "exact"
+    },
+    {
+      "en": "Job appears in All Open Jobs but has no READY?",
+      "vi": "Job xuất hiện All Open Jobs nhưng không có READY?",
+      "mode": "exact"
+    },
+    {
+      "en": "The Operation may be ST_SCOPE_ONLY, the chain may not resolve, a previous Main may still have WAIT/gap, or Last/Next/AllOperation/Bridge data may not locate the Job. When a raw Operation repeats across multiple occurrences, the system prioritizes the earliest occurrence without a Batch. Check Route Matrix/NO CHAIN, Job Tracker and ST Operation Flow to locate the Job.",
+      "vi": "Có thể Operation là ST_SCOPE_ONLY, chain chưa resolve, Main phía trước còn WAIT/gap, hoặc dữ liệu Last/Next/AllOperation/Bridge không định vị được. Với raw Operation lặp lại nhiều occurrence, hệ thống ưu tiên occurrence sớm nhất chưa có Batch. Kiểm tra Route Matrix/NO CHAIN, Job Tracker và ST Operation Flow để xác định vị trí của Job.",
+      "mode": "exact"
+    },
+    {
+      "en": "No. Operation Code Order is only a presentation tie-break. Rebuild Chain is needed only for structural Planning/Mapping/Bridge/Scope changes.",
+      "vi": "Không. Operation Code Order chỉ dùng tie-break presentation. Rebuild Chain chỉ cần cho thay đổi cấu trúc Planning/Mapping/Bridge/Scope.",
+      "mode": "exact"
+    },
+    {
+      "en": "Does deactivating a Main Operation remove Batch history?",
+      "vi": "Ngưng Main Operation có mất Batch lịch sử không?",
+      "mode": "exact"
+    },
+    {
+      "en": "No. Deactivation preserves history. Permanent delete is allowed only after deactivation and when no dependencies remain; the API blocks deletion and reports remaining reference groups.",
+      "vi": "Không. Ngưng giữ lịch sử. Xóa vĩnh viễn chỉ được phép khi đã ngưng và không còn dependency; API sẽ chặn và báo các nhóm còn tham chiếu.",
+      "mode": "exact"
+    },
+    {
+      "en": "What is the difference between Import Master and Import All Open Job?",
+      "vi": "Import Master và Import All Open Job khác gì?",
+      "mode": "exact"
+    },
+    {
+      "en": "Import Master = technical Part/Revision/Routing/Finish/Requirement data. Import All Open Job = actual WIP/job snapshot. The two flows are independent but meet in the Planning resolver.",
+      "vi": "Import Master = dữ liệu kỹ thuật Part/Revision/Routing/Finish/Requirement. Import All Open Job = snapshot WIP/job thực tế. Hai luồng độc lập nhưng gặp nhau tại Planning resolver.",
       "mode": "exact"
     }
   ]
