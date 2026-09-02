@@ -135,3 +135,10 @@ npm run db:restore -- backups/st-planning_YYYYMMDD_HHMMSS.dump --confirm=RESTORE
 ```
 
 See `docs/DATABASE_BACKUP_V383.md` for details.
+
+## V385 · Selected Main + Next Main Planning Recipe
+- READY focus now keeps three context positions: virtual Previous Main, the selected physical Main (for example PRIMER), and virtual Next Main Planning.
+- The selected Main shows status/READY only; its Recipe is no longer displayed inside the selected Main cell.
+- Next Main Planning resolves the immediate downstream Main independently per Job and shows that downstream Main's Recipe when available.
+- Recipe Compatibility Lock for the selected Batch Main is unchanged.
+

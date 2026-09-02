@@ -29,12 +29,12 @@
 
 ## Planning Board READY focus context
 
-`READY Main selection -> virtual Previous Main column + active Next Main column`
+`READY Main selection -> Previous Main + Selected Main + Next Main Planning`
 
 - When the first READY cell establishes Batch Selection Mode, the matrix still narrows to Jobs compatible with that Main Operation.
-- The Main matrix is compressed to two business-context columns, not one physical column per upstream Main.
-- **Previous Main** is a virtual read-only column. Each row independently resolves that Job's immediate upstream Main occurrence and shows its Main name, compact status badge (D/R/W/U/S/P/RN/H), Batch No, schedule time and Resource when available. Example: five PRIMER Jobs from BSASLD and five from BSAUNSLD remain in one Previous Main column; the cell content and prior status differ by Job.
-- **Next Main** is the selected READY Main. It keeps the existing READY click/Recipe Compatibility lock and also shows that Job's resolved Recipe when one exists. Operations without Recipe keep the normal status-only cell.
+- **Previous Main** is one virtual read-only column. Each row independently resolves that Job's immediate upstream Main occurrence and shows Main name, compact status badge (D/R/W/U/S/P/RN/H), Batch No, schedule time and Resource when available. Example: five PRIMER Jobs from BSASLD and five from BSAUNSLD remain in one Previous Main column; each row shows its own upstream handoff.
+- The **selected Main** stays as its own physical column (for example `PRIMER`) and shows only the current planning status/READY interaction. Its Recipe is not rendered in this column. Recipe Compatibility Lock still uses the selected Main's Recipe internally when deciding which READY Jobs may enter the same Batch.
+- **Next Main Planning** is one virtual read-only column. Each row resolves the immediate Main after the selected Main. The cell shows that next Main name and the Recipe of that next Main when one exists; if the next Main has no Recipe, no Recipe text is shown.
 - All unrelated physical Main Planning columns remain hidden during Batch Selection Mode and return after Clear Selection.
 - Compact density uses smaller rows. Matrix zoom is a presentation-only control (70%..130%, persisted locally) and does not change data, filters, Planning Chain, Batch, or Schedule.
 

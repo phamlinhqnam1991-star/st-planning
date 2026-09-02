@@ -7870,6 +7870,16 @@
       "en": "When configuring a new Operation for the first time, the system only syncs the Planning Chain for Jobs using that code; when editing an already-configured Operation, the system keeps a Full rebuild to protect shared dependencies. Batch/Schedule history is not deleted.",
       "vi": "Khi cấu hình Operation mới lần đầu, hệ thống chỉ sync Planning Chain của Job đang dùng code đó; khi sửa Operation đã cấu hình, hệ thống giữ Full rebuild để bảo toàn dependency dùng chung. Lịch sử Batch/Schedule không bị xóa.",
       "mode": "exact"
+    },
+    {
+      "en": "Previous Main",
+      "vi": "Main trước",
+      "mode": "phrase"
+    },
+    {
+      "en": "Next Main Planning",
+      "vi": "Main kế tiếp",
+      "mode": "phrase"
     }
   ]
 }

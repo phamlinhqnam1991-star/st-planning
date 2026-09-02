@@ -444,6 +444,7 @@ const CANDIDATE_INITIAL_DOM_ROWS=100;
 const CANDIDATE_DOM_ROW_STEP=100;
 const MATRIX_ZOOM_STORAGE_KEY="st-planning:matrix-zoom:v380";
 const ERP_BATCH_PREVIOUS_CONTEXT_KEY="route-context:previous";
+const ERP_BATCH_NEXT_CONTEXT_KEY="route-context:next";
 
 // Client fetch dùng safeJson chung từ @/lib/fetch-json để mọi màn hình báo lỗi HTTP/HTML nhất quán.
 
@@ -725,6 +726,7 @@ useEffect(()=>{
  const allColumns=useMemo<CandidateColumn[]>(()=>[
    ...PLANNING_COLUMNS,
    {key:ERP_BATCH_PREVIOUS_CONTEXT_KEY,label:"Previous Main",group:"route" as const},
+   {key:ERP_BATCH_NEXT_CONTEXT_KEY,label:"Next Main Planning",group:"route" as const},
    ...routeColumns,
    ...sourceColumns.map(col=>({
      key:`source:${col}`,
@@ -2401,6 +2403,42 @@ const currentPriorityMonth=useMemo(()=>{
   };
  };
 
+ const nextMainPlanningContextForCandidate=(row:Candidate)=>{
+  if(!erpMode||!batchSelectionModeActive||!batchSelectionOperation)return null;
+  const currentMain=normalized(batchSelectionOperation);
+  const target=selectableTargetForOperation(row,batchSelectionOperation);
+  const targetSeqRaw=target?.routeItem?.source_seq ?? (
+   normalized(row.standard_operation)===currentMain ? row.source_seq : null
+  );
+  const targetSeq=Number(targetSeqRaw);
+  const route=(row.route_status||[])
+   .filter(r=>r.standard_operation&&normalized(r.standard_operation)!=="PIONBL")
+   .sort((a,b)=>Number(a.source_seq||0)-Number(b.source_seq||0));
+
+  let nextItem:RouteStatusItem|null=null;
+  if(Number.isFinite(targetSeq)){
+   for(const item of route){
+    const seq=Number(item.source_seq||0);
+    if(!Number.isFinite(seq)||seq<=targetSeq)continue;
+    const main=normalized(item.standard_operation);
+    if(main&&main!==currentMain){nextItem=item;break;}
+   }
+  }
+
+  const fallbackMain=normalized(row.next_standard_operation||row.intermediate_next_main||"");
+  const mainOperation=normalized(nextItem?.standard_operation)||fallbackMain;
+  if(!mainOperation||mainOperation===currentMain)return null;
+
+  const recipeNo=String(nextItem?.effective_recipe_no||nextItem?.recipe_no||"").trim();
+  const recipeName=String(nextItem?.effective_recipe_name||nextItem?.recipe_name||"").trim();
+  return {
+   mainOperation,
+   status:String(nextItem?.route_status||"").trim(),
+   recipeNo,
+   recipeName
+  };
+ };
+
  const batchScopedRenderedCandidates=useMemo(
   ()=>batchScopedDisplayCandidates.slice(0,candidateDomLimit),
   [batchScopedDisplayCandidates,candidateDomLimit]
@@ -2446,10 +2484,10 @@ const currentPriorityMonth=useMemo(()=>{
   onVisibleCandidateIds(visibleCandidateIdsKey.split(",").map(Number).filter(Number.isFinite));
  },[visibleCandidateIdsKey,onVisibleCandidateIds]);
 
- // v382 ERP focus columns:
- // identity/source columns + ONE virtual Previous Main context + ONE active
- // Next Main column. All other physical Main columns are hidden until the
- // READY selection is cleared.
+ // v385 ERP focus columns:
+ // identity/source columns + ONE virtual Previous Main context + the selected
+ // current Main (for READY/status only) + ONE virtual Next Main Planning
+ // context. Recipe belongs to Next Main Planning, never to the selected Main.
  const batchScopedActiveColumns=useMemo(()=>{
   if(!erpMode||!batchSelectionModeActive||!batchSelectionOperation)return activeColumns;
   const operationKey=normalized(batchSelectionOperation);
@@ -2459,14 +2497,14 @@ const currentPriorityMonth=useMemo(()=>{
   for(const key of activeColumns){
    if(key.startsWith("route-main:")){
     if(!matrixInserted){
-     out.push(ERP_BATCH_PREVIOUS_CONTEXT_KEY,currentKey);
+     out.push(ERP_BATCH_PREVIOUS_CONTEXT_KEY,currentKey,ERP_BATCH_NEXT_CONTEXT_KEY);
      matrixInserted=true;
     }
     continue;
    }
    out.push(key);
   }
-  if(!matrixInserted)out.push(ERP_BATCH_PREVIOUS_CONTEXT_KEY,currentKey);
+  if(!matrixInserted)out.push(ERP_BATCH_PREVIOUS_CONTEXT_KEY,currentKey,ERP_BATCH_NEXT_CONTEXT_KEY);
   return out;
  },[erpMode,batchSelectionModeActive,batchSelectionOperation,activeColumns]);
 
@@ -2696,6 +2734,11 @@ const currentPriorityMonth=useMemo(()=>{
      <span className="candidate-th-label">Previous Main</span>
     </th>;
    }
+   if(key===ERP_BATCH_NEXT_CONTEXT_KEY){
+    return <th key={key} className="route-status-header route-context-next-planning-header">
+     <span className="candidate-th-label">Next Main Planning</span>
+    </th>;
+   }
 
    let cls=
     ["qty","surface"].includes(key)
@@ -2708,19 +2751,19 @@ const currentPriorityMonth=useMemo(()=>{
    const headerMain=key.startsWith("route-main:")
     ?normalized(key.slice("route-main:".length))
     :"";
-   const nextMainFocus=Boolean(
+   const currentMainFocus=Boolean(
     erpMode &&
     batchSelectionModeActive &&
     headerMain &&
     headerMain===normalized(batchSelectionOperation)
    );
-   if(nextMainFocus)cls=`${cls} route-context-next-header`.trim();
+   if(currentMainFocus)cls=`${cls} route-context-current-header`.trim();
    if(headerMain&&mainOperationSelectionDimmed(headerMain)){
     cls=`${cls} batch-selection-main-dimmed`.trim();
    }
    const active=Boolean((colFilters[key]||[]).length);
    return <th key={key} className={cls||undefined}>
-    <span className="candidate-th-label">{nextMainFocus?<>Next Main · {planningColumnLabel(col)}</>:planningColumnLabel(col)}</span>
+    <span className="candidate-th-label">{planningColumnLabel(col)}</span>
     <button type="button" className={`col-filter-btn ${active?"is-active":""}`}
      onClick={e=>openColFilter(key,e)} title={erpMode?"Lọc theo cột":"Lọc cột (Excel style)"}>▼</button>
    </th>;
@@ -2960,9 +3003,33 @@ const currentPriorityMonth=useMemo(()=>{
    </td>;
  };
 
+ const renderNextMainPlanningContextCell=(x:Candidate)=>{
+   if(x.route_status_loaded===false){
+    return <td key={ERP_BATCH_NEXT_CONTEXT_KEY} className="route-status-cell route-context-next-planning-cell route-status-loading">…</td>;
+   }
+   const ctx=nextMainPlanningContextForCandidate(x);
+   if(!ctx){
+    return <td key={ERP_BATCH_NEXT_CONTEXT_KEY} className="route-status-cell route-context-next-planning-cell route-status-na">—</td>;
+   }
+   const recipe=[ctx.recipeNo,ctx.recipeName].filter(Boolean).join(" · ");
+   const title=[
+    `Next Main Planning: ${ctx.mainOperation}`,
+    ctx.status?`Status: ${routeStatusLongLabel(ctx.status)}`:"",
+    recipe?`Recipe: ${recipe}`:""
+   ].filter(Boolean).join(" · ");
+   return <td
+    key={ERP_BATCH_NEXT_CONTEXT_KEY}
+    className="route-status-cell route-context-next-planning-cell"
+    title={title}
+   >
+    <span className="route-context-next-operation">{ctx.mainOperation}</span>
+    {recipe&&<span className="route-context-next-recipe">{recipe}</span>}
+   </td>;
+ };
+
  const renderRouteStatusCell=(x:Candidate,key:string)=>{
    const mainOperation=normalized(key.slice("route-main:".length));
-   const nextMainFocus=Boolean(
+   const currentMainFocus=Boolean(
     erpMode &&
     batchSelectionModeActive &&
     mainOperation===normalized(batchSelectionOperation)
@@ -3023,7 +3090,7 @@ const currentPriorityMonth=useMemo(()=>{
       .filter(Boolean).join(" · ");
      return <td
       key={key}
-      className={`route-status-cell ${routeStatusClass(status)} ${normalized(status)==="WAITING"?fallbackWaiting.kind:""} route-status-current ${nextMainFocus?"route-context-next-cell":""} ${routeCellSelected(fallbackItem)?"route-status-selected":""} ${status==="READY"&&!mainDimmed&&!fallbackCompatLocked?"route-status-clickable":""} ${fallbackCompatLocked?"batch-compatibility-cell-locked":""} ${mainDimClass}`}
+      className={`route-status-cell ${routeStatusClass(status)} ${normalized(status)==="WAITING"?fallbackWaiting.kind:""} route-status-current ${currentMainFocus?"route-context-current-cell":""} ${routeCellSelected(fallbackItem)?"route-status-selected":""} ${status==="READY"&&!mainDimmed&&!fallbackCompatLocked?"route-status-clickable":""} ${fallbackCompatLocked?"batch-compatibility-cell-locked":""} ${mainDimClass}`}
       title={`${mainOperation} · ${erpMode?(normalized(status)==="WAITING"?"WAIT":routeStatusLongLabel(status)):fallbackDisplay}${fallbackRecipe?` · Recipe: ${fallbackRecipe}`:""}${x.batch_no?` · ${x.batch_no}`:""}${fallbackCompatLocked?` · ${compatibilityReasonForId(Number(x.id),mainOperation)||"Khác Recipe / điều kiện Batch"}`:""}${mainDimReason?` · ${mainDimReason}`:""}`}
       onClick={()=>{
        if(mainDimmed){setMessage(mainDimReason);return;}
@@ -3031,8 +3098,7 @@ const currentPriorityMonth=useMemo(()=>{
       }}
      >
       <b>{fallbackDisplay}</b>
-      {nextMainFocus&&fallbackRecipe&&<span className="route-context-next-recipe">{fallbackRecipe}</span>}
-      {!nextMainFocus&&x.batch_no&&<span className="route-status-batch">{x.batch_no}</span>}
+      {!currentMainFocus&&x.batch_no&&<span className="route-status-batch">{x.batch_no}</span>}
      </td>;
     }
     return <td key={key} className={`route-status-cell route-status-na ${mainDimClass}`.trim()} title={mainDimReason||undefined}>—</td>;
@@ -3174,7 +3240,7 @@ const currentPriorityMonth=useMemo(()=>{
 
    return <td
     key={key}
-    className={`route-status-cell ${routeStatusClass(status)} ${waitingClass} ${nextMainFocus?"route-context-next-cell":""} ${isCurrent?"route-status-current":""} ${(
+    className={`route-status-cell ${routeStatusClass(status)} ${waitingClass} ${currentMainFocus?"route-context-current-cell":""} ${isCurrent?"route-status-current":""} ${(
      routeCellSelected(selectableItem) ||
      (
       normalized(status)==="READY" &&
@@ -3191,12 +3257,7 @@ const currentPriorityMonth=useMemo(()=>{
    >
     <b>{displayStatus}</b>
 
-    {nextMainFocus ? (() => {
-     const recipeNo=String(displayItem.effective_recipe_no||displayItem.recipe_no||"").trim();
-     const recipeName=String(displayItem.effective_recipe_name||displayItem.recipe_name||"").trim();
-     const recipe=[recipeNo,recipeName].filter(Boolean).join(" · ");
-     return recipe?<span className="route-context-next-recipe">{recipe}</span>:null;
-    })() : <>
+    {!currentMainFocus&&<>
      {(scheduledEnds.length>0||batchNos.length>0)&&
       <span className="route-status-batch">
        {scheduledEnds.length>0 ? scheduledEnds.join(" / ") : batchNos.join(" / ")}
@@ -3204,13 +3265,16 @@ const currentPriorityMonth=useMemo(()=>{
      {resources.length>0&&<small>{resources.join(" / ")}</small>}
     </>}
 
-    {!nextMainFocus&&items.length>1&&
+    {!currentMainFocus&&items.length>1&&
      <small>{erpMode?`${items.length} lần trong routing`:`${items.length} route occurrences`}</small>}
    </td>;
  };
  const renderCandidateCell=(x:Candidate,key:string)=>{
    if(key===ERP_BATCH_PREVIOUS_CONTEXT_KEY){
      return renderPreviousMainContextCell(x);
+   }
+   if(key===ERP_BATCH_NEXT_CONTEXT_KEY){
+     return renderNextMainPlanningContextCell(x);
    }
    if(key.startsWith("route-main:")){
      return renderRouteStatusCell(x,key);
