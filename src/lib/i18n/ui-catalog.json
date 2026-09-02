@@ -7685,6 +7685,71 @@
       "en": "Under each AI answer, review Data used for this answer to see tool names, tables and inspected row counts.",
       "vi": "Dưới mỗi câu trả lời AI, xem Dữ liệu đã dùng cho câu trả lời này để biết tên tool, bảng và số dòng đã đọc.",
       "mode": "exact"
+    },
+    {
+      "en": "Planning, Scheduling and Production Execution overview with a read-only AI database analysis agent (Groq primary, OpenRouter fallback).",
+      "vi": "Tổng quan Planning, Scheduling và Production Execution với AI Agent database chỉ đọc, Groq là chính và OpenRouter là dự phòng.",
+      "mode": "exact"
+    },
+    {
+      "en": "Operations Dashboard & AI — Groq primary / OpenRouter fallback",
+      "vi": "Operations Dashboard & AI — Groq chính / OpenRouter dự phòng",
+      "mode": "exact"
+    },
+    {
+      "en": "Deterministic KPI first; Groq is primary, OpenRouter is automatic fallback, and both use the same controlled read-only database tools",
+      "vi": "KPI deterministic là nền tảng; Groq là provider chính, OpenRouter tự động dự phòng và cả hai dùng cùng bộ tool database chỉ đọc có kiểm soát",
+      "mode": "exact"
+    },
+    {
+      "en": "AI Provider Router",
+      "vi": "AI Provider Router",
+      "mode": "exact"
+    },
+    {
+      "en": "Groq → OpenRouter + read-only DB tools",
+      "vi": "Groq → OpenRouter + tool DB chỉ đọc",
+      "mode": "exact"
+    },
+    {
+      "en": "AI providers are read-only",
+      "vi": "Các provider AI chỉ có quyền đọc",
+      "mode": "exact"
+    },
+    {
+      "en": "Groq is primary and OpenRouter is fallback. Both start with the structured Dashboard snapshot and use the same controlled read-only tools for public application tables/views, Job context, Batch context, daily operations and ST logic. No write tool is exposed, so AI cannot create/delete Batch, change Recipe, move Schedule, change READY/WAIT, edit configuration or update Production Execution.",
+      "vi": "Groq là provider chính và OpenRouter là dự phòng. Cả hai bắt đầu từ snapshot Dashboard có cấu trúc và dùng cùng các tool chỉ đọc có kiểm soát cho bảng/view ứng dụng public, ngữ cảnh Job, Batch, vận hành theo ngày và logic ST. Không có tool ghi nên AI không thể tạo/xóa Batch, đổi Recipe, di chuyển Schedule, đổi READY/WAIT, sửa cấu hình hoặc cập nhật Production Execution.",
+      "mode": "exact"
+    },
+    {
+      "en": "Dashboard shows Groq and OpenRouter connection state separately and provides Test connection. Groq remains primary; OpenRouter is marked ready as fallback when configured. API keys never reach the browser.",
+      "vi": "Dashboard hiển thị riêng trạng thái kết nối Groq và OpenRouter và có nút Kiểm tra kết nối. Groq vẫn là provider chính; OpenRouter được đánh dấu sẵn sàng dự phòng khi đã cấu hình. API key không bao giờ được đưa xuống trình duyệt.",
+      "mode": "exact"
+    },
+    {
+      "en": "Provider fallback does not block operations",
+      "vi": "Provider dự phòng không làm gián đoạn vận hành",
+      "mode": "exact"
+    },
+    {
+      "en": "If Groq is unavailable, rate-limited or times out, the same request automatically falls back to OpenRouter when OPENROUTER_API_KEY is configured. If both providers are unavailable, the normal Dashboard still loads and all deterministic KPI remain usable.",
+      "vi": "Nếu Groq không khả dụng, bị rate-limit hoặc timeout, cùng request sẽ tự động chuyển sang OpenRouter khi OPENROUTER_API_KEY đã cấu hình. Nếu cả hai provider đều không khả dụng, Dashboard bình thường vẫn tải và toàn bộ KPI deterministic vẫn dùng được.",
+      "mode": "exact"
+    },
+    {
+      "en": "GROQ_API_KEY / GROQ_MODEL configure the primary provider. OPENROUTER_API_KEY / OPENROUTER_MODEL configure fallback (default openrouter/free). AI_MAX_TOOL_ROUNDS limits database tool rounds (default 4). All provider keys remain server-side.",
+      "vi": "GROQ_API_KEY / GROQ_MODEL cấu hình provider chính. OPENROUTER_API_KEY / OPENROUTER_MODEL cấu hình provider dự phòng (mặc định openrouter/free). AI_MAX_TOOL_ROUNDS giới hạn số vòng tool database (mặc định 4). Tất cả API key của provider chỉ nằm phía server.",
+      "mode": "exact"
+    },
+    {
+      "en": "The AI panel automatically analyzes the same date snapshot after the Dashboard loads. Groq is tried first; OpenRouter is used only when fallback is required.",
+      "vi": "Panel AI tự động phân tích snapshot cùng ngày sau khi Dashboard tải. Groq được thử trước; OpenRouter chỉ được dùng khi cần dự phòng.",
+      "mode": "exact"
+    },
+    {
+      "en": "Dashboard / AI provider config",
+      "vi": "Cấu hình Dashboard / AI provider",
+      "mode": "exact"
     }
   ]
 }

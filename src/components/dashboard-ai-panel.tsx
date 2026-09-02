@@ -28,18 +28,20 @@ type DataAccess={
  totalRowsInspected?:number;
 };
 
+type ProviderStatus={provider:string;configured:boolean;connected:boolean;model:string;modelAvailable:boolean;message:string};
 type AiResponse={
- ok?:boolean;provider?:string;model?:string;generatedAt?:string;connected?:boolean;
+ ok?:boolean;provider?:string;model?:string;providerChain?:string;fallbackUsed?:boolean;generatedAt?:string;connected?:boolean;
  format?:"structured"|"text_fallback";warning?:string;analysis?:AiAnalysis;error?:string;code?:string;
  dataAccess?:DataAccess;
 };
 
 type ConnectionResponse={
  ok?:boolean;provider?:string;configured?:boolean;connected?:boolean;model?:string;modelAvailable?:boolean;message?:string;
+ providerChain?:string;primaryProvider?:string;fallbackProvider?:string;providers?:ProviderStatus[];
  accessMode?:string;knowledgeVersion?:string;maxToolRounds?:number;toolNames?:string[];toolUseAvailable?:boolean;
 };
 
-type ChatTurn={id:string;role:"user"|"assistant";content:string;dataAccess?:DataAccess};
+type ChatTurn={id:string;role:"user"|"assistant";content:string;dataAccess?:DataAccess;provider?:string};
 type ConnectionState={state:"checking"|"connected"|"disconnected"|"not-configured";message:string;modelAvailable:boolean|null};
 
 const healthClass=(health?:string)=>health==="RISK"?"risk":health==="GOOD"?"good":"watch";
@@ -61,6 +63,7 @@ export function DashboardAiPanel({scheduleDate,scope}:{scheduleDate:string;scope
  const {locale,text}=useUiLanguage();
  const [analysis,setAnalysis]=useState<AiAnalysis|null>(null);
  const [provider,setProvider]=useState("Groq");const [model,setModel]=useState("");
+ const [providerChain,setProviderChain]=useState("Groq → OpenRouter");const [fallbackUsed,setFallbackUsed]=useState(false);
  const [error,setError]=useState("");const [warning,setWarning]=useState("");
  const [busy,setBusy]=useState(false);const [connectionBusy,setConnectionBusy]=useState(false);
  const [question,setQuestion]=useState("");const [chat,setChat]=useState<ChatTurn[]>([]);
@@ -81,10 +84,10 @@ export function DashboardAiPanel({scheduleDate,scope}:{scheduleDate:string;scope
   try{
    const r=await fetch("/api/dashboard/ai",{method:"GET",cache:"no-store"});
    const d=await safeJson(r) as ConnectionResponse;setConnectionInfo(d||{});
-   if(d?.provider)setProvider(d.provider);if(d?.model)setModel(d.model);
-   if(!d?.configured)setConnection({state:"not-configured",message:d?.message||"GROQ_API_KEY is not configured.",modelAvailable:false});
-   else if(d?.connected)setConnection({state:"connected",message:d?.message||"Groq connected.",modelAvailable:d?.modelAvailable??null});
-   else setConnection({state:"disconnected",message:d?.message||"Unable to connect to Groq.",modelAvailable:d?.modelAvailable??false});
+   if(d?.provider)setProvider(d.provider);if(d?.model)setModel(d.model);if(d?.providerChain)setProviderChain(d.providerChain);
+   if(!d?.configured)setConnection({state:"not-configured",message:d?.message||"No AI provider is configured.",modelAvailable:false});
+   else if(d?.connected)setConnection({state:"connected",message:d?.message||"AI provider connected.",modelAvailable:d?.modelAvailable??null});
+   else setConnection({state:"disconnected",message:d?.message||"Unable to connect to an AI provider.",modelAvailable:d?.modelAvailable??false});
   }catch(e){setConnection({state:"disconnected",message:e instanceof Error?e.message:String(e),modelAvailable:false});}
   finally{setConnectionBusy(false);}
  },[]);
@@ -96,8 +99,8 @@ export function DashboardAiPanel({scheduleDate,scope}:{scheduleDate:string;scope
     scheduleDate,locale,question:q,history:history.map(x=>({role:x.role,content:x.content}))
    })});
    const d=await safeJson(r) as AiResponse;
-   if(d?.provider)setProvider(d.provider);if(d?.model)setModel(d.model);
-   if(d?.connected===true)setConnection(prev=>({state:"connected",message:prev.message||"Groq connected.",modelAvailable:prev.modelAvailable}));
+   if(d?.provider)setProvider(d.provider);if(d?.model)setModel(d.model);if(d?.providerChain)setProviderChain(d.providerChain);setFallbackUsed(Boolean(d?.fallbackUsed));
+   if(d?.connected===true)setConnection(prev=>({state:"connected",message:prev.message||"AI provider connected.",modelAvailable:prev.modelAvailable}));
    if(d?.connected===false&&r.status!==429)setConnection(prev=>({state:prev.state==="not-configured"?"not-configured":"disconnected",message:d?.error||prev.message,modelAvailable:prev.modelAvailable}));
    if(!r.ok)throw new Error(d?.error||text("Unable to analyze dashboard.","Không thể phân tích Dashboard."));
    if(d?.analysis)setAnalysis(d.analysis);if(d?.warning)setWarning(d.warning);setLastAccess(d?.dataAccess||null);
@@ -116,8 +119,8 @@ export function DashboardAiPanel({scheduleDate,scope}:{scheduleDate:string;scope
   setQuestion("");setChat(prev=>[...prev,userTurn]);
   const result=await run(q,history);
   if(result?.analysis){
-   const answer=result.analysis.answer||result.analysis.summary||text("Groq returned no answer.","Groq không trả về câu trả lời.");
-   setChat(prev=>[...prev,{id:turnId(),role:"assistant",content:answer,dataAccess:result.dataAccess}]);
+   const answer=result.analysis.answer||result.analysis.summary||text("AI returned no answer.","AI không trả về câu trả lời.");
+   setChat(prev=>[...prev,{id:turnId(),role:"assistant",content:answer,dataAccess:result.dataAccess,provider:result.provider||"AI"}]);
   }else setChat(prev=>[...prev,{id:turnId(),role:"assistant",content:text("I could not answer because the AI request failed. Check the connection/error message above.","Không thể trả lời vì yêu cầu AI bị lỗi. Hãy kiểm tra trạng thái kết nối/lỗi phía trên.")}]);
  }
 
@@ -125,10 +128,11 @@ export function DashboardAiPanel({scheduleDate,scope}:{scheduleDate:string;scope
 
  return <section className="dashboard-ai-panel">
   <div className="dashboard-ai-head">
-   <div><span className="dashboard-ai-kicker">AI OPERATIONS ANALYST</span><h3>{text("Groq Analysis","Phân tích Groq")}</h3><small>{model?`${provider} · ${model}`:provider} · {text("read-only database agent","AI Agent đọc database, không ghi dữ liệu")}</small></div>
+   <div><span className="dashboard-ai-kicker">AI OPERATIONS ANALYST</span><h3>{text("AI Analysis","Phân tích AI")}</h3><small>{providerChain} · {model?`${provider} · ${model}`:provider} · {text("read-only database agent","AI Agent đọc database, không ghi dữ liệu")}</small></div>
    <div className="dashboard-ai-actions">
     <span className={`dashboard-ai-connection ${connection.state}`} title={connection.message}><i></i>{connectionLabel}</span>
     <button className="btn small" type="button" disabled={connectionBusy} onClick={()=>void testConnection()}>{connectionBusy?text("Testing...","Đang kiểm tra..."):text("Test connection","Kiểm tra kết nối")}</button>
+    {fallbackUsed?<span className="dashboard-ai-fallback">OpenRouter fallback</span>:null}
     {analysis?<span className={`dashboard-ai-health ${healthClass(analysis.health)}`}>{analysis.health}</span>:null}
     <button className="btn small" type="button" disabled={busy} onClick={()=>void run()}>{busy?text("Analyzing...","Đang phân tích..."):text("Refresh AI","Phân tích lại")}</button>
    </div>
@@ -137,11 +141,12 @@ export function DashboardAiPanel({scheduleDate,scope}:{scheduleDate:string;scope
   <div className="dashboard-ai-connection-detail">
    <b>{text("Connection","Kết nối")}:</b><span>{connection.message||connectionLabel}</span>
    {connection.state==="connected"?<small>{text("Database access: public application schema · READ ONLY · safe tools · no arbitrary SQL · no write access.","Quyền database: schema ứng dụng public · CHỈ ĐỌC · qua tool an toàn · không SQL tự do · không quyền ghi.")}{connectionInfo.knowledgeVersion?` · Logic ${connectionInfo.knowledgeVersion}`:""}</small>:null}
-   {connection.state==="connected"&&connection.modelAvailable===false?<small>{text("Provider is reachable, but the configured model was not found. Check GROQ_MODEL.","Đã kết nối provider nhưng không tìm thấy model cấu hình. Kiểm tra GROQ_MODEL.")}</small>:null}
+   {connectionInfo.providers?.length?<div className="dashboard-ai-provider-status">{connectionInfo.providers.map(x=><span key={x.provider} className={x.connected?"connected":x.configured?"disconnected":"not-configured"} title={x.message}><b>{x.provider}</b> · {x.connected?text("Ready","Sẵn sàng"):x.configured?text("Unavailable","Không khả dụng"):text("Not configured","Chưa cấu hình")} · {x.model}</span>)}</div>:null}
+   {connection.state==="connected"&&connection.modelAvailable===false?<small>{text("The active provider is reachable, but the configured model was not found. Check the provider model setting.","Provider đang dùng đã kết nối nhưng không tìm thấy model cấu hình. Kiểm tra cấu hình model của provider.")}</small>:null}
   </div>
 
   <details className="dashboard-ai-scope">
-   <summary><span>{text("AI data access — what Groq can read","Quyền dữ liệu AI — Groq có thể đọc gì")}</span><small>{text("Snapshot + database tools","Snapshot + tool database")}</small></summary>
+   <summary><span>{text("AI data access — what providers can read","Quyền dữ liệu AI — provider có thể đọc gì")}</span><small>{text("Snapshot + database tools","Snapshot + tool database")}</small></summary>
    <div className="dashboard-ai-scope-body">
     <div className="dashboard-ai-access-grid">
      <article><b>{text("Database scope","Phạm vi database")}</b><span>public.*</span><p>{text("All application tables/views in the public schema can be discovered and read on demand.","Có thể khám phá và đọc theo nhu cầu tất cả bảng/view ứng dụng trong schema public.")}</p></article>
@@ -149,7 +154,7 @@ export function DashboardAiPanel({scheduleDate,scope}:{scheduleDate:string;scope
      <article><b>{text("Business logic","Logic nghiệp vụ")}</b><span>{connectionInfo.knowledgeVersion||"V371"}</span><p>{text("Canonical Planning Chain, NextOperation, Recipe/Batch, Scheduling, Chemical/Paint, Masking/Unmasking and Execution rules are supplied to the agent.","Agent được cung cấp logic chuẩn Planning Chain, NextOperation, Recipe/Batch, Scheduling, Chemical/Paint, Masking/Unmasking và Execution.")}</p></article>
      <article><b>{text("Free-quota protection","Bảo vệ quota miễn phí")}</b><span>{connectionInfo.maxToolRounds||4} {text("tool rounds max","vòng tool tối đa")}</span><p>{text("AI does not dump the entire database into every prompt. It reads only the rows needed for the question.","AI không đổ toàn bộ database vào mỗi prompt; chỉ đọc dữ liệu cần cho câu hỏi.")}</p></article>
     </div>
-    <p><b>{text("Always available first","Luôn có sẵn trước")}:</b> {text("the structured Dashboard snapshot below. When you Ask AI about a specific Job, Batch, routing, recipe, area, resource or configuration, Groq can call the read-only database tools for additional evidence.","snapshot Dashboard có cấu trúc bên dưới. Khi bạn hỏi Job, Batch, routing, recipe, area, resource hoặc cấu hình cụ thể, Groq có thể gọi tool database chỉ đọc để lấy thêm bằng chứng.")}</p>
+    <p><b>{text("Always available first","Luôn có sẵn trước")}:</b> {text("the structured Dashboard snapshot below. When you Ask AI about a specific Job, Batch, routing, recipe, area, resource or configuration, the active AI provider can call the same read-only database tools for additional evidence.","snapshot Dashboard có cấu trúc bên dưới. Khi bạn hỏi Job, Batch, routing, recipe, area, resource hoặc cấu hình cụ thể, provider AI đang hoạt động có thể gọi cùng bộ tool database chỉ đọc để lấy thêm bằng chứng.")}</p>
     <div className="dashboard-ai-scope-grid">{scope.sections.map(section=><article key={section.key}><div><b>{section.label}</b><span>{section.rows}{section.limit?` / max ${section.limit}`:""}</span></div><p>{section.description}</p><small>{section.fields.join(" · ")}</small></article>)}</div>
     <div className="dashboard-ai-not-in-scope"><b>{text("AI is NOT allowed to do","AI KHÔNG được phép")}</b><ul>{scope.notIncluded.map((x,i)=><li key={i}>{x}</li>)}</ul></div>
    </div>
@@ -157,9 +162,9 @@ export function DashboardAiPanel({scheduleDate,scope}:{scheduleDate:string;scope
 
   <div className="dashboard-ai-suggestions"><b>{text("Suggested questions","Câu hỏi gợi ý")}</b><div>{suggestions.map((x,i)=><button type="button" key={i} onClick={()=>setQuestion(x)}>{x}</button>)}</div></div>
 
-  {busy&&!analysis?<div className="dashboard-ai-loading"><b>{text("Groq is analyzing ST Planning data...","Groq đang phân tích dữ liệu ST Planning...")}</b><span>{text("The agent may read additional database rows when your question requires them.","Agent có thể đọc thêm dữ liệu database nếu câu hỏi cần.")}</span></div>:null}
-  {error?<div className="dashboard-ai-error"><b>{text("AI analysis unavailable","Chưa dùng được AI Analysis")}</b><span>{error}</span>{error.includes("GROQ_API_KEY")?<small>{text("Add GROQ_API_KEY in Vercel Environment Variables, then redeploy.","Thêm GROQ_API_KEY trong Vercel Environment Variables rồi redeploy.")}</small>:null}</div>:null}
-  {warning?<div className="dashboard-ai-warning"><b>{text("Groq is connected","Groq đã kết nối")}</b><span>{warning}</span></div>:null}
+  {busy&&!analysis?<div className="dashboard-ai-loading"><b>{text("AI is analyzing ST Planning data...","AI đang phân tích dữ liệu ST Planning...")}</b><span>{text("The agent may read additional database rows when your question requires them.","Agent có thể đọc thêm dữ liệu database nếu câu hỏi cần.")}</span></div>:null}
+  {error?<div className="dashboard-ai-error"><b>{text("AI analysis unavailable","Chưa dùng được AI Analysis")}</b><span>{error}</span>{error.includes("API_KEY")||error.includes("provider is configured")?<small>{text("Configure GROQ_API_KEY and/or OPENROUTER_API_KEY in Vercel Environment Variables, then redeploy.","Cấu hình GROQ_API_KEY và/hoặc OPENROUTER_API_KEY trong Vercel Environment Variables rồi redeploy.")}</small>:null}</div>:null}
+  {warning?<div className="dashboard-ai-warning"><b>{text("AI provider is connected","Provider AI đã kết nối")}</b><span>{warning}</span></div>:null}
 
   {analysis?<div className="dashboard-ai-body">
    <div className="dashboard-ai-summary"><b>{analysis.headline||text("Operations summary","Tổng quan vận hành")}</b><p>{analysis.summary}</p></div>
@@ -170,8 +175,8 @@ export function DashboardAiPanel({scheduleDate,scope}:{scheduleDate:string;scope
   </div>:null}
 
   <div className="dashboard-ai-chat-head"><div><b>{text("AI conversation","Hội thoại AI")}</b><small>{text("Follow-up questions keep conversation context. Database facts are re-read through the current snapshot/read-only tools when needed.","Câu hỏi tiếp theo giữ ngữ cảnh hội thoại. Dữ kiện database được đọc lại từ snapshot/tool chỉ đọc khi cần.")}</small></div>{chat.length?<button type="button" className="btn small" disabled={busy} onClick={()=>setChat([])}>{text("Clear chat","Xóa hội thoại")}</button>:null}</div>
-  {chat.length?<div className="dashboard-ai-chat">{chat.map(turn=><div className={`dashboard-ai-chat-turn ${turn.role}`} key={turn.id}><b>{turn.role==="user"?text("You","Bạn"):"Groq"}</b><p>{turn.content}</p>{turn.role==="assistant"&&turn.dataAccess?<AccessEvidence access={turn.dataAccess} text={text}/>:null}</div>)}{busy?<div className="dashboard-ai-chat-turn assistant pending"><b>Groq</b><p>{text("Reading / analyzing...","Đang đọc / phân tích...")}</p></div>:null}</div>:<div className="dashboard-ai-chat-empty">{text("No conversation yet. Ask about a Job, Batch, Area, Resource, routing, recipe, schedule, production status or business logic.","Chưa có hội thoại. Có thể hỏi về Job, Batch, Area, Resource, routing, recipe, schedule, production status hoặc logic nghiệp vụ.")}</div>}
+  {chat.length?<div className="dashboard-ai-chat">{chat.map(turn=><div className={`dashboard-ai-chat-turn ${turn.role}`} key={turn.id}><b>{turn.role==="user"?text("You","Bạn"):(turn.provider||"AI")}</b><p>{turn.content}</p>{turn.role==="assistant"&&turn.dataAccess?<AccessEvidence access={turn.dataAccess} text={text}/>:null}</div>)}{busy?<div className="dashboard-ai-chat-turn assistant pending"><b>{provider||"AI"}</b><p>{text("Reading / analyzing...","Đang đọc / phân tích...")}</p></div>:null}</div>:<div className="dashboard-ai-chat-empty">{text("No conversation yet. Ask about a Job, Batch, Area, Resource, routing, recipe, schedule, production status or business logic.","Chưa có hội thoại. Có thể hỏi về Job, Batch, Area, Resource, routing, recipe, schedule, production status hoặc logic nghiệp vụ.")}</div>}
 
-  <div className="dashboard-ai-ask"><input className="input" value={question} onChange={e=>setQuestion(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();void ask();}}} placeholder={text("Ask Groq about any ST Planning data or logic...","Hỏi Groq về bất kỳ dữ liệu hoặc logic ST Planning...")}/><button className="btn primary" type="button" disabled={busy||!question.trim()} onClick={()=>void ask()}>{text("Ask AI","Hỏi AI")}</button></div>
+  <div className="dashboard-ai-ask"><input className="input" value={question} onChange={e=>setQuestion(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();void ask();}}} placeholder={text("Ask AI about any ST Planning data or logic...","Hỏi AI về bất kỳ dữ liệu hoặc logic ST Planning...")}/><button className="btn primary" type="button" disabled={busy||!question.trim()} onClick={()=>void ask()}>{text("Ask AI","Hỏi AI")}</button></div>
  </section>;
 }

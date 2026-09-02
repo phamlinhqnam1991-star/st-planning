@@ -237,7 +237,7 @@ export default async function Page(){
      {t:"E · Masking / Unmasking",d:"Main Batch → support operation → Start",c:"teal"},
      {t:"F · Board Điều Độ",d:"Unscheduled Batch → Resource/Time",c:"green"},
      {t:"G · Handoff",d:"Batch mở Main kế tiếp",c:"orange"},
-     {t:"H · Dashboard",d:"KPI → Risk → Groq AI Analysis",c:"green"},
+     {t:"H · Dashboard",d:"KPI → Risk → AI Analysis",c:"green"},
     ]}/>
     <div className="lg-key lg-key-2">
      <Rule title="Nguyên tắc 1 · Master ≠ Config" tone="important">
@@ -712,27 +712,27 @@ export default async function Page(){
     </div>
    </Section>
 
-   <Section id="dashboard" title="12 · Operations Dashboard & Groq AI — control tower and read-only database agent"
-    sub="Deterministic KPI first; Groq starts from the Dashboard snapshot and can read deeper database evidence through controlled read-only tools">
+   <Section id="dashboard" title="12 · Operations Dashboard & AI — Groq primary / OpenRouter fallback"
+    sub="Deterministic KPI first; Groq is primary, OpenRouter is automatic fallback, and both use the same controlled read-only database tools">
     <Chain steps={[
      {t:"Operational Sources",d:"Open Jobs · Planning Chain · Batch · Schedule · Execution",c:"blue"},
      {t:"Dashboard KPI Engine",d:"Counts · workload · delay · conflict · 7-day trend",c:"teal"},
-     {t:"Groq AI Agent",d:"Snapshot + read-only DB tools",c:"green"},
+     {t:"AI Provider Router",d:"Groq → OpenRouter + read-only DB tools",c:"green"},
      {t:"Planner / Manager",d:"Review and decide",c:"orange"},
     ]}/>
     <div className="lg-key lg-key-2">
      <Rule title="Dashboard remains deterministic" tone="important">Open Jobs, READY, Unscheduled Backlog, Scheduled Today, Execution WAITING / ON-GOING / DONE, delayed work, resource load and schedule conflicts are calculated by application / SQL logic. AI does not calculate or replace these source-of-truth values.</Rule>
-     <Rule title="Groq is read-only">Groq starts with the structured Dashboard snapshot. When Ask AI needs deeper evidence, the server exposes controlled read-only tools for public application tables/views, Job context, Batch context, daily operations and ST logic. No write tool is exposed, so AI cannot create/delete Batch, change Recipe, move Schedule, change READY/WAIT, edit configuration or update Production Execution.</Rule>
-     <Rule title="AI connection is explicit">Dashboard shows Groq connection state and provides <b>Test connection</b>. The test checks provider access and configured model availability without exposing GROQ_API_KEY to the browser.</Rule>
+     <Rule title="AI providers are read-only">Groq is primary and OpenRouter is fallback. Both start with the structured Dashboard snapshot and use the same controlled read-only tools for public application tables/views, Job context, Batch context, daily operations and ST logic. No write tool is exposed, so AI cannot create/delete Batch, change Recipe, move Schedule, change READY/WAIT, edit configuration or update Production Execution.</Rule>
+     <Rule title="AI connection is explicit">Dashboard shows Groq and OpenRouter connection state separately and provides <b>Test connection</b>. Groq remains primary; OpenRouter is marked ready as fallback when configured. API keys never reach the browser.</Rule>
      <Rule title="AI data access is visible">The AI panel shows the initial Dashboard snapshot plus database access mode. Ask AI can discover/read application tables and aggregate filtered data through validated tools, but cannot execute arbitrary SQL. Every answer reports which tools/tables were used and how many rows were inspected.</Rule>
      <Rule title="Conversation keeps context, not new facts">Ask AI keeps recent user/assistant turns for follow-up questions. Previous AI answers are conversation context only; factual evidence must come from the current Dashboard snapshot or database tool results from the current request.</Rule>
-     <Rule title="AI failure does not block operations">If GROQ_API_KEY is missing, Groq times out, rate-limits, a read-only tool fails, or the provider is unavailable, the normal Dashboard still loads and all deterministic KPI remain usable. The server also normalizes malformed AI output to the structured dashboard schema when possible.</Rule>
-     <Rule title="Server-side provider configuration">GROQ_API_KEY stays server-side in Vercel Environment Variables. GROQ_MODEL selects the model. GROQ_AI_MAX_TOOL_ROUNDS optionally limits database tool rounds (default 4) to protect the free Groq quota without changing Dashboard business logic.</Rule>
+     <Rule title="Provider fallback does not block operations">If Groq is unavailable, rate-limited or times out, the same request automatically falls back to OpenRouter when OPENROUTER_API_KEY is configured. If both providers are unavailable, the normal Dashboard still loads and all deterministic KPI remain usable.</Rule>
+     <Rule title="Server-side provider configuration">GROQ_API_KEY / GROQ_MODEL configure the primary provider. OPENROUTER_API_KEY / OPENROUTER_MODEL configure fallback (default openrouter/free). AI_MAX_TOOL_ROUNDS limits database tool rounds (default 4). All provider keys remain server-side.</Rule>
     </div>
     <StepList items={[
      <>Open <b>Operations → Dashboard</b> and select the production date.</>,
      <>Review Operations Health, KPI, Area Execution, Resource Workload, delayed risk, READY queue and 7-day trend.</>,
-     <>The Groq panel automatically analyzes the same date snapshot after the Dashboard loads without deep database reads unless needed.</>,
+     <>The AI panel automatically analyzes the same date snapshot after the Dashboard loads. Groq is tried first; OpenRouter is used only when fallback is required.</>,
      <>Use <b>Test connection</b> to verify provider/model/tool readiness and open <b>AI data access</b> to see the read-only database boundary.</>,
      <>Use a suggested question or type a question in <b>Ask AI</b>. For specific Job/Batch/Area/Resource/logic questions, the agent calls the minimum read-only tools needed. The input clears immediately after Enter/Ask and the answer is appended to the visible conversation history.</>,
      <>Under each AI answer, review <b>Data used for this answer</b> to see tool names, tables and inspected row counts.</>,
@@ -758,7 +758,7 @@ export default async function Page(){
       <tr><td>Planner Assignment</td><td>Ai thấy/điều độ area.</td><td>Handover alert/Planner view.</td><td>Không rebuild routing.</td></tr>
       <tr><td>Import All Open Job</td><td>NextOperation/LastOperation/source_data mới.</td><td>Candidate/Recipe/condition/physical progress.</td><td>Scan Column Values nếu có cột/value mới.</td></tr>
       <tr><td>Import Master</td><td>Part/Rev/Routing/Finish/Requirement.</td><td>Part Tracker, route, recipe master-condition lookup.</td><td>Kiểm tra changed Part và derived Bridge.</td></tr>
-      <tr><td>Dashboard / Groq AI config</td><td>Dashboard analysis and AI narrative.</td><td>Does not change Planning / Batch / Schedule / Execution source data.</td><td>Refresh Dashboard / Refresh AI; no Rebuild Chain.</td></tr>
+      <tr><td>Dashboard / AI provider config</td><td>Dashboard analysis and AI narrative.</td><td>Does not change Planning / Batch / Schedule / Execution source data.</td><td>Refresh Dashboard / Refresh AI; no Rebuild Chain.</td></tr>
      </tbody>
     </table></div>
    </Section>
