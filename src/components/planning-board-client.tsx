@@ -764,10 +764,11 @@ useEffect(()=>{
  const defaultStView=useMemo(()=>{
    const set=new Set<string>();
    for(const x of (stOperations||[])){
-    // v400: RAW NextOperation membership is explicit ST PLANNING_OPERATION
-    // only. Auto-Bridge/INTERMEDIATE stays a chain helper and cannot become a
-    // Planning Board population selector.
-    if(normalized(x.operation_type)!=="PLANNING_OPERATION")continue;
+    // V404: the ST RAW selector follows the same population inputs used by the
+    // Current Main resolver: direct Planning Operations plus active Bridge
+    // Intermediate Operations. ST_SCOPE_ONLY is not returned by stOperations.
+    const type=normalized(x.operation_type);
+    if(type!=="PLANNING_OPERATION"&&type!=="INTERMEDIATE")continue;
     const c=normalized(x.operation_code);
     if(c)set.add(c);
    }
@@ -1752,16 +1753,18 @@ const currentPriorityMonth=useMemo(()=>{
  // thuộc các công đoạn ST (danh sách panel "Các công đoạn được hiển thị").
  // Bỏ chọn hết trong bảng "Công đoạn" → danh sách Job trống; chọn một phần →
  // chỉ Job có next operation thuộc nhóm source của công đoạn đang chọn.
- // v400 — VIEW CÔNG ĐOẠN ST is now a strict SUBSET of explicit ST
- // PLANNING_OPERATION codes. The selector no longer offers All Open Job RAW
- // operations from other areas and no longer offers Auto-Bridge intermediates.
+ // V404 — VIEW CÔNG ĐOẠN ST is a subset of the canonical ST RAW catalog:
+ // direct Planning Operations + active Bridge Intermediate Operations. A Job
+ // still needs the live Current Main already resolved by Planning Chain; the
+ // selector cannot create or widen a chain by itself.
  const allNextOps=useMemo(()=>{
    const seen=new Set<string>();
    const panel=new Set<string>();
    const jobsByCode=new Map<string,number>();
    for(const n of (nextOperations||[]))jobsByCode.set(normalized(n.operation_code),Number(n.jobs||0));
    for(const x of (stOperations||[])){
-    if(normalized(x.operation_type)!=="PLANNING_OPERATION")continue;
+    const type=normalized(x.operation_type);
+    if(type!=="PLANNING_OPERATION"&&type!=="INTERMEDIATE")continue;
     const c=normalized(x.operation_code);
     if(c)panel.add(c);
    }

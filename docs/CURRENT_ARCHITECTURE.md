@@ -191,10 +191,12 @@ Dashboard presentation is grouped `Area -> Main Planning -> Recipe` after the ex
 - Area TOTAL deduplicates the same Job inside that Area. Status cards remain Job × Main Planning workload and therefore reconcile with the Main rows for that Area.
 - Each Area table retains V397 Recipe No. / Recipe Name breakdown and the same status columns.
 - Dashboard Main/Recipe and CAT3/CAT5 tables render all rows without vertical table scroll containers; horizontal scrolling remains for wide tables.
-- This is a read/display aggregation change only. Planning Chain, Recipe resolver, Batch, Schedule, Hold, Production Execution, and V398 RAW ST scope remain unchanged.
-## V400 — Strict RAW NextOperation ST-only gate
+- This is a read/display aggregation change only. Planning Chain, Recipe resolver, Batch, Schedule, Hold and Production Execution remain unchanged; ST population follows the latest V404 Current Main resolver rule below.
+## V404 — Current Main resolver là nguồn chuẩn cho ST population
 
-Dashboard và Planning Board chỉ nhận Job khi RAW `open_job_current.next_operation` là `PLANNING_OPERATION` active được khai báo trực tiếp trong `md_st_operation_scope`. `ST_SCOPE_ONLY`, Auto-Bridge/INTERMEDIATE và RAW operation ngoài ST không được dùng để đưa Job vào Board/Dashboard. Bridge vẫn giữ vai trò nội bộ trong Planning Chain sau khi Job đã thuộc population hợp lệ. Saved ST View chỉ được phép là tập con của danh sách ST canonical này.
+V400 strict `PLANNING_OPERATION-only` gate đã được thay thế. Dashboard và Planning Board dùng đúng kết quả Current Main đã được `syncPlanningChains` materialize từ `LastOperation + RAW NextOperation` theo thứ tự resolver hiện hành: Bridge → AllOperation fallback → direct Next Main rescue. Một Job thuộc ST workload khi RAW NextOperation là `PLANNING_OPERATION` **hoặc** Intermediate Operation thuộc active Bridge và Job có live Current Main trong Planning Chain. `ST_SCOPE_ONLY` vẫn bị loại hoàn toàn khỏi Planning Chain/Batch/Board. Saved ST View chỉ là subset selector của catalog ST gồm Planning Operation + active Bridge Intermediate; nó không tự tạo Current Main.
+
+Immediate workload dùng `Immediate Operation = open_job_current.next_operation` và `Main Planning = Current Main` (first active planning occurrence ordered by planning_seq/source_seq/id). Vì vậy route `BSAUNSLD → INS-AND → MSKG-TC → PPRSLVT(PRIMER)` sẽ nhóm `INS-AND`, `MSKG-TC`, `PPRSLVT` dưới Current Main `PRIMER` tùy vị trí RAW NextOperation hiện tại của từng Job.
 
 
 
@@ -208,16 +210,6 @@ Dashboard không còn hiển thị `PLANNED` như một bucket/card riêng. Tron
 - Both legacy/migrated `AppTabs` pages and the native `ErpAppShell` Planning pages use the same visible navigation hierarchy.
 - This is presentation/navigation only; no planning or scheduling business rule changes.
 
-## V403 — Dashboard chart density + Main/Immediate dual-axis workload
+## V404 — Dashboard charts + canonical Immediate Operation
 
-Dashboard keeps the existing status-stacked Surface dm² chart by Main Planning, but the chart now fits the available viewport and does not use a horizontal scrollbar.
-
-A second read-only combo chart is added from the same strict RAW NextOperation ST-only Dashboard population:
-
-`Main Planning -> Immediate Operation (planning_job_operation.source_operation_code) -> Surface dm² column + Qty pcs line`
-
-- X-axis label combines Main Planning with its concrete Immediate/Source Operation.
-- Left Y axis = Surface dm².
-- Right Y axis = Qty pcs.
-- The second chart uses total workload across the Dashboard status buckets; status composition remains visible in the first stacked chart.
-- No Planning Chain, Recipe, Batch, Schedule, Hold or RAW ST gate rule changes.
+Hai chart được đặt ở đầu Dashboard. Chart Surface dm² theo Main Planning vẫn fit theo viewport và không có horizontal scrollbar. Chart combo dùng nguồn chuẩn `Current Main + RAW NextOperation`: cột = dm² theo trục trái, line = pcs theo trục phải cố định max 10,000 pcs. Mỗi cột và mỗi line point hiển thị giá trị trực tiếp; cuối chart có nhóm `TOTAL / ALL ST` cho tổng dm² và pcs. Không dùng `planning_job_operation.source_operation_code` để xác định Immediate Operation nữa.

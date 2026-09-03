@@ -1,3 +1,5 @@
+> **Superseded by V404 for Immediate workload:** Immediate Operation is now RAW `open_job_current.next_operation` grouped under the Planning Board-resolved Current Main; it is no longer derived from `planning_job_operation.source_operation_code`. Chart placement/fit improvements remain.
+
 # V403 — Dashboard charts fit + Surface/Qty dual axis
 
 ## Scope

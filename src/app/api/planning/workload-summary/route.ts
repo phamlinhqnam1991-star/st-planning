@@ -37,6 +37,21 @@ export async function GET(req:Request){
     join public.md_area ax on ax.id=ag.area_id and ax.is_active=true
     where ag.is_active=true
     group by ag.st_group
+   ), eligible_jobs as (
+    select j.job_num
+    from public.open_job_current j
+    join visible_st_raw rawst on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
+    join lateral (
+     select p0.id
+     from public.planning_job_operation p0
+     where p0.job_num=j.job_num
+       and p0.is_active=true
+       and p0.status in ('LOCKED','ELIGIBLE','PLANNED')
+       and upper(trim(p0.standard_operation))<>'PIONBL'
+     order by p0.planning_seq asc,p0.source_seq asc,p0.id asc
+     limit 1
+    ) current_main on true
+    where j.is_open=true
    ), base as (
     select
      p.job_num,
@@ -58,8 +73,8 @@ export async function GET(req:Request){
       0
      )::numeric surface
     from public.planning_job_operation p
+    join eligible_jobs ej on ej.job_num=p.job_num
     join public.open_job_current j on j.job_num=p.job_num
-    join visible_st_raw rawst on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
     left join area_by_group abg on abg.st_group=p.st_group
     left join public.md_area a on a.id=abg.area_id and a.is_active=true
     left join public.md_operation_master om on om.standard_operation=p.standard_operation and om.is_active=true

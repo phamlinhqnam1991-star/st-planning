@@ -172,9 +172,9 @@ Dashboard `Main Planning Workload Summary` now expands every Main Planning into 
 ## V399 · Dashboard split by Area
 
 Dashboard `Main Planning Workload Summary` is now rendered as one section per Area instead of one table mixing all Areas. Every Area has the same KPI-card family as the global Dashboard (`UNIQUE JOBS`, WAIT, READY, PLANNED, PLANNED-UNSCHEDULED, SCHEDULED, HOLD), followed by that Area's Main Planning → Recipe No./Recipe Name workload table. Main/Recipe and CAT3/CAT5 tables no longer use vertical max-height scrollers; all rows render in the page while horizontal scrolling remains available for wide ERP tables. V398 RAW NextOperation ST filtering and all Planning/Recipe/Batch/Schedule business logic are unchanged.
-## V400 — Strict RAW NextOperation ST-only gate
+## V404 — Current Main resolver ST population
 
-Dashboard và Planning Board chỉ nhận Job khi RAW `open_job_current.next_operation` là `PLANNING_OPERATION` active được khai báo trực tiếp trong `md_st_operation_scope`. `ST_SCOPE_ONLY`, Auto-Bridge/INTERMEDIATE và RAW operation ngoài ST không được dùng để đưa Job vào Board/Dashboard. Bridge vẫn giữ vai trò nội bộ trong Planning Chain sau khi Job đã thuộc population hợp lệ. Saved ST View chỉ được phép là tập con của danh sách ST canonical này.
+V400 strict Planning-Operation-only gate is superseded. Dashboard and Planning Board use the synced Current Main resolver result: RAW NextOperation may be a Planning Operation or an active Bridge Intermediate, but the Job must have a live Current Main row in the Planning Chain. ST_SCOPE_ONLY remains excluded. Immediate Operation is the RAW All Open Job NextOperation grouped under that Current Main.
 
 
 
@@ -185,6 +185,9 @@ Dashboard bỏ hoàn toàn card/cột/series `PLANNED`. Nếu `planning_job_oper
 ### V402 — Navigation
 Dashboard is now a standalone top-level WORK CENTER and all sub-tabs remain visible in the left navigation for every work center. Planning/Batch/Recipe/Schedule logic is unchanged.
 
-## V403 · Dashboard chart fit + Surface/Qty combo
+## V404 · Dashboard charts at top + canonical Immediate workload
 
-The existing stacked Surface dm² chart by Main Planning now compresses to the available Dashboard width with no horizontal scrollbar. A second dual-axis chart groups `Main Planning / Immediate Operation` (`planning_job_operation.source_operation_code`): columns use Surface dm² on the left Y axis and the line uses Qty pcs on the right Y axis. Both charts use the existing strict RAW NextOperation ST-only population; no planning business rule or migration changes.
+Both charts are moved to the top of Dashboard. The Surface dm² stacked chart still fits the viewport without horizontal scrolling. The combo chart now groups `Current Main / RAW NextOperation`, uses Surface dm² columns on the left axis and Qty pcs line on the right axis fixed at 10,000 pcs, prints dm²/pcs labels at each bar/point, and appends a `TOTAL / ALL ST` group.
+
+## V405 - Build fix
+- Fixed TS7006 implicit `any` for `code` in `planning-view-server.ts`. No business logic changes.

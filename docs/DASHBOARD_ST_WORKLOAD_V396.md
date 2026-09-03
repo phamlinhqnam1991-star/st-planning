@@ -1,6 +1,6 @@
 # Dashboard ST Workload V396
 
-> V399 layout note: the workload logic below remains valid, but Main Planning workload is now rendered as one KPI + table section per Area and Dashboard tables no longer use vertical max-height scrollers. See `DASHBOARD_AREA_WORKLOAD_V399.md`.
+> Latest V404 note: Dashboard population and Immediate workload now follow the Planning Board Current Main resolver. RAW NextOperation may be a Planning Operation or an active Bridge Intermediate, but the Job must have a live Current Main row. ST_SCOPE_ONLY remains excluded. Main Planning workload is rendered per Area without vertical table scrollers.
 
 ## Flow
 
@@ -16,9 +16,10 @@
 1. HOLD: exact Job/Main is held and has no active Batch.
 2. SCHEDULED: active non-cancelled Schedule exists for the active Batch.
 3. PLANNED-UNSCHEDULED: active Batch exists but no active Schedule.
-4. PLANNED: Planning Chain row is PLANNED but no active Batch is found (legacy/recovery visibility).
-5. READY: Planning Chain row is ELIGIBLE.
-6. WAIT: Planning Chain row is LOCKED.
+4. READY: Planning Chain row is ELIGIBLE.
+5. WAIT: Planning Chain row is LOCKED.
+
+Internal `planning_job_operation.status=PLANNED` without an active Schedule is normalized into the Dashboard `PLANNED-UNSCHEDULED` bucket; PLANNED is not a separate Dashboard status.
 
 The precedence above prevents one Job/Main occurrence from being classified into two buckets.
 
@@ -32,11 +33,15 @@ CAT3 then CAT5 list all open Jobs in that priority class. Each row includes Job,
 
 No write operation is exposed from this Dashboard.
 
-## V403 chart note
+## V404 chart note
 
-- `Surface Workload by Main Planning` remains a status-stacked dm² chart but now fits the viewport without a horizontal scrollbar.
-- Added `Surface + Qty by Main Planning / Immediate Operation`:
-  - X = Main Planning + `planning_job_operation.source_operation_code` (Immediate Operation)
-  - Column / left Y = total dm²
-  - Line / right Y = total pcs
-- This is a read-only presentation/aggregation extension over the same strict RAW ST population.
+- Both charts render at the top of Dashboard.
+- `Surface Workload by Main Planning` remains status-stacked dm² and fits the viewport without horizontal scrolling.
+- `Surface + Qty by Main Planning / Immediate Operation` uses `Current Main / RAW NextOperation`:
+  - Immediate Operation = `open_job_current.next_operation`
+  - Main Planning = first active Planning Chain row already resolved by Planning Board
+  - Column / left Y = dm²
+  - Line / right Y = pcs, fixed max 10,000
+  - dm²/pcs value labels render at every bar/point
+  - final `TOTAL / ALL ST` group shows total dm² and pcs
+- `planning_job_operation.source_operation_code` is no longer used to identify Immediate Operation.

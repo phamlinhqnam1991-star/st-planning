@@ -116,7 +116,11 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
  const sourceDataCol=lightMode?"null::jsonb source_data":"j.source_data";
    const params:any[]=[];
    const conditions=[
-     "j.is_open=true"
+     "j.is_open=true",
+     // V404: Planning Board population requires the canonical Current Main
+     // already materialized by syncPlanningChains. RAW ST/Bridge membership
+     // alone is not enough; NO_CHAIN Jobs stay out of Candidate/Workload.
+     "p.id is not null"
    ];
 
    if(op){

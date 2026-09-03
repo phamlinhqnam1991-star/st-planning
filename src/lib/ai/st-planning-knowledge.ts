@@ -21,7 +21,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"st-scope",
   title:"ST Scope and Intermediate operations",
-  content:`RAW NextOperation must be in active ST Scope to appear in ST All Open Jobs. ST_SCOPE_ONLY operations can be visible in ST scope but do not participate in Planning Chain/Batch/Schedule. Intermediate operations are physical-routing bridge context between Main Planning operations and are not independent Batch planning steps unless explicitly configured as Main Planning.`
+  content:`Planning Board and Dashboard use the synced Planning Chain Current Main as the canonical ST resolver output. The Current Main is the first active planning_job_operation after syncPlanningChains positions the chain from LastOperation + RAW NextOperation using Bridge -> AllOperation fallback -> direct Next Main rescue. RAW NextOperation may therefore be either a configured PLANNING_OPERATION or an Intermediate Operation in an active Bridge; ST_SCOPE_ONLY never enters Planning Chain/Batch/Schedule. For Immediate workload, Immediate Operation is the current RAW NextOperation and it is grouped under that resolved Current Main.`
  },
  {
   key:"recipe-batch",

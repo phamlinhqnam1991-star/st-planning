@@ -99,9 +99,35 @@ const WORKLOAD_SQL=`
   join public.md_area ax on ax.id=ag.area_id and ax.is_active=true
   where ag.is_active=true
   group by ag.st_group
+ ), eligible_jobs as (
+  -- V404 canonical population: RAW NextOperation must be an ST Planning/Bridge
+  -- operation AND the synced Planning Chain must have a Current Main. The first
+  -- active planning occurrence is exactly the Current Main already resolved by
+  -- Planning Board from LastOperation + NextOperation (Bridge -> AllOperation
+  -- fallback -> direct Next Main rescue).
+  select
+   j.*,
+   current_main.id current_planning_id,
+   current_main.standard_operation current_standard_operation
+  from public.open_job_current j
+  join visible_st_raw rawst
+    on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
+  join lateral (
+   select p0.id,p0.standard_operation
+   from public.planning_job_operation p0
+   where p0.job_num=j.job_num
+     and p0.is_active=true
+     and p0.status in ('LOCKED','ELIGIBLE','PLANNED')
+     and upper(trim(p0.standard_operation))<>'PIONBL'
+   order by p0.planning_seq asc,p0.source_seq asc,p0.id asc
+   limit 1
+  ) current_main on true
+  where j.is_open=true
  ), base as (
   select
    p.id,p.job_num,p.standard_operation,p.source_operation_code,p.planning_seq,p.recipe_key planning_recipe_key,
+   (p.id=ej.current_planning_id) is_current_main,
+   coalesce(ej.next_operation,'') raw_next_operation,
    coalesce(a.id,0)::bigint area_id,
    coalesce(a.area_name,'Unmapped') area_name,
    coalesce(a.sort_order,999999)::int area_sort,
@@ -114,17 +140,16 @@ const WORKLOAD_SQL=`
     when p.status='ELIGIBLE' then 'READY'
     else 'WAIT'
    end bucket,
-   coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)::float8 qty,
+   coalesce(nullif(ej.current_good_wip_qty,0),ej.prod_qty,0)::float8 qty,
    coalesce(
-    j.total_surface,
-    coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)*coalesce(j.surface_per_part_dm2,0),
+    ej.total_surface,
+    coalesce(nullif(ej.current_good_wip_qty,0),ej.prod_qty,0)*coalesce(ej.surface_per_part_dm2,0),
     0
    )::float8 surface,
-   j.part_num,j.revision_num,j.source_data,
+   ej.part_num,ej.revision_num,ej.source_data,
    active_batch.recipe_key batch_recipe_key
   from public.planning_job_operation p
-  join public.open_job_current j on j.job_num=p.job_num and j.is_open=true
-  join visible_st_raw rawst on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
+  join eligible_jobs ej on ej.job_num=p.job_num
   left join area_by_group abg on abg.st_group=p.st_group
   left join public.md_area a on a.id=abg.area_id and a.is_active=true
   left join public.md_operation_master om on om.standard_operation=p.standard_operation and om.is_active=true
@@ -145,6 +170,7 @@ const WORKLOAD_SQL=`
    limit 1
   ) active_schedule on true
   where p.is_active=true
+    and p.status in ('LOCKED','ELIGIBLE','PLANNED')
     and upper(trim(p.standard_operation))<>'PIONBL'
  ), picked as (
   select distinct on (job_num,standard_operation,bucket)
@@ -181,7 +207,10 @@ async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboar
    latest_schedule.planned_end
   from public.open_job_current j
   join visible_st_raw rawst on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
-  left join lateral (
+  join lateral (
+   -- Same Current Main already used by Planning Board Candidate: first active
+   -- occurrence of the synced chain suffix positioned by LastOperation + RAW
+   -- NextOperation.
    select
     p.id,p.standard_operation,p.planning_seq,
     case
@@ -208,16 +237,11 @@ async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboar
     order by s.planned_start desc,s.id desc
     limit 1
    ) fs on true
-   where p.job_num=j.job_num and p.is_active=true and upper(trim(p.standard_operation))<>'PIONBL'
-   order by
-    case
-     when coalesce(p.is_hold,false)=true and fb.batch_id is null then 0
-     when p.status='ELIGIBLE' then 1
-     when p.status='PLANNED' then 2
-     else 3
-    end,
-    case when p.status='PLANNED' then -coalesce(p.planning_seq,0) else coalesce(p.planning_seq,999999) end,
-    p.id
+   where p.job_num=j.job_num
+     and p.is_active=true
+     and p.status in ('LOCKED','ELIGIBLE','PLANNED')
+     and upper(trim(p.standard_operation))<>'PIONBL'
+   order by p.planning_seq asc,p.source_seq asc,p.id asc
    limit 1
   ) focus on true
   left join lateral (
@@ -255,17 +279,25 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
    with ${RAW_ST_VISIBLE_CTE_SQL}, per_job as (
     select
      j.job_num,
-     max(coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0))::numeric qty,
-     max(coalesce(
-       j.total_surface,
-       coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)*coalesce(j.surface_per_part_dm2,0),
-       0
-     ))::numeric surface
+     coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)::numeric qty,
+     coalesce(
+      j.total_surface,
+      coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)*coalesce(j.surface_per_part_dm2,0),
+      0
+     )::numeric surface
     from public.open_job_current j
     join visible_st_raw rawst on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
-    join public.planning_job_operation p on p.job_num=j.job_num and p.is_active=true
-    where j.is_open=true and upper(trim(p.standard_operation))<>'PIONBL'
-    group by j.job_num
+    join lateral (
+     select p0.id
+     from public.planning_job_operation p0
+     where p0.job_num=j.job_num
+       and p0.is_active=true
+       and p0.status in ('LOCKED','ELIGIBLE','PLANNED')
+       and upper(trim(p0.standard_operation))<>'PIONBL'
+     order by p0.planning_seq asc,p0.source_seq asc,p0.id asc
+     limit 1
+    ) current_main on true
+    where j.is_open=true
    )
    select count(*)::int jobs,coalesce(sum(qty),0)::float8 qty,coalesce(sum(surface),0)::float8 surface
    from per_job
@@ -311,21 +343,25 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   }
   row[bucket].jobs+=1;row[bucket].qty+=metric.qty;row[bucket].surface+=metric.surface;
 
-  // V403: the second Dashboard chart groups the concrete/immediate Operation
-  // under its Main Planning Operation. source_operation_code is the exact
-  // Planning Chain operation occurrence that maps to standard_operation.
-  const immediateOperation=text(raw.source_operation_code)||text(raw.standard_operation)||"—";
-  const immediateKey=`${raw.area_id}|${raw.standard_operation}|${immediateOperation}`;
-  let immediateRow=immediateRowsMap.get(immediateKey);
-  if(!immediateRow){
-   immediateRow={
-    areaId:num(raw.area_id),areaName:text(raw.area_name)||"Unmapped",areaSort:num(raw.area_sort)||999999,
-    standardOperation:text(raw.standard_operation),mainOrder:num(raw.main_order)||999999,
-    immediateOperation,total:zero()
-   };
-   immediateRowsMap.set(immediateKey,immediateRow);
+  // V404 canonical Immediate Workload:
+  // - Current Main = FIRST active row of the synced Planning Chain suffix.
+  // - Immediate Operation = RAW All Open Job NextOperation.
+  // Therefore intermediate Bridge codes (e.g. INS-AND / MSKG-TC) are grouped
+  // under the exact Current Main already resolved by Planning Board.
+  if(Boolean(raw.is_current_main)){
+   const immediateOperation=text(raw.raw_next_operation)||text(raw.source_operation_code)||text(raw.standard_operation)||"—";
+   const immediateKey=`${raw.area_id}|${raw.standard_operation}|${immediateOperation}`;
+   let immediateRow=immediateRowsMap.get(immediateKey);
+   if(!immediateRow){
+    immediateRow={
+     areaId:num(raw.area_id),areaName:text(raw.area_name)||"Unmapped",areaSort:num(raw.area_sort)||999999,
+     standardOperation:text(raw.standard_operation),mainOrder:num(raw.main_order)||999999,
+     immediateOperation,total:zero()
+    };
+    immediateRowsMap.set(immediateKey,immediateRow);
+   }
+   immediateRow.total.jobs+=1;immediateRow.total.qty+=metric.qty;immediateRow.total.surface+=metric.surface;
   }
-  immediateRow.total.jobs+=1;immediateRow.total.qty+=metric.qty;immediateRow.total.surface+=metric.surface;
 
   const batchRecipeKey=text(raw.batch_recipe_key);
   const liveMatch=batchRecipeKey?null:bestRecipeMatch(ctx,{

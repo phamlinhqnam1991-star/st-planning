@@ -1,14 +1,17 @@
 /**
  * Canonical RAW NextOperation ST membership used by Planning Board/Dashboard.
  *
- * A Job belongs to the ST Planning population only when the RAW
- * open_job_current.next_operation is explicitly configured as an active
- * PLANNING_OPERATION in md_st_operation_scope.
+ * V404: membership follows the same Current Main logic already materialized by
+ * syncPlanningChains. A RAW NextOperation may enter the ST Planning population
+ * when it is either:
+ *   1) an active PLANNING_OPERATION, or
+ *   2) an active Intermediate Operation that belongs to an active ST Bridge.
  *
- * IMPORTANT (v400): Auto-Bridge / INTERMEDIATE operations are chain/navigation
- * helpers only. They must NOT broaden RAW NextOperation membership. Likewise an
- * explicit ST_SCOPE_ONLY code stays visible in All Open Jobs/configuration but
- * does not enter Planning Board/Dashboard workload.
+ * The live Planning Chain must still contain a Current Main occurrence for the
+ * Job. That Current Main is the FIRST active planning_job_operation ordered by
+ * planning_seq/source_seq/id; it is the result of the canonical
+ * LastOperation + NextOperation resolver (Bridge -> AllOperation fallback ->
+ * direct Next Main rescue). ST_SCOPE_ONLY is always excluded.
  */
 export const RAW_ST_VISIBLE_CTE_SQL = `
  active_raw_scope as (
@@ -24,9 +27,24 @@ export const RAW_ST_VISIBLE_CTE_SQL = `
     and operation_type in ('PLANNING_OPERATION','ST_SCOPE_ONLY')
     and nullif(trim(operation_code),'') is not null
   group by upper(trim(operation_code))
+ ), active_bridge_raw as (
+  select distinct upper(trim(bo.operation_code)) operation_code
+  from public.md_intermediate_bridge_operation bo
+  join public.md_intermediate_bridge_segment bs
+    on bs.id=bo.segment_id
+   and bs.is_active=true
+  where nullif(trim(bo.operation_code),'') is not null
  ), visible_st_raw as (
-  select operation_code
-  from active_raw_scope
-  where operation_type='PLANNING_OPERATION'
+  select s.operation_code
+  from active_raw_scope s
+  where s.operation_type='PLANNING_OPERATION'
+  union
+  select b.operation_code
+  from active_bridge_raw b
+  where not exists(
+   select 1 from active_raw_scope s
+   where s.operation_code=b.operation_code
+     and s.operation_type='ST_SCOPE_ONLY'
+  )
  )
 `;

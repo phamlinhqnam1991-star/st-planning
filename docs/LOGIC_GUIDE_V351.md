@@ -62,9 +62,16 @@ Planning Matrix no longer renders a permanent `H` button beside every READY/WAIT
 Dashboard giữ RAW NextOperation ST gate của V398, sau đó chia Workload theo `Area -> Main Planning -> Recipe`. Mỗi Area có bộ card `Unique Jobs / WAIT / READY / PLANNED-UNSCHEDULED / SCHEDULED / HOLD` riêng và bảng Main Planning + Recipe riêng. Các bảng Dashboard không giới hạn chiều cao theo viewport nữa; hiển thị toàn bộ dòng, chỉ giữ cuộn ngang khi bảng rộng.
 ## V400 — Strict RAW NextOperation ST-only gate
 
-Dashboard và Planning Board chỉ nhận Job khi RAW `open_job_current.next_operation` là `PLANNING_OPERATION` active được khai báo trực tiếp trong `md_st_operation_scope`. `ST_SCOPE_ONLY`, Auto-Bridge/INTERMEDIATE và RAW operation ngoài ST không được dùng để đưa Job vào Board/Dashboard. Bridge vẫn giữ vai trò nội bộ trong Planning Chain sau khi Job đã thuộc population hợp lệ. Saved ST View chỉ được phép là tập con của danh sách ST canonical này.
+Dashboard và Planning Board dùng Current Main đã được Planning Chain resolver xác định từ `LastOperation + RAW NextOperation`. RAW NextOperation có thể là `PLANNING_OPERATION` hoặc Intermediate Operation thuộc active Bridge; điều kiện bắt buộc là Job phải có live Current Main trong Planning Chain. `ST_SCOPE_ONLY` vẫn không tham gia Board/Batch/Schedule. Immediate Operation trên Dashboard chính là RAW `NextOperation`, được nhóm dưới Current Main hiện tại.
 
 
 
 ## V401 · Dashboard status chuẩn
 Dashboard bỏ bucket `PLANNED` riêng. Job/Main có trạng thái nội bộ `planning_job_operation.status='PLANNED'` nhưng chưa có Schedule được hiển thị/tổng hợp vào `PLANNED-UNSCHEDULED`. Dashboard chỉ còn các status vận hành: `WAIT`, `READY`, `PLANNED-UNSCHEDULED`, `SCHEDULED`, `HOLD`. Planning Chain vẫn có thể dùng `PLANNED` nội bộ để giữ lịch sử Batch; V401 không thay business state đó.
+
+
+## V404 · Current Main + Immediate Operation Dashboard
+- Nguồn chuẩn: `LastOperation + RAW NextOperation -> Planning Board resolver -> first active Planning Chain row = Current Main`.
+- `Immediate Operation = RAW NextOperation`; Bridge Intermediate hợp lệ được giữ và gán vào Current Main mà resolver đã xác định.
+- Ví dụ `BSAUNSLD -> INS-AND -> MSKG-TC -> PPRSLVT(PRIMER)`: Job có NextOperation lần lượt `INS-AND`, `MSKG-TC`, `PPRSLVT` đều được nhóm vào `PRIMER / <RAW NextOperation>` khi Current Main là PRIMER.
+- Hai chart nằm ở đầu Dashboard. Combo chart: dm² column (left axis), pcs line (right axis max 10,000), data label trực tiếp trên bar/point và thêm `TOTAL / ALL ST`.

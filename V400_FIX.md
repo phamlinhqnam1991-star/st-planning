@@ -1,3 +1,5 @@
+> **Superseded by V404:** the strict `PLANNING_OPERATION-only` population gate is no longer current. Active Bridge Intermediate RAW NextOperations are valid when the synced Planning Chain resolves a live Current Main. See `V404_FIX.md`.
+
 # V400 — Strict RAW NextOperation ST-only gate
 
 ## Problem

@@ -35,25 +35,30 @@ function niceAxisMax(value:number){
  return step*power;
 }
 
-function SurfaceQtyComboChart({rows}:{rows:StDashboardImmediateRow[]}){
- const width=1200,height=360;
- const left=66,right=66,top=24,bottom=112;
+function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total:StDashboardMetric}){
+ const chartRows=[...rows,{
+  areaId:-1,areaName:"ST TOTAL",areaSort:999999999,standardOperation:"TOTAL",mainOrder:999999999,
+  immediateOperation:"ALL ST",total
+ }];
+ const width=1200,height=390;
+ const left=66,right=70,top=40,bottom=120;
  const plotW=width-left-right,plotH=height-top-bottom;
- const surfaceMax=niceAxisMax(Math.max(0,...rows.map(x=>x.total.surface)));
- const qtyMax=niceAxisMax(Math.max(0,...rows.map(x=>x.total.qty)));
- const step=rows.length?plotW/rows.length:plotW;
+ const surfaceMax=niceAxisMax(Math.max(0,...chartRows.map(x=>x.total.surface)));
+ const qtyMax=10000;
+ const step=chartRows.length?plotW/chartRows.length:plotW;
  const barW=Math.max(3,Math.min(24,step*.55));
  const ticks=[0,1,2,3,4,5];
- const points=rows.map((row,i)=>{
+ const points=chartRows.map((row,i)=>{
   const x=left+step*(i+.5);
-  const y=top+plotH-(row.total.qty/qtyMax)*plotH;
-  return {x,y,row};
+  const qtyPlot=Math.min(qtyMax,Math.max(0,row.total.qty));
+  const y=top+plotH-(qtyPlot/qtyMax)*plotH;
+  return {x,y,row,isTotal:i===chartRows.length-1};
  });
  const path=points.map((p,i)=>`${i?"L":"M"}${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
  return <div className="st-dashboard-combo-chart-wrap">
-  <svg className="st-dashboard-combo-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Surface dm² columns and pcs line by Main Planning and Immediate Operation">
-   <text x={12} y={14} className="st-dashboard-axis-title">dm²</text>
-   <text x={width-12} y={14} textAnchor="end" className="st-dashboard-axis-title">pcs</text>
+  <svg className="st-dashboard-combo-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Surface dm² columns and pcs line by Current Main Planning and RAW Immediate Operation">
+   <text x={12} y={20} className="st-dashboard-axis-title">dm²</text>
+   <text x={width-12} y={20} textAnchor="end" className="st-dashboard-axis-title">pcs · max 10,000</text>
    {ticks.map(t=>{
     const y=top+plotH-(t/5)*plotH;
     const surface=surfaceMax*t/5,qty=qtyMax*t/5;
@@ -63,23 +68,31 @@ function SurfaceQtyComboChart({rows}:{rows:StDashboardImmediateRow[]}){
      <text x={width-right+8} y={y+3} textAnchor="start" className="st-dashboard-axis-tick">{fmt(qty,0)}</text>
     </g>;
    })}
-   {points.map(({x,row},i)=>{
+   {points.map(({x,row,isTotal},i)=>{
     const h=Math.max(0,(row.total.surface/surfaceMax)*plotH);
     const y=top+plotH-h;
-    const label=`${row.standardOperation} / ${row.immediateOperation}`;
-    return <g key={`${row.areaId}-${row.standardOperation}-${row.immediateOperation}-${i}`}>
-     <rect x={x-barW/2} y={y} width={barW} height={h} rx="1.5" className="st-dashboard-combo-bar">
+    const barLabelY=Math.max(12,y-5);
+    const label=isTotal?"TOTAL / ALL ST":`${row.standardOperation} / ${row.immediateOperation}`;
+    return <g key={`${row.areaId}-${row.standardOperation}-${row.immediateOperation}-${i}`} className={isTotal?"st-dashboard-combo-total-group":undefined}>
+     <rect x={x-barW/2} y={y} width={barW} height={h} rx="1.5" className={`st-dashboard-combo-bar${isTotal?" total":""}`}>
       <title>{`${row.areaName} · ${label} · ${fmt(row.total.surface)} dm² · ${fmt(row.total.qty,0)} pcs`}</title>
      </rect>
-     <text transform={`translate(${x+2} ${top+plotH+10}) rotate(58)`} className="st-dashboard-combo-x-label">
-      <tspan>{row.standardOperation}</tspan><tspan> / {row.immediateOperation}</tspan>
+     <text x={x} y={barLabelY} textAnchor="middle" className="st-dashboard-combo-value surface">{fmt(row.total.surface,0)} dm²</text>
+     <text transform={`translate(${x+2} ${top+plotH+10}) rotate(58)`} className={`st-dashboard-combo-x-label${isTotal?" total":""}`}>
+      <tspan>{isTotal?"TOTAL":row.standardOperation}</tspan><tspan> / {isTotal?"ALL ST":row.immediateOperation}</tspan>
      </text>
     </g>;
    })}
    {points.length>1?<path d={path} className="st-dashboard-combo-line"/>:null}
-   {points.map(({x,y,row},i)=><circle key={`p-${i}`} cx={x} cy={y} r="2.7" className="st-dashboard-combo-point">
-    <title>{`${row.standardOperation} / ${row.immediateOperation} · ${fmt(row.total.qty,0)} pcs · ${fmt(row.total.surface)} dm²`}</title>
-   </circle>)}
+   {points.map(({x,y,row,isTotal},i)=>{
+    const qtyLabelY=y<=top+12?y+13:y-7;
+    return <g key={`p-${i}`} className={isTotal?"st-dashboard-combo-total-group":undefined}>
+     <circle cx={x} cy={y} r={isTotal?3.4:2.7} className={`st-dashboard-combo-point${isTotal?" total":""}`}>
+      <title>{`${isTotal?"TOTAL / ALL ST":`${row.standardOperation} / ${row.immediateOperation}`} · ${fmt(row.total.qty,0)} pcs · ${fmt(row.total.surface)} dm²`}</title>
+     </circle>
+     <text x={x} y={qtyLabelY} textAnchor="middle" className="st-dashboard-combo-value qty">{fmt(row.total.qty,0)} pcs</text>
+    </g>;
+   })}
    <line x1={left} y1={top} x2={left} y2={top+plotH} className="st-dashboard-combo-axis"/>
    <line x1={width-right} y1={top} x2={width-right} y2={top+plotH} className="st-dashboard-combo-axis"/>
    <line x1={left} y1={top+plotH} x2={width-right} y2={top+plotH} className="st-dashboard-combo-axis"/>
@@ -148,22 +161,11 @@ export default async function DashboardPage(){
   <AppTabs active="dashboard"/>
   <section className="erp-content erp-content-full st-dashboard-page">
    <div className="erp-page-head st-dashboard-head">
-    <div><div className="erp-object-eyebrow">ST · PLANNING WORKLOAD</div><h2>ST Planning Dashboard</h2><p>RAW All Open Job NextOperation thuộc ST → Planning workload by status and Main Planning Operation.</p></div>
+    <div><div className="erp-object-eyebrow">ST · PLANNING WORKLOAD</div><h2>ST Planning Dashboard</h2><p>Planning Board Current Main resolver → ST workload, Main/Recipe status and RAW Immediate Operation.</p></div>
     <div className="st-dashboard-head-actions"><span>{data?`Updated ${generated(data.generatedAt)}`:""}</span><Link className="btn" href="/dashboard">Refresh</Link></div>
    </div>
 
    {error||!data?<div className="notice error"><b>Unable to load Dashboard:</b> {error||"Unknown dashboard error"}</div>:<>
-    <section className="st-dashboard-kpis">
-     <article className="st-dashboard-kpi total"><small>ST TOTAL · UNIQUE OPEN JOBS</small>{metricLines(data.total)}</article>
-     {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(data.statuses[status])}</article>)}
-    </section>
-    <div className="st-dashboard-note">ST TOTAL chỉ lấy Open Job có RAW NextOperation hiện tại thuộc ST Planning view. Sau bước lọc RAW này, các status mới tổng hợp theo Job × Main Planning trong Planning Chain; Job có RAW NextOperation ngoài ST không được kéo vào Dashboard chỉ vì có future Planning Operation.</div>
-
-    <section className="st-dashboard-area-workloads">
-     <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>Main Planning Workload Summary · By Area</b><small>Each Area has its own KPI cards and its own Main Planning → Recipe workload table. All table rows stay visible without vertical scrolling.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Main Operations</span></div>
-     {data.areas.map(area=><AreaWorkloadTable key={`${area.areaId}-${area.areaName}`} area={area}/>)}
-    </section>
-
     <section className="erp-table-panel st-dashboard-panel st-dashboard-chart-panel">
      <div className="erp-panel-head"><div><b>Surface Workload by Main Planning</b><small>Stacked column chart · X = Main Planning · Y = dm².</small></div></div>
      <div className="st-dashboard-chart-legend">{STATUS_ORDER.map(s=><span key={s}><i className={STATUS_CLASS[s]}></i>{STATUS_LABEL[s]}</span>)}</div>
@@ -184,9 +186,20 @@ export default async function DashboardPage(){
     </section>
 
     <section className="erp-table-panel st-dashboard-panel st-dashboard-chart-panel st-dashboard-combo-panel">
-     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation</b><small>Column = dm² on the left axis · Line = pcs on the right axis · X = Main Planning grouped with its Immediate Operation.</small></div></div>
-     <div className="st-dashboard-combo-legend"><span><i className="surface"></i>Surface dm²</span><span><i className="qty"></i>Qty pcs</span></div>
-     <SurfaceQtyComboChart rows={data.immediateRows}/>
+     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation</b><small>Column = dm² on the left axis · Line = pcs on the right axis · X = Current Main Planning grouped with RAW NextOperation (Immediate Operation).</small></div></div>
+     <div className="st-dashboard-combo-legend"><span><i className="surface"></i>Surface dm²</span><span><i className="qty"></i>Qty pcs · right axis max 10,000</span></div>
+     <SurfaceQtyComboChart rows={data.immediateRows} total={data.total}/>
+    </section>
+
+    <section className="st-dashboard-kpis">
+     <article className="st-dashboard-kpi total"><small>ST TOTAL · UNIQUE OPEN JOBS</small>{metricLines(data.total)}</article>
+     {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(data.statuses[status])}</article>)}
+    </section>
+    <div className="st-dashboard-note">V404 dùng cùng Current Main resolver đã materialize bởi Planning Board: LastOperation + RAW NextOperation → Bridge / AllOperation fallback → Current Main. RAW Intermediate nằm trong active Bridge được tính là ST khi Job có live Current Main; Immediate Operation chính là RAW NextOperation hiện tại. Các Main phía sau vẫn được tổng hợp từ cùng Planning Chain.</div>
+
+    <section className="st-dashboard-area-workloads">
+     <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>Main Planning Workload Summary · By Area</b><small>Each Area has its own KPI cards and its own Main Planning → Recipe workload table. All table rows stay visible without vertical scrolling.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Main Operations</span></div>
+     {data.areas.map(area=><AreaWorkloadTable key={`${area.areaId}-${area.areaName}`} area={area}/>)}
     </section>
 
     <PriorityTable title="CAT3" rows={data.cat3} tone="cat3"/>

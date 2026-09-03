@@ -2795,3 +2795,13 @@
 .erpkit-migrated-page .st-dashboard-axis-title{fill:#526579;font-size:8px;font-weight:900}
 .erpkit-migrated-page .st-dashboard-axis-tick{fill:#728294;font-size:6.3px;font-variant-numeric:tabular-nums}
 .erpkit-migrated-page .st-dashboard-combo-x-label{fill:#526579;font-size:5.4px;font-weight:800}
+
+/* V404 · Current-Main/RAW-Immediate combo chart labels + fixed Qty axis. */
+.erpkit-migrated-page .st-dashboard-combo-panel{min-height:450px}
+.erpkit-migrated-page .st-dashboard-combo-chart{min-height:360px;max-height:420px}
+.erpkit-migrated-page .st-dashboard-combo-value{font-size:5.6px;font-weight:900;paint-order:stroke;stroke:#fff;stroke-width:2px;stroke-linejoin:round;font-variant-numeric:tabular-nums;pointer-events:none}
+.erpkit-migrated-page .st-dashboard-combo-value.surface{fill:#4d7798}
+.erpkit-migrated-page .st-dashboard-combo-value.qty{fill:#243f59}
+.erpkit-migrated-page .st-dashboard-combo-bar.total{fill:#526b83;opacity:.95}
+.erpkit-migrated-page .st-dashboard-combo-point.total{fill:#526b83;stroke:#243f59;stroke-width:1.8}
+.erpkit-migrated-page .st-dashboard-combo-x-label.total{fill:#263f57;font-weight:950}

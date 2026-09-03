@@ -32,20 +32,36 @@ export async function resolvePlanningView(c:any,op:string,areaId:string){
   }
  }
 
- // v400: the persisted VIEW is only a SUBSET selector. It can never widen the
- // Planning Board beyond the canonical explicit ST PLANNING_OPERATION list.
- // This also cleans legacy saved views that contained Auto-Bridge/intermediate
- // or unrelated RAW NextOperations.
+ // V404: the persisted VIEW is only a SUBSET selector. It can never widen the
+ // Planning Board beyond the canonical ST RAW list: active Planning Operations
+ // plus active Bridge Intermediate Operations. A Job still needs a live Current
+ // Main row from syncPlanningChains, so an unrelated operation cannot enter the
+ // board merely by sharing a code. ST_SCOPE_ONLY remains excluded.
  const defQ=await c.query(`
   with ${RAW_ST_VISIBLE_CTE_SQL}
-  select operation_code op
-  from visible_st_raw
-  order by operation_code`);
+  select
+   v.operation_code op,
+   exists(
+    select 1 from active_raw_scope s
+    where s.operation_code=v.operation_code and s.operation_type='PLANNING_OPERATION'
+   ) direct_planning
+  from visible_st_raw v
+  order by v.operation_code`);
  const canonicalCodes=defQ.rows.map((r:any)=>String(r.op||"").trim().toUpperCase()).filter(Boolean);
+ const directPlanningCodes=defQ.rows.filter((r:any)=>Boolean(r.direct_planning)).map((r:any)=>String(r.op||"").trim().toUpperCase()).filter(Boolean);
  const canonicalSet=new Set(canonicalCodes);
- const stViewParams=stViewCodes===null
+ const savedFiltered=stViewCodes===null?null:[...new Set(stViewCodes.filter(code=>canonicalSet.has(code)))];
+ // V404 legacy-view recovery: V400 saved the full old direct-Planning list and
+ // therefore could silently exclude newly restored Bridge Intermediate codes.
+ // If a saved view exactly equals that old full set, treat it as "ALL ST" and
+ // expand to the latest canonical catalog. Genuine user subsets stay subsets.
+ const savedSet=savedFiltered===null?null:new Set(savedFiltered);
+ const looksLikeLegacyFullDirect=savedSet!==null
+  && savedSet.size===directPlanningCodes.length
+  && directPlanningCodes.every((code:string)=>savedSet.has(code));
+ const stViewParams=stViewCodes===null||looksLikeLegacyFullDirect
   ?canonicalCodes
-  :[...new Set(stViewCodes.filter(code=>canonicalSet.has(code)))];
+  :(savedFiltered||[]);
 
  if(initialView){
   if(Array.isArray(initialView.stView))initialView.stView=stViewParams;
