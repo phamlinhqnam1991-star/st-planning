@@ -10,7 +10,7 @@
 6. Planning Board selects Jobs and creates/updates Batch.
 7. Board Điều Độ assigns existing Batch to Resource / Date / Start / Duration.
 8. Production Execution reads scheduled Batch plus Masking/Unmasking support work and stores WAITING / ON-GOING / DONE separately from Planning/Schedule state.
-9. Operations Dashboard reads deterministic KPI/risks from operational data; AI uses Groq as primary and OpenRouter as automatic fallback, with the same structured snapshot and controlled read-only database tools for evidence-backed analysis.
+9. Dashboard V396 is the ST workload control view: unique open ST totals plus WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD workload by Main Planning Operation, stacked dm² chart, and full CAT3/CAT5 planning + schedule lists. The former Dashboard KPI/AI layout is no longer rendered.
 10. Job Tracker and Part Tracker are read-only trace views.
 
 
@@ -91,19 +91,29 @@ This presentation order does not change READY / WAIT, Batch, Schedule, or Auto P
 
 Migrations are append-only. Historical migrations 058/059 are preserved. Migration 066 removes the abandoned Planning snapshot cache and dirty triggers because current Candidate reads are canonical-only.
 
-## Dashboard / AI Provider architecture
+## Dashboard V396 · ST Workload architecture
 
-`Operational sources -> Deterministic Dashboard KPI -> Initial Snapshot -> Groq primary -> OpenRouter fallback -> Read-only Database Tools -> Evidence-backed Insight`
+`Open ST Jobs + Planning Chain + Batch + Schedule -> ST Workload Summary -> Main Planning table -> stacked dm² chart -> CAT3/CAT5 detail`
 
-- Deterministic Dashboard KPI remain source-of-truth calculations from application/SQL logic.
+- `/dashboard` no longer renders the previous control-tower/AI layout.
+- ST TOTAL counts each open ST Job once. Status workload is counted as Job × Main Planning, using the same active Planning Chain / Batch / Schedule data model as Planning Board.
+- Display buckets are WAIT, READY, PLANNED, PLANNED-UNSCHEDULED, SCHEDULED and HOLD.
+- Main Planning table shows Jobs / pcs / dm² for every bucket and Area/Main combination.
+- The stacked chart uses dm², X = Main Planning and Y = dm², stacked by the same status buckets.
+- CAT3 and CAT5 sections list every open priority Job with Part, Qty, dm², Next Operation, current Planning Main/status, latest Batch and latest active Schedule.
+- No Dashboard write path exists; all content is read-only.
+
+### AI provider backend retained
+
+The existing Groq/OpenRouter read-only AI endpoints and controlled DB tools remain in source for possible later reuse, but they are not rendered on the V396 Dashboard.
 - AI providers are **Read / Analyze / Recommend** only. They do not create/delete Batch, change Recipe, move Schedule, change READY/WAIT, edit configuration, or update Production Execution.
 - Provider order is fixed: **Groq primary → OpenRouter fallback**. OpenRouter is used only when Groq is not configured for the request, is rate-limited, times out, or returns a provider/model request failure.
 - Provider secrets stay server-side in Vercel Environment Variables: `GROQ_API_KEY` and `OPENROUTER_API_KEY`.
 - Groq default model is `openai/gpt-oss-20b`. OpenRouter default model is `openrouter/free`, so the fallback can remain zero-token-price while available.
-- Both providers use the same structured Dashboard snapshot, ST business-logic knowledge, and controlled read-only database tools. No provider receives a write tool.
-- If both AI providers are unavailable or not configured, the Dashboard still renders normal KPI, workload, risk, resource, READY queue, and trend data.
-- Dashboard exposes one connection test (`GET /api/dashboard/ai`) that reports Groq and OpenRouter separately without exposing either API key.
-- The Dashboard snapshot is sent first. For **Ask AI**, the active provider may call server-side read-only tools to discover and read application table/view data in PostgreSQL `public`, inspect schema, aggregate data, or retrieve Job/Batch/day context.
+- The retained AI endpoint still has its legacy structured analysis snapshot plus ST business-logic knowledge and controlled read-only database tools. It is not part of the V396 Dashboard UI. No provider receives a write tool.
+- AI provider availability has no effect on the V396 Dashboard because the current Dashboard is fully deterministic/read-only SQL and renders no AI panel.
+- The retained endpoint `GET /api/dashboard/ai` can still report Groq/OpenRouter state if reused later; it is not called by the V396 Dashboard page.
+- If the retained AI endpoint is reused later, it may call server-side read-only tools to discover/read application table/view data in PostgreSQL `public`, inspect schema, aggregate data, or retrieve Job/Batch/day context.
 - AI does **not** receive arbitrary SQL execution. Generic reads use validated table/column/filter arguments with bounded row limits; write operations are not exposed.
 - Canonical ST Planning business logic is supplied to the agent as versioned knowledge (`V371`): Planning Chain, NextOperation ordering, ST Scope, Recipe/Batch, Chemical/Paint, Masking/Unmasking, Scheduling and Production Execution boundaries.
 - Each AI answer returns a data-access audit showing which read-only tools/tables were used and how many rows were inspected. The UI also shows which provider actually produced the answer and whether OpenRouter fallback was used.

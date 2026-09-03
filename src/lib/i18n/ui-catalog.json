@@ -7935,6 +7935,101 @@
       "en": "Remove the Jobs currently being grouped into a Batch before filtering Workload Summary.",
       "vi": "Bỏ chọn các Job đang gom Batch trước khi lọc Workload Summary.",
       "mode": "exact"
+    },
+    {
+      "en": "ST · PLANNING WORKLOAD",
+      "vi": "ST · TẢI KẾ HOẠCH",
+      "mode": "phrase"
+    },
+    {
+      "en": "One source of truth for ST Job / pcs / dm² workload by Planning status and Main Planning Operation.",
+      "vi": "Một nguồn dữ liệu thống nhất cho tải ST theo Job / pcs / dm², trạng thái Planning và Main Planning Operation.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Updated",
+      "vi": "Cập nhật",
+      "mode": "phrase"
+    },
+    {
+      "en": "ST TOTAL · UNIQUE OPEN JOBS",
+      "vi": "TỔNG ST · JOB OPEN KHÔNG TRÙNG",
+      "mode": "phrase"
+    },
+    {
+      "en": "Main Planning Workload Summary",
+      "vi": "Tổng hợp tải theo Main Planning",
+      "mode": "phrase"
+    },
+    {
+      "en": "Job / pcs / dm² split by status for every Main Planning Operation.",
+      "vi": "Job / pcs / dm² được chia theo trạng thái cho từng Main Planning Operation.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Main Operations",
+      "vi": "Main Operations",
+      "mode": "phrase"
+    },
+    {
+      "en": "Main Planning",
+      "vi": "Main Planning",
+      "mode": "phrase"
+    },
+    {
+      "en": "Surface Workload by Main Planning",
+      "vi": "Tải diện tích theo Main Planning",
+      "mode": "phrase"
+    },
+    {
+      "en": "Stacked column chart · X = Main Planning · Y = dm².",
+      "vi": "Biểu đồ cột chồng · X = Main Planning · Y = dm².",
+      "mode": "phrase"
+    },
+    {
+      "en": "All open priority Jobs with current planning and latest Batch / Schedule information.",
+      "vi": "Tất cả Job ưu tiên đang open kèm Planning hiện tại và thông tin Batch / Schedule mới nhất.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Part / Rev",
+      "vi": "Part / Rev",
+      "mode": "phrase"
+    },
+    {
+      "en": "Part Description",
+      "vi": "Mô tả Part",
+      "mode": "phrase"
+    },
+    {
+      "en": "Next Operation",
+      "vi": "Next Operation",
+      "mode": "phrase"
+    },
+    {
+      "en": "Latest Batch",
+      "vi": "Batch gần nhất",
+      "mode": "phrase"
+    },
+    {
+      "en": "Schedule",
+      "vi": "Điều độ",
+      "mode": "phrase"
+    },
+    {
+      "en": "No CAT3 Job.",
+      "vi": "Không có Job CAT3.",
+      "mode": "phrase"
+    },
+    {
+      "en": "No CAT5 Job.",
+      "vi": "Không có Job CAT5.",
+      "mode": "phrase"
+    },
+    {
+      "en": "ST TOTAL counts each open ST Job once. Status cards are Job × Main Planning workload, so one Job can appear in more than one Main Planning status across its planning chain.",
+      "vi": "ST TOTAL chỉ tính mỗi Job ST đang open một lần. Các card trạng thái là tải Job × Main Planning, nên một Job có thể xuất hiện ở nhiều trạng thái Main Planning khác nhau trong planning chain.",
+      "mode": "phrase"
     }
   ]
 }

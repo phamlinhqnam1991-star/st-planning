@@ -2659,3 +2659,43 @@
 .planning-erp-version .erpkit-workload-total{min-width:145px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 6px}
 .planning-erp-version .erpkit-workload-total>b{font-size:8.5px;white-space:nowrap}.planning-erp-version .erpkit-workload-total>span{font-size:7.5px;color:#667085;white-space:nowrap;font-variant-numeric:tabular-nums}
 @media(max-width:1250px){.planning-erp-version .erpkit-workload-summary-head{grid-template-columns:1fr}.planning-erp-version .erpkit-workload-summary-kpis,.planning-erp-version .erpkit-workload-summary-actions{justify-content:flex-start}}
+
+/* v396 — rebuilt ST workload dashboard */
+.erpkit-migrated-page .st-dashboard-page{display:grid;gap:9px}
+.erpkit-migrated-page .st-dashboard-head{align-items:center!important}
+.erpkit-migrated-page .st-dashboard-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.erpkit-migrated-page .st-dashboard-head-actions>span{color:#758496;font-size:7px;font-variant-numeric:tabular-nums}
+.erpkit-migrated-page .st-dashboard-kpis{display:grid;grid-template-columns:repeat(7,minmax(118px,1fr));gap:6px}
+.erpkit-migrated-page .st-dashboard-kpi{min-height:78px;padding:8px 9px;border:1px solid #dbe3ea;border-radius:5px;background:#fff;display:grid;grid-template-columns:1fr auto;grid-template-rows:auto 1fr 1fr;column-gap:8px;align-items:end;box-shadow:0 1px 2px rgba(16,24,40,.025)}
+.erpkit-migrated-page .st-dashboard-kpi>small{grid-column:1/-1;color:#718093;font-size:6.8px;font-weight:900;letter-spacing:.035em}
+.erpkit-migrated-page .st-dashboard-kpi>b{grid-row:2/4;color:#263f57;font-size:18px;line-height:1;font-variant-numeric:tabular-nums;align-self:center}
+.erpkit-migrated-page .st-dashboard-kpi>span{color:#66788a;font-size:7px;text-align:right;font-variant-numeric:tabular-nums}
+.erpkit-migrated-page .st-dashboard-kpi.total{border-top:3px solid #526b83;background:#f8fafc}.erpkit-migrated-page .st-dashboard-kpi.ready{border-top:3px solid #4b8bc2;background:#f5faff}.erpkit-migrated-page .st-dashboard-kpi.wait{border-top:3px solid #d6a23e;background:#fffaf1}.erpkit-migrated-page .st-dashboard-kpi.planned{border-top:3px solid #8a72b8;background:#faf8fd}.erpkit-migrated-page .st-dashboard-kpi.unscheduled{border-top:3px solid #7b8da5;background:#f8fafc}.erpkit-migrated-page .st-dashboard-kpi.scheduled{border-top:3px solid #5a82c0;background:#f5f8fd}.erpkit-migrated-page .st-dashboard-kpi.hold{border-top:3px solid #c6675d;background:#fff8f6}
+.erpkit-migrated-page .st-dashboard-note{padding:6px 9px;border:1px solid #e2e7ed;border-radius:4px;background:#fbfcfd;color:#738292;font-size:7px;line-height:1.45}
+.erpkit-migrated-page .st-dashboard-panel{padding:0!important;overflow:hidden!important;background:#fff}
+.erpkit-migrated-page .st-dashboard-main-wrap{max-height:390px;overflow:auto!important;scrollbar-gutter:stable}
+.erpkit-migrated-page .st-dashboard-main-table{min-width:1240px}
+.erpkit-migrated-page .st-dashboard-main-table th{position:sticky;top:0;z-index:2;white-space:nowrap}
+.erpkit-migrated-page .st-dashboard-main-table td{vertical-align:middle}
+.erpkit-migrated-page .st-dashboard-metric-cell{min-width:108px;padding:3px 5px;border-radius:4px;display:grid;grid-template-columns:1fr auto;gap:1px 6px}
+.erpkit-migrated-page .st-dashboard-metric-cell>b{grid-row:1/3;font-size:8px;align-self:center;font-variant-numeric:tabular-nums}.erpkit-migrated-page .st-dashboard-metric-cell>span{font-size:6.5px;color:#6f7e8f;text-align:right;font-variant-numeric:tabular-nums}
+.erpkit-migrated-page .st-dashboard-metric-cell.ready{background:#f1f8ff;color:#155f9c}.erpkit-migrated-page .st-dashboard-metric-cell.wait{background:#fff9ed;color:#8e610f}.erpkit-migrated-page .st-dashboard-metric-cell.planned{background:#f8f4fd;color:#6e5797}.erpkit-migrated-page .st-dashboard-metric-cell.unscheduled{background:#f5f7fa;color:#596b7e}.erpkit-migrated-page .st-dashboard-metric-cell.scheduled{background:#f1f5fc;color:#426aa3}.erpkit-migrated-page .st-dashboard-metric-cell.hold{background:#fff3f1;color:#a84d45}.erpkit-migrated-page .st-dashboard-metric-cell.total{background:#f4f6f8;color:#3f5368}
+.erpkit-migrated-page .st-dashboard-chart-panel{min-height:360px}
+.erpkit-migrated-page .st-dashboard-chart-legend{padding:7px 11px;border-bottom:1px solid #e6ebf0;display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;color:#657689;font-size:7px}
+.erpkit-migrated-page .st-dashboard-chart-legend span{display:inline-flex;align-items:center;gap:4px}.erpkit-migrated-page .st-dashboard-chart-legend i{width:9px;height:9px;border-radius:2px;border:1px solid rgba(0,0,0,.06)}
+.erpkit-migrated-page .st-dashboard-chart-legend i.ready,.erpkit-migrated-page .st-dashboard-bar-track>.ready{background:#6ca7d4}.erpkit-migrated-page .st-dashboard-chart-legend i.wait,.erpkit-migrated-page .st-dashboard-bar-track>.wait{background:#ddb15a}.erpkit-migrated-page .st-dashboard-chart-legend i.planned,.erpkit-migrated-page .st-dashboard-bar-track>.planned{background:#9b87bd}.erpkit-migrated-page .st-dashboard-chart-legend i.unscheduled,.erpkit-migrated-page .st-dashboard-bar-track>.unscheduled{background:#91a0b2}.erpkit-migrated-page .st-dashboard-chart-legend i.scheduled,.erpkit-migrated-page .st-dashboard-bar-track>.scheduled{background:#6589bd}.erpkit-migrated-page .st-dashboard-chart-legend i.hold,.erpkit-migrated-page .st-dashboard-bar-track>.hold{background:#cc746b}
+.erpkit-migrated-page .st-dashboard-chart-scroll{overflow-x:auto;overflow-y:hidden;scrollbar-gutter:stable;padding:8px 8px 0}
+.erpkit-migrated-page .st-dashboard-chart{height:285px;min-width:max-content;display:flex;align-items:flex-end;gap:8px;padding:14px 8px 0;border-bottom:1px solid #dfe5eb;background:linear-gradient(to top,#f7f9fb 1px,transparent 1px);background-size:100% 25%}
+.erpkit-migrated-page .st-dashboard-bar-group{width:54px;height:100%;display:grid;grid-template-rows:16px minmax(0,1fr) 46px;align-items:end;text-align:center}
+.erpkit-migrated-page .st-dashboard-bar-value{height:16px;color:#627487;font-size:6.5px;font-weight:800;font-variant-numeric:tabular-nums}
+.erpkit-migrated-page .st-dashboard-bar-track{height:100%;display:flex;flex-direction:column-reverse;justify-content:flex-start;overflow:hidden;border-radius:3px 3px 0 0;background:#f1f4f7;border:1px solid #e2e7ec;border-bottom:0}
+.erpkit-migrated-page .st-dashboard-bar-track>span{display:block;width:100%;min-height:1px;flex:0 0 auto}
+.erpkit-migrated-page .st-dashboard-bar-label{height:46px;padding:5px 2px 0;color:#526579;font-size:6.2px;line-height:1.25;font-weight:800;overflow:hidden;word-break:break-word}
+.erpkit-migrated-page .st-dashboard-priority-wrap{max-height:420px;overflow:auto!important;scrollbar-gutter:stable}
+.erpkit-migrated-page .st-dashboard-priority-table{min-width:1180px}
+.erpkit-migrated-page .st-dashboard-priority-table th{position:sticky;top:0;z-index:2;white-space:nowrap}
+.erpkit-migrated-page .st-dashboard-priority-table td{vertical-align:middle}.erpkit-migrated-page .st-dashboard-priority-table td small{display:block;margin-top:2px;color:#7d8a98;font-size:6.4px;line-height:1.3}.erpkit-migrated-page .st-dashboard-priority-table td b{font-size:7.4px}
+.erpkit-migrated-page .st-dashboard-priority.cat3>.erp-panel-head{border-left:3px solid #c85b51}.erpkit-migrated-page .st-dashboard-priority.cat5>.erp-panel-head{border-left:3px solid #d39a2e}
+.erpkit-migrated-page .st-dashboard-status-text{font-weight:850}.erpkit-migrated-page .st-dashboard-status-text.ready{color:#1e6aa5}.erpkit-migrated-page .st-dashboard-status-text.wait{color:#94620e}.erpkit-migrated-page .st-dashboard-status-text.scheduled{color:#4e72a5}.erpkit-migrated-page .st-dashboard-status-text.hold{color:#a84740}
+@media(max-width:1450px){.erpkit-migrated-page .st-dashboard-kpis{grid-template-columns:repeat(4,minmax(118px,1fr))}}
+@media(max-width:900px){.erpkit-migrated-page .st-dashboard-kpis{grid-template-columns:repeat(2,minmax(118px,1fr))}.erpkit-migrated-page .st-dashboard-head{align-items:flex-start!important;flex-direction:column}.erpkit-migrated-page .st-dashboard-head-actions{justify-content:flex-start}}

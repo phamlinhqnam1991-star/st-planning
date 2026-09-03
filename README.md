@@ -158,3 +158,8 @@ Normal Planning Board saves no longer reload the page. Create/Add Batch and Job/
 ## V395 · Planning Workload Summary
 
 Planning Board adds a read-only ERP Workload Summary above the Matrix. It aggregates active Planning Chain rows by Area + Main Operation and shows READY / WAIT / HOLD as Jobs, pcs and dm², plus total load. Clicking a status metric hydrates route state if necessary and filters the Candidate Matrix to that exact Main + status. Summary refreshes after Batch create/add, Hold/Unhold, Rebuild Chain and scope changes. No migration is required.
+
+
+## V396 · Rebuilt ST Workload Dashboard
+
+`/dashboard` has been rebuilt from a blank visual surface. It now shows unique open ST Job / pcs / dm² totals; WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD workload; a Main Planning summary table; a stacked dm² chart by Main Planning; and complete CAT3 then CAT5 Job lists with Part, Planning, Batch and Schedule context. The previous Dashboard control-tower/AI panels are no longer rendered. No migration is required.
