@@ -2,7 +2,7 @@ import Link from "next/link";
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
 import {getPool} from "@/lib/db";
-import {loadStDashboardData,type StDashboardAreaRow,type StDashboardImmediateRow,type StDashboardMetric,type StDashboardPriorityJob,type StDashboardStatus} from "@/lib/dashboard-st-workload";
+import {loadStDashboardData,type StDashboardAreaRow,type StDashboardAuditJob,type StDashboardImmediateRow,type StDashboardMetric,type StDashboardPriorityJob,type StDashboardStatus} from "@/lib/dashboard-st-workload";
 
 export const dynamic="force-dynamic";
 
@@ -101,6 +101,49 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
 }
 
 
+
+function AuditJobTable({rows}:{rows:StDashboardAuditJob[]}){
+ const totalSurface=rows.reduce((sum,row)=>sum+Number(row.surfaceUsed||0),0);
+ const totalQty=rows.reduce((sum,row)=>sum+Number(row.qtyUsed||0),0);
+ return <section className="erp-table-panel st-dashboard-panel st-dashboard-audit-panel">
+  <div className="erp-panel-head"><div><b>Chart Calculation Audit · Job Detail</b><small>One row per open Job used by the Current Main / Immediate Operation chart. Check RAW Last/Next, resolver output, Qty and Surface inputs before changing the chart formula.</small></div><span>{fmt(totalSurface)} dm² · {fmt(totalQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
+  <div className="st-dashboard-audit-note">Chart Group = <b>Current Main / RAW NextOperation</b>. Immediate Operation is the RAW NextOperation from All Open Job. Current/Next Main come from the same synced Planning Chain used by Planning Board.</div>
+  <div className="table-wrap st-dashboard-audit-wrap"><table className="erp-table st-dashboard-audit-table">
+   <thead><tr>
+    <th>Job</th><th>Part / Rev</th><th>Priority</th><th>Chart Group</th><th>Last Operation</th><th>RAW NextOperation<br/>Immediate</th>
+    <th>Resolver Mode</th><th>Previous Main</th><th>Current Main</th><th>Current Main Source Op</th><th>Status</th><th>Current Seq</th>
+    <th>Next Main</th><th>Next Main Source Op</th><th>Next Seq</th><th>WIP Qty</th><th>Prod Qty</th><th>Qty Used</th>
+    <th>Surface / Part dm²</th><th>Source TotalSurface</th><th>Qty × Surface</th><th>Surface Used dm²</th><th>AllOperation</th>
+   </tr></thead>
+   <tbody>{rows.length?rows.map(row=><tr key={row.jobNum}>
+    <td><b className="mono">{row.jobNum}</b></td>
+    <td><b>{row.partNum||"—"}</b><small>{row.revisionNum?`Rev ${row.revisionNum}`:""}</small></td>
+    <td><b>{row.priority||"—"}</b></td>
+    <td><b>{row.currentMain||"—"}</b><small className="mono">/ {row.rawNextOperation||"—"}</small></td>
+    <td className="mono">{row.lastOperation||"—"}</td>
+    <td className="mono"><b>{row.rawNextOperation||"—"}</b></td>
+    <td><b>{row.resolverMode||"—"}</b></td>
+    <td>{row.previousMain||"—"}</td>
+    <td><b>{row.currentMain||"—"}</b></td>
+    <td className="mono">{row.currentMainSourceOperation||"—"}</td>
+    <td><b className={`st-dashboard-status-text ${String(row.currentStatus||"").toLowerCase().replace(/[^a-z]+/g,"-")}`}>{row.currentStatus||"—"}</b></td>
+    <td className="num"><b>{fmt(row.currentPlanningSeq,0)}</b><small>src {fmt(row.currentSourceSeq,0)}</small></td>
+    <td><b>{row.nextMain||"—"}</b></td>
+    <td className="mono">{row.nextMainSourceOperation||"—"}</td>
+    <td className="num">{row.nextPlanningSeq?fmt(row.nextPlanningSeq,0):"—"}</td>
+    <td className="num">{fmt(row.wipQty,0)}</td>
+    <td className="num">{fmt(row.prodQty,0)}</td>
+    <td className="num"><b>{fmt(row.qtyUsed,0)}</b></td>
+    <td className="num">{fmt(row.surfacePerPart,3)}</td>
+    <td className="num">{row.sourceTotalSurface==null?"NULL":fmt(row.sourceTotalSurface,3)}</td>
+    <td className="num">{fmt(row.calculatedSurface,3)}</td>
+    <td className="num"><b>{fmt(row.surfaceUsed,3)}</b></td>
+    <td className="mono st-dashboard-audit-allop" title={row.allOperation||""}>{row.allOperation||"—"}</td>
+   </tr>):<tr><td colSpan={23}>No ST Job used by the chart.</td></tr>}</tbody>
+  </table></div>
+ </section>;
+}
+
 function AreaWorkloadTable({area}:{area:StDashboardAreaRow}){
  return <section className="erp-table-panel st-dashboard-panel st-dashboard-area-panel">
   <div className="erp-panel-head st-dashboard-area-head"><div><b>{area.areaName}</b><small>Main Planning + Recipe workload in this Area.</small></div><span>{fmt(area.mainRows.length,0)} Main Operations</span></div>
@@ -192,6 +235,8 @@ export default async function DashboardPage(){
      <div className="st-dashboard-combo-legend"><span><i className="surface"></i>Surface dm²</span><span><i className="qty"></i>Qty pcs · right axis max 10,000</span></div>
      <SurfaceQtyComboChart rows={data.immediateRows} total={data.total}/>
     </section>
+
+    <AuditJobTable rows={data.auditJobs}/>
 
     <section className="st-dashboard-kpis">
      <article className="st-dashboard-kpi total"><small>ST TOTAL · SURFACE WORKLOAD</small>{metricLines(data.total)}</article>

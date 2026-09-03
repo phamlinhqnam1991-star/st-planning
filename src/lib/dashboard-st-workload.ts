@@ -52,6 +52,33 @@ export type StDashboardAreaRow={
  mainRows:StDashboardMainRow[];
 };
 
+export type StDashboardAuditJob={
+ jobNum:string;
+ partNum:string;
+ revisionNum:string;
+ priority:string;
+ lastOperation:string;
+ rawNextOperation:string;
+ allOperation:string;
+ resolverMode:string;
+ previousMain:string;
+ currentMain:string;
+ currentMainSourceOperation:string;
+ currentStatus:string;
+ currentPlanningSeq:number;
+ currentSourceSeq:number;
+ nextMain:string;
+ nextMainSourceOperation:string;
+ nextPlanningSeq:number;
+ wipQty:number;
+ prodQty:number;
+ qtyUsed:number;
+ surfacePerPart:number;
+ sourceTotalSurface:number|null;
+ calculatedSurface:number;
+ surfaceUsed:number;
+};
+
 export type StDashboardPriorityJob={
  jobNum:string;
  partNum:string;
@@ -79,6 +106,7 @@ export type StDashboardData={
  areas:StDashboardAreaRow[];
  mainRows:StDashboardMainRow[];
  immediateRows:StDashboardImmediateRow[];
+ auditJobs:StDashboardAuditJob[];
  cat3:StDashboardPriorityJob[];
  cat5:StDashboardPriorityJob[];
 };
@@ -184,6 +212,82 @@ const WORKLOAD_SQL=`
 `;
 
 
+const AUDIT_SQL=`
+ with ${RAW_ST_VISIBLE_CTE_SQL}
+ select
+  j.job_num,j.part_num,j.revision_num,j.priority_type,j.last_operation,
+  coalesce(j.next_operation,'') raw_next_operation,
+  coalesce(j.all_operation,'') all_operation,
+  j.current_good_wip_qty,j.prod_qty,j.surface_per_part_dm2,j.total_surface,
+  coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)::float8 qty_used,
+  (coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)*coalesce(j.surface_per_part_dm2,0))::float8 calculated_surface,
+  coalesce(
+   j.total_surface,
+   coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)*coalesce(j.surface_per_part_dm2,0),
+   0
+  )::float8 surface_used,
+  current_main.id current_planning_id,
+  current_main.standard_operation current_main,
+  current_main.source_operation_code current_main_source_operation,
+  current_main.route_resolution_mode,
+  current_main.previous_standard_operation_snapshot previous_main,
+  current_main.planning_seq current_planning_seq,
+  current_main.source_seq current_source_seq,
+  case
+   when coalesce(current_main.is_hold,false)=true and current_batch.batch_id is null then 'HOLD'
+   when current_schedule.schedule_id is not null then 'SCHEDULED'
+   when current_batch.batch_id is not null then 'PLANNED-UNSCHEDULED'
+   when current_main.status='PLANNED' then 'PLANNED-UNSCHEDULED'
+   when current_main.status='ELIGIBLE' then 'READY'
+   else 'WAIT'
+  end current_status,
+  coalesce(next_main.standard_operation,'') next_main,
+  coalesce(next_main.source_operation_code,'') next_main_source_operation,
+  coalesce(next_main.planning_seq,0)::int next_planning_seq
+ from public.open_job_current j
+ join visible_st_raw rawst
+   on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
+ join lateral (
+  select
+   p0.id,p0.standard_operation,p0.source_operation_code,p0.route_resolution_mode,
+   p0.previous_standard_operation_snapshot,p0.planning_seq,p0.source_seq,p0.status,p0.is_hold
+  from public.planning_job_operation p0
+  where p0.job_num=j.job_num
+    and p0.is_active=true
+    and p0.status in ('LOCKED','ELIGIBLE','PLANNED')
+    and upper(trim(p0.standard_operation))<>'PIONBL'
+  order by p0.planning_seq asc,p0.source_seq asc,p0.id asc
+  limit 1
+ ) current_main on true
+ left join lateral (
+  select p1.standard_operation,p1.source_operation_code,p1.planning_seq
+  from public.planning_job_operation p1
+  where p1.job_num=j.job_num
+    and p1.is_active=true
+    and p1.status in ('LOCKED','ELIGIBLE','PLANNED')
+    and upper(trim(p1.standard_operation))<>'PIONBL'
+  order by p1.planning_seq asc,p1.source_seq asc,p1.id asc
+  offset 1 limit 1
+ ) next_main on true
+ left join lateral (
+  select b.id batch_id
+  from public.planning_batch_job bj
+  join public.planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
+  where bj.planning_job_operation_id=current_main.id
+  order by b.created_at desc,b.id desc
+  limit 1
+ ) current_batch on true
+ left join lateral (
+  select s.id schedule_id
+  from public.planning_schedule s
+  where s.batch_id=current_batch.batch_id and s.status<>'CANCELLED'
+  order by s.planned_start desc,s.id desc
+  limit 1
+ ) current_schedule on true
+ where j.is_open=true
+ order by current_main.planning_seq,current_main.standard_operation,upper(trim(coalesce(j.next_operation,''))),j.job_num
+`;
+
 async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboardPriorityJob[]>{
  const q=await c.query(`
   with ${RAW_ST_VISIBLE_CTE_SQL}
@@ -273,7 +377,7 @@ async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboar
 }
 
 export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>{
- const [workloadQ,totalQ,cat3,cat5,ctx,recipeMetaQ]=await Promise.all([
+ const [workloadQ,totalQ,auditQ,cat3,cat5,ctx,recipeMetaQ]=await Promise.all([
   c.query(WORKLOAD_SQL),
   c.query(`
    with ${RAW_ST_VISIBLE_CTE_SQL}, per_job as (
@@ -302,11 +406,23 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
    select count(*)::int jobs,coalesce(sum(qty),0)::float8 qty,coalesce(sum(surface),0)::float8 surface
    from per_job
   `),
+  c.query(AUDIT_SQL),
   loadPriorityJobs(c,"CAT3"),
   loadPriorityJobs(c,"CAT5"),
   getCachedLiveRecipeContext(c),
   c.query(`select recipe_key,recipe_no,recipe_name from public.md_process_recipe`)
  ]);
+
+ const auditJobs:StDashboardAuditJob[]=(auditQ.rows as any[]).map(r=>({
+  jobNum:text(r.job_num),partNum:text(r.part_num),revisionNum:text(r.revision_num),priority:text(r.priority_type),
+  lastOperation:text(r.last_operation),rawNextOperation:text(r.raw_next_operation),allOperation:text(r.all_operation),
+  resolverMode:text(r.route_resolution_mode),previousMain:text(r.previous_main),currentMain:text(r.current_main),
+  currentMainSourceOperation:text(r.current_main_source_operation),currentStatus:text(r.current_status),
+  currentPlanningSeq:num(r.current_planning_seq),currentSourceSeq:num(r.current_source_seq),
+  nextMain:text(r.next_main),nextMainSourceOperation:text(r.next_main_source_operation),nextPlanningSeq:num(r.next_planning_seq),
+  wipQty:num(r.current_good_wip_qty),prodQty:num(r.prod_qty),qtyUsed:num(r.qty_used),surfacePerPart:num(r.surface_per_part_dm2),
+  sourceTotalSurface:r.total_surface==null?null:num(r.total_surface),calculatedSurface:num(r.calculated_surface),surfaceUsed:num(r.surface_used)
+ }));
 
  const statuses:Record<StDashboardStatus,StDashboardMetric>={
   WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero()
@@ -433,6 +549,6 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   a.areaSort-b.areaSort||a.mainOrder-b.mainOrder||a.standardOperation.localeCompare(b.standardOperation)||a.immediateOperation.localeCompare(b.immediateOperation,undefined,{numeric:true})
  );
  const tr=totalQ.rows[0]||{};
- return {generatedAt:new Date().toISOString(),total:{jobs:num(tr.jobs),qty:num(tr.qty),surface:num(tr.surface)},statuses,areas,mainRows,immediateRows,cat3,cat5};
+ return {generatedAt:new Date().toISOString(),total:{jobs:num(tr.jobs),qty:num(tr.qty),surface:num(tr.surface)},statuses,areas,mainRows,immediateRows,auditJobs,cat3,cat5};
 }
 

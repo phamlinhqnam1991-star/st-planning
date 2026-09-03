@@ -217,3 +217,7 @@ Hai chart được đặt ở đầu Dashboard. Chart Surface dm² theo Main Pla
 ## V406 — Surface-first workload presentation
 
 Workload UI priority is now `Surface dm² -> pcs -> Job count`. This applies to Dashboard global/Area KPI cards, Dashboard Main Planning -> Recipe status/total cells, CAT3/CAT5 workload summary headers, and Planning Board Workload Summary KPI/drill/total cells. Job remains the row identifier in Job/Candidate lists; only workload metric emphasis/order changed. No SQL population, Current Main resolver, Bridge, Recipe, Batch, Schedule or status logic changed.
+
+## V407 — Dashboard chart calculation audit
+
+Before changing the `Surface + Qty by Main Planning / Immediate Operation` aggregation again, Dashboard exposes a read-only one-row-per-Job audit table using the exact same ST population and materialized Current Main resolver as the chart. The table shows RAW LastOperation/NextOperation, `route_resolution_mode`, Previous/Current/Next Main, Current Main source operation/status/sequence, Qty inputs and selected Qty, Surface/Part, source TotalSurface, calculated Qty×Surface, selected Surface, and AllOperation. The `Chart Group` column is exactly `Current Main / RAW NextOperation`. This is diagnostic only; chart aggregation and Planning/Bridge/Batch/Recipe/Schedule logic remain unchanged in V407.

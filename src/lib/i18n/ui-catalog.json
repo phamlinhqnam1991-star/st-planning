@@ -8065,6 +8065,116 @@
       "en": "Surface dm² columns and pcs line by Main Planning and Immediate Operation",
       "vi": "Cột diện tích dm² và đường pcs theo Main Planning và Immediate Operation",
       "mode": "phrase"
+    },
+    {
+      "en": "Chart Calculation Audit · Job Detail",
+      "vi": "Kiểm tra tính Chart · Chi tiết Job",
+      "mode": "phrase"
+    },
+    {
+      "en": "One row per open Job used by the Current Main / Immediate Operation chart. Check RAW Last/Next, resolver output, Qty and Surface inputs before changing the chart formula.",
+      "vi": "Mỗi dòng là một Job open được dùng trong chart Current Main / Immediate Operation. Kiểm tra RAW Last/Next, kết quả resolver, Qty và Surface trước khi thay đổi công thức chart.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Chart Group",
+      "vi": "Nhóm Chart",
+      "mode": "phrase"
+    },
+    {
+      "en": "Last Operation",
+      "vi": "Last Operation",
+      "mode": "phrase"
+    },
+    {
+      "en": "RAW NextOperation",
+      "vi": "RAW NextOperation",
+      "mode": "phrase"
+    },
+    {
+      "en": "Immediate",
+      "vi": "Immediate",
+      "mode": "phrase"
+    },
+    {
+      "en": "Resolver Mode",
+      "vi": "Chế độ Resolver",
+      "mode": "phrase"
+    },
+    {
+      "en": "Current Main",
+      "vi": "Current Main",
+      "mode": "phrase"
+    },
+    {
+      "en": "Current Main Source Op",
+      "vi": "Source Op của Current Main",
+      "mode": "phrase"
+    },
+    {
+      "en": "Current Seq",
+      "vi": "Current Seq",
+      "mode": "phrase"
+    },
+    {
+      "en": "Next Main",
+      "vi": "Next Main",
+      "mode": "phrase"
+    },
+    {
+      "en": "Next Main Source Op",
+      "vi": "Source Op của Next Main",
+      "mode": "phrase"
+    },
+    {
+      "en": "Next Seq",
+      "vi": "Next Seq",
+      "mode": "phrase"
+    },
+    {
+      "en": "WIP Qty",
+      "vi": "WIP Qty",
+      "mode": "phrase"
+    },
+    {
+      "en": "Prod Qty",
+      "vi": "Prod Qty",
+      "mode": "phrase"
+    },
+    {
+      "en": "Qty Used",
+      "vi": "Qty sử dụng",
+      "mode": "phrase"
+    },
+    {
+      "en": "Surface / Part dm²",
+      "vi": "Surface / Part dm²",
+      "mode": "phrase"
+    },
+    {
+      "en": "Source TotalSurface",
+      "vi": "TotalSurface nguồn",
+      "mode": "phrase"
+    },
+    {
+      "en": "Qty × Surface",
+      "vi": "Qty × Surface",
+      "mode": "phrase"
+    },
+    {
+      "en": "Surface Used dm²",
+      "vi": "Surface sử dụng dm²",
+      "mode": "phrase"
+    },
+    {
+      "en": "AllOperation",
+      "vi": "AllOperation",
+      "mode": "phrase"
+    },
+    {
+      "en": "No ST Job used by the chart.",
+      "vi": "Không có Job ST được dùng trong chart.",
+      "mode": "phrase"
     }
   ]
 }

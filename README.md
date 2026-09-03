@@ -195,3 +195,7 @@ Both charts are moved to the top of Dashboard. The Surface dm² stacked chart st
 ## V406 · Surface-first workload presentation
 
 Dashboard and Planning Board Workload Summary now treat **Surface dm² as the primary workload metric** everywhere a workload metric was previously led by Job count. KPI cards, Main Planning / Recipe status cells, Planning Board READY/WAIT/HOLD workload cells and totals show `dm²` first and largest, with `pcs` and `Job` as secondary context. CAT3/CAT5 summary headers also lead with total dm², and their metric columns place dm² before Qty. This is presentation-only; workload population, Current Main/Bridge resolver, status buckets and aggregation formulas are unchanged.
+
+## V407 · Dashboard chart calculation audit
+
+Dashboard adds a read-only per-Job audit table directly below the `Current Main / RAW NextOperation` combo chart. It exposes LastOperation, RAW NextOperation/Immediate Operation, Planning Board resolver mode, Previous/Current/Next Main, Qty source fields, Surface source/calculation fields and AllOperation. `Chart Group` is the exact `Current Main / RAW NextOperation` aggregation key. V407 does not change the chart formula; it makes the source rows visible first so the formula can be validated Job-by-Job.
