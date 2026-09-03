@@ -50,10 +50,19 @@ export default async function Page(){
  let mappings:any[]=[],areas:any[]=[],scheduleAreas:any[]=[],mainOps:any[]=[],nextOps:any[]=[];
  let recipes:any[]=[],recipeMaps:any[]=[],timeRules:any[]=[],handlingRules:any[]=[],resources:any[]=[];
  let mainLinks:any[]=[],groupLinks:any[]=[];
- let error="";
+ const liveErrors:Record<string,string>={};
+ const readLive=async(key:string,sql:string)=>{
+  try{
+   const result=await db.query(sql);
+   return result.rows;
+  }catch(e){
+   liveErrors[key]=e instanceof Error?e.message:String(e);
+   return [];
+  }
+ };
  try{
-  const [mappingQ,areaQ,scheduleQ,mainQ,nextQ,recipeQ,recipeMapQ,timeQ,handlingQ,resourceQ,mainLinkQ,groupLinkQ]=await Promise.all([
-   db.query(`
+  [mappings,areas,scheduleAreas,mainOps,nextOps,recipes,recipeMaps,timeRules,handlingRules,resources,mainLinks,groupLinks]=await Promise.all([
+   readLive("mappings",`
     select m.sort_order,m.source_operation_code,m.st_group,m.standard_operation_rule,m.mapping_rule
     from md_st_operation_mapping m
     join md_st_operation_scope scope
@@ -61,7 +70,7 @@ export default async function Page(){
      and scope.is_active=true and scope.operation_type='PLANNING_OPERATION'
     where m.is_active=true
     order by m.st_group,m.sort_order,m.source_operation_code`),
-   db.query(`
+   readLive("areas",`
     select a.id,a.area_code,a.area_name,a.sort_order,
      coalesce(string_agg(g.st_group,', ' order by g.st_group) filter(where g.st_group is not null),'—') st_groups
     from md_area a
@@ -69,7 +78,7 @@ export default async function Page(){
     where a.is_active=true
     group by a.id
     order by a.sort_order,a.area_code`),
-   db.query(`
+   readLive("scheduleAreas",`
     select s.schedule_area_code,s.schedule_area_name,s.resource_group,s.resource_code,s.default_rows,
            s.planner_owner,s.display_order,
            coalesce(string_agg(m.standard_operation,', ' order by m.standard_operation) filter(where m.standard_operation is not null),'—') operations
@@ -78,11 +87,11 @@ export default async function Page(){
     where s.is_active=true
     group by s.id
     order by s.display_order,s.schedule_area_code`),
-   db.query(`
+   readLive("mainOps",`
     select standard_operation,st_group,batch_prefix,planning_sort_order,is_active
     from md_operation_master
     order by is_active desc,planning_sort_order nulls last,standard_operation`),
-   db.query(`
+   readLive("nextOps",`
     with bridge_ops as (
      select distinct upper(trim(bo.operation_code)) operation_code
      from md_intermediate_bridge_operation bo
@@ -110,7 +119,7 @@ export default async function Page(){
      limit 1
     ) o on true
     order by o.planning_sort_order nulls last,cat.operation_code`),
-   db.query(`
+   readLive("recipes",`
     select r.recipe_key,r.recipe_no,r.recipe_name,r.process_family,
      (select coalesce(nullif(m.operation_code,''),m.standard_operation)
       from md_main_operation_recipe m
@@ -119,28 +128,28 @@ export default async function Page(){
     from md_process_recipe r
     where r.is_active=true
     order by r.process_family,r.recipe_no,r.recipe_name`),
-   db.query(`
+   readLive("recipeMaps",`
     select m.mapping_id,m.operation_code,m.standard_operation,m.recipe_key,m.priority,m.is_default,m.selection_rule
     from md_main_operation_recipe m
     where m.is_active=true
     order by m.operation_code,m.priority,m.recipe_key`),
-   db.query(`
+   readLive("timeRules",`
     select r.recipe_key,r.calc_type,r.priority,r.fixed_hours,r.standard_hours,r.qty_min,r.qty_max,
            r.surface_min_dm2,r.surface_max_dm2
     from md_recipe_time_rule r
     where r.is_active=true
     order by r.recipe_key,r.priority,r.id`),
-   db.query(`
+   readLive("handlingRules",`
     select r.phase,r.priority,r.qty_min,r.qty_max,r.surface_min_dm2,r.surface_max_dm2,r.duration_minutes
     from md_chemical_handling_time_rule r
     where r.is_active=true
     order by r.phase,r.priority,r.id`),
-   db.query(`
+   readLive("resources",`
     select r.resource_code,r.resource_name,r.resource_group,r.sort_order,r.max_concurrent
     from md_schedule_resource r
     where r.is_active=true
     order by r.sort_order,r.resource_code`),
-   db.query(`
+   readLive("mainLinks",`
     select o.standard_operation,o.st_group,o.batch_prefix,o.planning_sort_order,
            count(distinct m.source_operation_code) source_count,
            count(distinct mr.mapping_id) recipe_count,
@@ -162,7 +171,7 @@ export default async function Page(){
     where o.is_active=true
     group by o.standard_operation,o.st_group,o.batch_prefix,o.planning_sort_order
     order by o.planning_sort_order nulls last,o.standard_operation`),
-   db.query(`
+   readLive("groupLinks",`
     select g.st_group,g.group_name,
            coalesce(string_agg(distinct a.area_name, ', ' order by a.area_name) filter(where a.area_name is not null),'—') areas,
            coalesce(string_agg(distinct s.schedule_area_name, ', ' order by s.schedule_area_name) filter(where s.schedule_area_name is not null),'—') schedule_areas,
@@ -178,20 +187,8 @@ export default async function Page(){
     group by g.st_group,g.group_name
     order by g.st_group`)
   ]);
-  mappings=mappingQ.rows;
-  areas=areaQ.rows;
-  scheduleAreas=scheduleQ.rows;
-  mainOps=mainQ.rows;
-  nextOps=nextQ.rows;
-  recipes=recipeQ.rows;
-  recipeMaps=recipeMapQ.rows;
-  timeRules=timeQ.rows;
-  handlingRules=handlingQ.rows;
-  resources=resourceQ.rows;
-  mainLinks=mainLinkQ.rows;
-  groupLinks=groupLinkQ.rows;
  }catch(e){
-  error=e instanceof Error?e.message:String(e);
+  liveErrors.page=e instanceof Error?e.message:String(e);
  }finally{
   db.release();
  }
@@ -253,7 +250,7 @@ export default async function Page(){
       Batch chưa điều độ (<b>PLANNED-UNSCHEDULED</b>) vẫn được xem là Main trước đã plan. Vì vậy Main kế tiếp có thể READY ngay; Scheduling không phải điều kiện bắt buộc để mở Main kế tiếp.
      </Rule>
     </div>
-    {error&&<div className="notice"><b>Lưu ý:</b> Không đọc được một phần Mapping sống từ database: {error}</div>}
+    {Object.keys(liveErrors).length>0&&<div className="notice"><b>Lưu ý:</b> Một số bảng Mapping sống không đọc được; các bảng còn lại vẫn hiển thị dữ liệu thật từ database. Chi tiết lỗi nằm ngay tại bảng tương ứng.</div>}
    </Section>
 
    <Section id="flow" title="2 · Flow dữ liệu & dependency tổng thể"
@@ -786,12 +783,16 @@ export default async function Page(){
    <Section id="live" title="14 · Mapping đang chạy — đọc trực tiếp database"
     sub="Dùng để đối chiếu tài liệu với cấu hình production hiện tại; bảng này không phải dữ liệu mẫu">
 
+    <div className="notice">
+     <b>Live DB:</b> đã đọc trực tiếp {12-Object.keys(liveErrors).filter(k=>k!=="page").length}/12 nhóm dữ liệu. Mỗi bảng được đọc độc lập nên một bảng lỗi không còn làm trắng toàn bộ phần Mapping.
+    </div>
+
     <div className="lg-subtitle">14.0 · Bảng kết nối tổng hợp — Main Operation → Recipe → Schedule → Planner</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Main Operation</th><th>ST Group</th><th>Batch Prefix</th><th>Planning Order</th><th>Source Ops</th><th>Recipe Rules</th><th>Schedule Area</th><th>Planner</th></tr></thead>
      <tbody>{mainLinks.map((x:any,i)=><tr key={`main-link-${i}`}>
       <td><b>{x.standard_operation}</b></td><td>{x.st_group||"—"}</td><td className="mono">{x.batch_prefix||"—"}</td><td className="num">{x.planning_sort_order??"—"}</td><td className="num">{x.source_count??0}</td><td className="num">{x.recipe_count??0}</td><td>{x.schedule_areas||"—"}</td><td>{x.planners||"—"}</td>
-     </tr>)}{!mainLinks.length&&<tr><td colSpan={8} className="muted">Chưa đọc được bảng kết nối Main Operation.</td></tr>}</tbody>
+     </tr>)}{!mainLinks.length&&<tr><td colSpan={8} className="muted">{liveErrors.mainLinks?`Lỗi đọc database: ${liveErrors.mainLinks}`:"Database hiện chưa có dữ liệu kết nối Main Operation."}</td></tr>}</tbody>
     </table></div>
 
     <div className="lg-subtitle">14.0.1 · Bảng kết nối tổng hợp — ST Group → Area → Schedule Area → Planner</div>
@@ -799,7 +800,7 @@ export default async function Page(){
      <thead><tr><th>ST Group</th><th>Tên nhóm</th><th>Main Operations</th><th>Physical Area</th><th>Schedule Area</th><th>Planner</th></tr></thead>
      <tbody>{groupLinks.map((x:any,i)=><tr key={`group-link-${i}`}>
       <td className="mono"><b>{x.st_group}</b></td><td>{x.group_name||"—"}</td><td>{x.main_operations||"—"}</td><td>{x.areas||"—"}</td><td>{x.schedule_areas||"—"}</td><td>{x.planners||"—"}</td>
-     </tr>)}{!groupLinks.length&&<tr><td colSpan={6} className="muted">Chưa đọc được bảng kết nối ST Group.</td></tr>}</tbody>
+     </tr>)}{!groupLinks.length&&<tr><td colSpan={6} className="muted">{liveErrors.groupLinks?`Lỗi đọc database: ${liveErrors.groupLinks}`:"Database hiện chưa có dữ liệu kết nối ST Group."}</td></tr>}</tbody>
     </table></div>
 
     <div className="lg-subtitle">14.1 · Main Operation — Planning Order nội bộ + Batch Prefix</div>
@@ -807,7 +808,7 @@ export default async function Page(){
      <thead><tr><th>Main Operation</th><th>ST Group</th><th>Batch Prefix</th><th>Main Planning Order</th><th>Active</th></tr></thead>
      <tbody>{mainOps.map((x:any,i)=><tr key={`${x.standard_operation}-${i}`}>
       <td><b>{x.standard_operation}</b></td><td>{x.st_group||"—"}</td><td className="mono">{x.batch_prefix||"—"}</td><td className="num">{x.planning_sort_order??"—"}</td><td>{x.is_active?badge("YES","green"):badge("NO","warning")}</td>
-     </tr>)}{!mainOps.length&&<tr><td colSpan={5} className="muted">Không đọc được Main Operation.</td></tr>}</tbody>
+     </tr>)}{!mainOps.length&&<tr><td colSpan={5} className="muted">{liveErrors.mainOps?`Lỗi đọc database: ${liveErrors.mainOps}`:"Database hiện chưa có Main Operation."}</td></tr>}</tbody>
     </table></div>
 
     <div className="lg-subtitle">14.2 · Operation Code Order — tie-breaker trong cùng Main</div>
@@ -815,14 +816,14 @@ export default async function Page(){
      <thead><tr><th>Operation Code</th><th>Loại</th><th>Operation Name</th><th>Operation Code Order</th></tr></thead>
      <tbody>{nextOps.map((x:any,i)=><tr key={`${x.operation_code}-${i}`}>
       <td><b>{x.operation_code}</b></td><td>{x.operation_type}</td><td>{x.operation_name||"—"}</td><td className="num"><b>{x.planning_sort_order??"—"}</b></td>
-     </tr>)}{!nextOps.length&&<tr><td colSpan={4} className="muted">Không đọc được Operation Code Order.</td></tr>}</tbody>
+     </tr>)}{!nextOps.length&&<tr><td colSpan={4} className="muted">{liveErrors.nextOps?`Lỗi đọc database: ${liveErrors.nextOps}`:"Database hiện chưa có Operation Code trong scope."}</td></tr>}</tbody>
     </table></div>
 
     <div className="lg-subtitle">14.3 · Source → Main Mapping</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>ST Group</th><th>Source Operation</th><th>Main/Rule</th><th>Mapping Rule</th></tr></thead>
      <tbody>{mappings.map((m:any,i)=><tr key={i}><td>{m.st_group}</td><td className="mono">{m.source_operation_code}</td><td>{m.standard_operation_rule||"—"}</td><td>{m.mapping_rule||"—"}</td></tr>)}
-      {!mappings.length&&<tr><td colSpan={4} className="muted">Chưa có Mapping.</td></tr>}
+      {!mappings.length&&<tr><td colSpan={4} className="muted">{liveErrors.mappings?`Lỗi đọc database: ${liveErrors.mappings}`:"Database hiện chưa có Source → Main Mapping."}</td></tr>}
      </tbody>
     </table></div>
 
@@ -831,14 +832,14 @@ export default async function Page(){
      <thead><tr><th>Rule ID</th><th>Operation Code</th><th>Main</th><th>Recipe Key</th><th>Priority</th><th>Default</th><th>Selection Rule</th></tr></thead>
      <tbody>{recipeMaps.map((m:any,i)=><tr key={i}>
       <td className="mono">#{m.mapping_id}</td><td><b>{m.operation_code}</b></td><td>{m.standard_operation||"—"}</td><td className="mono">{m.recipe_key}</td><td className="num">{m.priority??100}</td><td>{m.is_default?badge("YES","green"):"—"}</td><td>{m.selection_rule||"—"}</td>
-     </tr>)}{!recipeMaps.length&&<tr><td colSpan={6} className="muted">Chưa có Recipe mapping.</td></tr>}</tbody>
+     </tr>)}{!recipeMaps.length&&<tr><td colSpan={6} className="muted">{liveErrors.recipeMaps?`Lỗi đọc database: ${liveErrors.recipeMaps}`:"Database hiện chưa có Recipe mapping."}</td></tr>}</tbody>
     </table></div>
 
     <div className="lg-subtitle">14.5 · Recipe Catalog</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Recipe No</th><th>Recipe Name</th><th>Family</th><th>Operation mapping đầu tiên</th></tr></thead>
      <tbody>{recipes.map((r:any,i)=><tr key={i}><td className="mono"><b>{r.recipe_no||"—"}</b></td><td>{r.recipe_name||"—"}</td><td>{r.process_family||"—"}</td><td>{r.default_operation?badge(String(r.default_operation),"green"):badge("Chưa map","warning")}</td></tr>)}
-      {!recipes.length&&<tr><td colSpan={4} className="muted">Chưa có Recipe.</td></tr>}
+      {!recipes.length&&<tr><td colSpan={4} className="muted">{liveErrors.recipes?`Lỗi đọc database: ${liveErrors.recipes}`:"Database hiện chưa có Recipe."}</td></tr>}
      </tbody>
     </table></div>
 
@@ -847,14 +848,14 @@ export default async function Page(){
      <thead><tr><th>Recipe</th><th>Mode</th><th>Priority</th><th>Qty</th><th>Surface dm²</th><th>Fixed</th><th>Standard</th></tr></thead>
      <tbody>{timeRules.map((r:any,i)=><tr key={i}>
       <td className="mono">{r.recipe_key}</td><td>{r.calc_type}</td><td className="num">{r.priority}</td><td className="mono">{r.qty_min??"—"} – {r.qty_max??"—"}</td><td className="mono">{r.surface_min_dm2??"—"} – {r.surface_max_dm2??"—"}</td><td>{r.fixed_hours??"—"}</td><td>{r.standard_hours??"—"}</td>
-     </tr>)}{!timeRules.length&&<tr><td colSpan={7} className="muted">Chưa có Process Time.</td></tr>}</tbody>
+     </tr>)}{!timeRules.length&&<tr><td colSpan={7} className="muted">{liveErrors.timeRules?`Lỗi đọc database: ${liveErrors.timeRules}`:"Database hiện chưa có Process Time Rule."}</td></tr>}</tbody>
     </table></div>
 
     <div className="lg-subtitle">14.7 · Loading / Unloading Rules</div>
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Phase</th><th>Priority</th><th>Qty</th><th>Surface dm²</th><th>Minutes</th></tr></thead>
      <tbody>{handlingRules.map((r:any,i)=><tr key={i}><td>{r.phase}</td><td className="num">{r.priority}</td><td>{r.qty_min??"—"} – {r.qty_max??"—"}</td><td>{r.surface_min_dm2??"—"} – {r.surface_max_dm2??"—"}</td><td className="num"><b>{r.duration_minutes}</b></td></tr>)}
-      {!handlingRules.length&&<tr><td colSpan={5} className="muted">Chưa có Handling Time.</td></tr>}
+      {!handlingRules.length&&<tr><td colSpan={5} className="muted">{liveErrors.handlingRules?`Lỗi đọc database: ${liveErrors.handlingRules}`:"Database hiện chưa có Handling Time Rule."}</td></tr>}
      </tbody>
     </table></div>
 
@@ -862,7 +863,7 @@ export default async function Page(){
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Area</th><th>ST Groups</th></tr></thead>
      <tbody>{areas.map((a:any,i)=><tr key={i}><td><b>{a.area_name}</b><small className="planning-sub"> {a.area_code}</small></td><td>{a.st_groups}</td></tr>)}
-      {!areas.length&&<tr><td colSpan={2} className="muted">Chưa có Area.</td></tr>}
+      {!areas.length&&<tr><td colSpan={2} className="muted">{liveErrors.areas?`Lỗi đọc database: ${liveErrors.areas}`:"Database hiện chưa có Area."}</td></tr>}
      </tbody>
     </table></div>
 
@@ -870,7 +871,7 @@ export default async function Page(){
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Schedule Area</th><th>Resource Group</th><th>Resource</th><th>Rows</th><th>Planner</th><th>Main Operations</th></tr></thead>
      <tbody>{scheduleAreas.map((s:any,i)=><tr key={i}><td><b>{s.schedule_area_name}</b><small className="planning-sub"> {s.schedule_area_code}</small></td><td>{s.resource_group||"—"}</td><td>{s.resource_code||"—"}</td><td className="num">{s.default_rows}</td><td>{s.planner_owner||"—"}</td><td>{String(s.operations||"").split(", ").map((o:string)=><span key={o}>{badge(o,"blue")} </span>)}</td></tr>)}
-      {!scheduleAreas.length&&<tr><td colSpan={6} className="muted">Chưa có Schedule Area.</td></tr>}
+      {!scheduleAreas.length&&<tr><td colSpan={6} className="muted">{liveErrors.scheduleAreas?`Lỗi đọc database: ${liveErrors.scheduleAreas}`:"Database hiện chưa có Schedule Area."}</td></tr>}
      </tbody>
     </table></div>
 
@@ -878,7 +879,7 @@ export default async function Page(){
     <div className="table-wrap"><table className="erp-table">
      <thead><tr><th>Resource</th><th>Group</th><th>Sort</th><th>Max Concurrent</th></tr></thead>
      <tbody>{resources.map((r:any,i)=><tr key={i}><td><b>{r.resource_code}</b><small className="planning-sub"> {r.resource_name||""}</small></td><td>{r.resource_group||"—"}</td><td className="num">{r.sort_order}</td><td className="num">{r.max_concurrent||"—"}</td></tr>)}
-      {!resources.length&&<tr><td colSpan={4} className="muted">Chưa có Resource.</td></tr>}
+      {!resources.length&&<tr><td colSpan={4} className="muted">{liveErrors.resources?`Lỗi đọc database: ${liveErrors.resources}`:"Database hiện chưa có Schedule Resource."}</td></tr>}
      </tbody>
     </table></div>
    </Section>

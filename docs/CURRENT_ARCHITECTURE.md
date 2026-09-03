@@ -138,3 +138,12 @@ Administrative PostgreSQL backups are created outside Vercel with `pg_dump` agai
 - A full Candidate load explicitly clears Route Matrix cache before fetching, so a stale READY/WAIT/HOLD value cannot survive a manual Apply.
 - Structural Rebuild Planning Chain may still reload Candidate data inside the mounted shell, but it does not reload the browser page.
 - Business rules for Planning Chain, Recipe Lock, Batch, Schedule and Job Hold are unchanged.
+
+## V391 — Logic & Guide live database resilience
+
+`/logic-guide -> 12 independent read-only live queries -> render each Mapping table from current production DB`
+
+- The `Mapping đang chạy` section remains read-only and `force-dynamic`.
+- Live Mapping queries are isolated: one missing/invalid optional table can no longer blank every Mapping table.
+- Each section reports its own query error while healthy sections continue to show production data.
+- This is a diagnostic/documentation read-path change only; it does not alter Mapping, Planning Chain, Recipe, Batch, Schedule or Production Execution data.

@@ -151,3 +151,6 @@ Run `supabase/migrations/071_job_main_operation_hold.sql`. Planning Matrix READY
 ## V390 · Planning Board instant save sync
 
 Normal Planning Board saves no longer reload the page. Create/Add Batch and Job/Main Hold/Unhold update only the affected Jobs. Hold/Unhold patches the visible cell immediately after the server commit, then reconciles that Job with the canonical Candidate + Route Matrix delta in the background. Full Candidate loads clear Route Matrix cache first so stale statuses cannot survive a manual refresh. Scroll/filter/zoom/density/column layout remain mounted during normal saves. No migration is required.
+
+### V391 Logic & Guide live DB
+`/logic-guide` now reads each live Mapping table independently. One query error no longer makes the entire live Mapping section appear empty; healthy production tables continue to render and the affected table shows its own DB error.
