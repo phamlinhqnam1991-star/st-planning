@@ -356,13 +356,23 @@ export default async function Page({
     select
       r.recipe_key,r.recipe_no,r.recipe_name,r.process_family,
       (
-        select coalesce(nullif(m.operation_code,''), m.standard_operation)
+        select coalesce(nullif(trim(m.standard_operation),''),nullif(trim(m.operation_code),''))
         from md_main_operation_recipe m
         where m.recipe_key=r.recipe_key
           and m.is_active=true
-        order by (m.is_default=false),m.priority,m.operation_code
+        order by (m.is_default=false),m.priority,m.mapping_id
         limit 1
-      ) default_standard_operation
+      ) default_standard_operation,
+      coalesce((
+        select array_agg(x.standard_operation order by x.standard_operation)
+        from (
+          select distinct upper(trim(coalesce(nullif(trim(m.standard_operation),''),nullif(trim(m.operation_code),'')))) standard_operation
+          from md_main_operation_recipe m
+          where m.recipe_key=r.recipe_key
+            and m.is_active=true
+            and coalesce(nullif(trim(m.standard_operation),''),nullif(trim(m.operation_code),'')) is not null
+        ) x
+      ),array[]::text[]) mapped_standard_operations
     from md_process_recipe r
     where r.is_active=true
     order by r.process_family,r.recipe_no,r.recipe_name

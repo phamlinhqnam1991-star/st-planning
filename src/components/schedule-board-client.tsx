@@ -77,6 +77,7 @@ type RecipeOption={
  recipe_no:string|null;
  recipe_name:string|null;
  process_family:string|null;
+ mapped_standard_operations?:string[]|null;
 };
 
 type ScheduleArea={
@@ -310,6 +311,12 @@ export default function ScheduleBoardClient({
   ()=>groupByOperation(scheduled),
   [scheduled]
  );
+
+ const emptyRecipeOptions=useMemo(()=>{
+  const op=String(emptyOperation||"").trim().toUpperCase();
+  if(!op)return [];
+  return recipes.filter(recipe=>(recipe.mapped_standard_operations||[]).some(mapped=>String(mapped||"").trim().toUpperCase()===op));
+ },[emptyOperation,recipes]);
 
  useEffect(()=>{
   setDurationText(hhmm(batch?.process_minutes));
@@ -614,7 +621,7 @@ export default function ScheduleBoardClient({
      onChange={e=>setEmptyRecipe(e.target.value)}
     >
      <option value="">No Recipe / Set later</option>
-     {recipes.map(r=>
+     {emptyRecipeOptions.map(r=>
       <option key={r.recipe_key} value={r.recipe_key}>
        {r.recipe_no||r.recipe_key} · {r.recipe_name||"—"}
       </option>

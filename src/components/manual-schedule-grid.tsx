@@ -13,7 +13,10 @@ import {useErpConfirm} from "@/components/app-dialog-provider";
 
 type OperationOption={standard_operation:string;st_group:string;batch_prefix:string|null};
 type ResourceOption={resource_code:string;resource_name:string;resource_group:string};
-type RecipeOption={recipe_key:string;recipe_no:string|null;recipe_name:string|null;process_family:string|null;default_standard_operation?:string|null};
+type RecipeOption={
+ recipe_key:string;recipe_no:string|null;recipe_name:string|null;process_family:string|null;
+ default_standard_operation?:string|null;mapped_standard_operations?:string[]|null;
+};
 type ScheduleArea={
  schedule_area_code:string;schedule_area_name:string;resource_group:string|null;resource_code:string|null;
  display_order:number;default_rows:number;planner_owner:string;allow_manual_plan:boolean;allow_auto_plan:boolean;
@@ -184,6 +187,20 @@ export function ManualScheduleGrid({
  function areaOps(a:ScheduleArea){
   const allowed=new Set((a.operations||[]).map(x=>x.standard_operation.toUpperCase()));
   return operations.filter(o=>allowed.has(o.standard_operation.toUpperCase()));
+ }
+ function recipeMatchesOperationSet(recipe:RecipeOption,allowed:Set<string>){
+  return (recipe.mapped_standard_operations||[]).some(op=>allowed.has(String(op||"").trim().toUpperCase()));
+ }
+ function areaRecipeOptions(a:ScheduleArea,poolAllowed?:Set<string>,currentRecipeKey=""){
+  const allowed=poolAllowed??new Set((a.operations||[]).map(x=>String(x.standard_operation||"").trim().toUpperCase()).filter(Boolean));
+  const filtered=recipes.filter(recipe=>recipeMatchesOperationSet(recipe,allowed));
+  // Existing Batch/Schedule may keep a historical Recipe after configuration changed.
+  // Keep that current value visible, but do not expose other out-of-area Recipes for selection.
+  if(currentRecipeKey&&!filtered.some(recipe=>recipe.recipe_key===currentRecipeKey)){
+   const current=recipes.find(recipe=>recipe.recipe_key===currentRecipeKey);
+   if(current)return [current,...filtered];
+  }
+  return filtered;
  }
  function areaResources(a:ScheduleArea){
   if(a.resource_code)return resources.filter(r=>r.resource_code===a.resource_code);
@@ -935,6 +952,7 @@ export function ManualScheduleGrid({
  const aOps=areaOps(a),aResources=areaResources(a),actual=scheduledFor(a),unscheduledArea=unscheduledFor(a,poolAllowed),count=rowCounts[a.schedule_area_code]||20;
  const chemical=a.resource_group==="CHEMICAL_LINE"||aResources.some(x=>x.resource_group==="CHEMICAL_LINE");
  const workloadOps=poolAllowed||new Set((a.operations||[]).map(x=>String(x.standard_operation||"").trim().toUpperCase()).filter(Boolean));
+ const areaRecipes=areaRecipeOptions(a,poolAllowed);
  return <div className="schedule-area-grid-block" key={a.schedule_area_code}>
      <div className="schedule-area-grid-title">
       <div><b>{a.schedule_area_name}</b><small>{a.schedule_area_code} · {aOps.length?aOps.map(x=>x.standard_operation).join(" / "):"CHƯA MAP OPERATION"}</small></div>
@@ -1116,7 +1134,7 @@ export function ManualScheduleGrid({
                onChange={e=>setEditDraft(v=>({...v,recipeKey:e.target.value}))}
               >
                <option value="">No Recipe / Set later</option>
-               {recipes.map(recipe=>
+               {areaRecipeOptions(a,poolAllowed,x.recipe_key||"").map(recipe=>
                 <option key={recipe.recipe_key} value={recipe.recipe_key}>
                  {recipe.recipe_no||recipe.recipe_key} · {recipe.recipe_name||"—"}
                 </option>
@@ -1281,7 +1299,7 @@ export function ManualScheduleGrid({
          </tr>
         </Fragment>
         })}
-        {Array.from({length:count},(_,i)=>{const r=draft(a,i),k=key(a.schedule_area_code,i);const w=chemical?phaseWindow(a,i):null;const preclean=isPrecleanRecipe(recipes.find(x=>x.recipe_key===r.recipeKey)?.recipe_no);return <Fragment key={k}>
+        {Array.from({length:count},(_,i)=>{const r=draft(a,i),k=key(a.schedule_area_code,i);const w=chemical?phaseWindow(a,i):null;const preclean=isPrecleanRecipe(recipes.find(x=>x.recipe_key===r.recipeKey)?.recipe_no);const currentRecipe=r.recipeKey&&!areaRecipes.some(x=>x.recipe_key===r.recipeKey)?recipes.find(x=>x.recipe_key===r.recipeKey):null;const rowRecipes=currentRecipe?[currentRecipe,...areaRecipes]:areaRecipes;return <Fragment key={k}>
          <tr
           draggable
           className={`schedule-area-empty-row${dropTarget===k?" drop-target":""}${r.keep?" keep-row":""}${r.resourceCode?` fb-row ${fbClass(r.resourceCode)}`:""}`}
@@ -1326,7 +1344,7 @@ export function ManualScheduleGrid({
             ...(!r.standardOperation&&defOp&&aOps.some(o=>o.standard_operation===defOp)?{standardOperation:defOp}:{})
            });
           }}>
-           <option value="">Set later</option>{recipes.map(x=><option key={x.recipe_key} value={x.recipe_key}>{x.recipe_no||x.recipe_key} · {x.recipe_name||"—"}</option>)}
+           <option value="">Set later</option>{rowRecipes.map(x=><option key={x.recipe_key} value={x.recipe_key}>{x.recipe_no||x.recipe_key} · {x.recipe_name||"—"}</option>)}
           </select>
           {Boolean(r.recipeKey)&&!r.standardOperation&&(
            <select className="input op-fallback-select" value={r.standardOperation} onChange={e=>patch(a,i,{standardOperation:e.target.value})}>

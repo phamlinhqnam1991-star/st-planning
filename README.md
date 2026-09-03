@@ -228,3 +228,6 @@ Bridge discovery and ST membership are now independent. ST Operation Flow lists 
 
 - V428: Dashboard CAT3/CAT5 tables are sorted by canonical NextOperation Order: Main Planning Order → Operation Code Order inside the same Main → RAW NextOperation → Job. This is presentation-only and does not change Dashboard population or planning logic.
 - V429: Dashboard CAT3/CAT5 tables now sort primarily by RAW NextOperation Order (`md_operation.planning_sort_order`). Main Planning Order is only a fallback for RAW operations without an explicit order; population/calculation logic is unchanged.
+
+- V430: Board Điều Độ có Trial Day Shift để MOVE toàn bộ lịch ngày đang xem ±1 ngày trong một transaction; không clone Batch/Schedule và ngày nguồn rỗng sau commit.
+- V431: Recipe dropdown trên Board Điều Độ được lọc theo Schedule Area/Main Operation mapping. Mỗi lane chỉ hiện Recipe có active `md_main_operation_recipe.standard_operation` thuộc Main Operation pool của area; khu gộp dùng union operation pool. Existing schedule giữ Recipe hiện tại nếu mapping đã đổi; Create Empty Batch lọc theo Main Operation đã chọn; manual-grid server revalidate Recipe → Main trước khi tạo Batch/Schedule.

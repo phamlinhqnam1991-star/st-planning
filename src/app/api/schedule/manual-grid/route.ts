@@ -54,10 +54,10 @@ export async function POST(req:Request){
    if(!recipeKey)
     throw new Error("Dòng chưa có Operation — hãy chọn Recipe để hệ thống tự tìm Operation, hoặc kéo lô từ Unscheduled vào dòng.");
    const derivedQ=await c.query(`
-    select coalesce(nullif(m.operation_code,''), m.standard_operation) standard_operation
+    select coalesce(nullif(trim(m.standard_operation),''),nullif(trim(m.operation_code),'')) standard_operation
     from md_main_operation_recipe m
     join md_schedule_area_operation ao
-      on ao.standard_operation=coalesce(nullif(m.operation_code,''), m.standard_operation)
+      on upper(trim(ao.standard_operation))=upper(trim(coalesce(nullif(trim(m.standard_operation),''),nullif(trim(m.operation_code),''))))
      and ao.schedule_area_code=$2
      and ao.is_active=true
     where m.recipe_key=$1
@@ -80,6 +80,19 @@ export async function POST(req:Request){
   if(!opQ.rowCount)throw new Error(`Operation Master chưa có ${standardOperation}.`);
 
   const op=opQ.rows[0];
+
+  if(recipeKey){
+   const recipeMapQ=await c.query(`
+    select 1
+    from md_main_operation_recipe m
+    where m.recipe_key=$1
+      and m.is_active=true
+      and upper(trim(coalesce(nullif(trim(m.standard_operation),''),nullif(trim(m.operation_code),''))))=upper(trim($2))
+    limit 1
+   `,[recipeKey,op.standard_operation]);
+   if(!recipeMapQ.rowCount)
+    throw new Error(`Recipe đã chọn không thuộc Main Operation ${op.standard_operation} / khu vực điều độ hiện tại.`);
+  }
 
   if(requestedScheduleArea){
    const areaMapQ=await c.query(`

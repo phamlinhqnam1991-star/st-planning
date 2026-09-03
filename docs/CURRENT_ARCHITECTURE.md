@@ -271,3 +271,12 @@ Board Điều Độ có control trial để chuyển toàn bộ lịch của ng�
 - Trial one-day invariant: ngày đích phải không có active Schedule độc lập. Hệ thống không tự xóa ngày đích và không merge hai ngày.
 - RUNNING/COMPLETED không được move. Nếu có lịch ngoài population nguồn chạy xuyên khoảng đích hoặc bất kỳ invariant nào không đạt, transaction rollback toàn bộ.
 - Không recompute Planning Chain/READY/WAIT; Candidate, Batch membership, Recipe, Dashboard population và Production Execution không bị thay đổi bởi thao tác dời ngày.
+
+## V431 — Scheduling Recipe selector follows Schedule Area
+Board Điều Độ no longer exposes the full Process Recipe catalog in every lane. The server sends each Recipe with its active mapped Main Operations from `md_main_operation_recipe.standard_operation`. Each Schedule Area/lane filters the Recipe selector by the Main Operations mapped in `md_schedule_area_operation`; a grouped hub such as Painting uses the union operation pool shared by its child lanes.
+
+- New manual rows show only Recipes belonging to that Schedule Area operation pool.
+- Editing an existing Schedule keeps the current Recipe visible even if configuration changed later, while unrelated out-of-area Recipes remain hidden.
+- Create Empty Batch filters Recipe by the selected Main Operation.
+- Manual-grid Batch creation derives Main from `md_main_operation_recipe.standard_operation` first and revalidates Recipe → Main on the server.
+- This is a Scheduling selector/validation change only. Planning Board Recipe resolver, Batch membership, Planning Chain, Dashboard population and stored Recipes on existing Batches are unchanged.

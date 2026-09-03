@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V430";
+export const ST_AI_KNOWLEDGE_VERSION="V431";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -36,7 +36,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"batch-schedule",
   title:"Batch vs Scheduling",
-  content:`Planning Board creates and owns Batch membership. Scheduling Board never recreates the Batch; it assigns an existing unscheduled Batch to a Schedule Area/Resource/Date/Start/Duration. Manual and future Auto Plan/Auto Batch/Auto Schedule share the same Batch/Schedule data model. Trial day shifting on Scheduling Board is a schedule-only MOVE, never a clone: all active schedules of the selected board date are shifted in-place by exactly ±1 day, including Chemical Loading/Process/NDT/Unloading timestamps, while Batch identity/membership/Recipe/Resource/Duration stay unchanged. After a successful move the source date must be empty. The operation is transactional and refuses to merge with an occupied target day or move RUNNING/COMPLETED schedules.`
+  content:`Planning Board creates and owns Batch membership. Scheduling Board never recreates the Batch; it assigns an existing unscheduled Batch to a Schedule Area/Resource/Date/Start/Duration. Manual and future Auto Plan/Auto Batch/Auto Schedule share the same Batch/Schedule data model. Recipe selectors on Scheduling Board are area-scoped: each lane shows only Recipes whose active md_main_operation_recipe.standard_operation belongs to the Main Operation pool mapped to that Schedule Area; grouped lanes use the union pool, and existing historical Recipe values remain visible when editing. Trial day shifting on Scheduling Board is a schedule-only MOVE, never a clone: all active schedules of the selected board date are shifted in-place by exactly ±1 day, including Chemical Loading/Process/NDT/Unloading timestamps, while Batch identity/membership/Recipe/Resource/Duration stay unchanged. After a successful move the source date must be empty. The operation is transactional and refuses to merge with an occupied target day or move RUNNING/COMPLETED schedules.`
  },
  {
   key:"planning-ready-focus",
@@ -104,3 +104,6 @@ export const V426_WORKLOAD_PRESENTATION = `Planning Board Workload Summary keeps
 
 // V430
 export const V430_TRIAL_SCHEDULE_DAY_SHIFT = `Scheduling Board trial control moves the entire selected schedule day in-place by +1 or -1 calendar day. It never clones Batch or planning_schedule rows. The source Board date is required to be empty after commit; the destination must not contain independent active schedules. All planned and Chemical Line segment timestamps shift together, Resource/Recipe/Duration/Sequence/status remain unchanged, and planning_batch planned_start/planned_end are synchronized. RUNNING/COMPLETED schedules are not movable. The whole operation is one transaction and rolls back on any conflict. This utility is Schedule-only and does not change Planning Chain, Candidate, Batch membership or Recipe.`;
+
+// V431
+export const V431_SCHEDULE_AREA_RECIPE_FILTER = `Scheduling Board Recipe selectors are scoped by Schedule Area/Main Operation mapping. A Recipe is selectable in a lane only when an active md_main_operation_recipe row maps that recipe_key to a standard_operation in the lane's md_schedule_area_operation pool; grouped hubs use the union pool. Existing Schedule/Batch edits preserve the current Recipe option if configuration changed, but unrelated Recipes are not offered. Create Empty Batch filters by the selected Main Operation, and manual-grid creation revalidates Recipe -> Main server-side. This does not alter Planning Board Recipe resolution or existing Batch membership.`;
