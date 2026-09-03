@@ -281,3 +281,67 @@ export async function PATCH(req:Request){
   c.release();
  }
 }
+
+// V434 · Remove from Scheduling only.
+// Keep planning_batch + planning_batch_job intact so the Batch returns to the
+// Unscheduled pool. This is intentionally different from deleting a Batch.
+export async function DELETE(req:Request){
+ const denied=await requireApiUser();
+ if(denied)return denied;
+ const body=await req.json().catch(()=>({}));
+ const scheduleId=Number(body.scheduleId);
+ if(!scheduleId)return NextResponse.json({error:"Missing scheduleId"},{status:400});
+
+ const c=await getPool().connect();
+ try{
+  await c.query("begin");
+  const sq=await c.query(`
+   select s.id,s.batch_id,s.status,b.batch_no
+   from planning_schedule s
+   join planning_batch b on b.id=s.batch_id
+   where s.id=$1 and s.status<>'CANCELLED'
+   for update of s
+  `,[scheduleId]);
+  if(!sq.rowCount)throw new Error("Schedule not found");
+  const row=sq.rows[0];
+  if(["RUNNING","COMPLETED"].includes(String(row.status||"").toUpperCase()))
+   throw new Error("RUNNING/COMPLETED schedule cannot be unscheduled");
+
+  await c.query(`
+   update planning_schedule
+   set status='CANCELLED',updated_at=now()
+   where id=$1
+  `,[scheduleId]);
+
+  const stillActive=await c.query(`
+   select 1 from planning_schedule
+   where batch_id=$1 and status<>'CANCELLED'
+   limit 1
+  `,[row.batch_id]);
+  if(!stillActive.rowCount){
+   await c.query(`
+    update planning_batch
+    set planned_start=null,planned_end=null,updated_at=now()
+    where id=$1
+   `,[row.batch_id]);
+  }
+
+  const jobsQ=await c.query(`
+   select distinct job_num
+   from planning_batch_job
+   where batch_id=$1 and nullif(trim(job_num),'') is not null
+  `,[row.batch_id]);
+  for(const job of jobsQ.rows){
+   await recomputeJobPlanningStatus(c,String(job.job_num||""));
+  }
+
+  await c.query("commit");
+  return NextResponse.json({ok:true,batchId:Number(row.batch_id),batchNo:String(row.batch_no||"")});
+ }catch(e:any){
+  await c.query("rollback");
+  return NextResponse.json({error:e?.message||"Unschedule failed"},{status:400});
+ }finally{
+  c.release();
+ }
+}
+

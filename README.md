@@ -234,3 +234,6 @@ Bridge discovery and ST membership are now independent. ST Operation Flow lists 
 
 - V432: Board Điều Độ thêm server-side Previous Main lock chỉ khi ADD existing Planning Batch vào Schedule. Mọi Job có Previous Main phải có active Schedule với planned_end, và Current planned_start phải >= Previous planned_end. Main đầu tiên được bypass. Chemical Line proposal/capacity logic giữ nguyên; guard chỉ kiểm tra final effectiveStart trước INSERT. PATCH/Edit, Trial Day Shift và Planning Chain READY/WAIT không đổi.
 - V433: Board Điều Độ phân loại đúng Previous Main theo immediate predecessor: DONE / SCHEDULED / UNSCHEDULED / NOT_PLANNED. Previous Main đã DONE theo physical Job progress có thể không có Batch; trường hợp DONE + no Batch được phép ADD Current Schedule. Nếu Previous Main có Batch nhưng chưa Schedule thì vẫn bị khóa. Chemical proposal, PATCH/Edit, Trial Day Shift, Planning READY/WAIT và Dashboard không đổi.
+
+## V434
+Scheduling Unscheduled pool now hides a Batch immediately when picked into a draft row, restores it on Xóa nhập, keeps it hidden after Schedule, and restores it on Bỏ điều độ (schedule-only cancel; Batch is preserved). Active Schedule ownership is reconciled across all dates.

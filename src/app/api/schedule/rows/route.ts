@@ -54,7 +54,16 @@ export async function GET(req:Request){
     s.planned_start,
     s.id
   `,[date]);
-  return NextResponse.json({rows:q.rows});
+  const activeQ=await c.query(`
+   select distinct batch_id
+   from planning_schedule
+   where status<>'CANCELLED'
+     and batch_id is not null
+  `);
+  return NextResponse.json({
+   rows:q.rows,
+   activeScheduledBatchIds:activeQ.rows.map((r:any)=>Number(r.batch_id)).filter((id:number)=>Number.isFinite(id)&&id>0)
+  });
  }catch(e){
   return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500});
  }finally{

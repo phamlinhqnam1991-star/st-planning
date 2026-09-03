@@ -244,8 +244,16 @@ export function ManualScheduleGrid({
  }
  function unscheduledFor(a:ScheduleArea,poolAllowed?:Set<string>){
   const allowed=poolAllowed??new Set((a.operations||[]).map(x=>String(x.standard_operation||"").toUpperCase()));
+  // V434: Unscheduled pool is also a PICKING pool. As soon as a Batch is loaded
+  // into any draft row, hide it from every area/lane so the same Batch cannot be
+  // picked twice before Save. Clearing that draft row immediately returns it.
+  const pickedBatchIds=new Set(
+   Object.values(drafts)
+    .map(r=>Number(r?.batchId||0))
+    .filter(id=>Number.isFinite(id)&&id>0)
+  );
   return liveBatches
-   .filter(b=>!b.schedule_id&&allowed.has(String(b.standard_operation||"").toUpperCase()))
+   .filter(b=>!b.schedule_id&&!pickedBatchIds.has(Number(b.id))&&allowed.has(String(b.standard_operation||"").toUpperCase()))
    .sort((x,y)=>
     String(x.standard_operation).localeCompare(String(y.standard_operation),undefined,{numeric:true})||
     String(x.batch_no).localeCompare(String(y.batch_no),undefined,{numeric:true})
@@ -459,6 +467,46 @@ export function ManualScheduleGrid({
   }
  }
 
+ async function unscheduleBatch(row:ScheduledRow){
+  const ok=await confirmErp({
+   title:"Bỏ điều độ",
+   message:`Bỏ ${row.batch_no} khỏi Board Điều Độ?`,
+   detail:"Batch và Job trong Batch được giữ nguyên. Chỉ hủy Schedule hiện tại; Batch sẽ quay lại danh sách Unscheduled Batches.",
+   tone:"warning",
+   confirmLabel:"Bỏ điều độ"
+  });
+  if(!ok)return;
+
+  setActionBusy(`unschedule-${row.id}`);
+  setMessage("");
+  try{
+   const res=await fetch("/api/schedule",{
+    method:"DELETE",
+    headers:{"content-type":"application/json"},
+    body:JSON.stringify({scheduleId:row.id})
+   });
+   const data=await safeJson(res);
+   if(!res.ok)throw new Error(data.error||"Không bỏ được Schedule.");
+
+   // Optimistic restore: keep all draft rows intact and return this Batch to the
+   // Unscheduled pool immediately. refreshRows() then reconciles with server truth.
+   const source=planningBatches.find(b=>Number(b.id)===Number(row.batch_id));
+   if(source){
+    const restored:PlanningBatch={...source,schedule_id:null};
+    setLiveBatches(prev=>prev.some(b=>Number(b.id)===Number(restored.id))
+     ?prev.map(b=>Number(b.id)===Number(restored.id)?restored:b)
+     :[...prev,restored]);
+   }
+   setLiveRows(prev=>prev.filter(x=>Number(x.id)!==Number(row.id)));
+   setMessage(`${row.batch_no}: đã bỏ điều độ; Batch quay lại Unscheduled Batches.`);
+   await refreshRows();
+  }catch(e){
+   setMessage(e instanceof Error?e.message:"Không bỏ được Schedule.");
+  }finally{
+   setActionBusy("");
+  }
+ }
+
  async function deleteBatch(row:ScheduledRow){
   const ok=await confirmErp(
    `Xóa ${row.batch_no}?\\n\\nSchedule sẽ bị hủy. Job trong Batch sẽ quay lại Candidate/Eligible nếu Planning Chain cho phép.`
@@ -564,6 +612,9 @@ export function ManualScheduleGrid({
    setMessage(existingBatch
     ?`${r.batchNo} · ${a.schedule_area_name} đã Schedule, không tạo Batch mới.${adj}`
     :`${d.batchNo} · ${a.schedule_area_name} đã tạo.${adj}`);
+   if(existingBatch&&r.batchId){
+    setLiveBatches(prev=>prev.filter(b=>Number(b.id)!==Number(r.batchId)));
+   }
    removeDraftRow(a,i);
    await refreshRows();
   }catch(e){setMessage(e instanceof Error?e.message:"Save failed")}finally{setBusy("")}
@@ -603,9 +654,22 @@ export function ManualScheduleGrid({
    const d=await safeJson(res);
    if(res.ok){
     setLiveRows((d.rows||[]) as ScheduledRow[]);
-    setLiveBatches(planningBatches.filter((b:PlanningBatch)=>
-     !(d.rows||[]).some((r:any)=>r.batch_id===b.id)
-    ));
+    const activeScheduledBatchIds=new Set<number>(
+     (Array.isArray(d.activeScheduledBatchIds)?d.activeScheduledBatchIds:[])
+      .map((id:any)=>Number(id))
+      .filter((id:number)=>Number.isFinite(id)&&id>0)
+    );
+    // Server returns active Schedule ownership across ALL dates, not only the
+    // currently viewed date. This prevents a Batch scheduled on another day from
+    // incorrectly reappearing as Unscheduled after a local refresh.
+    if(activeScheduledBatchIds.size){
+     setLiveBatches(planningBatches
+      .filter((b:PlanningBatch)=>!activeScheduledBatchIds.has(Number(b.id)))
+      .map((b:PlanningBatch)=>({...b,schedule_id:null})));
+    }else{
+     // Empty set is valid after unscheduling the last Batch.
+     setLiveBatches(planningBatches.map((b:PlanningBatch)=>({...b,schedule_id:null})));
+    }
    }
   }catch{/* giữ nguyên danh sách cũ nếu lỗi mạng */}
   window.dispatchEvent(new Event("st-schedule-changed"));
@@ -852,6 +916,9 @@ export function ManualScheduleGrid({
         resource_code:r.resourceCode,planning_date:r.date,planned_start:plannedStart,duration_minutes:duration,plan_source:"MANUAL_GRID",...overrides};
      const res=await fetch(endpoint,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
      const dr=await safeJson(res);if(!res.ok)throw new Error(dr.error||"Save failed");
+     if(existingBatch&&r.batchId){
+      setLiveBatches(prev=>prev.filter(b=>Number(b.id)!==Number(r.batchId)));
+     }
      okList.push(i);
     }catch(e){failList.push({i,msg:e instanceof Error?e.message:"Save failed"});}
    }
@@ -1289,11 +1356,21 @@ export function ManualScheduleGrid({
                 </button>
                 <button
                  type="button"
+                 className="btn small"
+                 disabled={actionBusy===`unschedule-${x.id}`}
+                 title="Chỉ bỏ Schedule; giữ nguyên Batch và trả Batch về Unscheduled Batches"
+                 onClick={()=>unscheduleBatch(x)}
+                >
+                 {actionBusy===`unschedule-${x.id}`?"Đang bỏ...":"Bỏ điều độ"}
+                </button>
+                <button
+                 type="button"
                  className="btn small danger-btn"
                  disabled={actionBusy===`delete-${x.batch_id}`}
+                 title="Xóa hẳn Batch khỏi Planning"
                  onClick={()=>deleteBatch(x)}
                 >
-                 {actionBusy===`delete-${x.batch_id}`?"Deleting...":"Delete"}
+                 {actionBusy===`delete-${x.batch_id}`?"Deleting...":"Delete Batch"}
                 </button>
                 <a
                  className="btn small"
