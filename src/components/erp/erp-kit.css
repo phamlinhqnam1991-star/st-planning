@@ -2699,3 +2699,17 @@
 .erpkit-migrated-page .st-dashboard-status-text{font-weight:850}.erpkit-migrated-page .st-dashboard-status-text.ready{color:#1e6aa5}.erpkit-migrated-page .st-dashboard-status-text.wait{color:#94620e}.erpkit-migrated-page .st-dashboard-status-text.scheduled{color:#4e72a5}.erpkit-migrated-page .st-dashboard-status-text.hold{color:#a84740}
 @media(max-width:1450px){.erpkit-migrated-page .st-dashboard-kpis{grid-template-columns:repeat(4,minmax(118px,1fr))}}
 @media(max-width:900px){.erpkit-migrated-page .st-dashboard-kpis{grid-template-columns:repeat(2,minmax(118px,1fr))}.erpkit-migrated-page .st-dashboard-head{align-items:flex-start!important;flex-direction:column}.erpkit-migrated-page .st-dashboard-head-actions{justify-content:flex-start}}
+
+/* v397 — Main Planning workload Recipe breakdown */
+.erpkit-migrated-page .st-dashboard-main-table{min-width:1540px}
+.erpkit-migrated-page .st-dashboard-main-total-row>td{background:#f4f7fa!important;border-top:1px solid #d5dee7;font-weight:700}
+.erpkit-migrated-page .st-dashboard-main-total-row td:nth-child(1),
+.erpkit-migrated-page .st-dashboard-main-total-row td:nth-child(2){color:#263f57}
+.erpkit-migrated-page .st-dashboard-main-total-row td:nth-child(4)>b{display:block;font-size:7px;color:#526579;letter-spacing:.025em}
+.erpkit-migrated-page .st-dashboard-main-total-row td:nth-child(4)>small{display:block;margin-top:2px;font-size:6.2px;color:#8592a1;font-weight:500}
+.erpkit-migrated-page .st-dashboard-recipe-row>td{background:#fff}
+.erpkit-migrated-page .st-dashboard-recipe-row:nth-child(even)>td{background:#fcfdff}
+.erpkit-migrated-page .st-dashboard-recipe-row td:nth-child(2){text-align:center;color:#8b98a7}
+.erpkit-migrated-page .st-dashboard-recipe-indent{font-size:10px;color:#8b98a7}
+.erpkit-migrated-page .st-dashboard-recipe-row td:nth-child(3){width:92px;white-space:nowrap}
+.erpkit-migrated-page .st-dashboard-recipe-row td:nth-child(4){min-width:220px;max-width:320px;color:#41566c}

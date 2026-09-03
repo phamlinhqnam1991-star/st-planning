@@ -163,3 +163,6 @@ Planning Board adds a read-only ERP Workload Summary above the Matrix. It aggreg
 ## V396 · Rebuilt ST Workload Dashboard
 
 `/dashboard` has been rebuilt from a blank visual surface. It now shows unique open ST Job / pcs / dm² totals; WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD workload; a Main Planning summary table; a stacked dm² chart by Main Planning; and complete CAT3 then CAT5 Job lists with Part, Planning, Batch and Schedule context. The previous Dashboard control-tower/AI panels are no longer rendered. No migration is required.
+
+## V397
+Dashboard `Main Planning Workload Summary` now expands every Main Planning into Recipe No. + Recipe Name workload rows, with WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD metrics in Job / pcs / dm².

@@ -165,3 +165,6 @@ Planning Board có thêm lớp tổng hợp read-only theo `Area -> Main Operati
 Nguồn chuẩn vẫn là `planning_job_operation` + `open_job_current`; Summary không tạo trạng thái riêng và không can thiệp Planning Chain. Qty/Surface dùng cùng quy tắc Candidate hiện hành. Một Job được deduplicate trong cùng `Main Operation + status bucket` để không nhân đôi số lượng khi routing có occurrence lặp.
 
 UI gồm KPI tổng và bảng ERP compact. Click READY / WAIT / HOLD của một Main sẽ hydrate Route Matrix nếu cần rồi drill-down Candidate Matrix bằng đúng Main + route status. Khi đang có Batch Selection, drill-down bị khóa để bảo toàn ngữ cảnh gom lô. Summary refresh sau Batch mutation, Hold/Unhold, Rebuild Chain và khi thay scope Area/Main.
+
+## V397 — Dashboard Recipe-level workload
+`Main Planning Workload Summary` is hierarchical: Main Planning total → Recipe No./Recipe Name detail. Every Recipe detail retains WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD with Job / pcs / dm². Batched work uses the Batch Recipe; unbatched work uses the current live Planning Recipe resolver. No-Recipe workload is retained explicitly so Main totals reconcile.

@@ -69,14 +69,25 @@ export default async function DashboardPage(){
     <div className="st-dashboard-note">ST TOTAL counts each open ST Job once. Status cards are Job × Main Planning workload, so one Job can appear in more than one Main Planning status across its planning chain.</div>
 
     <section className="erp-table-panel st-dashboard-panel">
-     <div className="erp-panel-head"><div><b>Main Planning Workload Summary</b><small>Job / pcs / dm² split by status for every Main Planning Operation.</small></div><span>{fmt(data.mainRows.length,0)} Main Operations</span></div>
+     <div className="erp-panel-head"><div><b>Main Planning Workload Summary</b><small>Job / pcs / dm² by Main Planning, then detailed again by Recipe No. and Recipe Name with the same Planning statuses.</small></div><span>{fmt(data.mainRows.length,0)} Main Operations</span></div>
      <div className="table-wrap st-dashboard-main-wrap"><table className="erp-table st-dashboard-main-table">
-      <thead><tr><th>Area</th><th>Main Planning</th>{STATUS_ORDER.map(s=><th key={s}>{STATUS_LABEL[s]}</th>)}<th>Total</th></tr></thead>
-      <tbody>{data.mainRows.map(row=><tr key={`${row.areaId}-${row.standardOperation}`}>
-       <td>{row.areaName}</td><td><b>{row.standardOperation}</b></td>
-       {STATUS_ORDER.map(s=><td key={s}><div className={`st-dashboard-metric-cell ${STATUS_CLASS[s]}`}>{metricLines(row[s])}</div></td>)}
-       <td><div className="st-dashboard-metric-cell total">{metricLines(row.total)}</div></td>
-      </tr>)}</tbody>
+      <thead><tr><th>Area</th><th>Main Planning</th><th>Recipe No</th><th>Recipe Name</th>{STATUS_ORDER.map(s=><th key={s}>{STATUS_LABEL[s]}</th>)}<th>Total</th></tr></thead>
+      <tbody>{data.mainRows.flatMap(row=>{
+       const key=`${row.areaId}-${row.standardOperation}`;
+       const main=<tr key={`${key}-total`} className="st-dashboard-main-total-row">
+        <td><b>{row.areaName}</b></td><td><b>{row.standardOperation}</b></td><td>—</td><td><b>MAIN TOTAL</b><small>{fmt(row.recipes.length,0)} Recipe groups</small></td>
+        {STATUS_ORDER.map(s=><td key={s}><div className={`st-dashboard-metric-cell ${STATUS_CLASS[s]}`}>{metricLines(row[s])}</div></td>)}
+        <td><div className="st-dashboard-metric-cell total">{metricLines(row.total)}</div></td>
+       </tr>;
+       const recipes=row.recipes.map((recipe,index)=><tr key={`${key}-${recipe.recipeKey}-${index}`} className="st-dashboard-recipe-row">
+        <td></td><td><span className="st-dashboard-recipe-indent">↳</span></td>
+        <td><b className="mono">{recipe.recipeNo||"—"}</b></td>
+        <td>{recipe.recipeName||"No Recipe"}</td>
+        {STATUS_ORDER.map(s=><td key={s}><div className={`st-dashboard-metric-cell ${STATUS_CLASS[s]}`}>{metricLines(recipe[s])}</div></td>)}
+        <td><div className="st-dashboard-metric-cell total">{metricLines(recipe.total)}</div></td>
+       </tr>);
+       return [main,...recipes];
+      })}</tbody>
      </table></div>
     </section>
 

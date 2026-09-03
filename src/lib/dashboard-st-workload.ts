@@ -1,7 +1,22 @@
 import type {PoolClient} from "pg";
+import {bestRecipeMatch} from "@/lib/planning/live-recipe";
+import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 
 export type StDashboardMetric={jobs:number;qty:number;surface:number};
 export type StDashboardStatus="WAIT"|"READY"|"PLANNED"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
+
+export type StDashboardRecipeRow={
+ recipeKey:string;
+ recipeNo:string;
+ recipeName:string;
+ WAIT:StDashboardMetric;
+ READY:StDashboardMetric;
+ PLANNED:StDashboardMetric;
+ PLANNED_UNSCHEDULED:StDashboardMetric;
+ SCHEDULED:StDashboardMetric;
+ HOLD:StDashboardMetric;
+ total:StDashboardMetric;
+};
 
 export type StDashboardMainRow={
  areaId:number;
@@ -16,6 +31,7 @@ export type StDashboardMainRow={
  SCHEDULED:StDashboardMetric;
  HOLD:StDashboardMetric;
  total:StDashboardMetric;
+ recipes:StDashboardRecipeRow[];
 };
 
 export type StDashboardPriorityJob={
@@ -56,7 +72,7 @@ const iso=(v:unknown)=>{
  return Number.isNaN(d.getTime())?null:d.toISOString();
 };
 
-const STATUS_SQL=`
+const WORKLOAD_SQL=`
  with area_by_group as (
   select ag.st_group,min(ag.area_id) area_id
   from public.md_area_operation_group ag
@@ -65,8 +81,7 @@ const STATUS_SQL=`
   group by ag.st_group
  ), base as (
   select
-   p.job_num,
-   p.standard_operation,
+   p.id,p.job_num,p.standard_operation,p.source_operation_code,p.planning_seq,p.recipe_key planning_recipe_key,
    coalesce(a.id,0)::bigint area_id,
    coalesce(a.area_name,'Unmapped') area_name,
    coalesce(a.sort_order,999999)::int area_sort,
@@ -79,12 +94,14 @@ const STATUS_SQL=`
     when p.status='ELIGIBLE' then 'READY'
     else 'WAIT'
    end bucket,
-   coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)::numeric qty,
+   coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)::float8 qty,
    coalesce(
     j.total_surface,
     coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)*coalesce(j.surface_per_part_dm2,0),
     0
-   )::numeric surface
+   )::float8 surface,
+   j.part_num,j.revision_num,j.source_data,
+   active_batch.recipe_key batch_recipe_key
   from public.planning_job_operation p
   join public.open_job_current j on j.job_num=p.job_num and j.is_open=true
   left join area_by_group abg on abg.st_group=p.st_group
@@ -92,7 +109,7 @@ const STATUS_SQL=`
   left join public.md_operation_master om on om.standard_operation=p.standard_operation and om.is_active=true
   left join public.md_planning_operation_scope scope on scope.standard_operation=p.standard_operation and scope.is_active=true
   left join lateral (
-   select b.id batch_id,b.batch_no,b.status batch_status
+   select b.id batch_id,b.batch_no,b.status batch_status,b.recipe_key
    from public.planning_batch_job bj
    join public.planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
    where bj.planning_job_operation_id=p.id
@@ -108,22 +125,17 @@ const STATUS_SQL=`
   ) active_schedule on true
   where p.is_active=true
     and upper(trim(p.standard_operation))<>'PIONBL'
- ), per_job_main as (
-  select
-   job_num,standard_operation,area_id,area_name,area_sort,main_order,bucket,
-   max(qty) qty,max(surface) surface
+ ), picked as (
+  select distinct on (job_num,standard_operation,bucket)
+   *
   from base
-  group by job_num,standard_operation,area_id,area_name,area_sort,main_order,bucket
+  order by job_num,standard_operation,bucket,coalesce(planning_seq,999999),id
  )
- select
-  area_id,area_name,area_sort,standard_operation,main_order,bucket,
-  count(*)::int jobs,
-  coalesce(sum(qty),0)::float8 qty,
-  coalesce(sum(surface),0)::float8 surface
- from per_job_main
- group by area_id,area_name,area_sort,standard_operation,main_order,bucket
- order by area_sort,main_order,standard_operation,bucket
+ select *
+ from picked
+ order by area_sort,main_order,standard_operation,bucket,job_num
 `;
+
 
 async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboardPriorityJob[]>{
  const q=await c.query(`
@@ -214,62 +226,96 @@ async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboar
 }
 
 export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>{
- const statusQ=await c.query(STATUS_SQL);
- const totalQ=await c.query(`
-  with per_job as (
-   select
-    j.job_num,
-    max(coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0))::numeric qty,
-    max(coalesce(
-      j.total_surface,
-      coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)*coalesce(j.surface_per_part_dm2,0),
-      0
-    ))::numeric surface
-   from public.open_job_current j
-   join public.planning_job_operation p on p.job_num=j.job_num and p.is_active=true
-   where j.is_open=true and upper(trim(p.standard_operation))<>'PIONBL'
-   group by j.job_num
-  )
-  select count(*)::int jobs,coalesce(sum(qty),0)::float8 qty,coalesce(sum(surface),0)::float8 surface
-  from per_job
- `);
- const cat3=await loadPriorityJobs(c,"CAT3");
- const cat5=await loadPriorityJobs(c,"CAT5");
+ const [workloadQ,totalQ,cat3,cat5,ctx,recipeMetaQ]=await Promise.all([
+  c.query(WORKLOAD_SQL),
+  c.query(`
+   with per_job as (
+    select
+     j.job_num,
+     max(coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0))::numeric qty,
+     max(coalesce(
+       j.total_surface,
+       coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)*coalesce(j.surface_per_part_dm2,0),
+       0
+     ))::numeric surface
+    from public.open_job_current j
+    join public.planning_job_operation p on p.job_num=j.job_num and p.is_active=true
+    where j.is_open=true and upper(trim(p.standard_operation))<>'PIONBL'
+    group by j.job_num
+   )
+   select count(*)::int jobs,coalesce(sum(qty),0)::float8 qty,coalesce(sum(surface),0)::float8 surface
+   from per_job
+  `),
+  loadPriorityJobs(c,"CAT3"),
+  loadPriorityJobs(c,"CAT5"),
+  getCachedLiveRecipeContext(c),
+  c.query(`select recipe_key,recipe_no,recipe_name from public.md_process_recipe`)
+ ]);
 
  const statuses:Record<StDashboardStatus,StDashboardMetric>={
   WAIT:zero(),READY:zero(),PLANNED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero()
  };
  const rows=new Map<string,StDashboardMainRow>();
- for(const raw of statusQ.rows as any[]){
+ const recipeMeta=new Map<string,{recipeNo:string;recipeName:string}>();
+ for(const r of recipeMetaQ.rows as any[]){
+  recipeMeta.set(text(r.recipe_key),{recipeNo:text(r.recipe_no),recipeName:text(r.recipe_name)});
+ }
+
+ for(const raw of workloadQ.rows as any[]){
   const bucket=text(raw.bucket) as StDashboardStatus;
   if(!(bucket in statuses))continue;
-  const metric={jobs:num(raw.jobs),qty:num(raw.qty),surface:num(raw.surface)};
-  statuses[bucket].jobs+=metric.jobs;statuses[bucket].qty+=metric.qty;statuses[bucket].surface+=metric.surface;
-  const key=`${raw.area_id}|${raw.standard_operation}`;
-  let row=rows.get(key);
+  const metric={jobs:1,qty:num(raw.qty),surface:num(raw.surface)};
+  statuses[bucket].jobs+=1;statuses[bucket].qty+=metric.qty;statuses[bucket].surface+=metric.surface;
+
+  const mainKey=`${raw.area_id}|${raw.standard_operation}`;
+  let row=rows.get(mainKey);
   if(!row){
    row={
     areaId:num(raw.area_id),areaName:text(raw.area_name)||"Unmapped",areaSort:num(raw.area_sort)||999999,
     standardOperation:text(raw.standard_operation),mainOrder:num(raw.main_order)||999999,
-    WAIT:zero(),READY:zero(),PLANNED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),total:zero()
+    WAIT:zero(),READY:zero(),PLANNED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),total:zero(),recipes:[]
    };
-   rows.set(key,row);
+   rows.set(mainKey,row);
   }
-  row[bucket]=metric;
+  row[bucket].jobs+=1;row[bucket].qty+=metric.qty;row[bucket].surface+=metric.surface;
+
+  const batchRecipeKey=text(raw.batch_recipe_key);
+  const liveMatch=batchRecipeKey?null:bestRecipeMatch(ctx,{
+   standardOperation:raw.standard_operation,
+   sourceOperationCode:raw.source_operation_code,
+   partNum:raw.part_num,
+   revisionNum:raw.revision_num,
+   sourceData:raw.source_data||null,
+   ruleSuggestion:null
+  });
+  const recipeKey=batchRecipeKey||liveMatch?.recipeKey||text(raw.planning_recipe_key);
+  const meta=recipeKey?recipeMeta.get(recipeKey):null;
+  const recipeNo=meta?.recipeNo||"";
+  const recipeName=meta?.recipeName||"";
+  const recipeGroupKey=recipeKey||"__NO_RECIPE__";
+  let recipe=row.recipes.find(x=>x.recipeKey===recipeGroupKey);
+  if(!recipe){
+   recipe={recipeKey:recipeGroupKey,recipeNo,recipeName,WAIT:zero(),READY:zero(),PLANNED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),total:zero()};
+   row.recipes.push(recipe);
+  }
+  recipe[bucket].jobs+=1;recipe[bucket].qty+=metric.qty;recipe[bucket].surface+=metric.surface;
  }
+
  const mainRows=[...rows.values()].map(row=>{
   const metrics=[row.WAIT,row.READY,row.PLANNED,row.PLANNED_UNSCHEDULED,row.SCHEDULED,row.HOLD];
-  row.total={
-   jobs:metrics.reduce((s,x)=>s+x.jobs,0),
-   qty:metrics.reduce((s,x)=>s+x.qty,0),
-   surface:metrics.reduce((s,x)=>s+x.surface,0)
-  };
+  row.total={jobs:metrics.reduce((s,x)=>s+x.jobs,0),qty:metrics.reduce((s,x)=>s+x.qty,0),surface:metrics.reduce((s,x)=>s+x.surface,0)};
+  row.recipes=row.recipes.map(recipe=>{
+   const rm=[recipe.WAIT,recipe.READY,recipe.PLANNED,recipe.PLANNED_UNSCHEDULED,recipe.SCHEDULED,recipe.HOLD];
+   recipe.total={jobs:rm.reduce((s,x)=>s+x.jobs,0),qty:rm.reduce((s,x)=>s+x.qty,0),surface:rm.reduce((s,x)=>s+x.surface,0)};
+   return recipe;
+  }).sort((a,b)=>{
+   if(a.recipeKey==="__NO_RECIPE__"&&b.recipeKey!=="__NO_RECIPE__")return 1;
+   if(b.recipeKey==="__NO_RECIPE__"&&a.recipeKey!=="__NO_RECIPE__")return -1;
+   return (a.recipeNo||"999999").localeCompare(b.recipeNo||"999999",undefined,{numeric:true})||a.recipeName.localeCompare(b.recipeName);
+  });
   return row;
  }).sort((a,b)=>a.areaSort-b.areaSort||a.mainOrder-b.mainOrder||a.standardOperation.localeCompare(b.standardOperation));
  const tr=totalQ.rows[0]||{};
- return {
-  generatedAt:new Date().toISOString(),
-  total:{jobs:num(tr.jobs),qty:num(tr.qty),surface:num(tr.surface)},
-  statuses,mainRows,cat3,cat5
- };
+ return {generatedAt:new Date().toISOString(),total:{jobs:num(tr.jobs),qty:num(tr.qty),surface:num(tr.surface)},statuses,mainRows,cat3,cat5};
 }
+

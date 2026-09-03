@@ -7962,8 +7962,8 @@
       "mode": "phrase"
     },
     {
-      "en": "Job / pcs / dm² split by status for every Main Planning Operation.",
-      "vi": "Job / pcs / dm² được chia theo trạng thái cho từng Main Planning Operation.",
+      "en": "Job / pcs / dm² by Main Planning, then detailed again by Recipe No. and Recipe Name with the same Planning statuses.",
+      "vi": "Job / pcs / dm² theo Main Planning, sau đó chia chi tiết tiếp theo Recipe No. và Recipe Name với cùng các trạng thái Planning.",
       "mode": "phrase"
     },
     {
@@ -8029,6 +8029,16 @@
     {
       "en": "ST TOTAL counts each open ST Job once. Status cards are Job × Main Planning workload, so one Job can appear in more than one Main Planning status across its planning chain.",
       "vi": "ST TOTAL chỉ tính mỗi Job ST đang open một lần. Các card trạng thái là tải Job × Main Planning, nên một Job có thể xuất hiện ở nhiều trạng thái Main Planning khác nhau trong planning chain.",
+      "mode": "phrase"
+    },
+    {
+      "en": "MAIN TOTAL",
+      "vi": "TỔNG MAIN",
+      "mode": "phrase"
+    },
+    {
+      "en": "Recipe groups",
+      "vi": "nhóm Recipe",
       "mode": "phrase"
     }
   ]
