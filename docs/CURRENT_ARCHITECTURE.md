@@ -237,3 +237,18 @@ Dashboard no longer starts from every RAW NextOperation. Before the Current Main
 Dashboard chart classification is now explicitly three-stage: (1) resolve `LastOperation → RAW NextOperation → Current Main`, (2) determine Bridge Role from active `md_intermediate_bridge_segment` / `md_intermediate_bridge_operation`, then (3) filter the RAW operation by explicit `md_st_operation_scope` membership. A Bridge Intermediate enters the ST chart only when its ST Scope Type is also `INTERMEDIATE`.
 
 `md_st_operation_scope.operation_type='INTERMEDIATE'` is an ST-membership tag only. It never defines Previous/Next Main and never creates its own Main Planning occurrence, Source → Main mapping, Batch or Schedule. ST Operation Flow therefore shows both all inferred Bridge Intermediate operations and the subset explicitly tagged `Intermediate · ST`. Removing an Intermediate ST tag does not deactivate or rebuild the Bridge/Planning Chain.
+
+## V421 — One canonical Dashboard ST population everywhere
+Dashboard no longer keeps separate population logic for KPI/Main/Recipe/CAT3/CAT5 versus Chart 2/Audit. Every Dashboard card, table and chart is derived from one one-row-per-open-Job dataset using the same order: (1) read Current Main already positioned by the canonical Planning Chain resolver from LastOperation + RAW NextOperation, (2) calculate Bridge Role for diagnostics only, (3) join the physical RAW NextOperation to active `md_st_operation_scope`, and (4) keep `PLANNING_OPERATION`, Dashboard-only `INTERMEDIATE`, or `ST_SCOPE_ONLY`. `PLANNING_OPERATION -> MAIN`, `INTERMEDIATE -> IMMEDIATE`, `ST_SCOPE_ONLY -> ST ONLY`.
+
+- Global ST Total and status cards use this exact population.
+- Surface chart uses the same rows; IMMEDIATE contributes to its resolved Current Main and ST Only is a separate workload group.
+- Surface + Qty chart uses the same canonical rows without a second population query.
+- Area -> Current Main / ST Only -> Recipe tables use the same rows exactly once per open Job.
+- CAT3/CAT5 tables are filtered from the same rows and expose MAIN / IMMEDIATE / ST ONLY scope.
+- `ST_SCOPE_ONLY` has a Dashboard-only `ST ONLY` status bucket so status cards/tables reconcile with ST TOTAL without pretending that it participates in Planning status.
+- `INTERMEDIATE` remains Dashboard-only classification. It does not sync or modify All Open Jobs, Planning Chain, Candidate, Batch, Recipe, Schedule, Auto Planning, or Planning Board Workload Summary.
+
+
+## V422 — Remove Dashboard Calculation Audit table
+The `Dashboard Calculation Audit · Job Detail` table has been removed from `/dashboard`. Its dedicated UI component, `StDashboardAuditJob` type, `auditJobs` accumulation/sort/return path, audit-only CSS, and obsolete i18n phrases were removed as dead code. The canonical Dashboard ST population is unchanged and continues to feed KPI cards, both charts, Area/Main/Recipe tables, CAT3 and CAT5. No Planning Chain, Candidate, Batch, Recipe, Schedule, Auto Planning, All Open Jobs, or Planning Board Workload Summary behavior changes.

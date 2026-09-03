@@ -192,7 +192,7 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
    })});
    const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Không lưu được ST Operation Flow.");
    setMessage(d.operation_type==="INTERMEDIATE"
-    ?`Đã lưu ${d.source_operation_code} = INTERMEDIATE Dashboard ST. Chỉ Dashboard Chart/Audit dùng nhãn này; Planning Chain/Candidate/Batch/Schedule không đổi.`
+    ?`Đã lưu ${d.source_operation_code} = INTERMEDIATE Dashboard ST. Toàn bộ Dashboard dùng nhãn này cho cards/tables/charts; Planning Chain/Candidate/Batch/Schedule không đổi.`
     :d.operation_type==="ST_SCOPE_ONLY"
      ?`Đã lưu ${d.source_operation_code} = ST_SCOPE_ONLY.`
      :`Đã đồng bộ ${d.source_operation_code} → ${d.standard_operation}. Nếu thay đổi này ảnh hưởng Main/Routing, hãy Rebuild Auto Bridge Segments.`);
@@ -340,7 +340,7 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
 
  return <>
   <div className="erp-form-panel erp-editor-panel section">
-   <div className="erp-panel-head"><div><b>Trợ lý cấu hình Main Planning / Intermediate Dashboard ST / ST Scope Only</b><small className="planning-sub">Bridge tự suy ra toàn bộ Intermediate; nhãn INTERMEDIATE tại đây chỉ dùng cho Dashboard Chart/Audit, không thay đổi Planning Chain.</small></div><button className="btn" type="button" onClick={()=>{setForm(emptyForm);setStep(1)}} disabled={busy}>Làm mới</button></div>
+   <div className="erp-panel-head"><div><b>Trợ lý cấu hình Main Planning / Intermediate Dashboard ST / ST Scope Only</b><small className="planning-sub">Bridge tự suy ra toàn bộ Intermediate; nhãn INTERMEDIATE tại đây chỉ dùng cho toàn bộ Dashboard (cards/tables/charts), không thay đổi Planning Chain.</small></div><button className="btn" type="button" onClick={()=>{setForm(emptyForm);setStep(1)}} disabled={busy}>Làm mới</button></div>
    <div className="wizard-stepper">{wsStep(1,"Operation Code","Chọn mã công đoạn")}<div className={`wizard-conn ${step>1?"done":""}`}/>{wsStep(2,"Công đoạn & Nhóm","Gán Main Planning")}<div className={`wizard-conn ${step>2?"done":""}`}/>{wsStep(3,"Khu vực & Planner","Chọn nơi chạy, ai lo")}</div>
    <div className="wizard-panel">
     {step===1&&<><div className="candidate-filter-grid">
@@ -348,7 +348,7 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
      <label>Tên công đoạn<input className="input" value={form.source_operation_name} disabled={intermediateScope} onChange={e=>setForm({...form,source_operation_name:e.target.value})}/></label>
      <label>Loại Operation<select className="input" value={form.operation_type} onChange={e=>{const type=e.target.value as FormState["operation_type"];setStep(1);if(type!=="PLANNING_OPERATION")setForm({...form,operation_type:type,standard_operation:"",main_planning_order:"",batch_prefix:"",st_group:"",area_id:"",schedule_area_code:"",planner_owner:"",mapping_rule:"DIRECT"});else setForm({...form,operation_type:type})}}><option value="PLANNING_OPERATION">Planning Operation — tạo Main/Batch/Schedule</option><option value="INTERMEDIATE">INTERMEDIATE — Dashboard ST only, Main lấy từ Bridge</option><option value="ST_SCOPE_ONLY">ST_SCOPE_ONLY — chỉ hiển thị, không lập kế hoạch</option></select></label>
      <label>Operation Code Order (tie-break)<input className="input" type="number" value={form.source_planning_order} disabled={intermediateScope} onChange={e=>setForm({...form,source_planning_order:e.target.value})}/></label>
-    </div>{intermediateScope&&<div className="notice" style={{marginTop:10}}><b>INTERMEDIATE Dashboard ST:</b> chỉ dùng cho Dashboard Chart/Audit sau khi Bridge resolver chạy xong. Không làm Job xuất hiện ở All Open Jobs, không đổi Planning Chain/Candidate/Batch/Schedule.</div>}{scopeOnly&&<div className="notice" style={{marginTop:10}}><b>ST_SCOPE_ONLY:</b> không sinh Planning Chain/Batch/Schedule.</div>}</>}
+    </div>{intermediateScope&&<div className="notice" style={{marginTop:10}}><b>INTERMEDIATE Dashboard ST:</b> sau khi Current Main đã được resolver xác định, nhãn này đưa Job vào cùng population dùng bởi toàn bộ Dashboard (cards/tables/charts). Không làm Job xuất hiện ở All Open Jobs, không đổi Planning Chain/Candidate/Batch/Schedule.</div>}{scopeOnly&&<div className="notice" style={{marginTop:10}}><b>ST_SCOPE_ONLY:</b> không sinh Planning Chain/Batch/Schedule.</div>}</>}
     {step===2&&<><div className="candidate-filter-grid">
      <label>Công đoạn chính<input className="input" list="st-main-ops" value={form.standard_operation} onChange={e=>selectMain(e.target.value.toUpperCase())}/><datalist id="st-main-ops">{mainOperations.map(x=><option key={x.standard_operation} value={x.standard_operation}>{x.st_group}</option>)}</datalist></label>
      <label>Thứ tự Main<input className="input" type="number" value={form.main_planning_order} onChange={e=>setForm({...form,main_planning_order:e.target.value})}/></label>

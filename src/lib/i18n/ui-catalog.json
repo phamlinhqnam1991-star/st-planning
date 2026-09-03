@@ -8067,16 +8067,6 @@
       "mode": "phrase"
     },
     {
-      "en": "Chart Calculation Audit · Job Detail",
-      "vi": "Kiểm tra tính Chart · Chi tiết Job",
-      "mode": "phrase"
-    },
-    {
-      "en": "One row per open Job used by the Current Main / Immediate Operation chart. Check RAW Last/Next, resolver output, Qty and Surface inputs before changing the chart formula.",
-      "vi": "Mỗi dòng là một Job open được dùng trong chart Current Main / Immediate Operation. Kiểm tra RAW Last/Next, kết quả resolver, Qty và Surface trước khi thay đổi công thức chart.",
-      "mode": "phrase"
-    },
-    {
       "en": "Chart Group",
       "vi": "Nhóm Chart",
       "mode": "phrase"

@@ -1,20 +1,20 @@
 import type {PoolClient} from "pg";
 import {bestRecipeMatch} from "@/lib/planning/live-recipe";
 import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
-import {rawStJobMatchSql} from "@/lib/planning/raw-st-visible-sql";
 
-
-// V419: Bridge resolution and Dashboard ST membership are independent layers.
-//   1) resolve live position first: LastOperation -> RAW NextOperation -> Current Main;
-//   2) classify Bridge Role from the resolved context (MAIN / INTERMEDIATE / context);
-//   3) only then filter RAW NextOperation by explicit ST Scope membership.
-// INTERMEDIATE in md_st_operation_scope is Dashboard-only ST membership. Previous/Next Main
-// still come exclusively from active md_intermediate_bridge_* data.
-// Saving/removing INTERMEDIATE never syncs Planning Chain and does not affect All Open Jobs/Candidate/Batch/Schedule.
-// ST_SCOPE_ONLY keeps its existing operational visibility semantics but never enters Batch/Schedule.
+// V422: one canonical Dashboard population for every remaining Dashboard card, table and chart.
+// 1) Read the Current Main already positioned by the canonical Planning Chain resolver
+//    (LastOperation + RAW NextOperation -> Current Main).
+// 2) Bridge Role is diagnostic/classification only; it never becomes a second inclusion gate.
+// 3) After Current Main resolution, join RAW NextOperation to active Dashboard ST Scope:
+//      PLANNING_OPERATION -> MAIN
+//      INTERMEDIATE       -> IMMEDIATE (Dashboard-only ST membership)
+//      ST_SCOPE_ONLY      -> ST ONLY
+// 4) Every Dashboard component below is derived from this same one-row-per-open-Job set.
+// INTERMEDIATE remains Dashboard-only and never syncs Planning Chain / Candidate / Batch / Schedule.
 
 export type StDashboardMetric={jobs:number;qty:number;surface:number};
-export type StDashboardStatus="WAIT"|"READY"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
+export type StDashboardStatus="WAIT"|"READY"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD"|"ST_ONLY";
 
 export type StDashboardRecipeRow={
  recipeKey:string;
@@ -25,6 +25,7 @@ export type StDashboardRecipeRow={
  PLANNED_UNSCHEDULED:StDashboardMetric;
  SCHEDULED:StDashboardMetric;
  HOLD:StDashboardMetric;
+ ST_ONLY:StDashboardMetric;
  total:StDashboardMetric;
 };
 
@@ -39,6 +40,7 @@ export type StDashboardMainRow={
  PLANNED_UNSCHEDULED:StDashboardMetric;
  SCHEDULED:StDashboardMetric;
  HOLD:StDashboardMetric;
+ ST_ONLY:StDashboardMetric;
  total:StDashboardMetric;
  recipes:StDashboardRecipeRow[];
 };
@@ -63,38 +65,10 @@ export type StDashboardAreaRow={
  mainRows:StDashboardMainRow[];
 };
 
-export type StDashboardAuditJob={
- jobNum:string;
- operationType:string;
- bridgeRole:string;
- stScopeType:string;
- partNum:string;
- revisionNum:string;
- priority:string;
- lastOperation:string;
- rawNextOperation:string;
- allOperation:string;
- resolverMode:string;
- previousMain:string;
- currentMain:string;
- currentMainSourceOperation:string;
- currentStatus:string;
- currentPlanningSeq:number;
- currentSourceSeq:number;
- nextMain:string;
- nextMainSourceOperation:string;
- nextPlanningSeq:number;
- wipQty:number;
- prodQty:number;
- qtyUsed:number;
- surfacePerPart:number;
- sourceTotalSurface:number|null;
- calculatedSurface:number;
- surfaceUsed:number;
-};
-
 export type StDashboardPriorityJob={
  jobNum:string;
+ operationType:"PLANNING_OPERATION"|"INTERMEDIATE"|"ST_SCOPE_ONLY";
+ bridgeRole:string;
  partNum:string;
  revisionNum:string;
  partDescription:string;
@@ -121,7 +95,6 @@ export type StDashboardData={
  areas:StDashboardAreaRow[];
  mainRows:StDashboardMainRow[];
  immediateRows:StDashboardImmediateRow[];
- auditJobs:StDashboardAuditJob[];
  cat3:StDashboardPriorityJob[];
  cat5:StDashboardPriorityJob[];
 };
@@ -135,19 +108,8 @@ const iso=(v:unknown)=>{
  return Number.isNaN(d.getTime())?null:d.toISOString();
 };
 
-const DASHBOARD_ST_RAW_SCOPE_SQL=(jobAlias="j")=>`exists(
- select 1
- from public.md_st_operation_scope dashboard_scope
- where dashboard_scope.is_active=true
-   and dashboard_scope.operation_type in ('PLANNING_OPERATION','INTERMEDIATE')
-   and upper(trim(dashboard_scope.operation_code))=upper(trim(coalesce(${jobAlias}.next_operation,'')))
-)`;
-
-// Bridge validation is intentionally scope-agnostic. Dashboard first resolves the
-// physical/current position, then a separate ST Scope join decides visibility.
 const DASHBOARD_BRIDGE_MATCH_SQL=(jobAlias="j",currentMainAlias="current_main")=>{
  const raw=`upper(trim(coalesce(${jobAlias}.next_operation,'')))`;
- const last=`upper(trim(coalesce(${jobAlias}.last_operation,'')))`;
  const currentMain=`upper(trim(coalesce(${currentMainAlias}.standard_operation,'')))`;
  return `exists(
   select 1
@@ -157,32 +119,6 @@ const DASHBOARD_BRIDGE_MATCH_SQL=(jobAlias="j",currentMainAlias="current_main")=
    and bs.is_active=true
   where upper(trim(bo.operation_code))=${raw}
     and upper(trim(bs.next_main_operation))=${currentMain}
-    and (
-     (
-      bo.sequence_no>1
-      and exists(
-       select 1
-       from public.md_intermediate_bridge_operation prevbo
-       where prevbo.segment_id=bo.segment_id
-         and prevbo.sequence_no=bo.sequence_no-1
-         and upper(trim(prevbo.operation_code))=${last}
-      )
-     )
-     or
-     (
-      bo.sequence_no=1
-      and (
-       upper(trim(bs.previous_main_operation))=${last}
-       or exists(
-        select 1
-        from public.md_st_operation_mapping pm
-        where pm.is_active=true
-          and upper(trim(pm.source_operation_code))=${last}
-          and upper(trim(pm.standard_operation_rule))=upper(trim(bs.previous_main_operation))
-       )
-      )
-     )
-    )
  )`;
 };
 
@@ -206,96 +142,9 @@ const DASHBOARD_DIRECT_MAIN_MATCH_SQL=(jobAlias="j",currentMainAlias="current_ma
  )`;
 };
 
-const WORKLOAD_SQL=`
- with area_by_group as (
-  select ag.st_group,min(ag.area_id) area_id
-  from public.md_area_operation_group ag
-  join public.md_area ax on ax.id=ag.area_id and ax.is_active=true
-  where ag.is_active=true
-  group by ag.st_group
- ), eligible_jobs as (
-  -- V411: first enforce the canonical ST-visible RAW NextOperation gate used by
-  -- All Open Jobs, then let the Planning Board resolver validate Current Main.
-  select
-   j.*,
-   current_main.id current_planning_id,
-   current_main.standard_operation current_standard_operation
-  from public.open_job_current j
-  join lateral (
-   select p0.id,p0.standard_operation,p0.source_operation_code
-   from public.planning_job_operation p0
-   where p0.job_num=j.job_num
-     and p0.is_active=true
-     and p0.status in ('LOCKED','ELIGIBLE','PLANNED')
-     and upper(trim(p0.standard_operation))<>'PIONBL'
-   order by p0.planning_seq asc,p0.source_seq asc,p0.id asc
-   limit 1
-  ) current_main on true
-  where j.is_open=true
-    and ${DASHBOARD_ST_RAW_SCOPE_SQL("j")}
-    and ${rawStJobMatchSql("j","current_main")}
- ), base as (
-  select
-   p.id,p.job_num,p.standard_operation,p.source_operation_code,p.planning_seq,p.recipe_key planning_recipe_key,
-   (p.id=ej.current_planning_id) is_current_main,
-   coalesce(ej.next_operation,'') raw_next_operation,
-   coalesce(a.id,0)::bigint area_id,
-   coalesce(a.area_name,'Unmapped') area_name,
-   coalesce(a.sort_order,999999)::int area_sort,
-   coalesce(om.planning_sort_order,scope.sort_order,999999)::int main_order,
-   case
-    when coalesce(p.is_hold,false)=true and active_batch.batch_id is null then 'HOLD'
-    when active_schedule.schedule_id is not null then 'SCHEDULED'
-    when active_batch.batch_id is not null then 'PLANNED_UNSCHEDULED'
-    when p.status='PLANNED' then 'PLANNED_UNSCHEDULED'
-    when p.status='ELIGIBLE' then 'READY'
-    else 'WAIT'
-   end bucket,
-   coalesce(nullif(ej.current_good_wip_qty,0),ej.prod_qty,0)::float8 qty,
-   coalesce(
-    ej.total_surface,
-    coalesce(nullif(ej.current_good_wip_qty,0),ej.prod_qty,0)*coalesce(ej.surface_per_part_dm2,0),
-    0
-   )::float8 surface,
-   ej.part_num,ej.revision_num,ej.source_data,
-   active_batch.recipe_key batch_recipe_key
-  from public.planning_job_operation p
-  join eligible_jobs ej on ej.job_num=p.job_num
-  left join area_by_group abg on abg.st_group=p.st_group
-  left join public.md_area a on a.id=abg.area_id and a.is_active=true
-  left join public.md_operation_master om on om.standard_operation=p.standard_operation and om.is_active=true
-  left join public.md_planning_operation_scope scope on scope.standard_operation=p.standard_operation and scope.is_active=true
-  left join lateral (
-   select b.id batch_id,b.batch_no,b.status batch_status,b.recipe_key
-   from public.planning_batch_job bj
-   join public.planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
-   where bj.planning_job_operation_id=p.id
-   order by b.created_at desc,b.id desc
-   limit 1
-  ) active_batch on true
-  left join lateral (
-   select s.id schedule_id,s.status schedule_status
-   from public.planning_schedule s
-   where s.batch_id=active_batch.batch_id and s.status<>'CANCELLED'
-   order by s.planned_start desc,s.id desc
-   limit 1
-  ) active_schedule on true
-  where p.is_active=true
-    and p.status in ('LOCKED','ELIGIBLE','PLANNED')
-    and upper(trim(p.standard_operation))<>'PIONBL'
- ), picked as (
-  select distinct on (job_num,standard_operation,bucket)
-   *
-  from base
-  order by job_num,standard_operation,bucket,coalesce(planning_seq,999999),id
- )
- select *
- from picked
- order by area_sort,main_order,standard_operation,bucket,job_num
-`;
-
-
-const CHART_SQL=`
+// Canonical one-row-per-open-Job Dashboard population. Do not add a separate RAW gate
+// before Current Main resolution. The ST Scope filter is deliberately applied afterwards.
+const DASHBOARD_VISIBLE_SQL=`
  with area_by_group as (
   select ag.st_group,min(ag.area_id) area_id
   from public.md_area_operation_group ag
@@ -303,12 +152,11 @@ const CHART_SQL=`
   where ag.is_active=true
   group by ag.st_group
  ), resolved as (
-  -- Stage 1: resolve Current Main / Bridge context for every open Job first.
   select
-   j.job_num,j.part_num,j.revision_num,j.priority_type,j.last_operation,
+   j.job_num,j.part_num,j.revision_num,j.part_description,j.priority_type,j.last_operation,
    coalesce(j.next_operation,'') raw_next_operation,
    coalesce(j.all_operation,'') all_operation,
-   j.current_good_wip_qty,j.prod_qty,j.surface_per_part_dm2,j.total_surface,
+   j.current_good_wip_qty,j.prod_qty,j.surface_per_part_dm2,j.total_surface,j.source_data,
    current_main.id current_planning_id,
    current_main.standard_operation current_main,
    current_main.source_operation_code current_main_source_operation,
@@ -319,13 +167,15 @@ const CHART_SQL=`
    current_main.status current_internal_status,
    current_main.is_hold current_is_hold,
    current_main.st_group current_st_group,
+   current_main.recipe_key current_planning_recipe_key,
    ${DASHBOARD_DIRECT_MAIN_MATCH_SQL("j","current_main")} direct_matches_current_main,
    ${DASHBOARD_BRIDGE_MATCH_SQL("j","current_main")} bridge_matches_current_main
   from public.open_job_current j
   left join lateral (
    select
     p0.id,p0.standard_operation,p0.source_operation_code,p0.route_resolution_mode,
-    p0.previous_standard_operation_snapshot,p0.planning_seq,p0.source_seq,p0.status,p0.is_hold,p0.st_group
+    p0.previous_standard_operation_snapshot,p0.planning_seq,p0.source_seq,p0.status,
+    p0.is_hold,p0.st_group,p0.recipe_key
    from public.planning_job_operation p0
    where p0.job_num=j.job_num
      and p0.is_active=true
@@ -336,7 +186,6 @@ const CHART_SQL=`
   ) current_main on true
   where j.is_open=true
  ), st_scope as (
-  -- Stage 2 source of truth: explicit ST membership only.
   select
    upper(trim(operation_code)) operation_code,
    case
@@ -364,7 +213,7 @@ const CHART_SQL=`
     when scope.operation_type='ST_SCOPE_ONLY' then 'ST_SCOPE_ONLY'
     when r.current_planning_id is null then null
     when scope.operation_type='PLANNING_OPERATION' then 'PLANNING_OPERATION'
-    when scope.operation_type='INTERMEDIATE' and r.bridge_matches_current_main then 'INTERMEDIATE'
+    when scope.operation_type='INTERMEDIATE' then 'INTERMEDIATE'
     else null
    end operation_type
   from resolved r
@@ -378,6 +227,7 @@ const CHART_SQL=`
  select
   v.*,
   coalesce(nullif(v.current_good_wip_qty,0),v.prod_qty,0)::float8 qty_used,
+  (coalesce(nullif(v.current_good_wip_qty,0),v.prod_qty,0)*coalesce(v.surface_per_part_dm2,0))::float8 calculated_surface,
   coalesce(
    v.total_surface,
    coalesce(nullif(v.current_good_wip_qty,0),v.prod_qty,0)*coalesce(v.surface_per_part_dm2,0),
@@ -387,113 +237,59 @@ const CHART_SQL=`
   case when v.operation_type='ST_SCOPE_ONLY' then 'ST Scope Only' else coalesce(a.area_name,'Unmapped') end area_name,
   case when v.operation_type='ST_SCOPE_ONLY' then 999999998 else coalesce(a.sort_order,999999)::int end area_sort,
   case when v.operation_type='ST_SCOPE_ONLY' then 'ST_SCOPE_ONLY' else coalesce(v.current_main,'UNRESOLVED') end chart_main,
-  case when v.operation_type='ST_SCOPE_ONLY' then 999999998 else coalesce(om.planning_sort_order,scope.sort_order,999999)::int end main_order
+  case when v.operation_type='ST_SCOPE_ONLY' then 999999998 else coalesce(om.planning_sort_order,pscope.sort_order,999999)::int end main_order,
+  case
+   when v.operation_type='ST_SCOPE_ONLY' then 'ST_ONLY'
+   when coalesce(v.current_is_hold,false)=true and current_batch.batch_id is null then 'HOLD'
+   when current_schedule.schedule_id is not null then 'SCHEDULED'
+   when current_batch.batch_id is not null then 'PLANNED_UNSCHEDULED'
+   when v.current_internal_status='PLANNED' then 'PLANNED_UNSCHEDULED'
+   when v.current_internal_status='ELIGIBLE' then 'READY'
+   else 'WAIT'
+  end dashboard_status,
+  current_batch.recipe_key current_batch_recipe_key,
+  current_batch.batch_no current_batch_no,
+  current_batch.batch_status current_batch_status,
+  current_schedule.resource_code current_resource_code,
+  current_schedule.schedule_status current_schedule_status,
+  current_schedule.planned_start current_planned_start,
+  current_schedule.planned_end current_planned_end,
+  coalesce(next_main.standard_operation,'') next_main,
+  coalesce(next_main.source_operation_code,'') next_main_source_operation,
+  coalesce(next_main.planning_seq,0)::int next_planning_seq,
+  coalesce(latest_batch.standard_operation,'') latest_batch_main,
+  coalesce(latest_batch.batch_no,'') latest_batch_no,
+  coalesce(latest_batch.batch_status,'') latest_batch_status,
+  coalesce(latest_schedule.resource_code,'') latest_resource_code,
+  coalesce(latest_schedule.schedule_status,'') latest_schedule_status,
+  latest_schedule.planned_start latest_planned_start,
+  latest_schedule.planned_end latest_planned_end
  from visible v
  left join area_by_group abg on abg.st_group=v.current_st_group
  left join public.md_area a on a.id=abg.area_id and a.is_active=true
  left join public.md_operation_master om on om.standard_operation=v.current_main and om.is_active=true
- left join public.md_planning_operation_scope scope on scope.standard_operation=v.current_main and scope.is_active=true
- order by
-  case v.operation_type when 'PLANNING_OPERATION' then 1 when 'INTERMEDIATE' then 2 else 3 end,
-  area_sort,main_order,chart_main,upper(trim(v.raw_next_operation)),v.job_num
-`;
-
-
-const AUDIT_SQL=`
- with resolved as (
-  -- Same two-stage pipeline as CHART_SQL. Keep this audit 1:1 with chart rows.
-  select
-   j.job_num,j.part_num,j.revision_num,j.priority_type,j.last_operation,
-   coalesce(j.next_operation,'') raw_next_operation,
-   coalesce(j.all_operation,'') all_operation,
-   j.current_good_wip_qty,j.prod_qty,j.surface_per_part_dm2,j.total_surface,
-   current_main.id current_planning_id,
-   current_main.standard_operation current_main,
-   current_main.source_operation_code current_main_source_operation,
-   current_main.route_resolution_mode,
-   current_main.previous_standard_operation_snapshot previous_main,
-   current_main.planning_seq current_planning_seq,
-   current_main.source_seq current_source_seq,
-   current_main.status current_internal_status,
-   current_main.is_hold current_is_hold,
-   ${DASHBOARD_DIRECT_MAIN_MATCH_SQL("j","current_main")} direct_matches_current_main,
-   ${DASHBOARD_BRIDGE_MATCH_SQL("j","current_main")} bridge_matches_current_main
-  from public.open_job_current j
-  left join lateral (
-   select
-    p0.id,p0.standard_operation,p0.source_operation_code,p0.route_resolution_mode,
-    p0.previous_standard_operation_snapshot,p0.planning_seq,p0.source_seq,p0.status,p0.is_hold
-   from public.planning_job_operation p0
-   where p0.job_num=j.job_num
-     and p0.is_active=true
-     and p0.status in ('LOCKED','ELIGIBLE','PLANNED')
-     and upper(trim(p0.standard_operation))<>'PIONBL'
-   order by p0.planning_seq asc,p0.source_seq asc,p0.id asc
-   limit 1
-  ) current_main on true
-  where j.is_open=true
- ), st_scope as (
-  select
-   upper(trim(operation_code)) operation_code,
-   case
-    when bool_or(operation_type='ST_SCOPE_ONLY') then 'ST_SCOPE_ONLY'
-    when bool_or(operation_type='INTERMEDIATE') then 'INTERMEDIATE'
-    when bool_or(operation_type='PLANNING_OPERATION') then 'PLANNING_OPERATION'
-    else null
-   end operation_type
-  from public.md_st_operation_scope
-  where is_active=true
-    and operation_type in ('PLANNING_OPERATION','INTERMEDIATE','ST_SCOPE_ONLY')
-    and nullif(trim(operation_code),'') is not null
-  group by upper(trim(operation_code))
- ), classified as (
-  select
-   r.*,
-   case
-    when r.current_planning_id is null then 'UNRESOLVED'
-    when r.direct_matches_current_main then 'MAIN'
-    when r.bridge_matches_current_main then 'INTERMEDIATE'
-    else 'RESOLVED_CONTEXT'
-   end bridge_role,
-   scope.operation_type st_scope_type,
-   case
-    when scope.operation_type='ST_SCOPE_ONLY' then 'ST_SCOPE_ONLY'
-    when r.current_planning_id is null then null
-    when scope.operation_type='PLANNING_OPERATION' then 'PLANNING_OPERATION'
-    when scope.operation_type='INTERMEDIATE' and r.bridge_matches_current_main then 'INTERMEDIATE'
-    else null
-   end operation_type
-  from resolved r
-  join st_scope scope
-    on scope.operation_code=upper(trim(r.raw_next_operation))
- )
- select
-  c.*,
-  coalesce(nullif(c.current_good_wip_qty,0),c.prod_qty,0)::float8 qty_used,
-  (coalesce(nullif(c.current_good_wip_qty,0),c.prod_qty,0)*coalesce(c.surface_per_part_dm2,0))::float8 calculated_surface,
-  coalesce(
-   c.total_surface,
-   coalesce(nullif(c.current_good_wip_qty,0),c.prod_qty,0)*coalesce(c.surface_per_part_dm2,0),
-   0
-  )::float8 surface_used,
-  case
-   when c.operation_type='ST_SCOPE_ONLY' then 'ST_SCOPE_ONLY'
-   when coalesce(c.current_is_hold,false)=true and current_batch.batch_id is null then 'HOLD'
-   when current_schedule.schedule_id is not null then 'SCHEDULED'
-   when current_batch.batch_id is not null then 'PLANNED-UNSCHEDULED'
-   when c.current_internal_status='PLANNED' then 'PLANNED-UNSCHEDULED'
-   when c.current_internal_status='ELIGIBLE' then 'READY'
-   else 'WAIT'
-  end current_status,
-  coalesce(next_main.standard_operation,'') next_main,
-  coalesce(next_main.source_operation_code,'') next_main_source_operation,
-  coalesce(next_main.planning_seq,0)::int next_planning_seq
- from classified c
+ left join public.md_planning_operation_scope pscope on pscope.standard_operation=v.current_main and pscope.is_active=true
+ left join lateral (
+  select b.id batch_id,b.batch_no,b.status batch_status,b.recipe_key
+  from public.planning_batch_job bj
+  join public.planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
+  where v.current_planning_id is not null
+    and bj.planning_job_operation_id=v.current_planning_id
+  order by b.created_at desc,b.id desc
+  limit 1
+ ) current_batch on true
+ left join lateral (
+  select s.id schedule_id,s.resource_code,s.status schedule_status,s.planned_start,s.planned_end
+  from public.planning_schedule s
+  where s.batch_id=current_batch.batch_id and s.status<>'CANCELLED'
+  order by s.planned_start desc,s.id desc
+  limit 1
+ ) current_schedule on true
  left join lateral (
   select p1.standard_operation,p1.source_operation_code,p1.planning_seq
   from public.planning_job_operation p1
-  where c.current_planning_id is not null
-    and p1.job_num=c.job_num
+  where v.current_planning_id is not null
+    and p1.job_num=v.job_num
     and p1.is_active=true
     and p1.status in ('LOCKED','ELIGIBLE','PLANNED')
     and upper(trim(p1.standard_operation))<>'PIONBL'
@@ -501,294 +297,197 @@ const AUDIT_SQL=`
   offset 1 limit 1
  ) next_main on true
  left join lateral (
-  select b.id batch_id
+  select bj.standard_operation,b.id batch_id,b.batch_no,b.status batch_status,b.created_at
   from public.planning_batch_job bj
   join public.planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
-  where bj.planning_job_operation_id=c.current_planning_id
-  order by b.created_at desc,b.id desc
+  where bj.job_num=v.job_num
+  order by b.created_at desc,b.id desc,bj.id desc
   limit 1
- ) current_batch on true
+ ) latest_batch on true
  left join lateral (
-  select s.id schedule_id
+  select s.resource_code,s.status schedule_status,s.planned_start,s.planned_end
   from public.planning_schedule s
-  where s.batch_id=current_batch.batch_id and s.status<>'CANCELLED'
+  where s.batch_id=latest_batch.batch_id and s.status<>'CANCELLED'
   order by s.planned_start desc,s.id desc
   limit 1
- ) current_schedule on true
- where c.operation_type in ('PLANNING_OPERATION','INTERMEDIATE','ST_SCOPE_ONLY')
+ ) latest_schedule on true
  order by
-  case c.operation_type when 'PLANNING_OPERATION' then 1 when 'INTERMEDIATE' then 2 else 3 end,
-  coalesce(c.current_planning_seq,999999),coalesce(c.current_main,'ST_SCOPE_ONLY'),
-  upper(trim(c.raw_next_operation)),c.job_num
+  case v.operation_type when 'PLANNING_OPERATION' then 1 when 'INTERMEDIATE' then 2 else 3 end,
+  area_sort,main_order,chart_main,upper(trim(v.raw_next_operation)),v.job_num
 `;
 
+function addMetric(target:StDashboardMetric,metric:StDashboardMetric){
+ target.jobs+=metric.jobs;
+ target.qty+=metric.qty;
+ target.surface+=metric.surface;
+}
 
-async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboardPriorityJob[]>{
- const q=await c.query(`
-  select
-   j.job_num,j.part_num,j.revision_num,j.part_description,j.priority_type,
-   coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)::float8 qty,
-   coalesce(
-    j.total_surface,
-    coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)*coalesce(j.surface_per_part_dm2,0),
-    0
-   )::float8 surface,
-   coalesce(j.next_operation,'') next_operation,
-   coalesce(focus.standard_operation,'') planning_main,
-   coalesce(focus.display_status,'') planning_status,
-   coalesce(latest_batch.standard_operation,'') batch_main,
-   coalesce(latest_batch.batch_no,'') batch_no,
-   coalesce(latest_batch.batch_status,'') batch_status,
-   coalesce(latest_schedule.resource_code,'') resource_code,
-   coalesce(latest_schedule.schedule_status,'') schedule_status,
-   latest_schedule.planned_start,
-   latest_schedule.planned_end
-  from public.open_job_current j
-  join lateral (
-   -- Same Current Main already used by Planning Board Candidate: first active
-   -- occurrence of the synced chain suffix positioned by LastOperation + RAW
-   -- NextOperation.
-   select
-    p.id,p.standard_operation,p.source_operation_code,p.planning_seq,
-    case
-     when coalesce(p.is_hold,false)=true and fb.batch_id is null then 'HOLD'
-     when fs.schedule_id is not null then 'SCHEDULED'
-     when fb.batch_id is not null then 'PLANNED-UNSCHEDULED'
-     when p.status='PLANNED' then 'PLANNED-UNSCHEDULED'
-     when p.status='ELIGIBLE' then 'READY'
-     else 'WAIT'
-    end display_status
-   from public.planning_job_operation p
-   left join lateral (
-    select b.id batch_id
-    from public.planning_batch_job bj
-    join public.planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
-    where bj.planning_job_operation_id=p.id
-    order by b.created_at desc,b.id desc
-    limit 1
-   ) fb on true
-   left join lateral (
-    select s.id schedule_id
-    from public.planning_schedule s
-    where s.batch_id=fb.batch_id and s.status<>'CANCELLED'
-    order by s.planned_start desc,s.id desc
-    limit 1
-   ) fs on true
-   where p.job_num=j.job_num
-     and p.is_active=true
-     and p.status in ('LOCKED','ELIGIBLE','PLANNED')
-     and upper(trim(p.standard_operation))<>'PIONBL'
-   order by p.planning_seq asc,p.source_seq asc,p.id asc
-   limit 1
-  ) focus on true
-  left join lateral (
-   select
-    bj.standard_operation,b.id batch_id,b.batch_no,b.status batch_status,b.created_at
-   from public.planning_batch_job bj
-   join public.planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
-   where bj.job_num=j.job_num
-   order by b.created_at desc,b.id desc,bj.id desc
-   limit 1
-  ) latest_batch on true
-  left join lateral (
-   select
-    s.resource_code,s.status schedule_status,s.planned_start,s.planned_end
-   from public.planning_schedule s
-   where s.batch_id=latest_batch.batch_id and s.status<>'CANCELLED'
-   order by s.planned_start desc,s.id desc
-   limit 1
-  ) latest_schedule on true
-  where j.is_open=true
-    and ${DASHBOARD_ST_RAW_SCOPE_SQL("j")}
-    and ${rawStJobMatchSql("j","focus")}
-    and upper(trim(coalesce(j.priority_type,'')))=$1
-  order by j.job_num
- `,[priority]);
- return (q.rows as any[]).map(r=>({
-  jobNum:text(r.job_num),partNum:text(r.part_num),revisionNum:text(r.revision_num),partDescription:text(r.part_description),priority:text(r.priority_type),
-  qty:num(r.qty),surface:num(r.surface),nextOperation:text(r.next_operation),planningMain:text(r.planning_main),planningStatus:text(r.planning_status),
-  batchMain:text(r.batch_main),batchNo:text(r.batch_no),batchStatus:text(r.batch_status),resourceCode:text(r.resource_code),scheduleStatus:text(r.schedule_status),
-  plannedStart:iso(r.planned_start),plannedEnd:iso(r.planned_end)
- }));
+function emptyStatusRecord():Record<StDashboardStatus,StDashboardMetric>{
+ return {WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero()};
+}
+
+function emptyMainRow(input:{areaId:number;areaName:string;areaSort:number;standardOperation:string;mainOrder:number}):StDashboardMainRow{
+ return {
+  ...input,
+  WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),
+  total:zero(),recipes:[]
+ };
+}
+
+function toPriorityJob(raw:any):StDashboardPriorityJob{
+ const operationType=text(raw.operation_type) as StDashboardPriorityJob["operationType"];
+ const rawNext=text(raw.raw_next_operation);
+ const planningMain=operationType==="ST_SCOPE_ONLY"?`ST ONLY / ${rawNext||"—"}`:text(raw.current_main);
+ return {
+  jobNum:text(raw.job_num),operationType,bridgeRole:text(raw.bridge_role),partNum:text(raw.part_num),revisionNum:text(raw.revision_num),
+  partDescription:text(raw.part_description),priority:text(raw.priority_type),qty:num(raw.qty_used),surface:num(raw.surface_used),nextOperation:rawNext,
+  planningMain,planningStatus:text(raw.dashboard_status),batchMain:text(raw.latest_batch_main),batchNo:text(raw.latest_batch_no),batchStatus:text(raw.latest_batch_status),
+  resourceCode:text(raw.latest_resource_code),scheduleStatus:text(raw.latest_schedule_status),plannedStart:iso(raw.latest_planned_start),plannedEnd:iso(raw.latest_planned_end)
+ };
 }
 
 export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>{
- const [workloadQ,totalQ,chartQ,auditQ,cat3,cat5,ctx,recipeMetaQ]=await Promise.all([
-  c.query(WORKLOAD_SQL),
-  c.query(`
-   with per_job as (
-    select
-     j.job_num,
-     coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)::numeric qty,
-     coalesce(
-      j.total_surface,
-      coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)*coalesce(j.surface_per_part_dm2,0),
-      0
-     )::numeric surface
-    from public.open_job_current j
-    join lateral (
-     select p0.id,p0.standard_operation,p0.source_operation_code
-     from public.planning_job_operation p0
-     where p0.job_num=j.job_num
-       and p0.is_active=true
-       and p0.status in ('LOCKED','ELIGIBLE','PLANNED')
-       and upper(trim(p0.standard_operation))<>'PIONBL'
-     order by p0.planning_seq asc,p0.source_seq asc,p0.id asc
-     limit 1
-    ) current_main on true
-    where j.is_open=true
-      and ${DASHBOARD_ST_RAW_SCOPE_SQL("j")}
-      and ${rawStJobMatchSql("j","current_main")}
-   )
-   select count(*)::int jobs,coalesce(sum(qty),0)::float8 qty,coalesce(sum(surface),0)::float8 surface
-   from per_job
-  `),
-  c.query(CHART_SQL),
-  c.query(AUDIT_SQL),
-  loadPriorityJobs(c,"CAT3"),
-  loadPriorityJobs(c,"CAT5"),
+ const [visibleQ,ctx,recipeMetaQ]=await Promise.all([
+  c.query(DASHBOARD_VISIBLE_SQL),
   getCachedLiveRecipeContext(c),
   c.query(`select recipe_key,recipe_no,recipe_name from public.md_process_recipe`)
  ]);
 
- const auditJobs:StDashboardAuditJob[]=(auditQ.rows as any[]).map(r=>({
-  jobNum:text(r.job_num),operationType:text(r.operation_type),bridgeRole:text(r.bridge_role),stScopeType:text(r.st_scope_type),
-  partNum:text(r.part_num),revisionNum:text(r.revision_num),priority:text(r.priority_type),
-  lastOperation:text(r.last_operation),rawNextOperation:text(r.raw_next_operation),allOperation:text(r.all_operation),
-  resolverMode:text(r.route_resolution_mode),previousMain:text(r.previous_main),currentMain:text(r.current_main),
-  currentMainSourceOperation:text(r.current_main_source_operation),currentStatus:text(r.current_status),
-  currentPlanningSeq:num(r.current_planning_seq),currentSourceSeq:num(r.current_source_seq),
-  nextMain:text(r.next_main),nextMainSourceOperation:text(r.next_main_source_operation),nextPlanningSeq:num(r.next_planning_seq),
-  wipQty:num(r.current_good_wip_qty),prodQty:num(r.prod_qty),qtyUsed:num(r.qty_used),surfacePerPart:num(r.surface_per_part_dm2),
-  sourceTotalSurface:r.total_surface==null?null:num(r.total_surface),calculatedSurface:num(r.calculated_surface),surfaceUsed:num(r.surface_used)
- }));
-
- const statuses:Record<StDashboardStatus,StDashboardMetric>={
-  WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero()
- };
- const rows=new Map<string,StDashboardMainRow>();
- const areaUniqueJobs=new Map<string,Map<string,StDashboardMetric>>();
+ const visibleRows=visibleQ.rows as any[];
  const recipeMeta=new Map<string,{recipeNo:string;recipeName:string}>();
  for(const r of recipeMetaQ.rows as any[]){
   recipeMeta.set(text(r.recipe_key),{recipeNo:text(r.recipe_no),recipeName:text(r.recipe_name)});
  }
 
- for(const raw of workloadQ.rows as any[]){
-  const bucket=text(raw.bucket) as StDashboardStatus;
+ const statuses=emptyStatusRecord();
+ const total=zero();
+ const rows=new Map<string,StDashboardMainRow>();
+ const immediateRowsMap=new Map<string,StDashboardImmediateRow>();
+ const cat3:StDashboardPriorityJob[]=[];
+ const cat5:StDashboardPriorityJob[]=[];
+
+ for(const raw of visibleRows){
+  const operationType=text(raw.operation_type) as StDashboardImmediateRow["operationType"];
+  if(!["PLANNING_OPERATION","INTERMEDIATE","ST_SCOPE_ONLY"].includes(operationType))continue;
+  const bucket=text(raw.dashboard_status) as StDashboardStatus;
   if(!(bucket in statuses))continue;
-  const metric={jobs:1,qty:num(raw.qty),surface:num(raw.surface)};
-  statuses[bucket].jobs+=1;statuses[bucket].qty+=metric.qty;statuses[bucket].surface+=metric.surface;
 
-  const areaKey=String(raw.area_id);
-  let areaJobs=areaUniqueJobs.get(areaKey);
-  if(!areaJobs){areaJobs=new Map<string,StDashboardMetric>();areaUniqueJobs.set(areaKey,areaJobs);}
-  const jobNum=text(raw.job_num);
-  if(jobNum&&!areaJobs.has(jobNum))areaJobs.set(jobNum,{jobs:1,qty:metric.qty,surface:metric.surface});
+  const metric={jobs:1,qty:num(raw.qty_used),surface:num(raw.surface_used)};
+  addMetric(total,metric);
+  addMetric(statuses[bucket],metric);
 
-  const mainKey=`${raw.area_id}|${raw.standard_operation}`;
+  const rawNext=text(raw.raw_next_operation)||"—";
+  const standardOperation=operationType==="ST_SCOPE_ONLY"?`ST ONLY / ${rawNext}`:(text(raw.chart_main)||"UNRESOLVED");
+  const areaId=num(raw.area_id);
+  const areaName=text(raw.area_name)||"Unmapped";
+  const areaSort=num(raw.area_sort)||999999;
+  const mainOrder=num(raw.main_order)||999999;
+
+  const mainKey=`${areaId}|${standardOperation}`;
   let row=rows.get(mainKey);
   if(!row){
-   row={
-    areaId:num(raw.area_id),areaName:text(raw.area_name)||"Unmapped",areaSort:num(raw.area_sort)||999999,
-    standardOperation:text(raw.standard_operation),mainOrder:num(raw.main_order)||999999,
-    WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),total:zero(),recipes:[]
-   };
+   row=emptyMainRow({areaId,areaName,areaSort,standardOperation,mainOrder});
    rows.set(mainKey,row);
   }
-  row[bucket].jobs+=1;row[bucket].qty+=metric.qty;row[bucket].surface+=metric.surface;
+  addMetric(row[bucket],metric);
 
-  const batchRecipeKey=text(raw.batch_recipe_key);
-  const liveMatch=batchRecipeKey?null:bestRecipeMatch(ctx,{
-   standardOperation:raw.standard_operation,
-   sourceOperationCode:raw.source_operation_code,
-   partNum:raw.part_num,
-   revisionNum:raw.revision_num,
-   sourceData:raw.source_data||null,
-   ruleSuggestion:null
-  });
-  const recipeKey=batchRecipeKey||liveMatch?.recipeKey||text(raw.planning_recipe_key);
-  const meta=recipeKey?recipeMeta.get(recipeKey):null;
-  const recipeNo=meta?.recipeNo||"";
-  const recipeName=meta?.recipeName||"";
-  const recipeGroupKey=recipeKey||"__NO_RECIPE__";
+  let recipeKey="";
+  let recipeNo="";
+  let recipeName="";
+  if(operationType!=="ST_SCOPE_ONLY"){
+   const batchRecipeKey=text(raw.current_batch_recipe_key);
+   const liveMatch=batchRecipeKey?null:bestRecipeMatch(ctx,{
+    standardOperation:text(raw.current_main),
+    sourceOperationCode:text(raw.current_main_source_operation),
+    partNum:raw.part_num,
+    revisionNum:raw.revision_num,
+    sourceData:raw.source_data||null,
+    ruleSuggestion:null
+   });
+   recipeKey=batchRecipeKey||liveMatch?.recipeKey||text(raw.current_planning_recipe_key);
+   const meta=recipeKey?recipeMeta.get(recipeKey):null;
+   recipeNo=meta?.recipeNo||"";
+   recipeName=meta?.recipeName||"";
+  }
+  const recipeGroupKey=operationType==="ST_SCOPE_ONLY"?"__ST_SCOPE_ONLY__":(recipeKey||"__NO_RECIPE__");
   let recipe=row.recipes.find(x=>x.recipeKey===recipeGroupKey);
   if(!recipe){
-   recipe={recipeKey:recipeGroupKey,recipeNo,recipeName,WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),total:zero()};
+   recipe={
+    recipeKey:recipeGroupKey,
+    recipeNo,
+    recipeName:operationType==="ST_SCOPE_ONLY"?"ST Scope Only":recipeName,
+    WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()
+   };
    row.recipes.push(recipe);
   }
-  recipe[bucket].jobs+=1;recipe[bucket].qty+=metric.qty;recipe[bucket].surface+=metric.surface;
+  addMetric(recipe[bucket],metric);
+
+  const immediateKey=`${operationType}|${areaId}|${text(raw.chart_main)}|${rawNext}`;
+  let immediateRow=immediateRowsMap.get(immediateKey);
+  if(!immediateRow){
+   immediateRow={
+    areaId,areaName,areaSort,standardOperation:text(raw.chart_main)||(operationType==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":"UNRESOLVED"),
+    mainOrder,immediateOperation:rawNext,operationType,total:zero()
+   };
+   immediateRowsMap.set(immediateKey,immediateRow);
+  }
+  addMetric(immediateRow.total,metric);
+
+
+  const priority=text(raw.priority_type).toUpperCase();
+  if(priority==="CAT3")cat3.push(toPriorityJob(raw));
+  if(priority==="CAT5")cat5.push(toPriorityJob(raw));
  }
 
  const mainRows=[...rows.values()].map(row=>{
-  const metrics=[row.WAIT,row.READY,row.PLANNED_UNSCHEDULED,row.SCHEDULED,row.HOLD];
-  row.total={jobs:metrics.reduce((s,x)=>s+x.jobs,0),qty:metrics.reduce((s,x)=>s+x.qty,0),surface:metrics.reduce((s,x)=>s+x.surface,0)};
+  const metrics=[row.WAIT,row.READY,row.PLANNED_UNSCHEDULED,row.SCHEDULED,row.HOLD,row.ST_ONLY];
+  row.total=metrics.reduce((acc,m)=>{addMetric(acc,m);return acc;},zero());
   row.recipes=row.recipes.map(recipe=>{
-   const rm=[recipe.WAIT,recipe.READY,recipe.PLANNED_UNSCHEDULED,recipe.SCHEDULED,recipe.HOLD];
-   recipe.total={jobs:rm.reduce((s,x)=>s+x.jobs,0),qty:rm.reduce((s,x)=>s+x.qty,0),surface:rm.reduce((s,x)=>s+x.surface,0)};
+   const rm=[recipe.WAIT,recipe.READY,recipe.PLANNED_UNSCHEDULED,recipe.SCHEDULED,recipe.HOLD,recipe.ST_ONLY];
+   recipe.total=rm.reduce((acc,m)=>{addMetric(acc,m);return acc;},zero());
    return recipe;
   }).sort((a,b)=>{
+   if(a.recipeKey==="__ST_SCOPE_ONLY__"&&b.recipeKey!=="__ST_SCOPE_ONLY__")return 1;
+   if(b.recipeKey==="__ST_SCOPE_ONLY__"&&a.recipeKey!=="__ST_SCOPE_ONLY__")return -1;
    if(a.recipeKey==="__NO_RECIPE__"&&b.recipeKey!=="__NO_RECIPE__")return 1;
    if(b.recipeKey==="__NO_RECIPE__"&&a.recipeKey!=="__NO_RECIPE__")return -1;
    return (a.recipeNo||"999999").localeCompare(b.recipeNo||"999999",undefined,{numeric:true})||a.recipeName.localeCompare(b.recipeName);
   });
   return row;
  }).sort((a,b)=>a.areaSort-b.areaSort||a.mainOrder-b.mainOrder||a.standardOperation.localeCompare(b.standardOperation));
+
  const areasMap=new Map<string,StDashboardAreaRow>();
  for(const row of mainRows){
   const key=String(row.areaId);
   let area=areasMap.get(key);
   if(!area){
-   area={
-    areaId:row.areaId,areaName:row.areaName,areaSort:row.areaSort,total:zero(),
-    statuses:{WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero()},
-    mainRows:[]
-   };
+   area={areaId:row.areaId,areaName:row.areaName,areaSort:row.areaSort,total:zero(),statuses:emptyStatusRecord(),mainRows:[]};
    areasMap.set(key,area);
   }
   area.mainRows.push(row);
-  for(const status of ["WAIT","READY","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"] as StDashboardStatus[]){
-   area.statuses[status].jobs+=row[status].jobs;
-   area.statuses[status].qty+=row[status].qty;
-   area.statuses[status].surface+=row[status].surface;
+  addMetric(area.total,row.total);
+  for(const status of ["WAIT","READY","PLANNED_UNSCHEDULED","SCHEDULED","HOLD","ST_ONLY"] as StDashboardStatus[]){
+   addMetric(area.statuses[status],row[status]);
   }
  }
- const areas=[...areasMap.values()].map(area=>{
-  const unique=areaUniqueJobs.get(String(area.areaId));
-  if(unique){
-   for(const metric of unique.values()){
-    area.total.jobs+=1;
-    area.total.qty+=metric.qty;
-    area.total.surface+=metric.surface;
-   }
-  }
-  return area;
- }).sort((a,b)=>a.areaSort-b.areaSort||a.areaName.localeCompare(b.areaName));
- const immediateRowsMap=new Map<string,StDashboardImmediateRow>();
- const chartTotal=zero();
- for(const raw of chartQ.rows as any[]){
-  const operationType=text(raw.operation_type) as StDashboardImmediateRow["operationType"];
-  if(!["PLANNING_OPERATION","INTERMEDIATE","ST_SCOPE_ONLY"].includes(operationType))continue;
-  const metric={jobs:1,qty:num(raw.qty_used),surface:num(raw.surface_used)};
-  chartTotal.jobs+=1;chartTotal.qty+=metric.qty;chartTotal.surface+=metric.surface;
-  const standardOperation=text(raw.chart_main)||(operationType==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":"UNRESOLVED");
-  const immediateOperation=text(raw.raw_next_operation)||"—";
-  const immediateKey=`${operationType}|${raw.area_id}|${standardOperation}|${immediateOperation}`;
-  let immediateRow=immediateRowsMap.get(immediateKey);
-  if(!immediateRow){
-   immediateRow={
-    areaId:num(raw.area_id),areaName:text(raw.area_name)||"Unmapped",areaSort:num(raw.area_sort)||999999,
-    standardOperation,mainOrder:num(raw.main_order)||999999,immediateOperation,operationType,total:zero()
-   };
-   immediateRowsMap.set(immediateKey,immediateRow);
-  }
-  immediateRow.total.jobs+=1;immediateRow.total.qty+=metric.qty;immediateRow.total.surface+=metric.surface;
- }
+ const areas=[...areasMap.values()].sort((a,b)=>a.areaSort-b.areaSort||a.areaName.localeCompare(b.areaName));
+
  const typeOrder:Record<StDashboardImmediateRow["operationType"],number>={PLANNING_OPERATION:1,INTERMEDIATE:2,ST_SCOPE_ONLY:3};
  const immediateRows=[...immediateRowsMap.values()].sort((a,b)=>
-  typeOrder[a.operationType]-typeOrder[b.operationType]||
-  a.areaSort-b.areaSort||a.mainOrder-b.mainOrder||a.standardOperation.localeCompare(b.standardOperation)||a.immediateOperation.localeCompare(b.immediateOperation,undefined,{numeric:true})
+  typeOrder[a.operationType]-typeOrder[b.operationType]||a.areaSort-b.areaSort||a.mainOrder-b.mainOrder||a.standardOperation.localeCompare(b.standardOperation)||a.immediateOperation.localeCompare(b.immediateOperation,undefined,{numeric:true})
  );
- const tr=totalQ.rows[0]||{};
- return {generatedAt:new Date().toISOString(),total:{jobs:num(tr.jobs),qty:num(tr.qty),surface:num(tr.surface)},chartTotal,statuses,areas,mainRows,immediateRows,auditJobs,cat3,cat5};
-}
+ cat3.sort((a,b)=>a.jobNum.localeCompare(b.jobNum));
+ cat5.sort((a,b)=>a.jobNum.localeCompare(b.jobNum));
 
+ return {
+  generatedAt:new Date().toISOString(),
+  total,
+  chartTotal:{...total},
+  statuses,
+  areas,
+  mainRows,
+  immediateRows,
+  cat3,
+  cat5
+ };
+}

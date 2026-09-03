@@ -2805,17 +2805,14 @@
 .erpkit-migrated-page .st-dashboard-combo-bar.total{fill:#526b83;opacity:.95}
 .erpkit-migrated-page .st-dashboard-combo-point.total{fill:#526b83;stroke:#243f59;stroke-width:1.8}
 .erpkit-migrated-page .st-dashboard-combo-x-label.total{fill:#263f57;font-weight:950}
-/* V407 · Dashboard chart calculation audit — one row per Job, no vertical table scroll. */
-.erpkit-migrated-page .st-dashboard-audit-panel{display:block}
-.erpkit-migrated-page .st-dashboard-audit-note{padding:6px 9px;border-bottom:1px solid #e4e9ee;background:#fbfcfd;color:#66788a;font-size:7px;line-height:1.4}
-.erpkit-migrated-page .st-dashboard-audit-wrap{max-height:none!important;overflow-x:auto!important;overflow-y:visible!important;scrollbar-gutter:auto!important}
-.erpkit-migrated-page .st-dashboard-audit-table{min-width:2920px}
-.erpkit-migrated-page .st-dashboard-audit-table th{white-space:nowrap;vertical-align:bottom}
-.erpkit-migrated-page .st-dashboard-audit-table td{vertical-align:middle;white-space:nowrap}
-.erpkit-migrated-page .st-dashboard-audit-table td small{display:block;margin-top:2px;color:#7c8997;font-size:6.2px}
-.erpkit-migrated-page .st-dashboard-audit-table .num{font-variant-numeric:tabular-nums;text-align:right}
-.erpkit-migrated-page .st-dashboard-audit-allop{max-width:420px;overflow:hidden;text-overflow:ellipsis}
-
 /* V415 · Dashboard Total is a separate summary column, not part of the operation sequence. */
 .erpkit-migrated-page .st-dashboard-combo-total-separator{stroke:#cbd4dd;stroke-width:1;stroke-dasharray:4 4}
 .erpkit-migrated-page .st-dashboard-combo-total-title{fill:#263f57;font-size:6.4px;font-weight:950;letter-spacing:.04em}
+
+/* V421 · Canonical Dashboard population includes Dashboard-only ST Intermediate and ST_SCOPE_ONLY everywhere. */
+.erpkit-migrated-page .st-dashboard-kpi.st-only{border-top:3px solid #738b70;background:#f7faf6}
+.erpkit-migrated-page .st-dashboard-metric-cell.st-only{background:#f3f8f1;color:#526d50}
+.erpkit-migrated-page .st-dashboard-chart-legend i.st-only,.erpkit-migrated-page .st-dashboard-bar-track>.st-only{background:#7e9a78}
+.erpkit-migrated-page .st-dashboard-status-text.st-only{color:#526d50}
+.erpkit-migrated-page .st-dashboard-area-main-table{min-width:1560px}
+.erpkit-migrated-page .st-dashboard-priority-table{min-width:1260px}

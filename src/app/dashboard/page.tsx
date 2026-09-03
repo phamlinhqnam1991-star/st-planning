@@ -2,16 +2,16 @@ import Link from "next/link";
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
 import {getPool} from "@/lib/db";
-import {loadStDashboardData,type StDashboardAreaRow,type StDashboardAuditJob,type StDashboardImmediateRow,type StDashboardMetric,type StDashboardPriorityJob,type StDashboardStatus} from "@/lib/dashboard-st-workload";
+import {loadStDashboardData,type StDashboardAreaRow,type StDashboardImmediateRow,type StDashboardMetric,type StDashboardPriorityJob,type StDashboardStatus} from "@/lib/dashboard-st-workload";
 
 export const dynamic="force-dynamic";
 
-const STATUS_ORDER:StDashboardStatus[]=["WAIT","READY","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"];
+const STATUS_ORDER:StDashboardStatus[]=["WAIT","READY","PLANNED_UNSCHEDULED","SCHEDULED","HOLD","ST_ONLY"];
 const STATUS_LABEL:Record<StDashboardStatus,string>={
- WAIT:"WAIT",READY:"READY",PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",SCHEDULED:"SCHEDULED",HOLD:"HOLD"
+ WAIT:"WAIT",READY:"READY",PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",SCHEDULED:"SCHEDULED",HOLD:"HOLD",ST_ONLY:"ST ONLY"
 };
 const STATUS_CLASS:Record<StDashboardStatus,string>={
- WAIT:"wait",READY:"ready",PLANNED_UNSCHEDULED:"unscheduled",SCHEDULED:"scheduled",HOLD:"hold"
+ WAIT:"wait",READY:"ready",PLANNED_UNSCHEDULED:"unscheduled",SCHEDULED:"scheduled",HOLD:"hold",ST_ONLY:"st-only"
 };
 
 function fmt(v:number,max=1){return new Intl.NumberFormat("en-US",{maximumFractionDigits:max}).format(Number(v||0));}
@@ -119,60 +119,15 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
 
 
 
-function AuditJobTable({rows}:{rows:StDashboardAuditJob[]}){
- const totalSurface=rows.reduce((sum,row)=>sum+Number(row.surfaceUsed||0),0);
- const totalQty=rows.reduce((sum,row)=>sum+Number(row.qtyUsed||0),0);
- return <section className="erp-table-panel st-dashboard-panel st-dashboard-audit-panel">
-  <div className="erp-panel-head"><div><b>Chart Calculation Audit · Job Detail</b><small>Chart uses three explicit stages: resolve LastOperation → RAW NextOperation → Current Main; identify Bridge Role; then keep only RAW NextOperation explicitly tagged in ST Scope as Planning / Intermediate / ST Only.</small></div><span>{fmt(totalSurface)} dm² · {fmt(totalQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
-  <div className="st-dashboard-audit-note">Chart pipeline: <b>1) Resolver</b>: LastOperation → RAW NextOperation → Current Main; <b>2) Bridge Role</b>: MAIN / INTERMEDIATE / resolved context; <b>3) Dashboard ST filter</b>: Planning Operation / INTERMEDIATE Dashboard ST / ST_SCOPE_ONLY. Only Bridge Role = INTERMEDIATE + ST Scope Type = INTERMEDIATE is counted as an ST Immediate operation. The INTERMEDIATE tag is read only by this Dashboard chart/audit flow.</div>
-  <div className="table-wrap st-dashboard-audit-wrap"><table className="erp-table st-dashboard-audit-table">
-   <thead><tr>
-    <th>Job</th><th>Chart Type</th><th>Bridge Role</th><th>ST Scope Type</th><th>Part / Rev</th><th>Priority</th><th>Chart Group</th><th>Last Operation</th><th>RAW NextOperation<br/>Immediate</th>
-    <th>Resolver Mode</th><th>Previous Main</th><th>Current Main</th><th>Current Main Source Op</th><th>Status</th><th>Current Seq</th>
-    <th>Next Main</th><th>Next Main Source Op</th><th>Next Seq</th><th>WIP Qty</th><th>Prod Qty</th><th>Qty Used</th>
-    <th>Surface / Part dm²</th><th>Source TotalSurface</th><th>Qty × Surface</th><th>Surface Used dm²</th><th>AllOperation</th>
-   </tr></thead>
-   <tbody>{rows.length?rows.map(row=><tr key={row.jobNum}>
-    <td><b className="mono">{row.jobNum}</b></td>
-    <td><b>{row.operationType==="INTERMEDIATE"?"IMMEDIATE":row.operationType==="ST_SCOPE_ONLY"?"ST ONLY":"MAIN"}</b><small className="mono">{row.operationType||"—"}</small></td>
-    <td><b>{row.bridgeRole||"—"}</b></td>
-    <td><b>{row.stScopeType||"—"}</b></td>
-    <td><b>{row.partNum||"—"}</b><small>{row.revisionNum?`Rev ${row.revisionNum}`:""}</small></td>
-    <td><b>{row.priority||"—"}</b></td>
-    <td><b>{row.operationType==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":row.currentMain||"—"}</b><small className="mono">/ {row.rawNextOperation||"—"}</small></td>
-    <td className="mono">{row.lastOperation||"—"}</td>
-    <td className="mono"><b>{row.rawNextOperation||"—"}</b></td>
-    <td><b>{row.resolverMode||"—"}</b></td>
-    <td>{row.previousMain||"—"}</td>
-    <td><b>{row.currentMain||"—"}</b></td>
-    <td className="mono">{row.currentMainSourceOperation||"—"}</td>
-    <td><b className={`st-dashboard-status-text ${String(row.currentStatus||"").toLowerCase().replace(/[^a-z]+/g,"-")}`}>{row.currentStatus||"—"}</b></td>
-    <td className="num"><b>{fmt(row.currentPlanningSeq,0)}</b><small>src {fmt(row.currentSourceSeq,0)}</small></td>
-    <td><b>{row.nextMain||"—"}</b></td>
-    <td className="mono">{row.nextMainSourceOperation||"—"}</td>
-    <td className="num">{row.nextPlanningSeq?fmt(row.nextPlanningSeq,0):"—"}</td>
-    <td className="num">{fmt(row.wipQty,0)}</td>
-    <td className="num">{fmt(row.prodQty,0)}</td>
-    <td className="num"><b>{fmt(row.qtyUsed,0)}</b></td>
-    <td className="num">{fmt(row.surfacePerPart,3)}</td>
-    <td className="num">{row.sourceTotalSurface==null?"NULL":fmt(row.sourceTotalSurface,3)}</td>
-    <td className="num">{fmt(row.calculatedSurface,3)}</td>
-    <td className="num"><b>{fmt(row.surfaceUsed,3)}</b></td>
-    <td className="mono st-dashboard-audit-allop" title={row.allOperation||""}>{row.allOperation||"—"}</td>
-   </tr>):<tr><td colSpan={26}>No ST Job used by the chart.</td></tr>}</tbody>
-  </table></div>
- </section>;
-}
-
 function AreaWorkloadTable({area}:{area:StDashboardAreaRow}){
  return <section className="erp-table-panel st-dashboard-panel st-dashboard-area-panel">
-  <div className="erp-panel-head st-dashboard-area-head"><div><b>{area.areaName}</b><small>Main Planning + Recipe workload in this Area.</small></div><span>{fmt(area.mainRows.length,0)} Main Operations</span></div>
+  <div className="erp-panel-head st-dashboard-area-head"><div><b>{area.areaName}</b><small>Canonical Dashboard ST population grouped by resolved Current Main / ST Only and Recipe.</small></div><span>{fmt(area.mainRows.length,0)} Workload Groups</span></div>
   <section className="st-dashboard-kpis st-dashboard-area-kpis">
    <article className="st-dashboard-kpi total"><small>{area.areaName.toUpperCase()} · SURFACE WORKLOAD</small>{metricLines(area.total)}</article>
    {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(area.statuses[status])}</article>)}
   </section>
   <div className="table-wrap st-dashboard-main-wrap"><table className="erp-table st-dashboard-main-table st-dashboard-area-main-table">
-   <thead><tr><th>Main Planning</th><th>Recipe No</th><th>Recipe Name</th>{STATUS_ORDER.map(s=><th key={s}>{STATUS_LABEL[s]}</th>)}<th>Total</th></tr></thead>
+   <thead><tr><th>Current Main / ST Only</th><th>Recipe No</th><th>Recipe Name</th>{STATUS_ORDER.map(s=><th key={s}>{STATUS_LABEL[s]}</th>)}<th>Total</th></tr></thead>
    <tbody>{area.mainRows.flatMap(row=>{
     const key=`${row.areaId}-${row.standardOperation}`;
     const main=<tr key={`${key}-total`} className="st-dashboard-main-total-row">
@@ -197,11 +152,12 @@ function PriorityTable({title,rows,tone}:{title:string;rows:StDashboardPriorityJ
  const prioritySurface=rows.reduce((sum,row)=>sum+Number(row.surface||0),0);
  const priorityQty=rows.reduce((sum,row)=>sum+Number(row.qty||0),0);
  return <section className={`erp-table-panel st-dashboard-panel st-dashboard-priority ${tone}`}>
-  <div className="erp-panel-head"><div><b>{title}</b><small>All open priority Jobs with current planning and latest Batch / Schedule information.</small></div><span>{fmt(prioritySurface)} dm² · {fmt(priorityQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
+  <div className="erp-panel-head"><div><b>{title}</b><small>Priority Jobs from the same canonical Dashboard ST population, including MAIN / IMMEDIATE / ST ONLY.</small></div><span>{fmt(prioritySurface)} dm² · {fmt(priorityQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
   <div className="table-wrap st-dashboard-priority-wrap"><table className="erp-table st-dashboard-priority-table">
-   <thead><tr><th>Job</th><th>Part / Rev</th><th>Part Description</th><th>dm²</th><th>Qty</th><th>Next Operation</th><th>Planning</th><th>Latest Batch</th><th>Schedule</th></tr></thead>
+   <thead><tr><th>Job</th><th>Scope</th><th>Part / Rev</th><th>Part Description</th><th>dm²</th><th>Qty</th><th>Next Operation</th><th>Planning</th><th>Latest Batch</th><th>Schedule</th></tr></thead>
    <tbody>{rows.length?rows.map(row=><tr key={row.jobNum}>
     <td><b className="mono">{row.jobNum}</b></td>
+    <td><b>{chartTypeTag(row.operationType)}</b><small>{row.bridgeRole||"—"}</small></td>
     <td><b>{row.partNum||"—"}</b><small>{row.revisionNum?`Rev ${row.revisionNum}`:""}</small></td>
     <td>{row.partDescription||"—"}</td>
     <td className="num"><b>{fmt(row.surface)}</b></td>
@@ -210,7 +166,7 @@ function PriorityTable({title,rows,tone}:{title:string;rows:StDashboardPriorityJ
     <td><b>{row.planningMain||"—"}</b><small className={`st-dashboard-status-text ${String(row.planningStatus||"").toLowerCase().replace(/[^a-z]+/g,"-")}`}>{row.planningStatus||"—"}</small></td>
     <td><b>{row.batchNo||"—"}</b><small>{row.batchMain?`${row.batchMain}${row.batchStatus?` · ${row.batchStatus}`:""}`:""}</small></td>
     <td><b>{row.resourceCode||"—"}</b><small>{row.plannedStart?`${tm(row.plannedStart)} → ${tm(row.plannedEnd)}`:(row.scheduleStatus||"—")}</small></td>
-   </tr>):<tr><td colSpan={9}>No {title} Job.</td></tr>}</tbody>
+   </tr>):<tr><td colSpan={10}>No {title} Job.</td></tr>}</tbody>
   </table></div>
  </section>;
 }
@@ -226,13 +182,13 @@ export default async function DashboardPage(){
   <AppTabs active="dashboard"/>
   <section className="erp-content erp-content-full st-dashboard-page">
    <div className="erp-page-head st-dashboard-head">
-    <div><div className="erp-object-eyebrow">ST · PLANNING WORKLOAD</div><h2>ST Planning Dashboard</h2><p>All RAW NextOperation → Planning Board Current Main resolver → ST workload/status/Main/Recipe context.</p></div>
+    <div><div className="erp-object-eyebrow">ST · PLANNING WORKLOAD</div><h2>ST Planning Dashboard</h2><p>One canonical population: resolve Current Main first → filter RAW NextOperation by Dashboard ST Scope → reuse everywhere.</p></div>
     <div className="st-dashboard-head-actions"><span>{data?`Updated ${generated(data.generatedAt)}`:""}</span><Link className="btn" href="/dashboard">Refresh</Link></div>
    </div>
 
    {error||!data?<div className="notice error"><b>Unable to load Dashboard:</b> {error||"Unknown dashboard error"}</div>:<>
     <section className="erp-table-panel st-dashboard-panel st-dashboard-chart-panel">
-     <div className="erp-panel-head"><div><b>Surface Workload by Main Planning</b><small>Stacked column chart · X = Main Planning · Y = dm².</small></div></div>
+     <div className="erp-panel-head"><div><b>Surface Workload by Current Main / ST Only</b><small>Same Dashboard ST population as all cards/tables. IMMEDIATE contributes to its resolved Current Main; ST Only is shown separately.</small></div></div>
      <div className="st-dashboard-chart-legend">{STATUS_ORDER.map(s=><span key={s}><i className={STATUS_CLASS[s]}></i>{STATUS_LABEL[s]}</span>)}</div>
      <div className="st-dashboard-chart-scroll"><div className="st-dashboard-chart">
       {data.mainRows.map(row=>{
@@ -251,21 +207,20 @@ export default async function DashboardPage(){
     </section>
 
     <section className="erp-table-panel st-dashboard-panel st-dashboard-chart-panel st-dashboard-combo-panel">
-     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation / ST Only</b><small>Resolve Current Main first; Immediate is counted only when the active Bridge role is INTERMEDIATE and RAW NextOperation is explicitly tagged INTERMEDIATE in ST Scope. Column = dm² · Line = pcs.</small></div></div>
+     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation / ST Only</b><small>Canonical Dashboard ST population. Planning = MAIN, INTERMEDIATE Dashboard ST = IMMEDIATE, ST_SCOPE_ONLY = ST ONLY. Column = dm² · Line = pcs.</small></div></div>
      <div className="st-dashboard-combo-legend"><span><i className="surface"></i>Surface dm² · left axis max 50,000</span><span><i className="qty"></i>Qty pcs · right axis max 10,000</span></div>
      <SurfaceQtyComboChart rows={data.immediateRows} total={data.chartTotal}/>
     </section>
 
-    <AuditJobTable rows={data.auditJobs}/>
 
     <section className="st-dashboard-kpis">
      <article className="st-dashboard-kpi total"><small>ST TOTAL · SURFACE WORKLOAD</small>{metricLines(data.total)}</article>
      {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(data.statuses[status])}</article>)}
     </section>
-    <div className="st-dashboard-note">V419 chart 2 chạy 3 lớp độc lập: <b>1) LastOperation → RAW NextOperation → Current Main</b>; <b>2) xác định Bridge Role</b>; <b>3) áp Dashboard ST membership</b>. Immediate chỉ được cộng khi <code>Bridge Role = INTERMEDIATE</code> và <code>ST Scope Type = INTERMEDIATE</code>. Nhãn INTERMEDIATE chỉ dùng cho Dashboard Chart/Audit, không thay đổi All Open Jobs, Planning Chain, Candidate, Batch hoặc Schedule.</div>
+    <div className="st-dashboard-note">V422 toàn Dashboard dùng chung một population: <b>1) Current Main đã được Planning Chain resolver xác định từ LastOperation + RAW NextOperation</b>; <b>2) Bridge Role chỉ là thông tin chẩn đoán/classification</b>; <b>3) lọc RAW NextOperation theo Dashboard ST Scope</b>. <code>PLANNING_OPERATION → MAIN</code>, <code>INTERMEDIATE → IMMEDIATE</code>, <code>ST_SCOPE_ONLY → ST ONLY</code>. Population này dùng cho <b>tất cả KPI cards, cả hai chart, Area/Main/Recipe tables và CAT3/CAT5</b>. INTERMEDIATE vẫn chỉ là nhãn Dashboard, không thay đổi All Open Jobs, Planning Chain, Candidate, Batch hoặc Schedule.</div>
 
     <section className="st-dashboard-area-workloads">
-     <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>Main Planning Workload Summary · By Area</b><small>Each Area has its own KPI cards and its own Main Planning → Recipe workload table. All table rows stay visible without vertical scrolling.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Main Operations</span></div>
+     <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>ST Workload Summary · By Area</b><small>Same canonical Dashboard population. IMMEDIATE is grouped under resolved Current Main; ST Only is placed in its own Area/operation group.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Workload Groups</span></div>
      {data.areas.map(area=><AreaWorkloadTable key={`${area.areaId}-${area.areaName}`} area={area}/>)}
     </section>
 

@@ -339,11 +339,11 @@ export default async function Page(){
      <StepList items={[
       <>Chọn Operation Code.</>,
       <>Nếu là Planning Operation: chọn <b>Main Operation → ST Group → Physical Area → Schedule Area → Planner</b>.</>,
-      <>Nếu Operation là Bridge Intermediate và thực sự cần tính vào Dashboard Surface Treatment: chọn <b>INTERMEDIATE</b> / bấm <b>Đánh dấu Dashboard ST</b>. Nhãn này chỉ ảnh hưởng Dashboard Chart/Audit; không tạo/sửa Main, All Open Jobs, Planning Chain, Candidate, Batch hoặc Schedule.</>,
+      <>Nếu Operation là Bridge Intermediate và thực sự cần tính vào Dashboard Surface Treatment: chọn <b>INTERMEDIATE</b> / bấm <b>Đánh dấu Dashboard ST</b>. Nhãn này chỉ ảnh hưởng population của toàn bộ Dashboard (cards/tables/charts); không tạo/sửa Main, All Open Jobs, Planning Chain, Candidate, Batch hoặc Schedule.</>,
       <>Nếu chỉ cần hiện trong phạm vi ST nhưng không plan và không phải Bridge Intermediate: chọn <b>ST_SCOPE_ONLY</b>.</>,
       <>Lưu. Khi thay đổi cấu trúc routing/bridge, dùng chức năng rebuild phù hợp; sau thay đổi chain lớn nên Rebuild Planning Chain ở Planning Board.</>
      ]}/>
-     <div className="notice"><b>Impact:</b> PLANNING_OPERATION và ST_SCOPE_ONLY vẫn là cấu hình operational upstream. Riêng <b>INTERMEDIATE Dashboard ST</b> chỉ ảnh hưởng Dashboard Chart/Audit và không kích hoạt Planning Chain sync. Mapping sai Area/Planner của Planning Operation vẫn ảnh hưởng Board Điều Độ.</div>
+     <div className="notice"><b>Impact:</b> PLANNING_OPERATION và ST_SCOPE_ONLY vẫn là cấu hình operational upstream. Riêng <b>INTERMEDIATE Dashboard ST</b> chỉ ảnh hưởng population của toàn bộ Dashboard và không kích hoạt Planning Chain sync. Mapping sai Area/Planner của Planning Operation vẫn ảnh hưởng Board Điều Độ.</div>
     </details>
 
     <details className="erp-details">
@@ -568,8 +568,8 @@ export default async function Page(){
     <Rule title="RAW NextOperation ST là Population Gate" tone="important">
      Workload không bắt đầu từ toàn bộ <code>planning_job_operation</code>. Hệ thống lọc <code>open_job_current.next_operation</code> RAW trước: chỉ Job có RAW NextOperation thuộc ST Planning view (Planning Operation hoặc Auto Bridge intermediate; loại <b>ST_SCOPE_ONLY</b>) mới được đưa vào population. Sau đó mới tổng hợp <code>planning_job_operation</code> theo <b>Area → Main Operation</b> và READY / WAIT / HOLD bằng <b>Jobs · pcs · dm²</b>. Future ST operation không được kéo một Job có RAW NextOperation ngoài ST vào Summary.
     </Rule>
-    <Rule title="Dashboard chart: resolve trước, lọc ST Scope sau" tone="important">
-     Chart <b>Surface + Qty by Main Planning / Immediate Operation / ST Only</b> chạy đúng 3 lớp theo thứ tự: <b>(1)</b> resolve vị trí Job bằng <b>LastOperation → RAW NextOperation → Current Main</b>; <b>(2)</b> xác định <b>Bridge Role</b> từ active Bridge; <b>(3)</b> trên kết quả đã resolve mới áp Dashboard ST filter. Immediate chỉ được tính khi đồng thời <b>Bridge Role = INTERMEDIATE</b> và RAW NextOperation có <code>md_st_operation_scope.operation_type=INTERMEDIATE</code>. Nhãn INTERMEDIATE này <b>chỉ dành cho Dashboard</b>; không định nghĩa Previous/Next Main và không thay đổi Planning Chain/Candidate/Batch/Schedule.
+    <Rule title="Dashboard: một population chuẩn cho mọi card / table / chart" tone="important">
+     Toàn bộ Dashboard chạy theo cùng một pipeline: <b>(1)</b> dùng <b>Current Main</b> từ live Planning Chain đã được resolver <b>LastOperation + RAW NextOperation</b> định vị; <b>(2)</b> xác định <b>Bridge Role</b> chỉ để chẩn đoán/phân loại; <b>(3)</b> trên kết quả đã resolve mới lọc RAW NextOperation theo Dashboard ST Scope. Sau bước resolve, <code>PLANNING_OPERATION → MAIN</code>, <code>INTERMEDIATE → IMMEDIATE</code>, <code>ST_SCOPE_ONLY → ST ONLY</code>. Population một-row-mỗi-open-Job này là nguồn duy nhất cho <b>global KPI cards, Surface chart, Surface+Qty chart, Area/Main/Recipe tables và CAT3/CAT5</b>. IMMEDIATE được cộng vào resolved Current Main; ST ONLY có workload group/status riêng. Không re-gate INTERMEDIATE lần hai bằng exact LastOperation/Bridge pair. Nhãn INTERMEDIATE vẫn <b>chỉ dành cho Dashboard</b>; không định nghĩa Previous/Next Main và không thay đổi Planning Chain/Candidate/Batch/Schedule.
     </Rule>
     <ul className="lg-list">
      <li><b>Qty:</b> dùng CurrentGoodWIPQty nếu &gt; 0, nếu không dùng ProdQty — cùng quy tắc Candidate.</li>
