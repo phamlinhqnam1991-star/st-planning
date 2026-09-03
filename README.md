@@ -237,3 +237,7 @@ Bridge discovery and ST membership are now independent. ST Operation Flow lists 
 
 ## V434
 Scheduling Unscheduled pool now hides a Batch immediately when picked into a draft row, restores it on Xóa nhập, keeps it hidden after Schedule, and restores it on Bỏ điều độ (schedule-only cancel; Batch is preserved). Active Schedule ownership is reconciled across all dates.
+
+
+## V436
+Scheduling Board now synchronizes Batch scheduling state immediately after Save/Unschedule without a browser page refresh. Successful Save optimistically moves the Batch from Unscheduled to the saved schedule table and broadcasts the change to other scheduling client views plus the area workload summary; server rows reconcile afterwards with no-store fetch. `planning_batch.status` is intentionally unchanged because schedule ownership is derived from active `planning_schedule`.

@@ -47,6 +47,21 @@ type PlanningBatch={
  schedule_id:number|null;
  previous_main_batches:PreviousMainBatch[];
 };
+
+type BatchScheduleStateDetail={
+ batchId:number;
+ scheduled:boolean;
+ scheduleId:number|null;
+ resourceCode?:string|null;
+ plannedStart?:string|null;
+ plannedEnd?:string|null;
+ scheduleStatus?:string|null;
+};
+
+const BATCH_SCHEDULE_STATE_EVENT="st-batch-schedule-state";
+function emitBatchScheduleState(detail:BatchScheduleStateDetail){
+ if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent<BatchScheduleStateDetail>(BATCH_SCHEDULE_STATE_EVENT,{detail}));
+}
 type Draft={
  standardOperation:string;recipeKey:string;resourceCode:string;date:string;startTime:string;duration:string;noLoading?:boolean;chainFrom?:number|null;chainFromExisting?:number|null;startIso?:string|null;keep?:boolean;
  batchId:number|null;batchNo:string;totalJobs:number;totalQty:number;totalSurfaceDm2:number;
@@ -183,6 +198,64 @@ export function ManualScheduleGrid({
  const [stWorkloadLoading,setStWorkloadLoading]=useState(false);
  const [stWorkloadError,setStWorkloadError]=useState("");
 
+
+ function optimisticScheduledRow(batch:PlanningBatch,schedule:any):ScheduledRow|null{
+  if(!schedule||!Number(schedule.id))return null;
+  const resourceCode=String(schedule.resource_code||"");
+  const resourceGroup=resources.find(x=>x.resource_code===resourceCode)?.resource_group||"";
+  return {
+   id:Number(schedule.id),
+   batch_id:Number(batch.id),
+   batch_no:String(batch.batch_no||""),
+   standard_operation:String(batch.standard_operation||""),
+   recipe_key:batch.recipe_key||null,
+   recipe_no:batch.recipe_no||null,
+   recipe_name:batch.recipe_name||null,
+   resource_code:resourceCode,
+   resource_group:resourceGroup,
+   total_jobs:Number(batch.total_jobs||0),
+   total_qty:Number(batch.total_qty||0),
+   total_surface_dm2:Number(batch.total_surface_dm2||0),
+   planned_start:String(schedule.planned_start||""),
+   planned_end:String(schedule.planned_end||""),
+   duration_minutes:Number(schedule.duration_minutes||0),
+   sequence_no:Number(schedule.sequence_no||0),
+   loading_start:schedule.loading_start||null,
+   loading_end:schedule.loading_end||null,
+   loading_duration_minutes:schedule.loading_duration_minutes==null?null:Number(schedule.loading_duration_minutes),
+   process_start:schedule.process_start||null,
+   process_end:schedule.process_end||null,
+   process_duration_minutes:schedule.process_duration_minutes==null?null:Number(schedule.process_duration_minutes),
+   ndt_start:schedule.ndt_start||null,
+   ndt_end:schedule.ndt_end||null,
+   ndt_duration_minutes:schedule.ndt_duration_minutes==null?null:Number(schedule.ndt_duration_minutes),
+   unloading_start:schedule.unloading_start||null,
+   unloading_end:schedule.unloading_end||null,
+   unloading_duration_minutes:schedule.unloading_duration_minutes==null?null:Number(schedule.unloading_duration_minutes),
+   plan_source:schedule.plan_source||null
+  };
+ }
+
+ function applyScheduledBatchImmediately(batchId:number,schedule:any){
+  const source=liveBatches.find(b=>Number(b.id)===Number(batchId))||planningBatches.find(b=>Number(b.id)===Number(batchId));
+  if(source){
+   const optimistic=optimisticScheduledRow(source,schedule);
+   if(optimistic){
+    setLiveRows(prev=>[...prev.filter(x=>Number(x.id)!==Number(optimistic.id)&&Number(x.batch_id)!==Number(batchId)),optimistic]);
+   }
+  }
+  setLiveBatches(prev=>prev.filter(b=>Number(b.id)!==Number(batchId)));
+  emitBatchScheduleState({
+   batchId:Number(batchId),
+   scheduled:true,
+   scheduleId:Number(schedule?.id||0)||null,
+   resourceCode:schedule?.resource_code||null,
+   plannedStart:schedule?.planned_start||null,
+   plannedEnd:schedule?.planned_end||null,
+   scheduleStatus:schedule?.status||"SCHEDULED"
+  });
+  window.dispatchEvent(new Event("st-schedule-changed"));
+ }
 
  function areaOps(a:ScheduleArea){
   const allowed=new Set((a.operations||[]).map(x=>x.standard_operation.toUpperCase()));
@@ -498,6 +571,8 @@ export function ManualScheduleGrid({
      :[...prev,restored]);
    }
    setLiveRows(prev=>prev.filter(x=>Number(x.id)!==Number(row.id)));
+   emitBatchScheduleState({batchId:Number(row.batch_id),scheduled:false,scheduleId:null,scheduleStatus:null});
+   window.dispatchEvent(new Event("st-schedule-changed"));
    setMessage(`${row.batch_no}: đã bỏ điều độ; Batch quay lại Unscheduled Batches.`);
    await refreshRows();
   }catch(e){
@@ -613,7 +688,9 @@ export function ManualScheduleGrid({
     ?`${r.batchNo} · ${a.schedule_area_name} đã Schedule, không tạo Batch mới.${adj}`
     :`${d.batchNo} · ${a.schedule_area_name} đã tạo.${adj}`);
    if(existingBatch&&r.batchId){
-    setLiveBatches(prev=>prev.filter(b=>Number(b.id)!==Number(r.batchId)));
+    // V436: commit succeeded -> reflect SCHEDULED immediately in all client views.
+    // No browser refresh is required; refreshRows only reconciles server truth afterwards.
+    applyScheduledBatchImmediately(Number(r.batchId),d.schedule);
    }
    removeDraftRow(a,i);
    await refreshRows();
@@ -650,7 +727,7 @@ export function ManualScheduleGrid({
 
  async function refreshRows(){
   try{
-   const res=await fetch(`/api/schedule/rows?date=${encodeURIComponent(date)}`);
+   const res=await fetch(`/api/schedule/rows?date=${encodeURIComponent(date)}`,{cache:"no-store"});
    const d=await safeJson(res);
    if(res.ok){
     setLiveRows((d.rows||[]) as ScheduledRow[]);
@@ -917,7 +994,7 @@ export function ManualScheduleGrid({
      const res=await fetch(endpoint,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
      const dr=await safeJson(res);if(!res.ok)throw new Error(dr.error||"Save failed");
      if(existingBatch&&r.batchId){
-      setLiveBatches(prev=>prev.filter(b=>Number(b.id)!==Number(r.batchId)));
+      applyScheduledBatchImmediately(Number(r.batchId),dr.schedule);
      }
      okList.push(i);
     }catch(e){failList.push({i,msg:e instanceof Error?e.message:"Save failed"});}

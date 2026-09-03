@@ -91,6 +91,20 @@ type ScheduleArea={
  operations:{standard_operation:string}[];
 };
 
+type BatchScheduleStateDetail={
+ batchId:number;
+ scheduled:boolean;
+ scheduleId:number|null;
+ resourceCode?:string|null;
+ plannedStart?:string|null;
+ plannedEnd?:string|null;
+ scheduleStatus?:string|null;
+};
+const BATCH_SCHEDULE_STATE_EVENT="st-batch-schedule-state";
+function emitBatchScheduleState(detail:BatchScheduleStateDetail){
+ if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent<BatchScheduleStateDetail>(BATCH_SCHEDULE_STATE_EVENT,{detail}));
+}
+
 function hhmm(m:any){
  const n=Number(m||0);
  if(!n)return "";
@@ -286,20 +300,46 @@ export default function ScheduleBoardClient({
  const [alerts,setAlerts]=useState<HandoverAlert[]>(handoverAlerts);
  const [ackBusy,setAckBusy]=useState<number|null>(null);
  const [showAcknowledged,setShowAcknowledged]=useState(false);
+ const [liveBatches,setLiveBatches]=useState<Batch[]>(batches);
+
+ useEffect(()=>{setLiveBatches(batches)},[batches]);
+
+ useEffect(()=>{
+  const onBatchState=(event:Event)=>{
+   const detail=(event as CustomEvent<BatchScheduleStateDetail>).detail;
+   if(!detail||!Number(detail.batchId))return;
+   setLiveBatches(prev=>prev.map(b=>
+    Number(b.id)===Number(detail.batchId)
+     ? detail.scheduled
+       ? {...b,
+          schedule_id:Number(detail.scheduleId||0)||b.schedule_id||null,
+          scheduled_resource_code:detail.resourceCode??b.scheduled_resource_code,
+          scheduled_planned_start:detail.plannedStart??b.scheduled_planned_start,
+          scheduled_planned_end:detail.plannedEnd??b.scheduled_planned_end,
+          schedule_status:detail.scheduleStatus||"SCHEDULED"}
+       : {...b,
+          schedule_id:null,schedule_date:null,scheduled_resource_code:null,
+          scheduled_planned_start:null,scheduled_planned_end:null,schedule_status:null}
+     : b
+   ));
+  };
+  window.addEventListener(BATCH_SCHEDULE_STATE_EVENT,onBatchState as EventListener);
+  return ()=>window.removeEventListener(BATCH_SCHEDULE_STATE_EVENT,onBatchState as EventListener);
+ },[]);
 
  const batch=useMemo(
-  ()=>batches.find(x=>String(x.id)===batchId),
-  [batches,batchId]
+  ()=>liveBatches.find(x=>String(x.id)===batchId),
+  [liveBatches,batchId]
  );
 
  const unscheduled=useMemo(
-  ()=>batches.filter(x=>!x.schedule_id),
-  [batches]
+  ()=>liveBatches.filter(x=>!x.schedule_id),
+  [liveBatches]
  );
 
  const scheduled=useMemo(
-  ()=>batches.filter(x=>Boolean(x.schedule_id)),
-  [batches]
+  ()=>liveBatches.filter(x=>Boolean(x.schedule_id)),
+  [liveBatches]
  );
 
  const unscheduledGroups=useMemo(
@@ -406,7 +446,27 @@ export default function ScheduleBoardClient({
    const data=await safeJson(response);
    if(!response.ok)throw new Error(data.error||"Schedule failed");
 
-   location.reload();
+   const schedule=data.schedule||{};
+   const detail:BatchScheduleStateDetail={
+    batchId:Number(targetBatch.id),
+    scheduled:true,
+    scheduleId:Number(schedule.id||targetBatch.schedule_id||0)||null,
+    resourceCode:schedule.resource_code||targetResource,
+    plannedStart:schedule.planned_start||plannedStart,
+    plannedEnd:schedule.planned_end||null,
+    scheduleStatus:schedule.status||"SCHEDULED"
+   };
+   setLiveBatches(prev=>prev.map(b=>Number(b.id)===Number(targetBatch.id)
+    ? {...b,
+       schedule_id:detail.scheduleId,
+       scheduled_resource_code:detail.resourceCode||null,
+       scheduled_planned_start:detail.plannedStart||null,
+       scheduled_planned_end:detail.plannedEnd||null,
+       schedule_status:detail.scheduleStatus||"SCHEDULED"}
+    : b));
+   emitBatchScheduleState(detail);
+   window.dispatchEvent(new Event("st-schedule-changed"));
+   setMsg(`${targetBatch.batch_no}: đã cập nhật trạng thái điều độ ngay sau Save.`);
   }catch(error){
    setMsg(error instanceof Error?error.message:"Schedule failed");
   }finally{
@@ -643,7 +703,7 @@ export default function ScheduleBoardClient({
    <label>Planning Batch
     <select className="input" value={batchId} onChange={e=>setBatchId(e.target.value)}>
      <option value="">Select Batch...</option>
-     {batches.map(b=>
+     {liveBatches.map(b=>
       <option key={b.id} value={b.id}>
        {b.batch_no} · {b.standard_operation} · {b.recipe_no||"No Recipe"}
        {b.schedule_id
