@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import {assertResourceAndChemicalCapacity,chemicalScheduleColumns,resolveChemicalScheduleWindow} from "@/lib/chemical-line-schedule-server";
 import {recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
+import {assertPreviousMainScheduledBeforeAdd} from "@/lib/schedule-predecessor-guard";
 
 import {requireApiUser} from "@/lib/api-auth";
 function asDate(v:any){const d=new Date(v);return Number.isNaN(d.getTime())?null:d}
@@ -104,6 +105,11 @@ export async function POST(req:Request){
    }
   }
   const end=chemicalWindow?.unloadingEnd||new Date(effectiveStart.getTime()+duration*60000);
+
+  // V432 · ADD-ONLY physical predecessor lock.
+  // IMPORTANT for Chemical Line: run the existing Chemical proposal/capacity logic FIRST,
+  // then validate its final effectiveStart. This guard never changes the suggestion engine.
+  await assertPreviousMainScheduledBeforeAdd(c,{batchId,currentStart:effectiveStart});
 
   // A physical resource cannot run two batches at the same time.
   const overlap=chemicalWindow?{rowCount:0}:await c.query(`

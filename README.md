@@ -231,3 +231,5 @@ Bridge discovery and ST membership are now independent. ST Operation Flow lists 
 
 - V430: Board Điều Độ có Trial Day Shift để MOVE toàn bộ lịch ngày đang xem ±1 ngày trong một transaction; không clone Batch/Schedule và ngày nguồn rỗng sau commit.
 - V431: Recipe dropdown trên Board Điều Độ được lọc theo Schedule Area/Main Operation mapping. Mỗi lane chỉ hiện Recipe có active `md_main_operation_recipe.standard_operation` thuộc Main Operation pool của area; khu gộp dùng union operation pool. Existing schedule giữ Recipe hiện tại nếu mapping đã đổi; Create Empty Batch lọc theo Main Operation đã chọn; manual-grid server revalidate Recipe → Main trước khi tạo Batch/Schedule.
+
+- V432: Board Điều Độ thêm server-side Previous Main lock chỉ khi ADD existing Planning Batch vào Schedule. Mọi Job có Previous Main phải có active Schedule với planned_end, và Current planned_start phải >= Previous planned_end. Main đầu tiên được bypass. Chemical Line proposal/capacity logic giữ nguyên; guard chỉ kiểm tra final effectiveStart trước INSERT. PATCH/Edit, Trial Day Shift và Planning Chain READY/WAIT không đổi.

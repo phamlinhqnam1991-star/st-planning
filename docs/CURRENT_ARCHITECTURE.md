@@ -280,3 +280,10 @@ Board Điều Độ no longer exposes the full Process Recipe catalog in every l
 - Create Empty Batch filters Recipe by the selected Main Operation.
 - Manual-grid Batch creation derives Main from `md_main_operation_recipe.standard_operation` first and revalidates Recipe → Main on the server.
 - This is a Scheduling selector/validation change only. Planning Board Recipe resolver, Batch membership, Planning Chain, Dashboard population and stored Recipes on existing Batches are unchanged.
+
+
+## V432 — Add-only Previous Main scheduling lock
+
+Board Điều Độ adds a server-side physical handoff guard only when an existing Planning Batch is first added to `planning_schedule` through `POST /api/schedule`. For every Job in that Batch, the immediate Previous Main identity comes from the durable Planning occurrence snapshot (with live-chain fallback). First Main has no predecessor and passes. Otherwise the matching Previous Main Batch must have a non-cancelled Schedule with `planned_end`, and Current Main `planned_start` must be greater than or equal to that Previous Main `planned_end`. Any failing Job rejects the whole add transaction.
+
+This is deliberately stricter than Planning Chain READY: Sequential READY may open after the Previous Main has a non-cancelled Batch even while that Batch is still unscheduled. The new rule does not rewrite READY/WAIT and is not applied to Schedule PATCH/Edit or Trial Day Shift. Chemical Line simulation/proposal remains unchanged; its existing FB/Loading/Process/NDT/Unloading capacity search runs first and only the final `effectiveStart` is checked before INSERT, so the proposal algorithm is not modified.

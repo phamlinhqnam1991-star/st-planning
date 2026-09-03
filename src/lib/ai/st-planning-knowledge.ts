@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V431";
+export const ST_AI_KNOWLEDGE_VERSION="V432";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -36,7 +36,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"batch-schedule",
   title:"Batch vs Scheduling",
-  content:`Planning Board creates and owns Batch membership. Scheduling Board never recreates the Batch; it assigns an existing unscheduled Batch to a Schedule Area/Resource/Date/Start/Duration. Manual and future Auto Plan/Auto Batch/Auto Schedule share the same Batch/Schedule data model. Recipe selectors on Scheduling Board are area-scoped: each lane shows only Recipes whose active md_main_operation_recipe.standard_operation belongs to the Main Operation pool mapped to that Schedule Area; grouped lanes use the union pool, and existing historical Recipe values remain visible when editing. Trial day shifting on Scheduling Board is a schedule-only MOVE, never a clone: all active schedules of the selected board date are shifted in-place by exactly ±1 day, including Chemical Loading/Process/NDT/Unloading timestamps, while Batch identity/membership/Recipe/Resource/Duration stay unchanged. After a successful move the source date must be empty. The operation is transactional and refuses to merge with an occupied target day or move RUNNING/COMPLETED schedules.`
+  content:`Planning Board creates and owns Batch membership. Scheduling Board never recreates the Batch; it assigns an existing unscheduled Batch to a Schedule Area/Resource/Date/Start/Duration. Manual and future Auto Plan/Auto Batch/Auto Schedule share the same Batch/Schedule data model. When an existing Planning Batch is ADDED to Scheduling, Scheduling applies a physical predecessor lock per Job: the immediate Previous Main must already have a non-cancelled Schedule with planned_end, and Current Main planned_start must be greater than or equal to that Previous Main planned_end. First Main has no predecessor and is allowed. This add-only lock is stricter than Planning Chain READY, which may open after an unscheduled Previous Main Batch exists. PATCH/Edit and Trial Day Shift are intentionally outside this add-only rule. Chemical Line simulation/proposal logic is not changed; the predecessor guard validates only the final effective start at Save, after the existing Chemical proposal/capacity engine has finished. Recipe selectors on Scheduling Board are area-scoped: each lane shows only Recipes whose active md_main_operation_recipe.standard_operation belongs to the Main Operation pool mapped to that Schedule Area; grouped lanes use the union pool, and existing historical Recipe values remain visible when editing. Trial day shifting on Scheduling Board is a schedule-only MOVE, never a clone: all active schedules of the selected board date are shifted in-place by exactly ±1 day, including Chemical Loading/Process/NDT/Unloading timestamps, while Batch identity/membership/Recipe/Resource/Duration stay unchanged. After a successful move the source date must be empty. The operation is transactional and refuses to merge with an occupied target day or move RUNNING/COMPLETED schedules.`
  },
  {
   key:"planning-ready-focus",
@@ -107,3 +107,7 @@ export const V430_TRIAL_SCHEDULE_DAY_SHIFT = `Scheduling Board trial control mov
 
 // V431
 export const V431_SCHEDULE_AREA_RECIPE_FILTER = `Scheduling Board Recipe selectors are scoped by Schedule Area/Main Operation mapping. A Recipe is selectable in a lane only when an active md_main_operation_recipe row maps that recipe_key to a standard_operation in the lane's md_schedule_area_operation pool; grouped hubs use the union pool. Existing Schedule/Batch edits preserve the current Recipe option if configuration changed, but unrelated Recipes are not offered. Create Empty Batch filters by the selected Main Operation, and manual-grid creation revalidates Recipe -> Main server-side. This does not alter Planning Board Recipe resolution or existing Batch membership.`;
+
+
+// V432
+export const V432_SCHEDULE_PREVIOUS_MAIN_LOCK = `When POST /api/schedule adds an existing Planning Batch to Scheduling, every Job with an immediate Previous Main must have that Previous Main already scheduled (active planning_schedule with planned_end), and the final Current Main planned_start must be >= every Previous Main planned_end. First-Main Jobs bypass the predecessor requirement. The guard is server-side and add-only: PATCH/Edit, Trial Day Shift, Planning Chain READY/WAIT, and Chemical Line simulation/proposal are unchanged. Chemical Line keeps its existing proposal/capacity algorithm; only the final effectiveStart produced at Save is validated before insert.`;
