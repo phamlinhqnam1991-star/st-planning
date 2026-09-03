@@ -197,8 +197,7 @@ export async function loadProductionExecution(
    b.total_surface_dm2,
    pr.recipe_no,
    pr.recipe_name,
-   coalesce(om.planning_sort_order,999999) planning_order,
-   coalesce(jobinfo.job_numbers,'{}'::text[]) job_numbers
+   coalesce(om.planning_sort_order,999999) planning_order
   from public.planning_schedule s
   join public.planning_batch b on b.id=s.batch_id and b.status<>'CANCELLED'
   left join public.md_process_recipe pr on pr.recipe_key=b.recipe_key and pr.is_active=true
@@ -219,11 +218,6 @@ export async function loadProductionExecution(
     a.display_order,a.schedule_area_code
    limit 1
   ) sa on true
-  left join lateral (
-   select array_agg(distinct bj.job_num order by bj.job_num) job_numbers
-   from public.planning_batch_job bj
-   where bj.batch_id=b.id
-  ) jobinfo on true
   where s.status<>'CANCELLED'
     and s.schedule_date=$1::date
   order by s.planned_start,coalesce(om.planning_sort_order,999999),b.batch_no
@@ -266,7 +260,7 @@ export async function loadProductionExecution(
    jobs:num(row.total_jobs),
    qty:num(row.total_qty),
    surface:num(row.total_surface_dm2),
-   jobNumbers:Array.isArray(row.job_numbers)?row.job_numbers.map(clean).filter(Boolean):[],
+   jobNumbers:(batchJobDetails.get(batchId)||[]).map(x=>x.jobNum).filter(Boolean),
    jobDetails:batchJobDetails.get(batchId)||[],
    supportOperations:[],
    sequence:num(row.planning_order),

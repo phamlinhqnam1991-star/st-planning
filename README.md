@@ -241,3 +241,10 @@ Scheduling Unscheduled pool now hides a Batch immediately when picked into a dra
 
 ## V436
 Scheduling Board now synchronizes Batch scheduling state immediately after Save/Unschedule without a browser page refresh. Successful Save optimistically moves the Batch from Unscheduled to the saved schedule table and broadcasts the change to other scheduling client views plus the area workload summary; server rows reconcile afterwards with no-store fetch. `planning_batch.status` is intentionally unchanged because schedule ownership is derived from active `planning_schedule`.
+
+
+## V437 · Masking/Unmasking + Production Execution load performance
+- Root cause fixed: Masking/Unmasking previously rebuilt the canonical routing context over the whole active `md_routing_detailed` master on every page load, even when only one schedule day/view was requested.
+- The resolver now filters candidate Batch/Job rows first, narrows to the affected Part/Revision set, then runs the unchanged Routing Main/occurrence/support-boundary logic only on that set.
+- Production Execution inherits the same optimization and removes duplicate per-Batch Job-number aggregation by reusing the already-loaded Batch Job detail data.
+- Migration `072_masking_production_load_indexes.sql` adds indexes only; no Planning/Batch/Schedule/Execution business rule changes.

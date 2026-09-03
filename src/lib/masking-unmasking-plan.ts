@@ -140,7 +140,76 @@ export async function loadMaskingUnmaskingPlan(
                upper(trim(s.standard_operation)) asc
     `),
     c.query(`
-      with route_detail as (
+      /*
+       * PERFORMANCE RULE:
+       * Never rebuild canonical Routing Main for the whole routing master on a page load.
+       * First reduce to Batch/Job rows that belong to the selected scheduled/unscheduled view,
+       * then rebuild route context only for those Part/Revision pairs.
+       */
+      with candidate_batch_job as (
+        select
+          bj.planning_job_operation_id,
+          bj.job_num,
+          b.id batch_id,
+          b.batch_no,
+          b.status batch_status,
+          b.planning_date,
+          b.recipe_key,
+          b.process_minutes,
+          po.standard_operation,
+          po.operation_instance_key,
+          j.part_num,
+          j.revision_num,
+          j.part_description,
+          j.prod_qty,
+          j.current_good_wip_qty,
+          j.total_surface,
+          j.last_operation,
+          j.next_operation,
+          j.priority_type,
+          om.planning_sort_order planning_order,
+          ps.id schedule_id,
+          ps.schedule_date,
+          ps.resource_code,
+          ps.planned_start,
+          ps.planned_end,
+          ps.status schedule_status
+        from public.planning_batch_job bj
+        join public.planning_batch b
+          on b.id=bj.batch_id
+         and b.status<>'CANCELLED'
+        join public.planning_job_operation po
+          on po.id=bj.planning_job_operation_id
+         and po.is_active=true
+        join public.open_job_current j
+          on j.job_num=po.job_num
+         and j.is_open=true
+        left join public.md_operation_master om
+          on upper(trim(om.standard_operation))=upper(trim(po.standard_operation))
+         and om.is_active=true
+        left join public.planning_schedule ps
+          on ps.batch_id=b.id
+         and ps.status<>'CANCELLED'
+        where
+          (($2::text='scheduled' and ps.id is not null and ps.schedule_date=$3::date)
+           or
+           ($2::text='unscheduled' and ps.id is null))
+      ),
+      candidate_part_revision as (
+        select distinct
+          upper(trim(part_num)) part_key,
+          upper(trim(revision_num)) revision_key
+        from candidate_batch_job
+      ),
+      route_detail_base as (
+        select d.*
+        from public.md_routing_detailed d
+        join candidate_part_revision p
+          on upper(trim(d.part_num))=p.part_key
+         and upper(trim(d.revision_num))=p.revision_key
+        where d.is_active=true
+      ),
+      route_detail as (
         select
           d.*,
           lag(upper(trim(d.operation_code))) over(
@@ -151,8 +220,7 @@ export async function loadMaskingUnmaskingPlan(
             partition by upper(trim(d.part_num)),upper(trim(d.revision_num))
             order by d.source_seq
           ) next_raw_operation
-        from public.md_routing_detailed d
-        where d.is_active=true
+        from route_detail_base d
       ),
       mapped_route as (
         select
@@ -232,69 +300,55 @@ export async function loadMaskingUnmaskingPlan(
          and ps.is_active=true
         where nullif(trim(coalesce(r.standard_operation,'')),'') is not null
       ),
-      route_main as (
+      route_main_identity as (
         select
           r.*,
           r.standard_operation||'#'||r.standard_occurrence::text operation_instance_key
         from route_main_numbered r
       ),
-      batch_job as (
+      route_main as (
         select
-          bj.planning_job_operation_id,
-          bj.job_num,
-          b.id batch_id,
-          b.batch_no,
-          b.status batch_status,
-          b.planning_date,
-          b.recipe_key,
-          b.process_minutes
-        from public.planning_batch_job bj
-        join public.planning_batch b on b.id=bj.batch_id
-        where b.status<>'CANCELLED'
+          r.*,
+          lag(r.source_seq) over(
+            partition by upper(trim(r.part_num)),upper(trim(r.revision_num))
+            order by r.source_seq
+          ) previous_main_route_seq
+        from route_main_identity r
       ),
       batch_main as (
         select
-          po.id planning_job_operation_id,
-          po.job_num,
-          j.part_num,
-          j.revision_num,
-          j.part_description,
-          j.prod_qty,
-          j.current_good_wip_qty,
-          j.total_surface,
-          j.last_operation,
-          j.next_operation,
-          j.priority_type,
-          po.standard_operation,
-          om.planning_sort_order planning_order,
+          cbj.planning_job_operation_id,
+          cbj.job_num,
+          cbj.part_num,
+          cbj.revision_num,
+          cbj.part_description,
+          cbj.prod_qty,
+          cbj.current_good_wip_qty,
+          cbj.total_surface,
+          cbj.last_operation,
+          cbj.next_operation,
+          cbj.priority_type,
+          cbj.standard_operation,
+          cbj.planning_order,
           rm.source_seq main_route_seq,
-          (
-            select max(prev.source_seq)
-            from route_main prev
-            where upper(trim(prev.part_num))=upper(trim(rm.part_num))
-              and upper(trim(prev.revision_num))=upper(trim(rm.revision_num))
-              and prev.source_seq<rm.source_seq
-          ) previous_main_route_seq,
-          bj.batch_id,
-          bj.batch_no,
-          bj.batch_status,
-          bj.planning_date,
-          bj.recipe_key,
-          bj.process_minutes
-        from batch_job bj
-        join public.planning_job_operation po
-          on po.id=bj.planning_job_operation_id
-         and po.is_active=true
-        join public.open_job_current j
-          on j.job_num=po.job_num
-         and j.is_open=true
+          rm.previous_main_route_seq,
+          cbj.batch_id,
+          cbj.batch_no,
+          cbj.batch_status,
+          cbj.planning_date,
+          cbj.recipe_key,
+          cbj.process_minutes,
+          cbj.schedule_id,
+          cbj.schedule_date,
+          cbj.resource_code,
+          cbj.planned_start,
+          cbj.planned_end,
+          cbj.schedule_status
+        from candidate_batch_job cbj
         join route_main rm
-          on upper(trim(rm.part_num))=upper(trim(j.part_num))
-         and upper(trim(rm.revision_num))=upper(trim(j.revision_num))
-         and upper(trim(rm.operation_instance_key))=upper(trim(po.operation_instance_key))
-        left join public.md_operation_master om
-          on upper(trim(om.standard_operation))=upper(trim(po.standard_operation))
-         and om.is_active=true
+          on upper(trim(rm.part_num))=upper(trim(cbj.part_num))
+         and upper(trim(rm.revision_num))=upper(trim(cbj.revision_num))
+         and upper(trim(rm.operation_instance_key))=upper(trim(cbj.operation_instance_key))
       ),
       linked as (
         select
@@ -327,7 +381,13 @@ export async function loadMaskingUnmaskingPlan(
           bm.batch_status,
           bm.planning_date,
           bm.recipe_key,
-          bm.process_minutes
+          bm.process_minutes,
+          bm.schedule_id,
+          bm.schedule_date,
+          bm.resource_code,
+          bm.planned_start,
+          bm.planned_end,
+          bm.schedule_status
         from batch_main bm
         join route_detail d
           on upper(trim(d.part_num))=upper(trim(bm.part_num))
@@ -352,40 +412,20 @@ export async function loadMaskingUnmaskingPlan(
       select
         l.*,
         pr.recipe_no,
-        pr.recipe_name,
-        ps.id schedule_id,
-        ps.schedule_date,
-        ps.resource_code,
-        ps.planned_start,
-        ps.planned_end,
-        ps.status schedule_status
+        pr.recipe_name
       from linked l
       left join public.md_process_recipe pr
         on pr.recipe_key=l.recipe_key
-      left join lateral (
-        select s.id,s.schedule_date,s.resource_code,s.planned_start,s.planned_end,s.status
-        from public.planning_schedule s
-        where s.batch_id=l.batch_id
-          and s.status<>'CANCELLED'
-        order by s.planned_start desc nulls last,s.id desc
-        limit 1
-      ) ps on true
       where l.support_type is not null
-        and (
-          ($2::text='scheduled' and ps.id is not null and ps.schedule_date=$3::date)
-          or
-          ($2::text='unscheduled' and ps.id is null)
-        )
       order by l.planning_order asc nulls last,
                upper(trim(l.standard_operation)) asc,
                l.support_type,
-               ps.planned_start asc nulls last,
+               l.planned_start asc nulls last,
                l.batch_no,
                l.job_num,
                l.support_seq
     `,[q,view,scheduleDate||null])
   ]);
-
   const mainRows=mainQ.rows as MainPlanningOperation[];
   const supportRows=supportQ.rows as SupportPlanRawRow[];
 

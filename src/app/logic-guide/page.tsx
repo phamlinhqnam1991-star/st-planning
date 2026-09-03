@@ -679,6 +679,7 @@ export default async function Page(){
     </tbody></table></div>
     <Rule title="Ví dụ 1 · Main thường" tone="important"><code>BSAUNSLD → INSAND-B → MSKG-TC → PPRSLVT</code>. Nếu PPRSLVT là Current Main và Batch được điều độ 05/09 lúc 10:30, Job nằm tại <b>05/09 → PRIMER1 → Masking</b>, support detail của MSKG-TC, cùng Batch No. và Start 10:30.</Rule>
     <Rule title="Ví dụ 2 · Primer khác raw code" tone="important"><code>PPRSLVT → UNMSKG... → MSKG-TC → FULTKAPP</code>. Vì cả PPRSLVT và FULTKAPP thuộc ST Group PRIMER, occurrence đầu là <b>PRIMER1</b>, occurrence sau là <b>PRIMER2</b>. UNMSKG/MSKG nằm giữa hai occurrence được gắn vào <b>PRIMER2</b> và đi theo ngày điều độ của Batch PRIMER2.</Rule>
+    <Rule title="Hiệu năng tải trang · V437">Resolver không quét/rebuild toàn bộ <code>md_routing_detailed</code> khi mở tab. Hệ thống lọc trước Batch/Job thuộc đúng view/ngày đang xem, lấy danh sách Part/Revision liên quan, rồi mới dựng Routing Main + Masking/Unmasking cho tập nhỏ đó. Đây là tối ưu query/index, không đổi boundary Previous Main → Current Main hay logic support.</Rule>
    </Section>
 
    <Section id="schedule" title="9 · Tab Board Điều Độ — xếp Batch vào resource và thời gian"
@@ -770,6 +771,7 @@ export default async function Page(){
      <Rule title="Default status">A scheduled work item with no execution report is shown as WAITING. Selecting ON-GOING records Actual Start; selecting DONE records Actual End.</Rule>
      <Rule title="Planned data remains live">Batch No., Recipe, Qty, Surface, Resource and Planned Time are read from the existing Planning/Scheduling sources. Production Execution does not duplicate them.</Rule>
      <Rule title="Support work">Masking and Unmasking are grouped by Batch/Main Operation so Production sees a practical worklist instead of one report row for every routing detail.</Rule>
+     <Rule title="Hiệu năng tải trang · V437">Production Execution dùng cùng resolver Masking/Unmasking đã thu hẹp theo ngày/Batch/Part-Rev và không còn chạy thêm một vòng <code>array_agg</code> Job Number theo từng Batch; Job Number được tái sử dụng từ Batch Job detail đã tải. Business status WAITING/ON-GOING/DONE không đổi.</Rule>
     </div>
    </Section>
 

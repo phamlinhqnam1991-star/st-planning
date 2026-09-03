@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V433";
+export const ST_AI_KNOWLEDGE_VERSION="V437";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -62,12 +62,12 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"masking-unmasking",
   title:"Masking / Unmasking",
-  content:`Masking and Unmasking are derived support work from detailed physical routing around the related Main Planning Batch. Production Execution may show their Job-level details, but they do not replace the Main Planning Chain or create a separate Main Batch flow.`
+  content:`Masking and Unmasking are derived support work from detailed physical routing around the related Main Planning Batch. Production Execution may show their Job-level details, but they do not replace the Main Planning Chain or create a separate Main Batch flow. V437 preserves the same resolver but first limits candidate Batch/Job rows by selected view/date, then rebuilds Routing Main only for the affected Part/Revision set; it must never scan/rebuild the whole Routing Detail master merely to render one day/view.`
  },
  {
   key:"production-execution",
   title:"Production Execution",
-  content:`Production Execution reads scheduled production plus derived Masking/Unmasking work. WAITING/ON-GOING/DONE and Actual Start/End are execution-report facts and are intentionally independent from Planning Chain and planning_schedule status.`
+  content:`Production Execution reads scheduled production plus derived Masking/Unmasking work. WAITING/ON-GOING/DONE and Actual Start/End are execution-report facts and are intentionally independent from Planning Chain and planning_schedule status. V437 reuses the narrowed support resolver and derives Batch jobNumbers from the already-loaded Batch Job detail set instead of issuing a second per-Batch aggregation.`
  },
 
  {
@@ -116,3 +116,7 @@ export const V432_SCHEDULE_PREVIOUS_MAIN_LOCK = `Superseded by V433 for the DONE
 export const V433_SCHEDULE_PREVIOUS_MAIN_STATUS = `Scheduling Board Previous Main cards resolve the exact immediate predecessor occurrence and show DONE / SCHEDULED / UNSCHEDULED / NOT_PLANNED instead of treating every no-Batch predecessor as unscheduled. DONE means the durable Previous Main snapshot has moved behind the active physical Planning Chain, so the Job already passed that Main even if no Batch was created. On POST /api/schedule, DONE with no historical Batch satisfies the predecessor lock. If a Previous Main Batch exists but is UNSCHEDULED, it still must be scheduled first. For a scheduled predecessor, Current planned_start must remain >= Previous planned_end. This remains add-only and does not change Chemical Line proposal logic, PATCH/Edit, Trial Day Shift, Planning READY/WAIT, or Dashboard.`;
 
 export const V436_IMMEDIATE_SCHEDULE_STATUS_SYNC = `Scheduling Board must reflect Schedule state immediately after a successful Save without requiring a browser page refresh. Active scheduling state is derived from a non-cancelled planning_schedule, not by changing planning_batch.status. On successful Save, client state removes the Batch from every Unscheduled pool, inserts/updates the saved Schedule row immediately from the POST response, broadcasts st-batch-schedule-state to sibling Scheduling components, and broadcasts st-schedule-changed so ST Workload Summary refreshes. Bỏ điều độ performs the inverse immediately, then /api/schedule/rows reconciles server truth with cache:no-store. This is UI/state synchronization only and does not change Chemical proposal, predecessor guard, Planning Chain, Candidate, Batch membership, Recipe, Dashboard, or Trial day shift.`;
+
+
+// V437
+export const V437_MASKING_PRODUCTION_LOAD_PERFORMANCE = `Masking/Unmasking and Production Execution page load optimization only: candidate Batch/Job rows are filtered by selected scheduled/unscheduled view and schedule date before physical routing reconstruction; md_routing_detailed is then restricted to only candidate Part/Revision pairs. Previous Main -> Current Main support boundaries, PRIMER/TOPCOAT occurrence identity, Batch/Schedule ownership and execution states are unchanged. Production Execution also reuses loaded Batch Job details for jobNumbers instead of a duplicate per-Batch array aggregation. Migration 072 adds normalized active Part/Revision/source_seq and Batch Job read indexes only.`;
