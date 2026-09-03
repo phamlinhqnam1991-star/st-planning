@@ -15,6 +15,7 @@ type GuardRow={
  job_num:string;
  current_operation:string|null;
  previous_operation:string|null;
+ previous_done_by_progress:boolean;
  previous_batch_id:number|null;
  previous_batch_no:string|null;
  previous_schedule_id:number|null;
@@ -25,16 +26,17 @@ type GuardRow={
 };
 
 /**
- * Scheduling add-only predecessor lock (V432).
+ * Scheduling add-only predecessor lock (V433).
  *
  * A Planning Batch may be READY because its Previous Main already has a Batch,
  * even when that previous Batch is still unscheduled. That is correct for the
  * Planning Chain, but Scheduling has a stricter physical-time gate:
  *
  * - First Main (no Previous Main) may be scheduled normally.
- * - Otherwise every Job in the Batch must have the immediate Previous Main
- *   scheduled (non-CANCELLED, planned_end present).
- * - Current planned_start must be >= Previous Main planned_end for every Job.
+ * - If the immediate Previous Main is already DONE by physical Job progress,
+ *   it is accepted even when no historical Batch/Schedule exists.
+ * - Otherwise the Previous Main must be scheduled (non-CANCELLED, planned_end present).
+ * - Current planned_start must be >= Previous Main planned_end for scheduled predecessors.
  *
  * This helper is intentionally called only from POST /api/schedule (adding an
  * existing Planning Batch to Scheduling). It is NOT used by PATCH/Edit,
@@ -67,7 +69,12 @@ export async function assertPreviousMainScheduledBeforeAdd(
     cj.*,
     coalesce(cj.snapshot_previous_operation,nullif(trim(prev_live.standard_operation),'')) previous_operation,
     coalesce(cj.snapshot_previous_source_operation,nullif(trim(prev_live.source_operation_code),'')) previous_source_operation,
-    coalesce(cj.snapshot_previous_source_seq,prev_live.source_seq) previous_source_seq
+    coalesce(cj.snapshot_previous_source_seq,prev_live.source_seq) previous_source_seq,
+    case
+     when cj.snapshot_previous_operation is null then false
+     when prev_live.id is null then true
+     else false
+    end previous_done_by_progress
    from current_jobs cj
    left join lateral (
     select p2.standard_operation,p2.source_operation_code,p2.source_seq,p2.planning_seq,p2.id
@@ -91,6 +98,7 @@ export async function assertPreviousMainScheduledBeforeAdd(
    rp.job_num,
    rp.current_operation,
    rp.previous_operation,
+   rp.previous_done_by_progress,
    prev_batch.previous_batch_id,
    prev_batch.previous_batch_no,
    prev_schedule.previous_schedule_id,
@@ -163,15 +171,21 @@ export async function assertPreviousMainScheduledBeforeAdd(
  const needsPrevious=rows.filter(r=>clean(r.previous_operation));
  if(!needsPrevious.length)return; // First Main for every Job in this Batch.
 
- const unscheduled=needsPrevious.filter(r=>!r.previous_schedule_id||!r.previous_planned_end);
+ const unscheduled=needsPrevious.filter(r=>{
+  // Route Matrix gives Batch/Schedule history stronger precedence than DONE_BY_PROGRESS.
+  // Therefore an existing Previous Main Batch that is still UNSCHEDULED must still
+  // be scheduled first; only DONE with NO historical Batch bypasses the add lock.
+  const doneWithoutBatch=Boolean(r.previous_done_by_progress)&&!r.previous_batch_id;
+  return !doneWithoutBatch&&(!r.previous_schedule_id||!r.previous_planned_end);
+ });
  if(unscheduled.length){
   const sample=unscheduled.slice(0,4).map(r=>
    `${r.job_num} · Previous Main ${clean(r.previous_operation)||"—"}${r.previous_batch_no?` · Batch ${r.previous_batch_no}`:""}`
   ).join("; ");
   const more=unscheduled.length>4?` (+${unscheduled.length-4} Job khác)`:"";
   throw new Error(
-   `KHÓA ĐIỀU ĐỘ: ${unscheduled.length}/${needsPrevious.length} Job có Previous Main chưa có kế hoạch điều độ. `+
-   `${sample}${more}. Hãy Schedule Previous Main trước rồi mới thêm Current Main vào Board Điều Độ.`
+   `KHÓA ĐIỀU ĐỘ: ${unscheduled.length}/${needsPrevious.length} Job có Previous Main chưa DONE và chưa có kế hoạch điều độ hợp lệ. `+
+   `${sample}${more}. Previous Main phải DONE theo tiến độ Job hoặc phải được Schedule trước khi thêm Current Main vào Board Điều Độ.`
   );
  }
 

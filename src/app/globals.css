@@ -6159,3 +6159,19 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
  .schedule-day-shift-control .btn{flex:1}
  .schedule-day-shift-control small{text-align:left}
 }
+
+/* V433 - Previous Main DONE / not-planned state on Scheduling unscheduled Batch cards */
+.schedule-previous-main-row.is-done{
+ border-left-color:#2f8f55;
+ background:#edf8f1;
+}
+.schedule-previous-main-row.is-done .schedule-previous-main-top>em{
+ color:#267647;
+}
+.schedule-previous-main-row.is-not-planned{
+ border-left-color:#b36b1f;
+ background:#fff4e8;
+}
+.schedule-previous-main-row.is-not-planned .schedule-previous-main-top>em{
+ color:#965615;
+}

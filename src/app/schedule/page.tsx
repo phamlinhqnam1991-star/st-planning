@@ -158,14 +158,24 @@ export default async function Page({
         prevhist.previous_batch_no,
         coalesce(
          prevhist.previous_batch_operation,
-         prevp.standard_operation,
-         cur.previous_standard_operation_snapshot
+         cur.previous_standard_operation_snapshot,
+         prevp.standard_operation
         ) previous_operation,
         case
          when prevhist.previous_batch_id is not null
           and prevsch.id is not null
           then 'SCHEDULED'
-         else 'UNSCHEDULED'
+         when prevhist.previous_batch_id is not null
+          then 'UNSCHEDULED'
+         -- V433: Planning Chain only keeps the physical Current/Future chain
+         -- active. If the durable immediate Previous Main snapshot exists but
+         -- that exact predecessor is no longer present before this Current Main
+         -- in the active chain, the Job has physically passed it: DONE even
+         -- when no historical Batch was ever created for that Main.
+         when cur.previous_standard_operation_snapshot is not null
+          and prevp.id is null
+          then 'DONE'
+         else 'NOT_PLANNED'
         end schedule_status,
         prevsch.resource_code,
         prevsch.planned_start,
@@ -177,7 +187,9 @@ export default async function Page({
 
        left join lateral (
         select
+         p2.id,
          p2.standard_operation,
+         p2.source_operation_code,
          p2.source_seq,
          p2.planning_seq
         from planning_job_operation p2
@@ -214,10 +226,27 @@ export default async function Page({
         where hbj.job_num=cbj.job_num
           and hbj.batch_id<>cbj.batch_id
           and hbj.standard_operation<>'PIONBL'
-          and coalesce(hbj.source_seq_snapshot,hp.source_seq,-1)
-              <coalesce(cbj.source_seq_snapshot,cur.source_seq,2147483647)
+          -- V433: Previous Main history must belong to the EXACT immediate
+          -- predecessor, not simply the most recent older Batch.
+          and upper(trim(coalesce(nullif(hbj.standard_operation,''),hp.standard_operation,'')))=
+              upper(trim(coalesce(cur.previous_standard_operation_snapshot,prevp.standard_operation,'')))
+          and (
+           (
+            cur.previous_source_seq_snapshot is not null
+            and coalesce(hbj.source_seq_snapshot,hp.source_seq)=cur.previous_source_seq_snapshot
+           )
+           or (
+            cur.previous_source_seq_snapshot is null
+            and cur.previous_source_operation_code_snapshot is not null
+            and upper(trim(coalesce(nullif(hbj.source_operation_code,''),hp.source_operation_code,'')))=
+                upper(trim(cur.previous_source_operation_code_snapshot))
+           )
+           or (
+            cur.previous_source_seq_snapshot is null
+            and cur.previous_source_operation_code_snapshot is null
+           )
+          )
         order by
-         coalesce(hbj.source_seq_snapshot,hp.source_seq) desc,
          hb.created_at desc,
          hbj.id desc
         limit 1
@@ -239,8 +268,8 @@ export default async function Page({
        where cbj.batch_id=b.id
          and coalesce(
           prevhist.previous_batch_operation,
-          prevp.standard_operation,
-          cur.previous_standard_operation_snapshot
+          cur.previous_standard_operation_snapshot,
+          prevp.standard_operation
          ) is not null
       ) pinfo
     ) previousinfo on true

@@ -36,7 +36,7 @@ type PreviousMainBatch={
  batch_id:number|null;
  batch_no:string|null;
  operation:string|null;
- schedule_status:"SCHEDULED"|"UNSCHEDULED"|string;
+ schedule_status:"DONE"|"SCHEDULED"|"UNSCHEDULED"|"NOT_PLANNED"|string;
  resource_code:string|null;
  planned_start:string|null;
  planned_end:string|null;
@@ -1029,12 +1029,16 @@ export function ManualScheduleGrid({
              className={`schedule-previous-main-row ${
               prev.schedule_status==="SCHEDULED"
                ?"is-scheduled"
-               :"is-unscheduled"
+               :prev.schedule_status==="DONE"
+                ?"is-done"
+                :prev.schedule_status==="UNSCHEDULED"
+                 ?"is-unscheduled"
+                 :"is-not-planned"
              }`}
              key={`${b.id}-prev-${prev.batch_id||"none"}-${prev.operation||"op"}-${index}`}
             >
              <div className="schedule-previous-main-top">
-              <strong>{prev.batch_no||"NO BATCH"}</strong>
+              <strong>{prev.schedule_status==="DONE"?"DONE":(prev.batch_no||"NO BATCH")}</strong>
               <span>{prev.operation||"—"}</span>
               <em>{prev.schedule_status||"UNSCHEDULED"}</em>
              </div>
@@ -1044,7 +1048,11 @@ export function ManualScheduleGrid({
                  {prev.resource_code&&<>Resource: {prev.resource_code} · </>}
                  Complete: {dateTime(prev.planned_end)}
                 </small>
-              : <small>Chưa điều độ Previous Main Batch</small>}
+              :prev.schedule_status==="DONE"
+               ? <small>Previous Main đã DONE theo tiến độ Job · không yêu cầu Batch/Schedule lịch sử</small>
+               :prev.schedule_status==="UNSCHEDULED"
+                ? <small>Previous Main có Batch nhưng chưa điều độ</small>
+                : <small>Previous Main chưa DONE và chưa có Batch</small>}
             </div>
            )}
 
