@@ -3372,7 +3372,9 @@ const currentPriorityMonth=useMemo(()=>{
      const fallbackCompatLocked=
       normalized(status)==="READY" &&
       compatibilityLockedId(Number(x.id),mainOperation);
-     const fallbackRecipe=[String(x.recipe_no||"").trim(),String(x.recipe_name||"").trim()]
+     const fallbackRecipeNo=String(x.recipe_no||"").trim();
+     const fallbackRecipeName=String(x.recipe_name||"").trim();
+     const fallbackRecipe=[fallbackRecipeNo,fallbackRecipeName]
       .filter(Boolean).join(" · ");
      return <td
       key={key}
@@ -3385,8 +3387,8 @@ const currentPriorityMonth=useMemo(()=>{
       onContextMenu={e=>openJobHoldContextMenu(e,x,fallbackItem,status)}
      >
       <b>{fallbackDisplay}</b>
-      {normalized(status)==="READY"&&String(x.recipe_no||"").trim()&&
-       <span className="route-status-ready-recipe-no" title={fallbackRecipe||String(x.recipe_no||"").trim()}>{String(x.recipe_no||"").trim()}</span>}
+      {normalized(status)==="READY"&&fallbackRecipeNo&&
+       <span className="route-status-ready-recipe-no" title={fallbackRecipe||fallbackRecipeNo}>{fallbackRecipeNo}</span>}
       {!currentMainFocus&&x.batch_no&&<span className="route-status-batch">{x.batch_no}</span>}
      </td>;
     }
@@ -3532,6 +3534,10 @@ const currentPriorityMonth=useMemo(()=>{
      normalized(status)==="WAITING"
     );
 
+   const readyRecipeNo=String(displayItem.effective_recipe_no||displayItem.recipe_no||"").trim();
+   const readyRecipeName=String(displayItem.effective_recipe_name||displayItem.recipe_name||"").trim();
+   const readyRecipeTitle=[readyRecipeNo,readyRecipeName].filter(Boolean).join(" · ");
+
    return <td
     key={key}
     className={`route-status-cell ${routeStatusClass(status)} ${waitingClass} ${currentMainFocus?"route-context-current-cell":""} ${isCurrent?"route-status-current":""} ${(
@@ -3551,8 +3557,8 @@ const currentPriorityMonth=useMemo(()=>{
     onContextMenu={e=>openJobHoldContextMenu(e,x,selectableItem,status)}
    >
     <b>{displayStatus}</b>
-    {normalized(status)==="READY"&&String(displayItem.recipe_no||"").trim()&&
-     <span className="route-status-ready-recipe-no" title={[String(displayItem.recipe_no||"").trim(),String(displayItem.recipe_name||"").trim()].filter(Boolean).join(" · ")}>{String(displayItem.recipe_no||"").trim()}</span>}
+    {normalized(status)==="READY"&&readyRecipeNo&&
+     <span className="route-status-ready-recipe-no" title={readyRecipeTitle||readyRecipeNo}>{readyRecipeNo}</span>}
 
     {!currentMainFocus&&<>
      {(scheduledEnds.length>0||batchNos.length>0)&&

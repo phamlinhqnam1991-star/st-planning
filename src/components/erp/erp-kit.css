@@ -2615,9 +2615,9 @@
 .planning-erp-version .planning-erp-matrix-table td.route-status-cell .route-status-ready-recipe-no{
   position:absolute;right:3px;bottom:2px;z-index:1;display:block;max-width:calc(100% - 7px);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;
-  color:#3f6f9f!important;font:800 5.8px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace!important;
+  color:#3f6f9f!important;font:800 7px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace!important;
   letter-spacing:.01em;text-align:right;opacity:.92;
 }
 .planning-erp-version .candidate-density-normal .planning-erp-matrix-table td.route-status-cell .route-status-ready-recipe-no{
-  right:4px;bottom:3px;font-size:6.5px!important;
+  right:4px;bottom:3px;font-size:7.5px!important;
 }
