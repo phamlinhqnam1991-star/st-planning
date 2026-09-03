@@ -1,7 +1,6 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {requireApiUser} from "@/lib/api-auth";
-import {RAW_ST_VISIBLE_CTE_SQL,rawStJobMatchSql} from "@/lib/planning/raw-st-visible-sql";
 
 type Metric={jobs:number;qty:number;surface:number};
 const zeroMetric=():Metric=>({jobs:0,qty:0,surface:0});
@@ -31,27 +30,12 @@ export async function GET(req:Request){
   if(op){params.push(op);where.push(`upper(trim(p.standard_operation))=upper(trim($${params.length}))`);}
 
   const q=await c.query(`
-   with ${RAW_ST_VISIBLE_CTE_SQL}, area_by_group as (
+   with area_by_group as (
     select ag.st_group,min(ag.area_id) area_id
     from public.md_area_operation_group ag
     join public.md_area ax on ax.id=ag.area_id and ax.is_active=true
     where ag.is_active=true
     group by ag.st_group
-   ), eligible_jobs as (
-    select j.job_num
-    from public.open_job_current j
-    join lateral (
-     select p0.id,p0.standard_operation,p0.source_operation_code
-     from public.planning_job_operation p0
-     where p0.job_num=j.job_num
-       and p0.is_active=true
-       and p0.status in ('LOCKED','ELIGIBLE','PLANNED')
-       and upper(trim(p0.standard_operation))<>'PIONBL'
-     order by p0.planning_seq asc,p0.source_seq asc,p0.id asc
-     limit 1
-    ) current_main on true
-    where j.is_open=true
-      and ${rawStJobMatchSql("j","current_main")}
    ), base as (
     select
      p.job_num,
@@ -73,7 +57,6 @@ export async function GET(req:Request){
       0
      )::numeric surface
     from public.planning_job_operation p
-    join eligible_jobs ej on ej.job_num=p.job_num
     join public.open_job_current j on j.job_num=p.job_num
     left join area_by_group abg on abg.st_group=p.st_group
     left join public.md_area a on a.id=abg.area_id and a.is_active=true

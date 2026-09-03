@@ -171,7 +171,7 @@ UI gồm KPI tổng và bảng ERP compact. Click READY / WAIT / HOLD của mộ
 
 ## V398 — RAW NextOperation ST population gate
 
-Dashboard và Planning Board Workload Summary không được bắt đầu từ toàn bộ `planning_job_operation`. Population chuẩn phải bắt đầu từ `open_job_current` và RAW `next_operation` hiện tại của All Open Job.
+Dashboard và Planning Board Workload Summary có population khác nhau. Dashboard dùng canonical Dashboard ST scope đã chốt. Planning Board Workload Summary là read-only mirror của Route Matrix/active Planning Chain: bắt đầu từ `planning_job_operation` của mọi `open_job_current` đang open, không dùng Dashboard ST-scope gate hoặc RAW NextOperation gate để loại Job.
 
 `open_job_current.next_operation (RAW) -> Visible ST RAW scope -> Planning Chain / Batch / Schedule aggregation`
 
@@ -252,3 +252,8 @@ Dashboard no longer keeps separate population logic for KPI/Main/Recipe/CAT3/CAT
 
 ## V422 — Remove Dashboard Calculation Audit table
 The `Dashboard Calculation Audit · Job Detail` table has been removed from `/dashboard`. Its dedicated UI component, `StDashboardAuditJob` type, `auditJobs` accumulation/sort/return path, audit-only CSS, and obsolete i18n phrases were removed as dead code. The canonical Dashboard ST population is unchanged and continues to feed KPI cards, both charts, Area/Main/Recipe tables, CAT3 and CAT5. No Planning Chain, Candidate, Batch, Recipe, Schedule, Auto Planning, All Open Jobs, or Planning Board Workload Summary behavior changes.
+
+
+## V424 — Planning Board Workload Summary mirrors active Planning Chain
+
+Planning Board Workload Summary is intentionally independent from Dashboard canonical ST population. It aggregates every open Job's active `planning_job_operation` rows and maps `ELIGIBLE -> READY`, `LOCKED -> WAIT`, hold -> HOLD, de-duplicated per Job + Main + bucket. This makes the summary reconcile with the Route Matrix below, including Jobs whose physical RAW `NextOperation` is currently outside ST but whose ST Main is already `ELIGIBLE`/`LOCKED` in the active Planning Chain. Dashboard ST Scope remains Dashboard-only.

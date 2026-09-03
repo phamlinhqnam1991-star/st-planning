@@ -218,3 +218,5 @@ Bridge discovery and ST membership are now independent. ST Operation Flow lists 
 `INTERMEDIATE` in ST Operation Flow is now an explicit Dashboard-only membership flag. Bridge resolution still determines the Intermediate role and Current Main. Saving/removing this flag does not sync or mutate Planning Chain, All Open Jobs, Candidate, Batch, Recipe or Schedule. All Open Jobs operational visibility continues to use only `PLANNING_OPERATION` and `ST_SCOPE_ONLY`.
 
 - V423: Dashboard WAIT restored by expanding only canonical Dashboard ST Jobs to their active Planning Chain occurrences; Dashboard ST Scope logic remains unchanged.
+
+- V424: Planning Board Workload Summary restored as an active Planning Chain mirror; removed Dashboard/RAW-ST population gate so READY/WAIT/HOLD job counts reconcile with the Route Matrix. Dashboard ST Scope remains Dashboard-only.
