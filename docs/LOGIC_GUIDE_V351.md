@@ -47,3 +47,13 @@ Cập nhật toàn bộ tab `/logic-guide` theo hệ thống hiện tại.
 ## V389 — Job/Main Hold interaction
 
 Planning Matrix no longer renders a permanent `H` button beside every READY/WAIT cell. Right-click the exact Main Operation cell to open the Hold context action. `Hold` uses the existing Hold Reason + Note dialog. A held Job stays visible in Candidate Jobs and its exact Main cell renders `HOLD`; that occurrence is not selectable for Batch. Right-click a held cell and choose `Unhold`; only that Job is incrementally recalculated back to READY/WAIT. This does not change Schedule/Batch HOLD semantics.
+
+
+## V390 — Lưu trên Planning Board không reload trang
+
+- Tạo/thêm Batch: sau khi API lưu thành công, chỉ refresh các Job nằm trong Batch đó bằng Candidate delta; giữ nguyên màn hình, scroll, filter, zoom, density và layout.
+- Hold/Unhold: sau khi database commit, ô Main Operation đổi trạng thái ngay trên màn hình (`HOLD` hoặc READY/WAIT tương ứng), sau đó hệ thống tự đồng bộ lại đúng Job đó ở nền.
+- Không gọi full Candidate reload cho Hold/Unhold.
+- Mỗi lần tải Candidate đầy đủ sẽ xóa Route Matrix cache cũ trước khi tải để không giữ trạng thái stale.
+- Save Operation View không còn fallback `location.reload()`.
+- Batch/Rebuild chỉ báo thành công khi HTTP response thực sự thành công.

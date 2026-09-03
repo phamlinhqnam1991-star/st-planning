@@ -149,10 +149,16 @@ export function PlanningCandidateShell({presentation="legacy",areas,operations,a
   }
  },[]);
 
- // v335: after Create/Add Batch, re-evaluate ONLY the affected Jobs using the
- // canonical Candidate resolver. No global loading state, no tab reload, no
- // scroll/filter reset. Route Matrix cache is invalidated only for those Jobs.
- const refreshAffectedCandidates=useCallback(async(event:{affectedJobNums:string[];batchTarget?:any|null})=>{
+ // v390: every Planning Board mutation (Batch, Hold/Unhold, etc.) refreshes
+ // ONLY the affected Jobs. The optional operationState is patched immediately
+ // so the visible cell changes as soon as the save succeeds; the canonical
+ // delta query then reconciles the row in the background. No page reload, no
+ // board remount, and no scroll/filter/zoom reset.
+ const refreshAffectedCandidates=useCallback(async(event:{
+  affectedJobNums:string[];
+  batchTarget?:any|null;
+  operationState?:any|null;
+ })=>{
   const batchTarget=event?.batchTarget;
   if(batchTarget&&Number.isFinite(Number(batchTarget.id))){
    setAvailableBatchesState(prev=>[
@@ -166,14 +172,68 @@ export function PlanningCandidateShell({presentation="legacy",areas,operations,a
   if(!jobNums.length)return;
   const affectedSet=new Set(jobNums);
 
+  // Immediate visible patch for Job/Main Hold / Release Hold. PostgreSQL has
+  // already committed before this callback runs, so this is not a speculative
+  // write: it simply avoids waiting for the follow-up delta round-trip.
+  const operationState=event?.operationState;
+  const operationId=Number(operationState?.id);
+  const hasOperationPatch=Boolean(operationState&&Number.isFinite(operationId));
+  const isHold=hasOperationPatch?Boolean(operationState.is_hold):false;
+  const rawPlanningStatus=hasOperationPatch?String(operationState.status||"").toUpperCase():"";
+  const candidatePlanningStatus=isHold
+   ?"HOLD"
+   :(rawPlanningStatus==="ELIGIBLE"?"ELIGIBLE":rawPlanningStatus==="PLANNED"?"PLANNED":"LOCKED");
+  const routeStatus=isHold
+   ?"HOLD"
+   :(rawPlanningStatus==="ELIGIBLE"?"READY":rawPlanningStatus==="PLANNED"?"PLANNED-UNSCHEDULED":"WAITING");
+  const patchRoute=(items:any[])=>hasOperationPatch&&Array.isArray(items)?items.map((item:any)=>
+   Number(item?.planning_job_operation_id)===operationId
+    ?{
+      ...item,
+      planning_job_status:rawPlanningStatus||item.planning_job_status,
+      route_status:routeStatus,
+      is_hold:isHold,
+      hold_reason:operationState.hold_reason??null,
+      hold_note:operationState.hold_note??null,
+      held_at:operationState.held_at??null,
+      held_by:operationState.held_by??null
+     }
+    :item
+  ):items;
+
+  if(hasOperationPatch){
+   setCandidates(prev=>prev.map((row:any)=>{
+    if(!affectedSet.has(String(row.job_num)))return row;
+    const patchedRoute=patchRoute(row.route_status||[]);
+    const isDirect=Number(row.id)===operationId;
+    return {
+     ...row,
+     ...(isDirect?{
+      planning_status:candidatePlanningStatus,
+      is_hold:isHold,
+      hold_reason:operationState.hold_reason??null,
+      hold_note:operationState.hold_note??null,
+      held_at:operationState.held_at??null,
+      held_by:operationState.held_by??null
+     }:{}),
+     route_status:patchedRoute
+    };
+   }));
+
+  }
+
   // Capture current source_data before replacing the rows. Batch creation does
   // not modify All Open Job source columns, so keeping this avoids another
   // source_data request.
   const sourceByJob=new Map<string,unknown>();
+  const routeByJob=new Map<string,any[]>();
   const oldIds:number[]=[];
   for(const row of candidates){
    if(!affectedSet.has(String(row.job_num)))continue;
    if(row.source_data!=null)sourceByJob.set(String(row.job_num),row.source_data);
+   if(hasOperationPatch&&Array.isArray(row.route_status)){
+    routeByJob.set(String(row.job_num),patchRoute(row.route_status));
+   }
    const id=Number(row.id);
    if(Number.isFinite(id))oldIds.push(id);
   }
@@ -195,14 +255,17 @@ export function PlanningCandidateShell({presentation="legacy",areas,operations,a
    })
   });
   const d=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(d?.error||(presentation==="erp"?"Không cập nhật được Job vừa thay đổi Batch.":"Không cập nhật được Candidate vừa tạo Batch."));
+  if(!r.ok)throw new Error(d?.error||(presentation==="erp"?"Không đồng bộ được Job vừa thay đổi.":"Không đồng bộ được Candidate vừa thay đổi."));
 
-  const deltaRows=(Array.isArray(d.candidates)?d.candidates:[]).map((row:any)=>({
-   ...row,
-   source_data:row.source_data??sourceByJob.get(String(row.job_num))??null,
-   route_status:[],
-   route_status_loaded:false
-  }));
+  const deltaRows=(Array.isArray(d.candidates)?d.candidates:[]).map((row:any)=>{
+   const preservedRoute=hasOperationPatch?routeByJob.get(String(row.job_num)):undefined;
+   return {
+    ...row,
+    source_data:row.source_data??sourceByJob.get(String(row.job_num))??null,
+    route_status:Array.isArray(preservedRoute)?preservedRoute:[],
+    route_status_loaded:Array.isArray(preservedRoute)
+   };
+  });
   const newIds=deltaRows.map((x:any)=>Number(x.id)).filter(Number.isFinite);
   for(const id of newIds){
    routeStatusCache.current.delete(id);
@@ -213,19 +276,23 @@ export function PlanningCandidateShell({presentation="legacy",areas,operations,a
   // loaded scope. If it no longer belongs, remove it; if a newly matching row
   // appears, append it. Client sort/filter rules remain untouched.
   const deltaByJob=new Map(deltaRows.map((row:any)=>[String(row.job_num),row]));
-  const merged:any[]=[];
-  let previousAffectedCount=0;
-  for(const row of candidates){
-   const jobNum=String(row.job_num);
-   if(!affectedSet.has(jobNum)){merged.push(row);continue;}
-   previousAffectedCount+=1;
-   const replacement=deltaByJob.get(jobNum);
-   if(replacement){merged.push(replacement);deltaByJob.delete(jobNum);}
-  }
-  for(const row of deltaByJob.values())merged.push(row);
-  setCandidates(merged);
+  setCandidates(prev=>{
+   const pending=new Map(deltaByJob);
+   const merged:any[]=[];
+   for(const row of prev){
+    const jobNum=String(row.job_num);
+    if(!affectedSet.has(jobNum)){merged.push(row);continue;}
+    const replacement=pending.get(jobNum);
+    if(replacement){merged.push(replacement);pending.delete(jobNum);}
+   }
+   for(const row of pending.values())merged.push(row);
+   return merged;
+  });
   setPagination((p:any)=>{
-   const total=Math.max(0,Number(p?.totalCandidates||0)-previousAffectedCount+deltaRows.length);
+   // In normal mutation flow the affected Job remains in the same scope, so
+   // total is stable. Reconcile only when the delta truly adds/removes rows.
+   const existingAffected=candidates.filter(row=>affectedSet.has(String(row.job_num))).length;
+   const total=Math.max(0,Number(p?.totalCandidates||0)-existingAffected+deltaRows.length);
    const pageSize=Math.max(1,Number(p?.pageSize||200));
    return {...p,totalCandidates:total,totalPages:Math.max(1,Math.ceil(total/pageSize))};
   });
@@ -271,6 +338,10 @@ export function PlanningCandidateShell({presentation="legacy",areas,operations,a
  async function load(next:{useLoadedScope?:boolean}={}){
   const seq=++loadSeq.current;
   routeRequestedIds.current=new Set();
+  // v390: a full Candidate load must never reuse pre-mutation Route Matrix
+  // entries. Stale cache was the reason HOLD sometimes appeared only after
+  // several manual refreshes.
+  routeStatusCache.current.clear();
   routeActiveRequests.current=0;
   setLoading(true);setLoadingMore(false);setRouteLoading(false);setError("");setSourceDataError("");setRouteError("");
   // v323: hard client timeout — never let the board spin on a wedged request.
@@ -429,7 +500,7 @@ export function PlanningCandidateShell({presentation="legacy",areas,operations,a
     timeRules={timeRules} today={initial.today} initialView={initialView} initialServerViews={serverViews} pagination={pagination}
     onVisibleCandidateIds={ensureRouteStatuses}
     onReloadCandidates={()=>void load({useLoadedScope:true})}
-    onBatchMutation={refreshAffectedCandidates}
+    onCandidateMutation={refreshAffectedCandidates}
     onAfterMutation={()=>{void load({useLoadedScope:true});void refreshDeferredData();}}
     presentation={presentation}
    />

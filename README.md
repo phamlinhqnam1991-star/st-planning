@@ -147,3 +147,7 @@ See `docs/DATABASE_BACKUP_V383.md` for details.
 ## V387/V389 · Job/Main Hold
 
 Run `supabase/migrations/071_job_main_operation_hold.sql`. Planning Matrix READY/WAIT cells can be held at the exact Job + Main occurrence. V389 removes the old inline `H` button: right-click a holdable Main cell and choose `Hold`; right-click a held cell and choose `Unhold`. Held Jobs remain visible in Candidate Jobs, the held Main cell displays `HOLD`, and Batch selection stays disabled for that exact occurrence. Hold reason/note/user/time survive All Open Job imports. Job Hold remains separate from Schedule/Batch HOLD.
+
+## V390 · Planning Board instant save sync
+
+Normal Planning Board saves no longer reload the page. Create/Add Batch and Job/Main Hold/Unhold update only the affected Jobs. Hold/Unhold patches the visible cell immediately after the server commit, then reconciles that Job with the canonical Candidate + Route Matrix delta in the background. Full Candidate loads clear Route Matrix cache first so stale statuses cannot survive a manual refresh. Scroll/filter/zoom/density/column layout remain mounted during normal saves. No migration is required.

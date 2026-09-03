@@ -507,7 +507,7 @@ export function PlanningBoardClient({
  pagination,
  onVisibleCandidateIds,
  onReloadCandidates,
- onBatchMutation,
+ onCandidateMutation,
  onAfterMutation
 }: {
  presentation?:"legacy"|"erp";
@@ -529,11 +529,13 @@ export function PlanningBoardClient({
  pagination:{page:number;pageSize:number;totalCandidates:number;totalPages:number};
  onVisibleCandidateIds?:(ids:number[])=>void;
  onReloadCandidates?:()=>void;
- // v335: Create/Add Batch only refreshes the affected Jobs and updates the
- // Target Batch dropdown. It must NOT call the full Candidate load().
- onBatchMutation?:(event:{
+ // v390: all normal Planning Board saves refresh only affected Jobs. Optional
+ // operationState lets Hold/Unhold patch the visible cell immediately before
+ // the canonical delta refresh completes.
+ onCandidateMutation?:(event:{
   affectedJobNums:string[];
   batchTarget?:BatchTargetOption|null;
+  operationState?:any|null;
  })=>void|Promise<void>;
  // Full refresh remains available for explicit structural mutations such as
  // Rebuild Planning Chain.
@@ -2855,6 +2857,7 @@ const currentPriorityMonth=useMemo(()=>{
      });
 
      const d=await safeJson(r);
+     if(!r.ok)throw new Error(d?.error||(erpMode?"Không lưu được Batch.":"Không tạo/cập nhật được Batch."));
 
      setMessage(erpMode
       ?`${d.batchNo} · ${d.addedToExisting?"đã cập nhật":"đã tạo"} · ${d.totalJobs} Job · Qty ${formatNumber(d.totalQty)} · Diện tích ${formatNumber(d.totalSurface)} dm² · Thời gian ${minutesToHHMM(d.processMinutes)}${d.batchKey?` · Batch Key ${d.batchKey}`:""}${d.ruleName?` · Quy tắc ${d.ruleName}`:""}`
@@ -2870,7 +2873,7 @@ const currentPriorityMonth=useMemo(()=>{
      setSelected([]);
      setTargetBatchId("");
      try{
-      await onBatchMutation?.({
+      await onCandidateMutation?.({
        affectedJobNums:Array.isArray(d.affectedJobNums)?d.affectedJobNums:fallbackAffectedJobNums,
        batchTarget:d.batchTarget||null
       });
@@ -2892,6 +2895,7 @@ const currentPriorityMonth=useMemo(()=>{
    try{
      const r=await fetch("/api/planning/rebuild",{method:"POST"});
      const d=await safeJson(r);
+     if(!r.ok)throw new Error(d?.error||(erpMode?"Không dựng lại được chuỗi kế hoạch.":"Không dựng lại được Planning Chain."));
 
      setMessage(erpMode?`Đã dựng lại chuỗi: ${d.jobs||0} Job · ${d.operations||0} công đoạn.`:`Đã dựng lại Planning Chain: ${d.jobs||0} Job · ${d.operations||0} công đoạn.`);
      setTimeout(()=>onAfterMutation?.(),800);
@@ -3102,9 +3106,18 @@ const currentPriorityMonth=useMemo(()=>{
     const data=await safeJson(r);
     if(!r.ok)throw new Error(data?.error||"Không Hold được Job.");
     setSelected(prev=>prev.filter(x=>x!==holdDialog.id));
+    const savedTarget=holdDialog;
     setHoldDialog(null);
-    pushAppToast(`${holdDialog.jobNum} · ${holdDialog.standardOperation}: HOLD`);
-    onReloadCandidates?.();
+    pushAppToast(`${savedTarget.jobNum} · ${savedTarget.standardOperation}: HOLD`);
+    try{
+     await onCandidateMutation?.({
+      affectedJobNums:[String(data?.state?.job_num||savedTarget.jobNum)],
+      operationState:data?.state||null
+     });
+    }catch(refreshError){
+     console.error("[planning] hold delta refresh failed",refreshError);
+     setMessage("HOLD đã lưu. Dữ liệu nền chưa đồng bộ hết; bấm Áp dụng nếu cần tải lại.");
+    }
    }catch(e){setMessage(e instanceof Error?e.message:String(e));}
    finally{setHoldBusy(false);}
  };
@@ -3121,7 +3134,15 @@ const currentPriorityMonth=useMemo(()=>{
     if(!r.ok)throw new Error(data?.error||"Không bỏ Hold được Job.");
     setHoldDialog(null);
     pushAppToast(`${target.jobNum} · ${target.standardOperation}: đã bỏ HOLD`);
-    onReloadCandidates?.();
+    try{
+     await onCandidateMutation?.({
+      affectedJobNums:[String(data?.state?.job_num||data?.job_num||target.jobNum)],
+      operationState:data?.state||null
+     });
+    }catch(refreshError){
+     console.error("[planning] release hold delta refresh failed",refreshError);
+     setMessage("Bỏ HOLD đã lưu. Dữ liệu nền chưa đồng bộ hết; bấm Áp dụng nếu cần tải lại.");
+    }
    }catch(e){setMessage(e instanceof Error?e.message:String(e));}
    finally{setHoldBusy(false);}
  };
@@ -4173,8 +4194,9 @@ const currentPriorityMonth=useMemo(()=>{
           const d=await safeJson(r);
           if(!r.ok)throw new Error(d?.error||(erpMode?"Không lưu được phạm vi công đoạn.":"Không lưu được VIEW CÔNG ĐOẠN ST."));
           setOperationPickerOpen(false);
-          if(onReloadCandidates)onReloadCandidates();
-          else location.reload();
+          // v390: never reload the browser page from Planning Board. The shell
+          // refresh preserves scroll/filter/zoom/selection state.
+          onReloadCandidates?.();
          }catch(e){
           setViewMessage(erpMode?`Không lưu được phạm vi công đoạn: ${e instanceof Error?e.message:String(e)}`:`Không lưu được VIEW CÔNG ĐOẠN ST: ${e instanceof Error?e.message:String(e)}`);
           setTimeout(()=>setViewMessage(""),2600);

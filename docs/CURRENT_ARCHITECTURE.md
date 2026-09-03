@@ -127,3 +127,14 @@ Administrative PostgreSQL backups are created outside Vercel with `pg_dump` agai
 - Release Hold clears only the Hold metadata and runs an incremental chain sync for that Job, returning the operation to the correct READY/WAIT state.
 - Right-click a READY/WAIT Main cell to choose `Hold`; right-click a `HOLD` cell to choose `Unhold`. Hold still opens the existing reason/note dialog; Unhold releases directly and incrementally recalculates the Job.
 - Planning Board exposes a HOLD filter and Job Tracker shows Hold reason/user information.
+
+
+## V390 — Planning Board mutation synchronization
+
+`Save mutation -> DB commit -> immediate visible patch (when state is returned) -> affected-Job Candidate delta -> affected-Job Route Matrix refresh`
+
+- Normal Planning Board mutations must not reload/remount the page. Create/Add Batch and Job/Main Hold/Unhold use the same affected-Job delta refresh path.
+- Hold/Unhold uses the committed `planning_job_operation` state returned by the API to patch the visible cell immediately, then the canonical Candidate/Route resolver reconciles that Job only.
+- A full Candidate load explicitly clears Route Matrix cache before fetching, so a stale READY/WAIT/HOLD value cannot survive a manual Apply.
+- Structural Rebuild Planning Chain may still reload Candidate data inside the mounted shell, but it does not reload the browser page.
+- Business rules for Planning Chain, Recipe Lock, Batch, Schedule and Job Hold are unchanged.
