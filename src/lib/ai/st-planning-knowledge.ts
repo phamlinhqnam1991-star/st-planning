@@ -21,7 +21,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"st-scope",
   title:"ST Scope and Intermediate operations",
-  content:`Planning Chain workload remains based on Current Main and excludes ST_SCOPE_ONLY from Planning/Batch/Schedule. Dashboard chart 2 (Surface + Qty by Main / Immediate / ST Only) is a read-only current-position view with a broader ST visibility population: direct active PLANNING_OPERATION resolved to Current Main; active auto Bridge INTERMEDIATE validated by LastOperation -> RAW NextOperation -> Current Main AND requiring the RAW NextOperation itself to exist in active md_st_operation_scope; and active ST_SCOPE_ONLY shown as ST_SCOPE_ONLY / RAW NextOperation without creating Planning Chain rows. Auto Intermediate is derived from md_intermediate_bridge_segment + md_intermediate_bridge_operation, not from legacy md_st_operation_scope INTERMEDIATE rows. Unrelated non-ST flows remain excluded.`
+  content:`Planning Chain workload remains based on Current Main and excludes ST_SCOPE_ONLY from Planning/Batch/Schedule. Dashboard chart 2 (Surface + Qty by Main / Immediate / ST Only) is a read-only current-position view with a broader ST visibility population. Bridge resolution runs first from LastOperation -> RAW NextOperation -> Current Main. A Bridge operation is counted as Dashboard Immediate only when that RAW operation is explicitly tagged md_st_operation_scope.operation_type='INTERMEDIATE'. This INTERMEDIATE tag is Dashboard-only membership: it does not make a Job appear in All Open Jobs, does not create or deactivate Planning Chain rows, and does not affect Candidate, Batch, Recipe or Schedule. PLANNING_OPERATION and ST_SCOPE_ONLY keep their existing operational semantics.`
  },
  {
   key:"recipe-batch",

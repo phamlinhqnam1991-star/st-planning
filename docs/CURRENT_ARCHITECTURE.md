@@ -231,3 +231,9 @@ Dashboard population now starts from every Open Job RAW `next_operation`; there 
 
 ## V411 — Dashboard Immediate Operation must be ST-visible
 Dashboard no longer starts from every RAW NextOperation. Before the Current Main resolver runs, the physical `open_job_current.next_operation` must be active in `md_st_operation_scope` with type `PLANNING_OPERATION` or `INTERMEDIATE`. Then the existing context-aware resolver validates the Job against the live Current Main. `ST_SCOPE_ONLY` and unrelated non-ST RAW operations are excluded before workload/chart aggregation. `LastOperation` remains resolver context only and is not an ST visibility condition, so a valid first ST operation after a non-ST predecessor is still counted. This change is Dashboard-only and does not alter Planning Chain/Batch/Recipe/Schedule logic.
+
+## V418 — Bridge Role and ST Scope are independent
+
+Dashboard chart classification is now explicitly three-stage: (1) resolve `LastOperation → RAW NextOperation → Current Main`, (2) determine Bridge Role from active `md_intermediate_bridge_segment` / `md_intermediate_bridge_operation`, then (3) filter the RAW operation by explicit `md_st_operation_scope` membership. A Bridge Intermediate enters the ST chart only when its ST Scope Type is also `INTERMEDIATE`.
+
+`md_st_operation_scope.operation_type='INTERMEDIATE'` is an ST-membership tag only. It never defines Previous/Next Main and never creates its own Main Planning occurrence, Source → Main mapping, Batch or Schedule. ST Operation Flow therefore shows both all inferred Bridge Intermediate operations and the subset explicitly tagged `Intermediate · ST`. Removing an Intermediate ST tag does not deactivate or rebuild the Bridge/Planning Chain.

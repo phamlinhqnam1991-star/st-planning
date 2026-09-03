@@ -8,7 +8,7 @@ import {useErpConfirm} from "@/components/app-dialog-provider";
 
 type FlowRow={
  operation_code:string;operation_name:string|null;planning_sort_order:number|null;
- operation_type:"PLANNING_OPERATION"|"BRIDGE_INTERMEDIATE"|"ST_SCOPE_ONLY";
+ operation_type:"PLANNING_OPERATION"|"BRIDGE_INTERMEDIATE"|"ST_SCOPE_ONLY";st_scope_type:"PLANNING_OPERATION"|"INTERMEDIATE"|"ST_SCOPE_ONLY"|null;
  mapping_id:number|null;mapping_rule:string|null;standard_operation:string|null;st_group:string|null;
  area_id:number|null;area_name:string|null;schedule_area_code:string|null;schedule_area_name:string|null;planner_owner:string|null;
  open_jobs:number;config_status:string;bridge_count?:number;bridge_summary?:string|null;
@@ -31,7 +31,7 @@ type BridgeRun={
 
 type FormState={
  source_operation_code:string;source_operation_name:string;source_planning_order:string;
- operation_type:"PLANNING_OPERATION"|"ST_SCOPE_ONLY";
+ operation_type:"PLANNING_OPERATION"|"INTERMEDIATE"|"ST_SCOPE_ONLY";
  standard_operation:string;main_planning_order:string;batch_prefix:string;
  st_group:string;area_id:string;schedule_area_code:string;planner_owner:string;mapping_rule:string;
 };
@@ -67,7 +67,9 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
   return()=>{cancelled=true};
  },[]);
  const scopeOnly=form.operation_type==="ST_SCOPE_ONLY";
- const maxStep:1|2|3=scopeOnly?1:3;
+ const intermediateScope=form.operation_type==="INTERMEDIATE";
+ const nonPlanning=scopeOnly||intermediateScope;
+ const maxStep:1|2|3=nonPlanning?1:3;
 
  const filtered=useMemo(()=>{
   const q=search.trim().toUpperCase();
@@ -78,6 +80,7 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
  },[rows,search]);
 
  const autoIntermediateCount=rows.filter(r=>r.operation_type==="BRIDGE_INTERMEDIATE").length;
+ const stIntermediateCount=rows.filter(r=>r.st_scope_type==="INTERMEDIATE").length;
  const statusCounts=useMemo(()=>rows.reduce((m,r)=>{m[r.config_status]=(m[r.config_status]||0)+1;return m;},{} as Record<string,number>),[rows]);
  const shownBridgeSegments=useMemo(()=>bridgeSourceFilter==="ALL"?bridgeSegments:bridgeSegments.filter(x=>x.source===bridgeSourceFilter),[bridgeSegments,bridgeSourceFilter]);
  const autoBridgeCount=bridgeSegments.filter(x=>x.source==="AUTO_ROUTING").length;
@@ -116,17 +119,19 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
  const selectSource=(code:string)=>{
   const op=rawOperations.find(x=>x.operation_code===code);
   const existing=rows.find(x=>x.operation_code===code);
-  const editableType=existing?.operation_type==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":"PLANNING_OPERATION";
+  const editableType:FormState["operation_type"]=
+   existing?.operation_type==="BRIDGE_INTERMEDIATE"||existing?.st_scope_type==="INTERMEDIATE"?"INTERMEDIATE":
+   existing?.st_scope_type==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":"PLANNING_OPERATION";
   setForm(f=>({
    ...f,source_operation_code:code,source_operation_name:op?.operation_name||code,
    source_planning_order:existing?.planning_sort_order==null?"":String(existing.planning_sort_order),
    operation_type:editableType,
-   standard_operation:existing?.operation_type==="PLANNING_OPERATION"?(existing.standard_operation||""):"",
-   st_group:existing?.operation_type==="PLANNING_OPERATION"?(existing.st_group||""):"",
-   area_id:existing?.operation_type==="PLANNING_OPERATION"&&existing.area_id!=null?String(existing.area_id):"",
-   schedule_area_code:existing?.operation_type==="PLANNING_OPERATION"?(existing.schedule_area_code||""):"",
-   planner_owner:existing?.operation_type==="PLANNING_OPERATION"?(existing.planner_owner||""):"",
-   mapping_rule:existing?.operation_type==="PLANNING_OPERATION"?(existing.mapping_rule||"DIRECT"):"DIRECT"
+   standard_operation:existing?.st_scope_type==="PLANNING_OPERATION"?(existing.standard_operation||""):"",
+   st_group:existing?.st_scope_type==="PLANNING_OPERATION"?(existing.st_group||""):"",
+   area_id:existing?.st_scope_type==="PLANNING_OPERATION"&&existing.area_id!=null?String(existing.area_id):"",
+   schedule_area_code:existing?.st_scope_type==="PLANNING_OPERATION"?(existing.schedule_area_code||""):"",
+   planner_owner:existing?.st_scope_type==="PLANNING_OPERATION"?(existing.planner_owner||""):"",
+   mapping_rule:existing?.st_scope_type==="PLANNING_OPERATION"?(existing.mapping_rule||"DIRECT"):"DIRECT"
   }));
  };
 
@@ -142,33 +147,43 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
 
  const edit=(r:FlowRow)=>{
   if(r.operation_type==="BRIDGE_INTERMEDIATE"){
-   setMessage(`${r.operation_code} là Bridge Intermediate. AUTO chỉnh qua Routing/Rebuild; MANUAL chỉnh tại bảng Intermediate Bridge Segments bên dưới.`);
+   setForm({
+    source_operation_code:r.operation_code,source_operation_name:r.operation_name||r.operation_code,
+    source_planning_order:r.planning_sort_order==null?"":String(r.planning_sort_order),operation_type:"INTERMEDIATE",
+    standard_operation:"",main_planning_order:"",batch_prefix:"",st_group:"",area_id:"",
+    schedule_area_code:"",planner_owner:"",mapping_rule:"DIRECT"
+   });
+   setStep(1);
+   setMessage(r.st_scope_type==="INTERMEDIATE"
+    ?`${r.operation_code} đang là INTERMEDIATE Dashboard ST. Bridge vẫn do Auto/Manual Segment quyết định; Planning Chain không đổi.`
+    :`${r.operation_code} là Bridge Intermediate. Chọn Lưu để bật Dashboard ST cho operation này; không tạo/sửa Main, Planning Chain, Candidate, Batch hoặc Schedule.`);
+   window.scrollTo({top:0,behavior:"smooth"});
    return;
   }
   const m=mainOperations.find(x=>x.standard_operation===r.standard_operation);
   setForm({
    source_operation_code:r.operation_code,source_operation_name:r.operation_name||r.operation_code,
-   source_planning_order:r.planning_sort_order==null?"":String(r.planning_sort_order),operation_type:r.operation_type,
+   source_planning_order:r.planning_sort_order==null?"":String(r.planning_sort_order),operation_type:r.st_scope_type==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":"PLANNING_OPERATION",
    standard_operation:r.standard_operation||"",main_planning_order:m?.planning_sort_order==null?"":String(m.planning_sort_order),
    batch_prefix:m?.batch_prefix||"",st_group:r.st_group||m?.st_group||"",area_id:r.area_id==null?"":String(r.area_id),
    schedule_area_code:r.schedule_area_code||"",planner_owner:r.planner_owner||"",mapping_rule:r.mapping_rule||"DIRECT"
   });
-  setStep(r.operation_type==="ST_SCOPE_ONLY"?1:3);window.scrollTo({top:0,behavior:"smooth"});
+  setStep(r.st_scope_type==="ST_SCOPE_ONLY"?1:3);window.scrollTo({top:0,behavior:"smooth"});
  };
 
  const next=()=>{
   if(!form.source_operation_code){setMessage("Bước 1: nhập Operation Code.");return;}
-  if(step===1){setStep(scopeOnly?1:2);return;}
+  if(step===1){setStep(nonPlanning?1:2);return;}
   if(step===2){if(!form.standard_operation){setMessage("Bước 2: chọn Công đoạn chính.");return;}setStep(3);}
  };
  const back=()=>setStep(s=>s===1?1:(s-1) as 1|2|3);
 
  const save=async()=>{
   if(!form.source_operation_code){setMessage("Nhập Operation Code.");return;}
-  if(!scopeOnly&&(!form.standard_operation||!form.st_group||!form.area_id||!form.schedule_area_code||!["1","2"].includes(form.planner_owner))){
+  if(!nonPlanning&&(!form.standard_operation||!form.st_group||!form.area_id||!form.schedule_area_code||!["1","2"].includes(form.planner_owner))){
    setMessage("Planning Operation bắt buộc đủ Main Operation → ST Group → Physical Area → Schedule Area → Planner.");return;
   }
-  if(!scopeOnly&&!await confirmErp("Lưu sẽ cập nhật lại chuỗi công đoạn cho các Job liên quan.\n\nNếu thay đổi Main/Routing, hãy dựng lại Auto Bridge sau khi lưu. Lịch sử Batch/Schedule không bị xóa.\n\nTiếp tục?"))return;
+  if(!nonPlanning&&!await confirmErp("Lưu sẽ cập nhật lại chuỗi công đoạn cho các Job liên quan.\n\nNếu thay đổi Main/Routing, hãy dựng lại Auto Bridge sau khi lưu. Lịch sử Batch/Schedule không bị xóa.\n\nTiếp tục?"))return;
   setBusy(true);setMessage("");
   try{
    const r=await fetch("/api/config/st-operation-flow",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
@@ -176,9 +191,11 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
     main_planning_order:form.main_planning_order===""?null:Number(form.main_planning_order),area_id:form.area_id===""?null:Number(form.area_id)
    })});
    const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Không lưu được ST Operation Flow.");
-   setMessage(d.operation_type==="ST_SCOPE_ONLY"
-    ?`Đã lưu ${d.source_operation_code} = ST_SCOPE_ONLY.`
-    :`Đã đồng bộ ${d.source_operation_code} → ${d.standard_operation}. Nếu thay đổi này ảnh hưởng Main/Routing, hãy Rebuild Auto Bridge Segments.`);
+   setMessage(d.operation_type==="INTERMEDIATE"
+    ?`Đã lưu ${d.source_operation_code} = INTERMEDIATE Dashboard ST. Chỉ Dashboard Chart/Audit dùng nhãn này; Planning Chain/Candidate/Batch/Schedule không đổi.`
+    :d.operation_type==="ST_SCOPE_ONLY"
+     ?`Đã lưu ${d.source_operation_code} = ST_SCOPE_ONLY.`
+     :`Đã đồng bộ ${d.source_operation_code} → ${d.standard_operation}. Nếu thay đổi này ảnh hưởng Main/Routing, hãy Rebuild Auto Bridge Segments.`);
    setForm(emptyForm);setStep(1);setTimeout(()=>location.reload(),700);
   }catch(e){setMessage(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
  };
@@ -295,19 +312,22 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
  };
 
  const deactivate=async(code:string)=>{
-  if(!await confirmErp(`Bỏ ${code} khỏi ST Scope?\n\nChỉ dùng cho Planning/ST_SCOPE_ONLY đã cấu hình tay. Auto Intermediate không cần thao tác này.`))return;
+  if(!await confirmErp(`Bỏ ${code} khỏi ST Scope?\n\nNếu đây là INTERMEDIATE Dashboard, thao tác chỉ bỏ nhãn Dashboard ST; Auto/Manual Bridge và Planning Chain vẫn giữ nguyên.`))return;
   setBusy(true);setMessage("");
   try{
    const r=await fetch("/api/config/st-operation-flow",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({source_operation_code:code})});
    const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Không deactivate được ST Operation.");
-   setMessage(`Đã bỏ ${code} khỏi ST Scope.`);setTimeout(()=>location.reload(),700);
+   setMessage(`Đã bỏ ${code} khỏi ST Scope/Dashboard ST.`);setTimeout(()=>location.reload(),700);
   }catch(e){setMessage(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
  };
 
  const chainPreview=()=>{
   const chips:{label:string;ok:boolean}[]=[{label:form.source_operation_code||"Operation Code",ok:!!form.source_operation_code}];
   if(scopeOnly)chips.push({label:"ST_SCOPE_ONLY (chỉ hiển thị)",ok:true});
-  else{
+  else if(intermediateScope){
+   chips.push({label:"INTERMEDIATE · Dashboard ST",ok:true});
+   chips.push({label:"Previous/Next Main lấy từ Bridge",ok:true});
+  }else{
    chips.push({label:form.standard_operation||"Công đoạn chính",ok:!!form.standard_operation});
    chips.push({label:form.st_group||"Nhóm ST",ok:!!form.st_group});
    chips.push({label:areas.find(a=>String(a.id)===form.area_id)?.area_name||"Khu vật lý",ok:!!form.area_id});
@@ -320,15 +340,15 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
 
  return <>
   <div className="erp-form-panel erp-editor-panel section">
-   <div className="erp-panel-head"><div><b>Trợ lý cấu hình Main Planning / ST Scope Only</b><small className="planning-sub">Không cần chọn INTERMEDIATE. Hệ thống tự suy ra từ Routing giữa các Main Planning.</small></div><button className="btn" type="button" onClick={()=>{setForm(emptyForm);setStep(1)}} disabled={busy}>Làm mới</button></div>
+   <div className="erp-panel-head"><div><b>Trợ lý cấu hình Main Planning / Intermediate Dashboard ST / ST Scope Only</b><small className="planning-sub">Bridge tự suy ra toàn bộ Intermediate; nhãn INTERMEDIATE tại đây chỉ dùng cho Dashboard Chart/Audit, không thay đổi Planning Chain.</small></div><button className="btn" type="button" onClick={()=>{setForm(emptyForm);setStep(1)}} disabled={busy}>Làm mới</button></div>
    <div className="wizard-stepper">{wsStep(1,"Operation Code","Chọn mã công đoạn")}<div className={`wizard-conn ${step>1?"done":""}`}/>{wsStep(2,"Công đoạn & Nhóm","Gán Main Planning")}<div className={`wizard-conn ${step>2?"done":""}`}/>{wsStep(3,"Khu vực & Planner","Chọn nơi chạy, ai lo")}</div>
    <div className="wizard-panel">
     {step===1&&<><div className="candidate-filter-grid">
      <label>Mã công đoạn<input className="input" list="st-source-ops" value={form.source_operation_code} onChange={e=>selectSource(e.target.value.toUpperCase())} placeholder="VD: CPBILP"/><datalist id="st-source-ops">{rawOperations.map(x=><option key={x.operation_code} value={x.operation_code}>{x.operation_name||x.operation_code} · {x.open_jobs||0} job</option>)}</datalist></label>
-     <label>Tên công đoạn<input className="input" value={form.source_operation_name} onChange={e=>setForm({...form,source_operation_name:e.target.value})}/></label>
-     <label>Loại Operation<select className="input" value={form.operation_type} onChange={e=>{const type=e.target.value as FormState["operation_type"];setStep(1);if(type==="ST_SCOPE_ONLY")setForm({...form,operation_type:type,standard_operation:"",main_planning_order:"",batch_prefix:"",st_group:"",area_id:"",schedule_area_code:"",planner_owner:"",mapping_rule:"DIRECT"});else setForm({...form,operation_type:type})}}><option value="PLANNING_OPERATION">Planning Operation — tạo Main/Batch/Schedule</option><option value="ST_SCOPE_ONLY">ST_SCOPE_ONLY — chỉ hiển thị, không lập kế hoạch</option></select></label>
-     <label>Operation Code Order (tie-break)<input className="input" type="number" value={form.source_planning_order} onChange={e=>setForm({...form,source_planning_order:e.target.value})}/></label>
-    </div>{scopeOnly&&<div className="notice" style={{marginTop:10}}><b>ST_SCOPE_ONLY:</b> không sinh Planning Chain/Batch/Schedule.</div>}</>}
+     <label>Tên công đoạn<input className="input" value={form.source_operation_name} disabled={intermediateScope} onChange={e=>setForm({...form,source_operation_name:e.target.value})}/></label>
+     <label>Loại Operation<select className="input" value={form.operation_type} onChange={e=>{const type=e.target.value as FormState["operation_type"];setStep(1);if(type!=="PLANNING_OPERATION")setForm({...form,operation_type:type,standard_operation:"",main_planning_order:"",batch_prefix:"",st_group:"",area_id:"",schedule_area_code:"",planner_owner:"",mapping_rule:"DIRECT"});else setForm({...form,operation_type:type})}}><option value="PLANNING_OPERATION">Planning Operation — tạo Main/Batch/Schedule</option><option value="INTERMEDIATE">INTERMEDIATE — Dashboard ST only, Main lấy từ Bridge</option><option value="ST_SCOPE_ONLY">ST_SCOPE_ONLY — chỉ hiển thị, không lập kế hoạch</option></select></label>
+     <label>Operation Code Order (tie-break)<input className="input" type="number" value={form.source_planning_order} disabled={intermediateScope} onChange={e=>setForm({...form,source_planning_order:e.target.value})}/></label>
+    </div>{intermediateScope&&<div className="notice" style={{marginTop:10}}><b>INTERMEDIATE Dashboard ST:</b> chỉ dùng cho Dashboard Chart/Audit sau khi Bridge resolver chạy xong. Không làm Job xuất hiện ở All Open Jobs, không đổi Planning Chain/Candidate/Batch/Schedule.</div>}{scopeOnly&&<div className="notice" style={{marginTop:10}}><b>ST_SCOPE_ONLY:</b> không sinh Planning Chain/Batch/Schedule.</div>}</>}
     {step===2&&<><div className="candidate-filter-grid">
      <label>Công đoạn chính<input className="input" list="st-main-ops" value={form.standard_operation} onChange={e=>selectMain(e.target.value.toUpperCase())}/><datalist id="st-main-ops">{mainOperations.map(x=><option key={x.standard_operation} value={x.standard_operation}>{x.st_group}</option>)}</datalist></label>
      <label>Thứ tự Main<input className="input" type="number" value={form.main_planning_order} onChange={e=>setForm({...form,main_planning_order:e.target.value})}/></label>
@@ -341,14 +361,14 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
      <label>Khu vực điều độ<select className="input" value={form.schedule_area_code} onChange={e=>selectScheduleArea(e.target.value)}><option value="">Chọn lane...</option>{scheduleAreas.map(x=><option key={x.schedule_area_code} value={x.schedule_area_code}>{x.schedule_area_name}</option>)}</select></label>
      <label>Planner<select className="input" value={form.planner_owner} onChange={e=>setForm({...form,planner_owner:e.target.value})}><option value="">Chọn...</option><option value="1">Planner 1</option><option value="2">Planner 2</option></select></label>
     </div>{chainPreview()}</>}
-    <div className="row" style={{marginTop:14,justifyContent:"space-between"}}><div className="row">{step>1&&<button className="btn" onClick={back} disabled={busy}>← Quay lại</button>}{step<maxStep&&<button className="btn primary" onClick={next} disabled={busy}>Tiếp tục →</button>}</div><div className="row">{step===maxStep&&<button className="btn primary" onClick={save} disabled={busy}>{busy?"Đang đồng bộ...":scopeOnly?"Lưu ST_SCOPE_ONLY":"Lưu + Dựng lại chuỗi"}</button>}</div></div>
+    <div className="row" style={{marginTop:14,justifyContent:"space-between"}}><div className="row">{step>1&&<button className="btn" onClick={back} disabled={busy}>← Quay lại</button>}{step<maxStep&&<button className="btn primary" onClick={next} disabled={busy}>Tiếp tục →</button>}</div><div className="row">{step===maxStep&&<button className="btn primary" onClick={save} disabled={busy}>{busy?"Đang lưu...":intermediateScope?"Lưu INTERMEDIATE Dashboard":scopeOnly?"Lưu ST_SCOPE_ONLY":"Lưu + Dựng lại chuỗi"}</button>}</div></div>
    </div>
   </div>
 
   <div className="erp-table-panel section">
-   <div className="erp-panel-head"><div><b>Danh sách Operation</b><small className="planning-sub">RAW NextOperation kế thừa Main Planning Order; Operation Code Order chỉ dùng để sắp xếp thêm trong cùng Main.</small></div><div className="row"><span>Planning OK {statusCounts.OK||0}</span><span>Bridge Intermediate {autoIntermediateCount}</span><span>ST Scope Only {statusCounts.ST_SCOPE_ONLY||0}</span><input className="input" style={{width:220}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm Operation..."/></div></div>
+   <div className="erp-panel-head"><div><b>Danh sách Operation</b><small className="planning-sub">RAW NextOperation kế thừa Main Planning Order; Operation Code Order chỉ dùng để sắp xếp thêm trong cùng Main.</small></div><div className="row"><span>Planning OK {statusCounts.OK||0}</span><span>Bridge Intermediate {autoIntermediateCount}</span><span>Intermediate Dashboard ST {stIntermediateCount}</span><span>ST Scope Only {statusCounts.ST_SCOPE_ONLY||0}</span><input className="input" style={{width:220}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm Operation..."/></div></div>
    <div className="table-wrap" style={{maxHeight:560}}><table className="erp-table"><thead><tr><th>Mã nguồn</th><th>Loại</th><th>Số Job</th><th>Operation Code Order</th><th>Main / Bridge</th><th>Rule</th><th>Nhóm ST</th><th>Khu vật lý</th><th>Khu điều độ</th><th>Planner</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
-    {filtered.map(r=>{const auto=r.operation_type==="BRIDGE_INTERMEDIATE";const valid=r.config_status==="OK"||r.config_status==="INTERMEDIATE_BRIDGE"||r.config_status==="ST_SCOPE_ONLY";return <tr key={r.operation_code} style={{background:valid?undefined:"#fff7ed"}}><td><b>{r.operation_code}</b><small className="planning-sub">{r.operation_name||""}</small></td><td><b>{r.operation_type==="ST_SCOPE_ONLY"?"Chỉ hiển thị":auto?"Bridge Intermediate":"Planning"}</b></td><td className="num">{r.open_jobs||0}</td><td style={{minWidth:145}}>{codeOrderEditing===r.operation_code?<div className="row" style={{flexWrap:"nowrap"}}><input className="input" type="number" min={0} step={1} value={codeOrderValue} onChange={e=>setCodeOrderValue(e.target.value)} style={{width:72}} autoFocus/><button className="btn small primary" type="button" disabled={busy} onClick={()=>saveCodeOrder(r)}>Lưu</button><button className="btn small" type="button" disabled={busy} onClick={()=>setCodeOrderEditing(null)}>Hủy</button></div>:<button className="btn small mono" type="button" disabled={busy} onClick={()=>beginCodeOrder(r)} title="Thứ tự phụ của Operation Code trong cùng Main; Main Planning Order vẫn là thứ tự chính">{r.planning_sort_order??"ĐẶT"}</button>}</td><td><b>{auto?(r.bridge_summary||"Auto Bridge"):(r.standard_operation||"—")}</b>{auto&&<small className="planning-sub">{r.bridge_count||0} segment</small>}</td><td>{auto?"AUTO ROUTING":(r.mapping_rule||"—")}</td><td>{r.st_group||"—"}</td><td>{r.area_name||"—"}</td><td>{r.schedule_area_name||"—"}</td><td>{r.planner_owner||"—"}</td><td><b>{r.config_status}</b></td><td>{auto?<span className="muted">Tự động</span>:<div className="row"><button className="btn small" onClick={()=>edit(r)}>Sửa</button><button className="btn small danger-btn" onClick={()=>deactivate(r.operation_code)} disabled={busy}>Bỏ khỏi ST</button></div>}</td></tr>})}
+    {filtered.map(r=>{const auto=r.operation_type==="BRIDGE_INTERMEDIATE";const stIntermediate=r.st_scope_type==="INTERMEDIATE";const valid=r.config_status==="OK"||r.config_status==="INTERMEDIATE_BRIDGE"||r.config_status==="INTERMEDIATE_ST_SCOPE"||r.config_status==="ST_SCOPE_ONLY";return <tr key={r.operation_code} style={{background:valid?undefined:"#fff7ed"}}><td><b>{r.operation_code}</b><small className="planning-sub">{r.operation_name||""}</small></td><td><b>{r.operation_type==="ST_SCOPE_ONLY"?"ST Scope Only":auto?(stIntermediate?"Intermediate · ST Dashboard":"Bridge Intermediate"):"Planning"}</b>{auto&&<small className="planning-sub">{stIntermediate?"Dashboard ST: ON":"Dashboard ST: OFF"}</small>}</td><td className="num">{r.open_jobs||0}</td><td style={{minWidth:145}}>{codeOrderEditing===r.operation_code?<div className="row" style={{flexWrap:"nowrap"}}><input className="input" type="number" min={0} step={1} value={codeOrderValue} onChange={e=>setCodeOrderValue(e.target.value)} style={{width:72}} autoFocus/><button className="btn small primary" type="button" disabled={busy} onClick={()=>saveCodeOrder(r)}>Lưu</button><button className="btn small" type="button" disabled={busy} onClick={()=>setCodeOrderEditing(null)}>Hủy</button></div>:<button className="btn small mono" type="button" disabled={busy} onClick={()=>beginCodeOrder(r)} title="Thứ tự phụ của Operation Code trong cùng Main; Main Planning Order vẫn là thứ tự chính">{r.planning_sort_order??"ĐẶT"}</button>}</td><td><b>{auto?(r.bridge_summary||"Chưa có active Bridge"):(r.standard_operation||"—")}</b>{auto&&<small className="planning-sub">{r.bridge_count||0} segment</small>}</td><td>{auto?(stIntermediate?"DASHBOARD ST + BRIDGE":"AUTO/MANUAL BRIDGE"):(r.mapping_rule||"—")}</td><td>{r.st_group||"—"}</td><td>{r.area_name||"—"}</td><td>{r.schedule_area_name||"—"}</td><td>{r.planner_owner||"—"}</td><td><b>{r.config_status}</b></td><td>{auto?<div className="row"><button className="btn small" onClick={()=>edit(r)}>{stIntermediate?"Sửa Dashboard ST":"Đánh dấu Dashboard ST"}</button>{stIntermediate&&<button className="btn small danger-btn" onClick={()=>deactivate(r.operation_code)} disabled={busy}>Bỏ Dashboard ST</button>}</div>:<div className="row"><button className="btn small" onClick={()=>edit(r)}>Sửa</button><button className="btn small danger-btn" onClick={()=>deactivate(r.operation_code)} disabled={busy}>Bỏ khỏi ST</button></div>}</td></tr>})}
    </tbody></table></div>
   </div>
 

@@ -21,11 +21,12 @@ export default async function Page({
 
  const c=await getPool().connect();
  try{
-   // Canonical ST filter: All Open Jobs in this ST application are selected
-   // ONLY by md_st_operation_scope. ST Mapping is NOT the visibility filter.
+   // Operational ST visibility only. V419 Dashboard-only INTERMEDIATE tags must
+   // not make a Job appear in All Open Jobs / Planning.
    const conditions:string[]=[`exists(
      select 1 from md_st_operation_scope scope
      where scope.is_active=true
+       and scope.operation_type in ('PLANNING_OPERATION','ST_SCOPE_ONLY')
        and upper(trim(scope.operation_code))=upper(trim(open_job_current.next_operation))
    )`];
    const args:any[]=[];
@@ -64,6 +65,7 @@ export default async function Page({
        where exists(
         select 1 from md_st_operation_scope scope
         where scope.is_active=true
+          and scope.operation_type in ('PLANNING_OPERATION','ST_SCOPE_ONLY')
           and upper(trim(scope.operation_code))=upper(trim(open_job_current.next_operation))
        )
      `),

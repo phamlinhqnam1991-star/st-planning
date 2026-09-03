@@ -208,3 +208,11 @@ Dashboard population is temporarily made deliberately strict for validation: an 
 
 ## V410 build isolation
 Build now removes/excludes nested stale version source folders (`st_v###`, `work_v###`) before Next.js type-check. This prevents copied legacy source trees from being compiled together with the current `src/`.
+
+## V418 · Explicit ST Scope for Bridge Intermediate
+
+Bridge discovery and ST membership are now independent. ST Operation Flow lists every active Bridge Intermediate and allows the planner to mark only the real Surface Treatment subset as `INTERMEDIATE` in `md_st_operation_scope`. Dashboard resolves `LastOperation → RAW NextOperation → Current Main` first, then counts Immediate only when the resolved Bridge Role is `INTERMEDIATE` and the explicit ST Scope Type is also `INTERMEDIATE`. This tag does not create a Main/Batch/Schedule and removing it does not modify the Auto/Manual Bridge.
+
+## V419 · Dashboard-only ST membership for Intermediate
+
+`INTERMEDIATE` in ST Operation Flow is now an explicit Dashboard-only membership flag. Bridge resolution still determines the Intermediate role and Current Main. Saving/removing this flag does not sync or mutate Planning Chain, All Open Jobs, Candidate, Batch, Recipe or Schedule. All Open Jobs operational visibility continues to use only `PLANNING_OPERATION` and `ST_SCOPE_ONLY`.

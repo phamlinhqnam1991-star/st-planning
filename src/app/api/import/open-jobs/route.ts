@@ -74,6 +74,7 @@ export async function POST(req:Request){
            and not exists(
              select 1 from md_st_operation_scope s
              where s.is_active=true
+               and s.operation_type in ('PLANNING_OPERATION','ST_SCOPE_ONLY')
                and upper(trim(s.operation_code))=upper(trim(j.next_operation))
            )
            and not exists(

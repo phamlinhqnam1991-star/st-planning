@@ -29,26 +29,39 @@ export default async function Page(){
      from md_intermediate_bridge_operation bo
      join md_intermediate_bridge_segment s on s.id=bo.segment_id and s.is_active=true
      group by upper(trim(bo.operation_code))
-    ), manual_scope as (
+    ), scope_rows as (
      select
       upper(trim(operation_code)) operation_code,
-      case when bool_or(operation_type='ST_SCOPE_ONLY') then 'ST_SCOPE_ONLY' else 'PLANNING_OPERATION' end operation_type
+      case
+       when bool_or(operation_type='ST_SCOPE_ONLY') then 'ST_SCOPE_ONLY'
+       when bool_or(operation_type='INTERMEDIATE') then 'INTERMEDIATE'
+       when bool_or(operation_type='PLANNING_OPERATION') then 'PLANNING_OPERATION'
+       else null
+      end st_scope_type
      from md_st_operation_scope
-     where is_active=true and operation_type<>'INTERMEDIATE'
+     where is_active=true
+       and operation_type in ('PLANNING_OPERATION','INTERMEDIATE','ST_SCOPE_ONLY')
      group by upper(trim(operation_code))
     ), catalog as (
-     select operation_code,operation_type from manual_scope
-     union
-     select b.operation_code,'BRIDGE_INTERMEDIATE'::text operation_type
+     select
+      s.operation_code,
+      case when s.st_scope_type='INTERMEDIATE' then 'BRIDGE_INTERMEDIATE' else s.st_scope_type end operation_type,
+      s.st_scope_type
+     from scope_rows s
+     where s.st_scope_type is not null
+     union all
+     select b.operation_code,'BRIDGE_INTERMEDIATE'::text operation_type,null::text st_scope_type
      from bridge_ops b
-     where not exists(select 1 from manual_scope s where s.operation_code=b.operation_code)
+     where not exists(select 1 from scope_rows s where s.operation_code=b.operation_code)
     )
-    select cat.operation_code,coalesce(o.operation_name,cat.operation_code) operation_name,o.planning_sort_order,cat.operation_type,map.id mapping_id,map.mapping_rule,
+    select cat.operation_code,coalesce(o.operation_name,cat.operation_code) operation_name,o.planning_sort_order,cat.operation_type,cat.st_scope_type,map.id mapping_id,map.mapping_rule,
       map.standard_operation_rule standard_operation,coalesce(map.st_group,om.st_group) st_group,
       a.id area_id,a.area_name,sa.schedule_area_code,sa.schedule_area_name,sa.planner_owner,
       coalesce(j.open_jobs,0)::int open_jobs,
       coalesce(bridge.bridge_count,0)::int bridge_count,bridge.bridge_summary,
       case when cat.operation_type='ST_SCOPE_ONLY' then 'ST_SCOPE_ONLY'
+       when cat.operation_type='BRIDGE_INTERMEDIATE' and cat.st_scope_type='INTERMEDIATE' and coalesce(bridge.bridge_count,0)>0 then 'INTERMEDIATE_ST_SCOPE'
+       when cat.operation_type='BRIDGE_INTERMEDIATE' and cat.st_scope_type='INTERMEDIATE' then 'INTERMEDIATE_ST_SCOPE_NO_BRIDGE'
        when cat.operation_type='BRIDGE_INTERMEDIATE' then 'INTERMEDIATE_BRIDGE'
        when map.id is null then 'MISSING_MAIN_MAPPING'
        when om.standard_operation is null then 'MISSING_MAIN_MASTER'
@@ -126,9 +139,9 @@ export default async function Page(){
   ]);
   return <main className="erp-shell erpkit-migrated-page"><ErpAppHeader module="CONFIGURATION FLOW"/><AppTabs active="config"/><div className="erp-workspace"><ConfigSidebar active="flow"/><section className="erp-content"><ConfigPageHeader
    title="ST Operation Flow"
-   subtitle="Cấu hình Main Planning / ST Scope Only; Intermediate dùng Auto Routing và Manual override khi cần."
-   purpose="Auto Bridge tự đọc routing_code + seq + operation_code. Manual Bridge dùng cho ngoại lệ và luôn ưu tiên hơn Auto khi cùng LastLaborOp + NextOperation."
-   impact="Khi cấu hình Operation mới lần đầu, hệ thống chỉ sync Planning Chain của Job đang dùng code đó; khi sửa Operation đã cấu hình, hệ thống giữ Full rebuild để bảo toàn dependency dùng chung. Lịch sử Batch/Schedule không bị xóa."
+   subtitle="Cấu hình Main Planning / Intermediate Dashboard ST / ST Scope Only; Bridge Intermediate vẫn được suy ra độc lập từ Routing."
+   purpose="Bridge xác định vai trò Intermediate theo routing; Dashboard ST membership chỉ xác định Intermediate nào được tính trên Dashboard. Hai lớp độc lập, không dùng nhãn Dashboard ST để suy ra Previous/Next Main."
+   impact="Planning Operation vẫn sync Planning Chain theo logic hiện hành. INTERMEDIATE Dashboard ST chỉ cập nhật nhãn Dashboard và tuyệt đối không sửa Mapping, All Open Jobs, Planning Chain, Candidate, Batch hay Schedule. API sẽ chặn nếu Operation đang là Planning source."
    prev={{label:"Health Dashboard",href:"/settings"}}
    next={{label:"ST Scope & Operation Code",href:"/operation-code-order"}}
   /><StOperationFlowManager rows={flowQ.rows as any} rawOperations={rawQ.rows as any} mainOperations={mainQ.rows as any} groups={groupQ.rows as any} areas={areaQ.rows as any} scheduleAreas={scheduleQ.rows as any} bridgeSegments={bridgeQ.rows as any}/></section></div></main>;

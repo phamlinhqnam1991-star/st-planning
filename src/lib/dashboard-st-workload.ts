@@ -4,16 +4,14 @@ import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 import {rawStJobMatchSql} from "@/lib/planning/raw-st-visible-sql";
 
 
-// V417 keeps Planning workload sections unchanged. Chart 2 + its Audit use a
-// deliberate two-stage pipeline requested by Planning:
-//   1) resolve the live position first: LastOperation -> RAW NextOperation -> Current Main
-//      using the already-built Planning Chain + active Intermediate Bridge context;
-//   2) only AFTER resolution, keep the Job when RAW NextOperation is explicitly in
-//      active ST Scope as PLANNING_OPERATION, INTERMEDIATE, or ST_SCOPE_ONLY.
-// INTERMEDIATE scope is only an ST-membership tag here; Previous/Next Main still come
-// from md_intermediate_bridge_* and are not defined by the scope row. This prevents
-// generic non-ST route steps inside a Main-to-Main span from entering the chart.
-// ST_SCOPE_ONLY remains chart/audit visibility only and never enters Batch/Schedule.
+// V419: Bridge resolution and Dashboard ST membership are independent layers.
+//   1) resolve live position first: LastOperation -> RAW NextOperation -> Current Main;
+//   2) classify Bridge Role from the resolved context (MAIN / INTERMEDIATE / context);
+//   3) only then filter RAW NextOperation by explicit ST Scope membership.
+// INTERMEDIATE in md_st_operation_scope is Dashboard-only ST membership. Previous/Next Main
+// still come exclusively from active md_intermediate_bridge_* data.
+// Saving/removing INTERMEDIATE never syncs Planning Chain and does not affect All Open Jobs/Candidate/Batch/Schedule.
+// ST_SCOPE_ONLY keeps its existing operational visibility semantics but never enters Batch/Schedule.
 
 export type StDashboardMetric={jobs:number;qty:number;surface:number};
 export type StDashboardStatus="WAIT"|"READY"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
@@ -68,6 +66,8 @@ export type StDashboardAreaRow={
 export type StDashboardAuditJob={
  jobNum:string;
  operationType:string;
+ bridgeRole:string;
+ stScopeType:string;
  partNum:string;
  revisionNum:string;
  priority:string;
@@ -186,6 +186,26 @@ const DASHBOARD_BRIDGE_MATCH_SQL=(jobAlias="j",currentMainAlias="current_main")=
  )`;
 };
 
+const DASHBOARD_DIRECT_MAIN_MATCH_SQL=(jobAlias="j",currentMainAlias="current_main")=>{
+ const raw=`upper(trim(coalesce(${jobAlias}.next_operation,'')))`;
+ const currentMain=`upper(trim(coalesce(${currentMainAlias}.standard_operation,'')))`;
+ const currentSource=`upper(trim(coalesce(${currentMainAlias}.source_operation_code,'')))`;
+ return `(
+  ${currentMainAlias}.id is not null
+  and (
+   ${currentSource}=${raw}
+   or ${currentMain}=${raw}
+   or exists(
+    select 1
+    from public.md_st_operation_mapping dm
+    where dm.is_active=true
+      and upper(trim(dm.source_operation_code))=${raw}
+      and upper(trim(dm.standard_operation_rule))=${currentMain}
+   )
+  )
+ )`;
+};
+
 const WORKLOAD_SQL=`
  with area_by_group as (
   select ag.st_group,min(ag.area_id) area_id
@@ -299,6 +319,7 @@ const CHART_SQL=`
    current_main.status current_internal_status,
    current_main.is_hold current_is_hold,
    current_main.st_group current_st_group,
+   ${DASHBOARD_DIRECT_MAIN_MATCH_SQL("j","current_main")} direct_matches_current_main,
    ${DASHBOARD_BRIDGE_MATCH_SQL("j","current_main")} bridge_matches_current_main
   from public.open_job_current j
   left join lateral (
@@ -332,6 +353,13 @@ const CHART_SQL=`
  ), classified as (
   select
    r.*,
+   case
+    when r.current_planning_id is null then 'UNRESOLVED'
+    when r.direct_matches_current_main then 'MAIN'
+    when r.bridge_matches_current_main then 'INTERMEDIATE'
+    else 'RESOLVED_CONTEXT'
+   end bridge_role,
+   scope.operation_type st_scope_type,
    case
     when scope.operation_type='ST_SCOPE_ONLY' then 'ST_SCOPE_ONLY'
     when r.current_planning_id is null then null
@@ -388,6 +416,7 @@ const AUDIT_SQL=`
    current_main.source_seq current_source_seq,
    current_main.status current_internal_status,
    current_main.is_hold current_is_hold,
+   ${DASHBOARD_DIRECT_MAIN_MATCH_SQL("j","current_main")} direct_matches_current_main,
    ${DASHBOARD_BRIDGE_MATCH_SQL("j","current_main")} bridge_matches_current_main
   from public.open_job_current j
   left join lateral (
@@ -420,6 +449,13 @@ const AUDIT_SQL=`
  ), classified as (
   select
    r.*,
+   case
+    when r.current_planning_id is null then 'UNRESOLVED'
+    when r.direct_matches_current_main then 'MAIN'
+    when r.bridge_matches_current_main then 'INTERMEDIATE'
+    else 'RESOLVED_CONTEXT'
+   end bridge_role,
+   scope.operation_type st_scope_type,
    case
     when scope.operation_type='ST_SCOPE_ONLY' then 'ST_SCOPE_ONLY'
     when r.current_planning_id is null then null
@@ -616,7 +652,8 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
  ]);
 
  const auditJobs:StDashboardAuditJob[]=(auditQ.rows as any[]).map(r=>({
-  jobNum:text(r.job_num),operationType:text(r.operation_type),partNum:text(r.part_num),revisionNum:text(r.revision_num),priority:text(r.priority_type),
+  jobNum:text(r.job_num),operationType:text(r.operation_type),bridgeRole:text(r.bridge_role),stScopeType:text(r.st_scope_type),
+  partNum:text(r.part_num),revisionNum:text(r.revision_num),priority:text(r.priority_type),
   lastOperation:text(r.last_operation),rawNextOperation:text(r.raw_next_operation),allOperation:text(r.all_operation),
   resolverMode:text(r.route_resolution_mode),previousMain:text(r.previous_main),currentMain:text(r.current_main),
   currentMainSourceOperation:text(r.current_main_source_operation),currentStatus:text(r.current_status),

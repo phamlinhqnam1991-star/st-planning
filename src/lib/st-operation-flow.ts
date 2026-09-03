@@ -6,7 +6,7 @@ export const cleanCode=(v:unknown)=>String(v??"").trim().toUpperCase();
 /**
  * Canonical ST configuration chain:
  * md_operation (raw/source operation catalog)
- * -> md_st_operation_scope (PLANNING_OPERATION / ST_SCOPE_ONLY; Intermediate is AUTO-derived)
+ * -> md_st_operation_scope (PLANNING_OPERATION / ST_SCOPE_ONLY operationally; INTERMEDIATE is Dashboard-only ST membership)
  * -> md_st_operation_mapping (source -> Main Operation)
  * -> md_operation_master + md_planning_operation_scope (Main Operation)
  * -> md_st_group

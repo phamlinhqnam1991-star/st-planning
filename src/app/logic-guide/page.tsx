@@ -279,7 +279,7 @@ export default async function Page(){
 
     <div className="lg-subtitle">2.2 · Một Job được đưa vào Planning như thế nào?</div>
     <StepList items={[
-     <>Job phải đang <b>Open</b> và RAW <code>NextOperation</code> nằm trong <code>md_st_operation_scope</code> active thì mới xuất hiện ở All Open Jobs của ST.</>,
+     <>Job phải đang <b>Open</b> và RAW <code>NextOperation</code> thuộc operational ST Scope <b>PLANNING_OPERATION</b> hoặc <b>ST_SCOPE_ONLY</b> thì mới xuất hiện ở All Open Jobs của ST. Nhãn <b>INTERMEDIATE</b> mới chỉ dành cho Dashboard và không làm Job xuất hiện ở đây.</>,
      <>Nếu Operation là <b>ST_SCOPE_ONLY</b>, Job vẫn thấy ở All Open Jobs nhưng Operation đó không trở thành Main Planning, không tạo Batch và không vào Board Điều Độ.</>,
      <>Planning resolver dùng Routing + Bridge + Source → Main Mapping để tạo các occurrence Main trong <code>planning_job_operation</code>.</>,
      <>Trạng thái tuần tự: Main chưa plan đầu tiên trong suffix hiện tại = <b>READY</b>; Main chưa plan phía sau = <b>WAIT</b>; Main có Batch = <b>PLANNED</b>; tiến độ vật lý đã qua = <b>DONE</b>.</>,
@@ -333,16 +333,17 @@ export default async function Page(){
     <details open className="erp-details">
      <summary><b>① ST Operation Flow — Trợ lý Operation</b></summary>
      <div className="lg-key lg-key-2">
-      <Rule title="Mục đích">Định nghĩa một Operation Code là <b>Planning Operation</b> hay <b>ST_SCOPE_ONLY</b>; cấu hình Main/ST Group/Area/Schedule Area/Planner cho Planning Operation. Intermediate không cần nhập tay như một loại Scope.</Rule>
-      <Rule title="Bridge Intermediate">Auto Bridge đọc <code>routing_code + seq + operation_code</code> trong ST Routing Chain để suy ra các raw operation nằm giữa hai Main liên tiếp. Manual Bridge dùng cho ngoại lệ và được ưu tiên hơn Auto khi cùng vị trí physical.</Rule>
+      <Rule title="Mục đích">Quản lý 2 lớp trên cùng màn hình: operational ST Scope gồm <b>PLANNING_OPERATION / ST_SCOPE_ONLY</b>, và nhãn <b>INTERMEDIATE Dashboard ST</b>. Planning Operation mới cần Main/ST Group/Area/Schedule Area/Planner. INTERMEDIATE chỉ dùng để xác nhận một Bridge operation được tính trên Dashboard; Previous/Next Main vẫn lấy từ Bridge.</Rule>
+      <Rule title="Bridge Intermediate">Auto/Manual Bridge và Dashboard ST membership là hai lớp độc lập. Bridge đọc <code>routing_code + seq + operation_code</code> để suy ra toàn bộ raw operation nằm giữa hai Main; trong danh sách Operation sẽ thấy cả <b>Bridge Intermediate</b> và <b>Intermediate · ST Dashboard</b> đã được đánh dấu <code>INTERMEDIATE</code>. Nhãn này không tham gia operational Planning Scope.</Rule>
      </div>
      <StepList items={[
       <>Chọn Operation Code.</>,
       <>Nếu là Planning Operation: chọn <b>Main Operation → ST Group → Physical Area → Schedule Area → Planner</b>.</>,
-      <>Nếu chỉ cần hiện trong phạm vi ST nhưng không plan: chọn <b>ST_SCOPE_ONLY</b>.</>,
+      <>Nếu Operation là Bridge Intermediate và thực sự cần tính vào Dashboard Surface Treatment: chọn <b>INTERMEDIATE</b> / bấm <b>Đánh dấu Dashboard ST</b>. Nhãn này chỉ ảnh hưởng Dashboard Chart/Audit; không tạo/sửa Main, All Open Jobs, Planning Chain, Candidate, Batch hoặc Schedule.</>,
+      <>Nếu chỉ cần hiện trong phạm vi ST nhưng không plan và không phải Bridge Intermediate: chọn <b>ST_SCOPE_ONLY</b>.</>,
       <>Lưu. Khi thay đổi cấu trúc routing/bridge, dùng chức năng rebuild phù hợp; sau thay đổi chain lớn nên Rebuild Planning Chain ở Planning Board.</>
      ]}/>
-     <div className="notice"><b>Impact:</b> đây là cấu hình upstream mạnh. Sai loại Operation có thể làm Job biến mất/ xuất hiện sai ở Planning, mapping sai Area/Planner sẽ ảnh hưởng Board Điều Độ. Lịch sử Batch/Schedule cũ không bị xóa chỉ vì rebuild chain.</div>
+     <div className="notice"><b>Impact:</b> PLANNING_OPERATION và ST_SCOPE_ONLY vẫn là cấu hình operational upstream. Riêng <b>INTERMEDIATE Dashboard ST</b> chỉ ảnh hưởng Dashboard Chart/Audit và không kích hoạt Planning Chain sync. Mapping sai Area/Planner của Planning Operation vẫn ảnh hưởng Board Điều Độ.</div>
     </details>
 
     <details className="erp-details">
@@ -513,7 +514,7 @@ export default async function Page(){
 
     <div className="lg-subtitle">6.2 · Job nào xuất hiện?</div>
     <Rule title="ST Scope filter" tone="important">
-     All Open Jobs của ứng dụng ST chỉ hiển thị Job có RAW <code>NextOperation</code> nằm trong <code>md_st_operation_scope</code> active. <b>Source→Main Mapping không phải visibility filter.</b> ST_SCOPE_ONLY vẫn hiện nhưng không tham gia Planning Chain/Batch/Schedule.
+     All Open Jobs của ứng dụng ST chỉ hiển thị Job có RAW <code>NextOperation</code> thuộc <b>PLANNING_OPERATION</b> hoặc <b>ST_SCOPE_ONLY</b>. <b>INTERMEDIATE Dashboard ST không phải visibility filter của All Open Jobs.</b> Source→Main Mapping cũng không phải visibility filter. ST_SCOPE_ONLY vẫn hiện nhưng không tham gia Planning Chain/Batch/Schedule.
     </Rule>
 
     <div className="lg-subtitle">6.3 · Các chế độ xem</div>
@@ -568,7 +569,7 @@ export default async function Page(){
      Workload không bắt đầu từ toàn bộ <code>planning_job_operation</code>. Hệ thống lọc <code>open_job_current.next_operation</code> RAW trước: chỉ Job có RAW NextOperation thuộc ST Planning view (Planning Operation hoặc Auto Bridge intermediate; loại <b>ST_SCOPE_ONLY</b>) mới được đưa vào population. Sau đó mới tổng hợp <code>planning_job_operation</code> theo <b>Area → Main Operation</b> và READY / WAIT / HOLD bằng <b>Jobs · pcs · dm²</b>. Future ST operation không được kéo một Job có RAW NextOperation ngoài ST vào Summary.
     </Rule>
     <Rule title="Dashboard chart: resolve trước, lọc ST Scope sau" tone="important">
-     Chart <b>Surface + Qty by Main Planning / Immediate Operation / ST Only</b> chạy đúng 2 lớp theo thứ tự: <b>(1)</b> resolve vị trí Job bằng <b>LastOperation → RAW NextOperation → Current Main</b>; <b>(2)</b> trên danh sách đã resolve mới lọc RAW NextOperation theo <code>md_st_operation_scope</code> active, nhận đủ 3 loại <b>PLANNING_OPERATION / INTERMEDIATE / ST_SCOPE_ONLY</b>. Với INTERMEDIATE, Scope chỉ xác nhận Operation đó thuộc ST; Previous/Next Main vẫn phải khớp Active Bridge. Vì vậy công đoạn routing ngoài ST nằm giữa hai Main sẽ bị loại ở lớp 2, không làm sai Bridge resolver.
+     Chart <b>Surface + Qty by Main Planning / Immediate Operation / ST Only</b> chạy đúng 3 lớp theo thứ tự: <b>(1)</b> resolve vị trí Job bằng <b>LastOperation → RAW NextOperation → Current Main</b>; <b>(2)</b> xác định <b>Bridge Role</b> từ active Bridge; <b>(3)</b> trên kết quả đã resolve mới áp Dashboard ST filter. Immediate chỉ được tính khi đồng thời <b>Bridge Role = INTERMEDIATE</b> và RAW NextOperation có <code>md_st_operation_scope.operation_type=INTERMEDIATE</code>. Nhãn INTERMEDIATE này <b>chỉ dành cho Dashboard</b>; không định nghĩa Previous/Next Main và không thay đổi Planning Chain/Candidate/Batch/Schedule.
     </Rule>
     <ul className="lg-list">
      <li><b>Qty:</b> dùng CurrentGoodWIPQty nếu &gt; 0, nếu không dùng ProdQty — cùng quy tắc Candidate.</li>
@@ -920,7 +921,7 @@ export default async function Page(){
     <Faq q="Vì sao Main xa hơn vẫn WAIT?" a={<>Chỉ immediate next Main được mở sau handoff. Các Main sau nữa giữ WAIT cho đến khi chuỗi previous liên tục đã có Batch/DONE.</>}/>
     <Faq q="Tạo Batch xong có reload toàn Board không?" a={<>Không. Luồng hiện tại dùng <b>Delta Refresh</b> cho affected Job/Route Matrix và refresh Target Batch. Rebuild Chain mới là thao tác có thể tải lại nhiều dữ liệu.</>}/>
     <Faq q="Recipe đúng nhưng Process Time = — / chưa xác định?" a={<>Kiểm tra Cấu hình → Thời gian xử lý. Batch có thể không match range Qty/Surface hoặc condition cụ thể; cần rule fallback không condition nếu muốn có thời gian cho trường hợp trộn value.</>}/>
-    <Faq q="Job không xuất hiện ở All Open Jobs ST?" a={<>Kiểm tra RAW <b>NextOperation</b> của Job có nằm trong <code>md_st_operation_scope</code> active hay không. Source→Main Mapping không quyết định visibility của tab All Open Jobs.</>}/>
+    <Faq q="Job không xuất hiện ở All Open Jobs ST?" a={<>Kiểm tra RAW <b>NextOperation</b> của Job có thuộc operational ST Scope <b>PLANNING_OPERATION</b> hoặc <b>ST_SCOPE_ONLY</b> hay không. INTERMEDIATE Dashboard ST không làm Job xuất hiện ở tab All Open Jobs.</>}/>
     <Faq q="Job xuất hiện All Open Jobs nhưng không có READY?" a={<>Có thể Operation là ST_SCOPE_ONLY, chain chưa resolve, Main phía trước còn WAIT/gap, hoặc dữ liệu Last/Next/AllOperation/Bridge không định vị được. Với raw Operation lặp lại nhiều occurrence, hệ thống ưu tiên occurrence sớm nhất chưa có Batch. Kiểm tra Route Matrix/NO CHAIN, Job Tracker và ST Operation Flow để xác định vị trí của Job.</>}/>
     <Faq q="Đổi Operation Code Order có cần Rebuild Chain?" a={<>Không. Operation Code Order chỉ dùng tie-break presentation. Rebuild Chain chỉ cần cho thay đổi cấu trúc Planning/Mapping/Bridge/Scope.</>}/>
     <Faq q="Ngưng Main Operation có mất Batch lịch sử không?" a={<>Không. Ngưng giữ lịch sử. Xóa vĩnh viễn chỉ được phép khi đã ngưng và không còn dependency; API sẽ chặn và báo các nhóm còn tham chiếu.</>}/>

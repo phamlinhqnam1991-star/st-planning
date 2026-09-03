@@ -238,7 +238,7 @@ async function sourceFingerprint(c:PoolClient){
    coalesce((select max(updated_at)::text from md_st_routing_summary),''),
    coalesce((select max(updated_at)::text from md_st_operation_mapping),''),
    coalesce((select max(updated_at)::text from md_planning_operation_scope),''),
-   coalesce((select max(updated_at)::text from md_st_operation_scope),'')
+   coalesce((select max(updated_at)::text from md_st_operation_scope where operation_type<>'INTERMEDIATE'),'')
   ) fingerprint
  `);
  return createHash("sha1").update(String(q.rows[0]?.fingerprint||"")).digest("hex");

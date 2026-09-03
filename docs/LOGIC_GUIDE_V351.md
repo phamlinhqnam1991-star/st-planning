@@ -81,3 +81,9 @@ Dashboard trước tiên lọc trực tiếp `open_job_current.next_operation`: 
 
 ## V411 · Dashboard chart chỉ nhận Immediate Operation thuộc ST
 Nguồn của Dashboard/chart được lọc theo đúng ST visibility trước khi cộng Qty/Surface: RAW `NextOperation` phải nằm trong `md_st_operation_scope` active và có loại `PLANNING_OPERATION` hoặc `INTERMEDIATE`; sau đó resolver hiện hành mới xác nhận Current Main. `ST_SCOPE_ONLY` và operation ngoài ST bị loại. RAW `LastOperation` chỉ dùng làm context để kiểm tra thứ tự Bridge, không bắt buộc phải là ST vì một Job có thể vừa đi từ công đoạn ngoài ST vào công đoạn ST đầu tiên.
+
+## V418 · Intermediate = Bridge Role + ST Scope membership
+
+Không gộp `INTERMEDIATE do Bridge suy ra` với `INTERMEDIATE thuộc ST Scope` thành một khái niệm. Hệ thống chạy đúng thứ tự: `LastOperation → RAW NextOperation → Current Main` trước; active Bridge xác định Bridge Role; sau đó mới kiểm tra RAW NextOperation trong `md_st_operation_scope`. Chart chỉ tính Immediate khi `Bridge Role = INTERMEDIATE` **và** `ST Scope Type = INTERMEDIATE`.
+
+Tab ST Operation Flow hiển thị toàn bộ Bridge Intermediate. Planner có thể bấm `Đánh dấu ST` để lưu riêng nhãn `INTERMEDIATE` vào ST Scope. Nhãn này không tạo Main/Batch/Schedule và không thay thế dữ liệu Previous/Next Main của Bridge.

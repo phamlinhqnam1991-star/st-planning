@@ -123,11 +123,11 @@ function AuditJobTable({rows}:{rows:StDashboardAuditJob[]}){
  const totalSurface=rows.reduce((sum,row)=>sum+Number(row.surfaceUsed||0),0);
  const totalQty=rows.reduce((sum,row)=>sum+Number(row.qtyUsed||0),0);
  return <section className="erp-table-panel st-dashboard-panel st-dashboard-audit-panel">
-  <div className="erp-panel-head"><div><b>Chart Calculation Audit · Job Detail</b><small>Exactly the Jobs used by chart 2 after two stages: resolve LastOperation → RAW NextOperation → Current Main first, then filter RAW NextOperation by active ST Scope (Planning / Immediate / ST Only). Qty and Surface are counted once from the current Open Job row.</small></div><span>{fmt(totalSurface)} dm² · {fmt(totalQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
-  <div className="st-dashboard-audit-note">Chart pipeline: <b>1) Bridge resolver: LastOperation → RAW NextOperation → Current Main</b>; <b>2) ST Scope filter</b>: keep only RAW NextOperation tagged Planning Operation / Intermediate / ST_SCOPE_ONLY. Intermediate must also match the resolved active Bridge context. Generic non-ST route steps are therefore removed only after resolution.</div>
+  <div className="erp-panel-head"><div><b>Chart Calculation Audit · Job Detail</b><small>Chart uses three explicit stages: resolve LastOperation → RAW NextOperation → Current Main; identify Bridge Role; then keep only RAW NextOperation explicitly tagged in ST Scope as Planning / Intermediate / ST Only.</small></div><span>{fmt(totalSurface)} dm² · {fmt(totalQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
+  <div className="st-dashboard-audit-note">Chart pipeline: <b>1) Resolver</b>: LastOperation → RAW NextOperation → Current Main; <b>2) Bridge Role</b>: MAIN / INTERMEDIATE / resolved context; <b>3) Dashboard ST filter</b>: Planning Operation / INTERMEDIATE Dashboard ST / ST_SCOPE_ONLY. Only Bridge Role = INTERMEDIATE + ST Scope Type = INTERMEDIATE is counted as an ST Immediate operation. The INTERMEDIATE tag is read only by this Dashboard chart/audit flow.</div>
   <div className="table-wrap st-dashboard-audit-wrap"><table className="erp-table st-dashboard-audit-table">
    <thead><tr>
-    <th>Job</th><th>ST Type</th><th>Part / Rev</th><th>Priority</th><th>Chart Group</th><th>Last Operation</th><th>RAW NextOperation<br/>Immediate</th>
+    <th>Job</th><th>Chart Type</th><th>Bridge Role</th><th>ST Scope Type</th><th>Part / Rev</th><th>Priority</th><th>Chart Group</th><th>Last Operation</th><th>RAW NextOperation<br/>Immediate</th>
     <th>Resolver Mode</th><th>Previous Main</th><th>Current Main</th><th>Current Main Source Op</th><th>Status</th><th>Current Seq</th>
     <th>Next Main</th><th>Next Main Source Op</th><th>Next Seq</th><th>WIP Qty</th><th>Prod Qty</th><th>Qty Used</th>
     <th>Surface / Part dm²</th><th>Source TotalSurface</th><th>Qty × Surface</th><th>Surface Used dm²</th><th>AllOperation</th>
@@ -135,6 +135,8 @@ function AuditJobTable({rows}:{rows:StDashboardAuditJob[]}){
    <tbody>{rows.length?rows.map(row=><tr key={row.jobNum}>
     <td><b className="mono">{row.jobNum}</b></td>
     <td><b>{row.operationType==="INTERMEDIATE"?"IMMEDIATE":row.operationType==="ST_SCOPE_ONLY"?"ST ONLY":"MAIN"}</b><small className="mono">{row.operationType||"—"}</small></td>
+    <td><b>{row.bridgeRole||"—"}</b></td>
+    <td><b>{row.stScopeType||"—"}</b></td>
     <td><b>{row.partNum||"—"}</b><small>{row.revisionNum?`Rev ${row.revisionNum}`:""}</small></td>
     <td><b>{row.priority||"—"}</b></td>
     <td><b>{row.operationType==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":row.currentMain||"—"}</b><small className="mono">/ {row.rawNextOperation||"—"}</small></td>
@@ -157,7 +159,7 @@ function AuditJobTable({rows}:{rows:StDashboardAuditJob[]}){
     <td className="num">{fmt(row.calculatedSurface,3)}</td>
     <td className="num"><b>{fmt(row.surfaceUsed,3)}</b></td>
     <td className="mono st-dashboard-audit-allop" title={row.allOperation||""}>{row.allOperation||"—"}</td>
-   </tr>):<tr><td colSpan={24}>No ST Job used by the chart.</td></tr>}</tbody>
+   </tr>):<tr><td colSpan={26}>No ST Job used by the chart.</td></tr>}</tbody>
   </table></div>
  </section>;
 }
@@ -249,7 +251,7 @@ export default async function DashboardPage(){
     </section>
 
     <section className="erp-table-panel st-dashboard-panel st-dashboard-chart-panel st-dashboard-combo-panel">
-     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation / ST Only</b><small>Current ST position from RAW NextOperation: Main Planning + ST-only Bridge Immediate + ST_SCOPE_ONLY. Column = dm² · Line = pcs.</small></div></div>
+     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation / ST Only</b><small>Resolve Current Main first; Immediate is counted only when the active Bridge role is INTERMEDIATE and RAW NextOperation is explicitly tagged INTERMEDIATE in ST Scope. Column = dm² · Line = pcs.</small></div></div>
      <div className="st-dashboard-combo-legend"><span><i className="surface"></i>Surface dm² · left axis max 50,000</span><span><i className="qty"></i>Qty pcs · right axis max 10,000</span></div>
      <SurfaceQtyComboChart rows={data.immediateRows} total={data.chartTotal}/>
     </section>
@@ -260,7 +262,7 @@ export default async function DashboardPage(){
      <article className="st-dashboard-kpi total"><small>ST TOTAL · SURFACE WORKLOAD</small>{metricLines(data.total)}</article>
      {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(data.statuses[status])}</article>)}
     </section>
-    <div className="st-dashboard-note">V417 chart 2 chạy 2 lớp theo đúng thứ tự: <b>LastOperation → RAW NextOperation → Current Main</b> trước; sau đó mới lọc RAW NextOperation theo active ST Scope gồm <code>PLANNING_OPERATION</code> + <code>INTERMEDIATE</code> + <code>ST_SCOPE_ONLY</code>. INTERMEDIATE vẫn phải khớp Active Bridge đã resolve; ST_SCOPE_ONLY chỉ hiển thị chart/audit và không tham gia Planning Chain/Batch/Schedule.</div>
+    <div className="st-dashboard-note">V419 chart 2 chạy 3 lớp độc lập: <b>1) LastOperation → RAW NextOperation → Current Main</b>; <b>2) xác định Bridge Role</b>; <b>3) áp Dashboard ST membership</b>. Immediate chỉ được cộng khi <code>Bridge Role = INTERMEDIATE</code> và <code>ST Scope Type = INTERMEDIATE</code>. Nhãn INTERMEDIATE chỉ dùng cho Dashboard Chart/Audit, không thay đổi All Open Jobs, Planning Chain, Candidate, Batch hoặc Schedule.</div>
 
     <section className="st-dashboard-area-workloads">
      <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>Main Planning Workload Summary · By Area</b><small>Each Area has its own KPI cards and its own Main Planning → Recipe workload table. All table rows stay visible without vertical scrolling.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Main Operations</span></div>
