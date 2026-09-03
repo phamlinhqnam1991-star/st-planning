@@ -174,7 +174,7 @@ function PriorityTable({title,rows,tone}:{title:string;rows:StDashboardPriorityJ
  const prioritySurface=rows.reduce((sum,row)=>sum+Number(row.surface||0),0);
  const priorityQty=rows.reduce((sum,row)=>sum+Number(row.qty||0),0);
  return <section className={`erp-table-panel st-dashboard-panel st-dashboard-priority ${tone}`}>
-  <div className="erp-panel-head"><div><b>{title}</b><small>Priority Jobs from the same canonical Dashboard ST population, including MAIN / IMMEDIATE / ST ONLY.</small></div><span>{fmt(prioritySurface)} dm² · {fmt(priorityQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
+  <div className="erp-panel-head"><div><b>{title}</b><small>Priority Jobs from the same canonical Dashboard ST population, including MAIN / IMMEDIATE / ST ONLY. Sorted by NextOperation Order: Main Planning Order → Operation Code Order → RAW NextOperation → Job.</small></div><span>{fmt(prioritySurface)} dm² · {fmt(priorityQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
   <div className="table-wrap st-dashboard-priority-wrap"><table className="erp-table st-dashboard-priority-table">
    <thead><tr><th>Job</th><th>Scope</th><th>Part / Rev</th><th>Part Description</th><th>dm²</th><th>Qty</th><th>Next Operation</th><th>Planning</th><th>Latest Batch</th><th>Schedule</th></tr></thead>
    <tbody>{rows.length?rows.map(row=><tr key={row.jobNum}>

@@ -77,6 +77,8 @@ export type StDashboardPriorityJob={
  qty:number;
  surface:number;
  nextOperation:string;
+ mainOrder:number;
+ nextOperationOrder:number|null;
  planningMain:string;
  planningStatus:string;
  batchMain:string;
@@ -239,6 +241,7 @@ const DASHBOARD_VISIBLE_SQL=`
   case when v.operation_type='ST_SCOPE_ONLY' then 999999998 else coalesce(a.sort_order,999999)::int end area_sort,
   case when v.operation_type='ST_SCOPE_ONLY' then 'ST_SCOPE_ONLY' else coalesce(v.current_main,'UNRESOLVED') end chart_main,
   case when v.operation_type='ST_SCOPE_ONLY' then 999999998 else coalesce(om.planning_sort_order,pscope.sort_order,999999)::int end main_order,
+  nextopmaster.planning_sort_order next_operation_order,
   case
    when v.operation_type='ST_SCOPE_ONLY' then 'ST_ONLY'
    when coalesce(v.current_is_hold,false)=true and current_batch.batch_id is null then 'HOLD'
@@ -270,6 +273,20 @@ const DASHBOARD_VISIBLE_SQL=`
  left join public.md_area a on a.id=abg.area_id and a.is_active=true
  left join public.md_operation_master om on om.standard_operation=v.current_main and om.is_active=true
  left join public.md_planning_operation_scope pscope on pscope.standard_operation=v.current_main and pscope.is_active=true
+ -- Keep Dashboard CAT3/CAT5 in the same canonical NextOperation presentation order as Planning Board:
+ -- Main Planning Order first, then optional RAW Operation Code Order inside the same Main.
+ -- LATERAL + LIMIT 1 avoids multiplying a Job when historical md_operation duplicates exist.
+ left join lateral (
+  select mo.planning_sort_order
+  from public.md_operation mo
+  where mo.is_active=true
+    and upper(trim(mo.operation_code))=upper(trim(v.raw_next_operation))
+  order by
+    mo.planning_sort_order asc nulls last,
+    mo.updated_at desc nulls last,
+    mo.operation_code asc
+  limit 1
+ ) nextopmaster on true
  left join lateral (
   select b.id batch_id,b.batch_no,b.status batch_status,b.recipe_key
   from public.planning_batch_job bj
@@ -402,6 +419,8 @@ function toPriorityJob(raw:any):StDashboardPriorityJob{
  return {
   jobNum:text(raw.job_num),operationType,bridgeRole:text(raw.bridge_role),partNum:text(raw.part_num),revisionNum:text(raw.revision_num),
   partDescription:text(raw.part_description),priority:text(raw.priority_type),qty:num(raw.qty_used),surface:num(raw.surface_used),nextOperation:rawNext,
+  mainOrder:num(raw.main_order),
+  nextOperationOrder:raw.next_operation_order===null||raw.next_operation_order===undefined?null:num(raw.next_operation_order),
   planningMain,planningStatus:text(raw.dashboard_status),batchMain:text(raw.latest_batch_main),batchNo:text(raw.latest_batch_no),batchStatus:text(raw.latest_batch_status),
   resourceCode:text(raw.latest_resource_code),scheduleStatus:text(raw.latest_schedule_status),plannedStart:iso(raw.latest_planned_start),plannedEnd:iso(raw.latest_planned_end)
  };
@@ -586,8 +605,31 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
  const immediateRows=[...immediateRowsMap.values()].sort((a,b)=>
   typeOrder[a.operationType]-typeOrder[b.operationType]||a.areaSort-b.areaSort||a.mainOrder-b.mainOrder||a.standardOperation.localeCompare(b.standardOperation)||a.immediateOperation.localeCompare(b.immediateOperation,undefined,{numeric:true})
  );
- cat3.sort((a,b)=>a.jobNum.localeCompare(b.jobNum));
- cat5.sort((a,b)=>a.jobNum.localeCompare(b.jobNum));
+ const comparePriorityByNextOperationOrder=(a:StDashboardPriorityJob,b:StDashboardPriorityJob)=>{
+  // Same canonical NextOperation presentation order as Planning Board:
+  // 1) resolved Main Planning Order, 2) resolved Main grouping,
+  // 3) optional RAW Operation Code Order inside the same Main, 4) RAW NextOperation, 5) Job.
+  // ST_SCOPE_ONLY has no Main; keep all ST Only rows together at the end, then apply RAW code order.
+  if(a.mainOrder!==b.mainOrder)return a.mainOrder-b.mainOrder;
+
+  const aMainGroup=a.operationType==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":(a.planningMain||"");
+  const bMainGroup=b.operationType==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":(b.planningMain||"");
+  const mainCmp=aMainGroup.localeCompare(bMainGroup,undefined,{numeric:true,sensitivity:"base"});
+  if(mainCmp!==0)return mainCmp;
+
+  const aCodeMissing=a.nextOperationOrder===null||!Number.isFinite(Number(a.nextOperationOrder));
+  const bCodeMissing=b.nextOperationOrder===null||!Number.isFinite(Number(b.nextOperationOrder));
+  if(aCodeMissing!==bCodeMissing)return aCodeMissing?1:-1;
+  if(!aCodeMissing&&!bCodeMissing&&Number(a.nextOperationOrder)!==Number(b.nextOperationOrder)){
+   return Number(a.nextOperationOrder)-Number(b.nextOperationOrder);
+  }
+
+  const nextCmp=(a.nextOperation||"").localeCompare(b.nextOperation||"",undefined,{numeric:true,sensitivity:"base"});
+  if(nextCmp!==0)return nextCmp;
+  return (a.jobNum||"").localeCompare(b.jobNum||"",undefined,{numeric:true,sensitivity:"base"});
+ };
+ cat3.sort(comparePriorityByNextOperationOrder);
+ cat5.sort(comparePriorityByNextOperationOrder);
 
  return {
   generatedAt:new Date().toISOString(),
