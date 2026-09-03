@@ -41,7 +41,7 @@ export async function GET(req:Request){
     select j.job_num
     from public.open_job_current j
     join lateral (
-     select p0.id
+     select p0.id,p0.standard_operation,p0.source_operation_code
      from public.planning_job_operation p0
      where p0.job_num=j.job_num
        and p0.is_active=true

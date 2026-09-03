@@ -26,15 +26,6 @@ function tm(v:string|null){
 }
 function generated(v:string){const d=new Date(v);return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ho_Chi_Minh",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);}
 
-function niceAxisMax(value:number){
- const v=Math.max(0,Number(value||0));
- if(v<=0)return 1;
- const power=10**Math.floor(Math.log10(v));
- const n=v/power;
- const step=n<=1?1:n<=2?2:n<=5?5:10;
- return step*power;
-}
-
 function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total:StDashboardMetric}){
  const chartRows=[...rows,{
   areaId:-1,areaName:"ST TOTAL",areaSort:999999999,standardOperation:"TOTAL",mainOrder:999999999,
@@ -43,7 +34,7 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
  const width=1200,height=390;
  const left=66,right=70,top=40,bottom=120;
  const plotW=width-left-right,plotH=height-top-bottom;
- const surfaceMax=niceAxisMax(Math.max(0,...chartRows.map(x=>x.total.surface)));
+ const surfaceMax=50000;
  const qtyMax=10000;
  const step=chartRows.length?plotW/chartRows.length:plotW;
  const barW=Math.max(3,Math.min(24,step*.55));
@@ -57,7 +48,7 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
  const path=points.map((p,i)=>`${i?"L":"M"}${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
  return <div className="st-dashboard-combo-chart-wrap">
   <svg className="st-dashboard-combo-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Surface dm² columns and pcs line by Current Main Planning and RAW Immediate Operation">
-   <text x={12} y={20} className="st-dashboard-axis-title">dm²</text>
+   <text x={12} y={20} className="st-dashboard-axis-title">dm² · max 50,000</text>
    <text x={width-12} y={20} textAnchor="end" className="st-dashboard-axis-title">pcs · max 10,000</text>
    {ticks.map(t=>{
     const y=top+plotH-(t/5)*plotH;
@@ -69,7 +60,8 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
     </g>;
    })}
    {points.map(({x,row,isTotal},i)=>{
-    const h=Math.max(0,(row.total.surface/surfaceMax)*plotH);
+    const surfacePlot=Math.min(surfaceMax,Math.max(0,row.total.surface));
+    const h=Math.max(0,(surfacePlot/surfaceMax)*plotH);
     const y=top+plotH-h;
     const barLabelY=Math.max(12,y-5);
     const label=isTotal?"TOTAL / ALL ST":`${row.standardOperation} / ${row.immediateOperation}`;
@@ -232,7 +224,7 @@ export default async function DashboardPage(){
 
     <section className="erp-table-panel st-dashboard-panel st-dashboard-chart-panel st-dashboard-combo-panel">
      <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation</b><small>Column = dm² on the left axis · Line = pcs on the right axis · X = Current Main Planning grouped only with ST-visible RAW NextOperation (Immediate Operation).</small></div></div>
-     <div className="st-dashboard-combo-legend"><span><i className="surface"></i>Surface dm²</span><span><i className="qty"></i>Qty pcs · right axis max 10,000</span></div>
+     <div className="st-dashboard-combo-legend"><span><i className="surface"></i>Surface dm² · left axis max 50,000</span><span><i className="qty"></i>Qty pcs · right axis max 10,000</span></div>
      <SurfaceQtyComboChart rows={data.immediateRows} total={data.total}/>
     </section>
 

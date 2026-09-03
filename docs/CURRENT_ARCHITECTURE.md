@@ -212,7 +212,7 @@ Dashboard không còn hiển thị `PLANNED` như một bucket/card riêng. Tron
 
 ## V404 — Dashboard charts + canonical Immediate Operation
 
-Hai chart được đặt ở đầu Dashboard. Chart Surface dm² theo Main Planning vẫn fit theo viewport và không có horizontal scrollbar. Chart combo dùng nguồn chuẩn `Current Main + RAW NextOperation`: cột = dm² theo trục trái, line = pcs theo trục phải cố định max 10,000 pcs. Mỗi cột và mỗi line point hiển thị giá trị trực tiếp; cuối chart có nhóm `TOTAL / ALL ST` cho tổng dm² và pcs. Không dùng `planning_job_operation.source_operation_code` để xác định Immediate Operation nữa.
+Hai chart được đặt ở đầu Dashboard. Chart Surface dm² theo Main Planning vẫn fit theo viewport và không có horizontal scrollbar. Chart combo dùng nguồn chuẩn `Current Main + RAW NextOperation`: cột = dm² theo trục trái cố định max 50,000 dm², line = pcs theo trục phải cố định max 10,000 pcs. Mỗi cột và mỗi line point hiển thị giá trị trực tiếp; cuối chart có nhóm `TOTAL / ALL ST` cho tổng dm² và pcs. Không dùng `planning_job_operation.source_operation_code` để xác định Immediate Operation nữa.
 
 ## V406 — Surface-first workload presentation
 
