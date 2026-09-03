@@ -5,7 +5,7 @@ import {getPool} from "@/lib/db";
 export const dynamic="force-dynamic";
 
 // =====================================================================
-// LOGIC & HƯỚNG DẪN v351
+// LOGIC & HƯỚNG DẪN v393
 // Tài liệu vận hành nằm ngay trong app. Nội dung mô tả SOURCE OF TRUTH,
 // trình tự thao tác, dependency và impact của từng tab theo code hiện tại.
 // Phần "Mapping đang chạy" đọc trực tiếp database để đối chiếu cấu hình thật.
@@ -80,12 +80,19 @@ export default async function Page(){
     order by a.sort_order,a.area_code`),
    readLive("scheduleAreas",`
     select s.schedule_area_code,s.schedule_area_name,s.resource_group,s.resource_code,s.default_rows,
-           s.planner_owner,s.display_order,
-           coalesce(string_agg(m.standard_operation,', ' order by m.standard_operation) filter(where m.standard_operation is not null),'—') operations
+           coalesce(pwa.planner_owner,s.planner_owner,'UNASSIGNED') planner_owner,s.display_order,
+           coalesce(string_agg(distinct m.standard_operation,', ' order by m.standard_operation)
+             filter(where m.standard_operation is not null),'—') operations
     from md_schedule_area s
-    left join md_schedule_area_operation m on m.schedule_area_code=s.schedule_area_code and m.is_active=true
+    left join md_planner_work_assignment pwa
+      on pwa.schedule_area_code=s.schedule_area_code
+     and pwa.is_active=true
+    left join md_schedule_area_operation m
+      on m.schedule_area_code=s.schedule_area_code
+     and m.is_active=true
     where s.is_active=true
-    group by s.id
+    group by s.schedule_area_code,s.schedule_area_name,s.resource_group,s.resource_code,
+             s.default_rows,s.planner_owner,pwa.planner_owner,s.display_order
     order by s.display_order,s.schedule_area_code`),
    readLive("mainOps",`
     select standard_operation,st_group,batch_prefix,planning_sort_order,is_active
@@ -154,7 +161,7 @@ export default async function Page(){
            count(distinct m.source_operation_code) source_count,
            count(distinct mr.mapping_id) recipe_count,
            coalesce(string_agg(distinct sa.schedule_area_code, ', ' order by sa.schedule_area_code) filter(where sa.schedule_area_code is not null),'—') schedule_areas,
-           coalesce(string_agg(distinct sa.planner_owner, ', ' order by sa.planner_owner) filter(where sa.planner_owner is not null and btrim(sa.planner_owner)<>''),'—') planners
+           coalesce(string_agg(distinct coalesce(pwa.planner_owner,sa.planner_owner), ', ' order by coalesce(pwa.planner_owner,sa.planner_owner)) filter(where coalesce(pwa.planner_owner,sa.planner_owner) is not null and btrim(coalesce(pwa.planner_owner,sa.planner_owner))<>''),'—') planners
     from md_operation_master o
     left join md_st_operation_mapping m
       on m.is_active=true
@@ -168,6 +175,9 @@ export default async function Page(){
     left join md_schedule_area sa
       on sa.is_active=true
      and sa.schedule_area_code=sao.schedule_area_code
+    left join md_planner_work_assignment pwa
+      on pwa.is_active=true
+     and pwa.schedule_area_code=sa.schedule_area_code
     where o.is_active=true
     group by o.standard_operation,o.st_group,o.batch_prefix,o.planning_sort_order
     order by o.planning_sort_order nulls last,o.standard_operation`),
@@ -175,7 +185,7 @@ export default async function Page(){
     select g.st_group,g.group_name,
            coalesce(string_agg(distinct a.area_name, ', ' order by a.area_name) filter(where a.area_name is not null),'—') areas,
            coalesce(string_agg(distinct s.schedule_area_name, ', ' order by s.schedule_area_name) filter(where s.schedule_area_name is not null),'—') schedule_areas,
-           coalesce(string_agg(distinct s.planner_owner, ', ' order by s.planner_owner) filter(where s.planner_owner is not null and btrim(s.planner_owner)<>''),'—') planners,
+           coalesce(string_agg(distinct coalesce(pwa.planner_owner,s.planner_owner), ', ' order by coalesce(pwa.planner_owner,s.planner_owner)) filter(where coalesce(pwa.planner_owner,s.planner_owner) is not null and btrim(coalesce(pwa.planner_owner,s.planner_owner))<>''),'—') planners,
            coalesce(string_agg(distinct om.standard_operation, ', ' order by om.standard_operation) filter(where om.standard_operation is not null),'—') main_operations
     from md_st_group g
     left join md_area_operation_group ag on ag.is_active=true and ag.st_group=g.st_group
@@ -183,6 +193,7 @@ export default async function Page(){
     left join md_operation_master om on om.is_active=true and om.st_group=g.st_group
     left join md_schedule_area_operation sao on sao.is_active=true and upper(trim(sao.standard_operation))=upper(trim(om.standard_operation))
     left join md_schedule_area s on s.is_active=true and s.schedule_area_code=sao.schedule_area_code
+    left join md_planner_work_assignment pwa on pwa.is_active=true and pwa.schedule_area_code=s.schedule_area_code
     where g.is_active=true
     group by g.st_group,g.group_name
     order by g.st_group`)
