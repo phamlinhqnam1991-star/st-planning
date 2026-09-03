@@ -16,6 +16,7 @@ const STATUS_CLASS:Record<StDashboardStatus,string>={
 
 function fmt(v:number,max=1){return new Intl.NumberFormat("en-US",{maximumFractionDigits:max}).format(Number(v||0));}
 function metricLines(m:StDashboardMetric){return <><b>{fmt(m.surface)} dm²</b><span>{fmt(m.qty,0)} pcs</span><span>{fmt(m.jobs,0)} Job</span></>;}
+function chartTypeTag(type:StDashboardImmediateRow["operationType"]){return type==="INTERMEDIATE"?"IMMEDIATE":type==="ST_SCOPE_ONLY"?"ST ONLY":"MAIN";}
 function tm(v:string|null){
  if(!v)return "—";
  const d=new Date(v);if(Number.isNaN(d.getTime()))return "—";
@@ -27,10 +28,11 @@ function tm(v:string|null){
 function generated(v:string){const d=new Date(v);return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ho_Chi_Minh",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);}
 
 function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total:StDashboardMetric}){
- const chartRows=[...rows,{
+ const totalRow:StDashboardImmediateRow={
   areaId:-1,areaName:"ST TOTAL",areaSort:999999999,standardOperation:"TOTAL",mainOrder:999999999,
-  immediateOperation:"ALL ST",total
- }];
+  immediateOperation:"ALL ST",operationType:"ST_SCOPE_ONLY",total
+ };
+ const chartRows=[...rows,totalRow];
  const width=1200,height=390;
  const left=66,right=70,top=40,bottom=120;
  const plotW=width-left-right,plotH=height-top-bottom;
@@ -64,14 +66,15 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
     const h=Math.max(0,(surfacePlot/surfaceMax)*plotH);
     const y=top+plotH-h;
     const barLabelY=Math.max(12,y-5);
-    const label=isTotal?"TOTAL / ALL ST":`${row.standardOperation} / ${row.immediateOperation}`;
-    return <g key={`${row.areaId}-${row.standardOperation}-${row.immediateOperation}-${i}`} className={isTotal?"st-dashboard-combo-total-group":undefined}>
+    const tag=chartTypeTag(row.operationType);
+    const label=isTotal?"TOTAL / ALL ST":row.operationType==="ST_SCOPE_ONLY"?`ST ONLY / ${row.immediateOperation}`:`${row.standardOperation} / ${row.immediateOperation} [${tag}]`;
+    return <g key={`${row.operationType}-${row.areaId}-${row.standardOperation}-${row.immediateOperation}-${i}`} className={isTotal?"st-dashboard-combo-total-group":undefined}>
      <rect x={x-barW/2} y={y} width={barW} height={h} rx="1.5" className={`st-dashboard-combo-bar${isTotal?" total":""}`}>
       <title>{`${row.areaName} · ${label} · ${fmt(row.total.surface)} dm² · ${fmt(row.total.qty,0)} pcs`}</title>
      </rect>
      <text x={x} y={barLabelY} textAnchor="middle" className="st-dashboard-combo-value surface">{fmt(row.total.surface,0)} dm²</text>
      <text transform={`translate(${x+2} ${top+plotH+10}) rotate(58)`} className={`st-dashboard-combo-x-label${isTotal?" total":""}`}>
-      <tspan>{isTotal?"TOTAL":row.standardOperation}</tspan><tspan> / {isTotal?"ALL ST":row.immediateOperation}</tspan>
+      <tspan>{isTotal?"TOTAL":row.operationType==="ST_SCOPE_ONLY"?"ST ONLY":row.standardOperation}</tspan><tspan> / {isTotal?"ALL ST":row.immediateOperation}{isTotal?"":` [${tag}]`}</tspan>
      </text>
     </g>;
    })}
@@ -80,7 +83,7 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
     const qtyLabelY=y<=top+12?y+13:y-7;
     return <g key={`p-${i}`} className={isTotal?"st-dashboard-combo-total-group":undefined}>
      <circle cx={x} cy={y} r={isTotal?3.4:2.7} className={`st-dashboard-combo-point${isTotal?" total":""}`}>
-      <title>{`${isTotal?"TOTAL / ALL ST":`${row.standardOperation} / ${row.immediateOperation}`} · ${fmt(row.total.qty,0)} pcs · ${fmt(row.total.surface)} dm²`}</title>
+      <title>{`${isTotal?"TOTAL / ALL ST":row.operationType==="ST_SCOPE_ONLY"?`ST ONLY / ${row.immediateOperation}`:`${row.standardOperation} / ${row.immediateOperation} [${chartTypeTag(row.operationType)}]`} · ${fmt(row.total.qty,0)} pcs · ${fmt(row.total.surface)} dm²`}</title>
      </circle>
      <text x={x} y={qtyLabelY} textAnchor="middle" className="st-dashboard-combo-value qty">{fmt(row.total.qty,0)} pcs</text>
     </g>;
@@ -98,20 +101,21 @@ function AuditJobTable({rows}:{rows:StDashboardAuditJob[]}){
  const totalSurface=rows.reduce((sum,row)=>sum+Number(row.surfaceUsed||0),0);
  const totalQty=rows.reduce((sum,row)=>sum+Number(row.qtyUsed||0),0);
  return <section className="erp-table-panel st-dashboard-panel st-dashboard-audit-panel">
-  <div className="erp-panel-head"><div><b>Chart Calculation Audit · Job Detail</b><small>One row per ST-visible open Job used by the Current Main / Immediate Operation chart. RAW NextOperation must be active ST Planning/Intermediate scope before resolver, Qty and Surface are counted.</small></div><span>{fmt(totalSurface)} dm² · {fmt(totalQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
-  <div className="st-dashboard-audit-note">Chart Group = <b>Current Main / ST RAW NextOperation</b>. Immediate Operation is the ST-visible RAW NextOperation from All Open Job. RAW LastOperation is resolver context only; Current/Next Main come from the same synced Planning Chain used by Planning Board.</div>
+  <div className="erp-panel-head"><div><b>Chart Calculation Audit · Job Detail</b><small>Exactly the Jobs used by chart 2: direct ST Planning Operation, auto Bridge Intermediate, and ST_SCOPE_ONLY. Qty and Surface are counted once from the current Open Job row.</small></div><span>{fmt(totalSurface)} dm² · {fmt(totalQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
+  <div className="st-dashboard-audit-note">Chart grouping: <b>Main / RAW NextOperation</b> for Planning + Intermediate; <b>ST_SCOPE_ONLY / RAW NextOperation</b> for display-only ST operations. Auto Intermediate comes from the active Bridge tables and is validated by LastOperation → RAW NextOperation → Current Main.</div>
   <div className="table-wrap st-dashboard-audit-wrap"><table className="erp-table st-dashboard-audit-table">
    <thead><tr>
-    <th>Job</th><th>Part / Rev</th><th>Priority</th><th>Chart Group</th><th>Last Operation</th><th>RAW NextOperation<br/>Immediate</th>
+    <th>Job</th><th>ST Type</th><th>Part / Rev</th><th>Priority</th><th>Chart Group</th><th>Last Operation</th><th>RAW NextOperation<br/>Immediate</th>
     <th>Resolver Mode</th><th>Previous Main</th><th>Current Main</th><th>Current Main Source Op</th><th>Status</th><th>Current Seq</th>
     <th>Next Main</th><th>Next Main Source Op</th><th>Next Seq</th><th>WIP Qty</th><th>Prod Qty</th><th>Qty Used</th>
     <th>Surface / Part dm²</th><th>Source TotalSurface</th><th>Qty × Surface</th><th>Surface Used dm²</th><th>AllOperation</th>
    </tr></thead>
    <tbody>{rows.length?rows.map(row=><tr key={row.jobNum}>
     <td><b className="mono">{row.jobNum}</b></td>
+    <td><b>{row.operationType==="INTERMEDIATE"?"IMMEDIATE":row.operationType==="ST_SCOPE_ONLY"?"ST ONLY":"MAIN"}</b><small className="mono">{row.operationType||"—"}</small></td>
     <td><b>{row.partNum||"—"}</b><small>{row.revisionNum?`Rev ${row.revisionNum}`:""}</small></td>
     <td><b>{row.priority||"—"}</b></td>
-    <td><b>{row.currentMain||"—"}</b><small className="mono">/ {row.rawNextOperation||"—"}</small></td>
+    <td><b>{row.operationType==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":row.currentMain||"—"}</b><small className="mono">/ {row.rawNextOperation||"—"}</small></td>
     <td className="mono">{row.lastOperation||"—"}</td>
     <td className="mono"><b>{row.rawNextOperation||"—"}</b></td>
     <td><b>{row.resolverMode||"—"}</b></td>
@@ -131,7 +135,7 @@ function AuditJobTable({rows}:{rows:StDashboardAuditJob[]}){
     <td className="num">{fmt(row.calculatedSurface,3)}</td>
     <td className="num"><b>{fmt(row.surfaceUsed,3)}</b></td>
     <td className="mono st-dashboard-audit-allop" title={row.allOperation||""}>{row.allOperation||"—"}</td>
-   </tr>):<tr><td colSpan={23}>No ST Job used by the chart.</td></tr>}</tbody>
+   </tr>):<tr><td colSpan={24}>No ST Job used by the chart.</td></tr>}</tbody>
   </table></div>
  </section>;
 }
@@ -223,9 +227,9 @@ export default async function DashboardPage(){
     </section>
 
     <section className="erp-table-panel st-dashboard-panel st-dashboard-chart-panel st-dashboard-combo-panel">
-     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation</b><small>Column = dm² on the left axis · Line = pcs on the right axis · X = Current Main Planning grouped only with ST-visible RAW NextOperation (Immediate Operation).</small></div></div>
+     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation / ST Only</b><small>Current ST position from RAW NextOperation: Main Planning + auto Bridge Immediate + ST_SCOPE_ONLY. Column = dm² · Line = pcs.</small></div></div>
      <div className="st-dashboard-combo-legend"><span><i className="surface"></i>Surface dm² · left axis max 50,000</span><span><i className="qty"></i>Qty pcs · right axis max 10,000</span></div>
-     <SurfaceQtyComboChart rows={data.immediateRows} total={data.total}/>
+     <SurfaceQtyComboChart rows={data.immediateRows} total={data.chartTotal}/>
     </section>
 
     <AuditJobTable rows={data.auditJobs}/>
@@ -234,7 +238,7 @@ export default async function DashboardPage(){
      <article className="st-dashboard-kpi total"><small>ST TOTAL · SURFACE WORKLOAD</small>{metricLines(data.total)}</article>
      {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(data.statuses[status])}</article>)}
     </section>
-    <div className="st-dashboard-note">V411 population: Dashboard chỉ nhận Job khi RAW <code>NextOperation</code> đang nằm trong <code>md_st_operation_scope</code> active với loại <code>PLANNING_OPERATION</code> hoặc <code>INTERMEDIATE</code>, sau đó mới dùng resolver của Planning Board để xác nhận Current Main. <code>LastOperation</code> chỉ là context để resolve Bridge, không dùng làm ST visibility gate. Vì vậy flow ngoài ST và <code>ST_SCOPE_ONLY</code> không thể lọt vào chart.</div>
+    <div className="st-dashboard-note">V414 chart 2 dùng population riêng theo vị trí ST hiện tại: <code>PLANNING_OPERATION</code> trực tiếp + <code>INTERMEDIATE</code> tự suy ra từ Active Bridge + <code>ST_SCOPE_ONLY</code>. ST_SCOPE_ONLY chỉ được tính/hiển thị trên chart và audit, vẫn không tham gia Planning Chain/Batch/Schedule. Các bảng workload Planning phía dưới giữ logic Planning hiện tại.</div>
 
     <section className="st-dashboard-area-workloads">
      <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>Main Planning Workload Summary · By Area</b><small>Each Area has its own KPI cards and its own Main Planning → Recipe workload table. All table rows stay visible without vertical scrolling.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Main Operations</span></div>

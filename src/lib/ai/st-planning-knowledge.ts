@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V401";
+export const ST_AI_KNOWLEDGE_VERSION="V414";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -21,7 +21,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"st-scope",
   title:"ST Scope and Intermediate operations",
-  content:`Planning Board and Dashboard V409 share one population resolver. Start from every Open Job physical RAW open_job_current.next_operation, then use LastOperation + RAW NextOperation against the synced Current Main context. A Job belongs to ST workload when the RAW operation is a direct active ST Planning Operation resolving to Current Main, or a valid active Bridge Intermediate pair leading to that same Current Main. Do not pre-filter RAW NextOperation to PLANNING_OPERATION before resolution. Unrelated non-ST flows and ST_SCOPE_ONLY are excluded. After membership is resolved, Planning Chain/Batch/Schedule/Recipe provide status and workload context.`
+  content:`Planning Chain workload remains based on Current Main and excludes ST_SCOPE_ONLY from Planning/Batch/Schedule. Dashboard chart 2 (Surface + Qty by Main / Immediate / ST Only) is a read-only current-position view with a broader ST visibility population: direct active PLANNING_OPERATION resolved to Current Main; active auto Bridge INTERMEDIATE validated by LastOperation -> RAW NextOperation -> Current Main; and active ST_SCOPE_ONLY shown as ST_SCOPE_ONLY / RAW NextOperation without creating Planning Chain rows. Auto Intermediate is derived from md_intermediate_bridge_segment + md_intermediate_bridge_operation, not from legacy md_st_operation_scope INTERMEDIATE rows. Unrelated non-ST flows remain excluded.`
  },
  {
   key:"recipe-batch",
