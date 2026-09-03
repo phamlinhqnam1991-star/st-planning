@@ -10,7 +10,7 @@ Surface Treatment planning application built with Next.js 16, TypeScript, Postgr
 - Recipe & Rules / Loading-Unloading Time / Process Time / Open Job Column Values
 - Planning Board Matrix / Candidate Jobs / Batch Detail / Recent Batches
 - Masking / Unmasking Planning
-- Board Điều Độ
+- Board Điều Độ (gồm Trial Day Shift: MOVE toàn bộ lịch ngày đang xem ±1 ngày, không clone và ngày nguồn rỗng sau commit)
 - Part Tracker / Job Tracker
 - Logic & Hướng dẫn
 - Login/Auth
@@ -227,3 +227,4 @@ Bridge discovery and ST membership are now independent. ST Operation Flow lists 
 - V426: Planning Board Workload Summary keeps V425 Candidate reconciliation but splits READY into `Previous Main Scheduled` and `Previous Main Unscheduled / START` (their sum is the original READY). Dashboard Surface+Qty combo chart now consumes the full panel width. Scheduling Board adds `ST Workload Summary · By Area` above each top-level schedule area, reusing the canonical Dashboard workload engine and filtering only by that area's mapped Main Operation pool.
 
 - V428: Dashboard CAT3/CAT5 tables are sorted by canonical NextOperation Order: Main Planning Order → Operation Code Order inside the same Main → RAW NextOperation → Job. This is presentation-only and does not change Dashboard population or planning logic.
+- V429: Dashboard CAT3/CAT5 tables now sort primarily by RAW NextOperation Order (`md_operation.planning_sort_order`). Main Planning Order is only a fallback for RAW operations without an explicit order; population/calculation logic is unchanged.

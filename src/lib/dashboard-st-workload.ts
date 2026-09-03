@@ -273,8 +273,8 @@ const DASHBOARD_VISIBLE_SQL=`
  left join public.md_area a on a.id=abg.area_id and a.is_active=true
  left join public.md_operation_master om on om.standard_operation=v.current_main and om.is_active=true
  left join public.md_planning_operation_scope pscope on pscope.standard_operation=v.current_main and pscope.is_active=true
- -- Keep Dashboard CAT3/CAT5 in the same canonical NextOperation presentation order as Planning Board:
- -- Main Planning Order first, then optional RAW Operation Code Order inside the same Main.
+ -- Dashboard CAT3/CAT5 primary order is RAW NextOperation Order from md_operation.planning_sort_order.
+ -- Resolved Main Planning Order is only a deterministic fallback for RAW codes without an explicit order.
  -- LATERAL + LIMIT 1 avoids multiplying a Job when historical md_operation duplicates exist.
  left join lateral (
   select mo.planning_sort_order
@@ -606,17 +606,9 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   typeOrder[a.operationType]-typeOrder[b.operationType]||a.areaSort-b.areaSort||a.mainOrder-b.mainOrder||a.standardOperation.localeCompare(b.standardOperation)||a.immediateOperation.localeCompare(b.immediateOperation,undefined,{numeric:true})
  );
  const comparePriorityByNextOperationOrder=(a:StDashboardPriorityJob,b:StDashboardPriorityJob)=>{
-  // Same canonical NextOperation presentation order as Planning Board:
-  // 1) resolved Main Planning Order, 2) resolved Main grouping,
-  // 3) optional RAW Operation Code Order inside the same Main, 4) RAW NextOperation, 5) Job.
-  // ST_SCOPE_ONLY has no Main; keep all ST Only rows together at the end, then apply RAW code order.
-  if(a.mainOrder!==b.mainOrder)return a.mainOrder-b.mainOrder;
-
-  const aMainGroup=a.operationType==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":(a.planningMain||"");
-  const bMainGroup=b.operationType==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":(b.planningMain||"");
-  const mainCmp=aMainGroup.localeCompare(bMainGroup,undefined,{numeric:true,sensitivity:"base"});
-  if(mainCmp!==0)return mainCmp;
-
+  // CAT3/CAT5 are a current-position list, so the primary order must be the
+  // RAW NextOperation order itself (md_operation.planning_sort_order).
+  // Main Planning Order is only the fallback when a RAW operation has no explicit order.
   const aCodeMissing=a.nextOperationOrder===null||!Number.isFinite(Number(a.nextOperationOrder));
   const bCodeMissing=b.nextOperationOrder===null||!Number.isFinite(Number(b.nextOperationOrder));
   if(aCodeMissing!==bCodeMissing)return aCodeMissing?1:-1;
@@ -624,8 +616,16 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
    return Number(a.nextOperationOrder)-Number(b.nextOperationOrder);
   }
 
+  if(a.mainOrder!==b.mainOrder)return a.mainOrder-b.mainOrder;
+
   const nextCmp=(a.nextOperation||"").localeCompare(b.nextOperation||"",undefined,{numeric:true,sensitivity:"base"});
   if(nextCmp!==0)return nextCmp;
+
+  const aMainGroup=a.operationType==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":(a.planningMain||"");
+  const bMainGroup=b.operationType==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":(b.planningMain||"");
+  const mainCmp=aMainGroup.localeCompare(bMainGroup,undefined,{numeric:true,sensitivity:"base"});
+  if(mainCmp!==0)return mainCmp;
+
   return (a.jobNum||"").localeCompare(b.jobNum||"",undefined,{numeric:true,sensitivity:"base"});
  };
  cat3.sort(comparePriorityByNextOperationOrder);

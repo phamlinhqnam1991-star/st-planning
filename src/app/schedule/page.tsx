@@ -4,6 +4,7 @@ import {AppTabs} from "@/components/app-tabs";
 import ScheduleBoardClient from "@/components/schedule-board-client";
 import {ManualScheduleGrid} from "@/components/manual-schedule-grid";
 import ProductionTimelineClient from "@/components/production-timeline-client";
+import {ScheduleDayShiftControl} from "@/components/schedule-day-shift-control";
 import {calculateScheduleEnd,getProductionDay} from "@/lib/schedule-time";
 
 export const dynamic="force-dynamic";
@@ -484,11 +485,14 @@ export default async function Page({
    <section className="erp-content erp-content-full">
     <div className="erp-page-head">
      <div><h2>Board Điều Độ</h2><p>Điều độ Batch theo Resource, ngày sản xuất và thời gian xử lý.</p></div>
-     <form>
-      <input type="hidden" name="planner" value={planner}/>
-      <input className="input" type="date" name="date" defaultValue={date}/>
-      <button className="btn" type="submit">Tải</button>
-     </form>
+     <div className="schedule-page-date-actions">
+      <form>
+       <input type="hidden" name="planner" value={planner}/>
+       <input className="input" type="date" name="date" defaultValue={date}/>
+       <button className="btn" type="submit">Tải</button>
+      </form>
+      <ScheduleDayShiftControl date={date} planner={planner} scheduleCount={allRows.length}/>
+     </div>
     </div>
 
     <div className="erp-overview-metrics">

@@ -260,3 +260,14 @@ Planning Board Workload Summary is intentionally independent from Dashboard cano
 
 ## V427 — Dashboard Main Planning chart roll-up
 The Dashboard `Surface + Qty` combo chart now renders at resolved Main Planning grain. Current-position MAIN and Dashboard-ST INTERMEDIATE rows are summed under the same resolved Main Planning operation. `ST_SCOPE_ONLY` stays as one standalone `ST ONLY` bucket and `TOTAL / ALL ST` stays separate. This is presentation-only; the canonical Dashboard population and all planning/scheduling logic are unchanged.
+
+## V430 — Trial Schedule Day Shift = MOVE, không clone
+Board Điều Độ có control trial để chuyển toàn bộ lịch của ngày đang xem sang ngày kế tiếp (`+1`) hoặc lùi lại một ngày (`-1`). Đây là thao tác **Schedule-only MOVE in-place** trên các `planning_schedule` hiện hữu; không tạo Batch mới và không clone Schedule.
+
+- Population nguồn dùng đúng ngày Board đang xem: active Schedule có `schedule_date = selected date` hoặc `planned_start` local date = selected date.
+- Toàn bộ `planned_start/planned_end` và các mốc Chemical Line `loading/process/ndt/unloading start/end` được dịch đồng bộ đúng ±1 ngày; Resource, Recipe, Duration, Sequence và status giữ nguyên.
+- `planning_batch.planned_start/planned_end` được đồng bộ theo Schedule sau khi move; Batch identity/membership/Recipe không đổi.
+- Sau commit, ngày nguồn bắt buộc rỗng theo cùng population Board. Đây là MOVE, không phải COPY.
+- Trial one-day invariant: ngày đích phải không có active Schedule độc lập. Hệ thống không tự xóa ngày đích và không merge hai ngày.
+- RUNNING/COMPLETED không được move. Nếu có lịch ngoài population nguồn chạy xuyên khoảng đích hoặc bất kỳ invariant nào không đạt, transaction rollback toàn bộ.
+- Không recompute Planning Chain/READY/WAIT; Candidate, Batch membership, Recipe, Dashboard population và Production Execution không bị thay đổi bởi thao tác dời ngày.

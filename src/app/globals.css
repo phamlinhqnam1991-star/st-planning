@@ -6147,3 +6147,15 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 @media(max-width:900px){.support-date-bar{align-items:stretch;flex-direction:column}.support-date-nav{justify-content:space-between}.support-selected-date{flex:1}}
 
 /* v363 — Job Planning Debug (read-only). */
+
+/* v430 · Trial scheduling day move: one active test day, move in-place (no clone). */
+.schedule-page-date-actions{display:flex;align-items:flex-start;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.schedule-day-shift-control{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.schedule-day-shift-control small{width:100%;text-align:right;color:var(--muted);font-size:11px}
+@media(max-width:760px){
+ .schedule-page-date-actions{width:100%;justify-content:stretch}
+ .schedule-page-date-actions form{width:100%}
+ .schedule-day-shift-control{width:100%;justify-content:stretch}
+ .schedule-day-shift-control .btn{flex:1}
+ .schedule-day-shift-control small{text-align:left}
+}
