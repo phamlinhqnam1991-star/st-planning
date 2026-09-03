@@ -25,6 +25,8 @@ For Candidate presentation when sorting by NextOperation:
 
 Operation Code Order (`md_operation.planning_sort_order`) is only an optional tie-breaker inside the same Main. READY/WAIT, Batch and Schedule remain controlled by their canonical models and are not changed by presentation sorting.
 
+Dashboard and Planning Board Workload use the same ST population gate: RAW `open_job_current.next_operation` must belong to the visible ST Planning scope before any Planning Chain status is aggregated. Future ST chain rows do not pull a Job into ST workload when its current RAW NextOperation is outside ST.
+
 
 ## All Open Job incremental sync
 

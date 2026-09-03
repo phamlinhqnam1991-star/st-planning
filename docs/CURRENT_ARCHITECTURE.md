@@ -168,3 +168,16 @@ UI gồm KPI tổng và bảng ERP compact. Click READY / WAIT / HOLD của mộ
 
 ## V397 — Dashboard Recipe-level workload
 `Main Planning Workload Summary` is hierarchical: Main Planning total → Recipe No./Recipe Name detail. Every Recipe detail retains WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD with Job / pcs / dm². Batched work uses the Batch Recipe; unbatched work uses the current live Planning Recipe resolver. No-Recipe workload is retained explicitly so Main totals reconcile.
+
+## V398 — RAW NextOperation ST population gate
+
+Dashboard và Planning Board Workload Summary không được bắt đầu từ toàn bộ `planning_job_operation`. Population chuẩn phải bắt đầu từ `open_job_current` và RAW `next_operation` hiện tại của All Open Job.
+
+`open_job_current.next_operation (RAW) -> Visible ST RAW scope -> Planning Chain / Batch / Schedule aggregation`
+
+- Visible ST RAW scope dùng cùng quy tắc với Planning Board: active `PLANNING_OPERATION` trong `md_st_operation_scope` + active Auto Bridge intermediate operation.
+- `ST_SCOPE_ONLY` bị loại khỏi Planning Board/Dashboard planning workload vì loại này chỉ hiển thị ở All Open Jobs và không tham gia Planning Chain/Batch/Board.
+- Chỉ sau khi Job vượt RAW ST gate mới được đọc các Main Planning/status trong `planning_job_operation` để tính READY / WAIT / HOLD / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED.
+- Job có RAW NextOperation ngoài ST không được xuất hiện trong Workload/Dashboard chỉ vì Planning Chain của nó có future ST operations.
+- CAT3/CAT5 Dashboard dùng cùng RAW ST gate, vì vậy danh sách priority và KPI/Main/Recipe summary dùng cùng một population.
+- Source chuẩn được gom trong `src/lib/planning/raw-st-visible-sql.ts` để Dashboard và Planning Board không lệch logic về sau.

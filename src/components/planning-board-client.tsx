@@ -3913,7 +3913,7 @@ const currentPriorityMonth=useMemo(()=>{
      <div className="erpkit-workload-summary-head">
       <div>
        <b>Workload Summary</b>
-       <small>{selectedAreaId?selectedAreaName:"Tất cả khu vực"}{standardOperation?` · ${standardOperation}`:""} · READY / WAIT / HOLD theo Planning Chain đang active</small>
+       <small>{selectedAreaId?selectedAreaName:"Tất cả khu vực"}{standardOperation?` · ${standardOperation}`:""} · RAW NextOperation thuộc ST → READY / WAIT / HOLD theo Planning Chain đang active</small>
       </div>
       <div className="erpkit-workload-summary-kpis">
        <div className="erpkit-workload-summary-kpi is-ready"><b>{formatNumber(workloadTotals.READY.jobs,0)} Job</b><span>{formatNumber(workloadTotals.READY.qty)} pcs · {formatNumber(workloadTotals.READY.surface)} dm²</span><small>READY</small></div>

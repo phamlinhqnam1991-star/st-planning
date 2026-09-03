@@ -564,8 +564,8 @@ export default async function Page(){
     </table></div>
 
     <div className="lg-subtitle">7.1.1 · Workload Summary — READY / WAIT / HOLD theo Main</div>
-    <Rule title="Summary chỉ đọc Planning Chain" tone="important">
-     Planning Board tổng hợp trực tiếp <code>planning_job_operation + open_job_current</code> theo <b>Area → Main Operation</b>. Mỗi Main hiển thị READY / WAIT / HOLD bằng <b>Jobs · pcs · dm²</b>; Total Load = R + W + H. Summary không tạo trạng thái riêng và không thay đổi Planning Chain.
+    <Rule title="RAW NextOperation ST là Population Gate" tone="important">
+     Workload không bắt đầu từ toàn bộ <code>planning_job_operation</code>. Hệ thống lọc <code>open_job_current.next_operation</code> RAW trước: chỉ Job có RAW NextOperation thuộc ST Planning view (Planning Operation hoặc Auto Bridge intermediate; loại <b>ST_SCOPE_ONLY</b>) mới được đưa vào population. Sau đó mới tổng hợp <code>planning_job_operation</code> theo <b>Area → Main Operation</b> và READY / WAIT / HOLD bằng <b>Jobs · pcs · dm²</b>. Future ST operation không được kéo một Job có RAW NextOperation ngoài ST vào Summary.
     </Rule>
     <ul className="lg-list">
      <li><b>Qty:</b> dùng CurrentGoodWIPQty nếu &gt; 0, nếu không dùng ProdQty — cùng quy tắc Candidate.</li>

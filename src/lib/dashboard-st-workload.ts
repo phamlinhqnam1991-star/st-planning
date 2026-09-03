@@ -1,6 +1,7 @@
 import type {PoolClient} from "pg";
 import {bestRecipeMatch} from "@/lib/planning/live-recipe";
 import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
+import {RAW_ST_VISIBLE_CTE_SQL} from "@/lib/planning/raw-st-visible-sql";
 
 export type StDashboardMetric={jobs:number;qty:number;surface:number};
 export type StDashboardStatus="WAIT"|"READY"|"PLANNED"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
@@ -73,7 +74,7 @@ const iso=(v:unknown)=>{
 };
 
 const WORKLOAD_SQL=`
- with area_by_group as (
+ with ${RAW_ST_VISIBLE_CTE_SQL}, area_by_group as (
   select ag.st_group,min(ag.area_id) area_id
   from public.md_area_operation_group ag
   join public.md_area ax on ax.id=ag.area_id and ax.is_active=true
@@ -104,6 +105,7 @@ const WORKLOAD_SQL=`
    active_batch.recipe_key batch_recipe_key
   from public.planning_job_operation p
   join public.open_job_current j on j.job_num=p.job_num and j.is_open=true
+  join visible_st_raw rawst on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
   left join area_by_group abg on abg.st_group=p.st_group
   left join public.md_area a on a.id=abg.area_id and a.is_active=true
   left join public.md_operation_master om on om.standard_operation=p.standard_operation and om.is_active=true
@@ -139,6 +141,7 @@ const WORKLOAD_SQL=`
 
 async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboardPriorityJob[]>{
  const q=await c.query(`
+  with ${RAW_ST_VISIBLE_CTE_SQL}
   select
    j.job_num,j.part_num,j.revision_num,j.part_description,j.priority_type,
    coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)::float8 qty,
@@ -158,6 +161,7 @@ async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboar
    latest_schedule.planned_start,
    latest_schedule.planned_end
   from public.open_job_current j
+  join visible_st_raw rawst on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
   left join lateral (
    select
     p.id,p.standard_operation,p.planning_seq,
@@ -229,7 +233,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
  const [workloadQ,totalQ,cat3,cat5,ctx,recipeMetaQ]=await Promise.all([
   c.query(WORKLOAD_SQL),
   c.query(`
-   with per_job as (
+   with ${RAW_ST_VISIBLE_CTE_SQL}, per_job as (
     select
      j.job_num,
      max(coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0))::numeric qty,
@@ -239,6 +243,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
        0
      ))::numeric surface
     from public.open_job_current j
+    join visible_st_raw rawst on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
     join public.planning_job_operation p on p.job_num=j.job_num and p.is_active=true
     where j.is_open=true and upper(trim(p.standard_operation))<>'PIONBL'
     group by j.job_num

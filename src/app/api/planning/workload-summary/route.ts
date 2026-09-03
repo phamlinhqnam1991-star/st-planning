@@ -1,6 +1,7 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {requireApiUser} from "@/lib/api-auth";
+import {RAW_ST_VISIBLE_CTE_SQL} from "@/lib/planning/raw-st-visible-sql";
 
 type Metric={jobs:number;qty:number;surface:number};
 const zeroMetric=():Metric=>({jobs:0,qty:0,surface:0});
@@ -30,7 +31,7 @@ export async function GET(req:Request){
   if(op){params.push(op);where.push(`upper(trim(p.standard_operation))=upper(trim($${params.length}))`);}
 
   const q=await c.query(`
-   with area_by_group as (
+   with ${RAW_ST_VISIBLE_CTE_SQL}, area_by_group as (
     select ag.st_group,min(ag.area_id) area_id
     from public.md_area_operation_group ag
     join public.md_area ax on ax.id=ag.area_id and ax.is_active=true
@@ -58,6 +59,7 @@ export async function GET(req:Request){
      )::numeric surface
     from public.planning_job_operation p
     join public.open_job_current j on j.job_num=p.job_num
+    join visible_st_raw rawst on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
     left join area_by_group abg on abg.st_group=p.st_group
     left join public.md_area a on a.id=abg.area_id and a.is_active=true
     left join public.md_operation_master om on om.standard_operation=p.standard_operation and om.is_active=true

@@ -57,7 +57,7 @@ export default async function DashboardPage(){
   <AppTabs active="dashboard"/>
   <section className="erp-content erp-content-full st-dashboard-page">
    <div className="erp-page-head st-dashboard-head">
-    <div><div className="erp-object-eyebrow">ST · PLANNING WORKLOAD</div><h2>ST Planning Dashboard</h2><p>One source of truth for ST Job / pcs / dm² workload by Planning status and Main Planning Operation.</p></div>
+    <div><div className="erp-object-eyebrow">ST · PLANNING WORKLOAD</div><h2>ST Planning Dashboard</h2><p>RAW All Open Job NextOperation thuộc ST → Planning workload by status and Main Planning Operation.</p></div>
     <div className="st-dashboard-head-actions"><span>{data?`Updated ${generated(data.generatedAt)}`:""}</span><Link className="btn" href="/dashboard">Refresh</Link></div>
    </div>
 
@@ -66,7 +66,7 @@ export default async function DashboardPage(){
      <article className="st-dashboard-kpi total"><small>ST TOTAL · UNIQUE OPEN JOBS</small>{metricLines(data.total)}</article>
      {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(data.statuses[status])}</article>)}
     </section>
-    <div className="st-dashboard-note">ST TOTAL counts each open ST Job once. Status cards are Job × Main Planning workload, so one Job can appear in more than one Main Planning status across its planning chain.</div>
+    <div className="st-dashboard-note">ST TOTAL chỉ lấy Open Job có RAW NextOperation hiện tại thuộc ST Planning view. Sau bước lọc RAW này, các status mới tổng hợp theo Job × Main Planning trong Planning Chain; Job có RAW NextOperation ngoài ST không được kéo vào Dashboard chỉ vì có future Planning Operation.</div>
 
     <section className="erp-table-panel st-dashboard-panel">
      <div className="erp-panel-head"><div><b>Main Planning Workload Summary</b><small>Job / pcs / dm² by Main Planning, then detailed again by Recipe No. and Recipe Name with the same Planning statuses.</small></div><span>{fmt(data.mainRows.length,0)} Main Operations</span></div>
