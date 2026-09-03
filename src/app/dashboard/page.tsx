@@ -121,7 +121,7 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
 
 function AreaWorkloadTable({area}:{area:StDashboardAreaRow}){
  return <section className="erp-table-panel st-dashboard-panel st-dashboard-area-panel">
-  <div className="erp-panel-head st-dashboard-area-head"><div><b>{area.areaName}</b><small>Canonical Dashboard ST population grouped by resolved Current Main / ST Only and Recipe.</small></div><span>{fmt(area.mainRows.length,0)} Workload Groups</span></div>
+  <div className="erp-panel-head st-dashboard-area-head"><div><b>{area.areaName}</b><small>Canonical ST Job scope; Planning workload expands active chain occurrences so future LOCKED operations remain WAIT.</small></div><span>{fmt(area.mainRows.length,0)} Workload Groups</span></div>
   <section className="st-dashboard-kpis st-dashboard-area-kpis">
    <article className="st-dashboard-kpi total"><small>{area.areaName.toUpperCase()} · SURFACE WORKLOAD</small>{metricLines(area.total)}</article>
    {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(area.statuses[status])}</article>)}
@@ -182,13 +182,13 @@ export default async function DashboardPage(){
   <AppTabs active="dashboard"/>
   <section className="erp-content erp-content-full st-dashboard-page">
    <div className="erp-page-head st-dashboard-head">
-    <div><div className="erp-object-eyebrow">ST · PLANNING WORKLOAD</div><h2>ST Planning Dashboard</h2><p>One canonical population: resolve Current Main first → filter RAW NextOperation by Dashboard ST Scope → reuse everywhere.</p></div>
+    <div><div className="erp-object-eyebrow">ST · PLANNING WORKLOAD</div><h2>ST Planning Dashboard</h2><p>One canonical ST Job population: resolve Current Main → filter RAW NextOperation by Dashboard ST Scope. Workload cards keep full active Planning Chain statuses, including future WAIT.</p></div>
     <div className="st-dashboard-head-actions"><span>{data?`Updated ${generated(data.generatedAt)}`:""}</span><Link className="btn" href="/dashboard">Refresh</Link></div>
    </div>
 
    {error||!data?<div className="notice error"><b>Unable to load Dashboard:</b> {error||"Unknown dashboard error"}</div>:<>
     <section className="erp-table-panel st-dashboard-panel st-dashboard-chart-panel">
-     <div className="erp-panel-head"><div><b>Surface Workload by Current Main / ST Only</b><small>Same Dashboard ST population as all cards/tables. IMMEDIATE contributes to its resolved Current Main; ST Only is shown separately.</small></div></div>
+     <div className="erp-panel-head"><div><b>Surface Workload by Current Main / ST Only</b><small>Same canonical ST Job population, expanded to active Planning Chain occurrences for workload status. Future LOCKED operations remain WAIT; ST Only is shown separately.</small></div></div>
      <div className="st-dashboard-chart-legend">{STATUS_ORDER.map(s=><span key={s}><i className={STATUS_CLASS[s]}></i>{STATUS_LABEL[s]}</span>)}</div>
      <div className="st-dashboard-chart-scroll"><div className="st-dashboard-chart">
       {data.mainRows.map(row=>{
@@ -217,10 +217,10 @@ export default async function DashboardPage(){
      <article className="st-dashboard-kpi total"><small>ST TOTAL · SURFACE WORKLOAD</small>{metricLines(data.total)}</article>
      {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(data.statuses[status])}</article>)}
     </section>
-    <div className="st-dashboard-note">V422 toàn Dashboard dùng chung một population: <b>1) Current Main đã được Planning Chain resolver xác định từ LastOperation + RAW NextOperation</b>; <b>2) Bridge Role chỉ là thông tin chẩn đoán/classification</b>; <b>3) lọc RAW NextOperation theo Dashboard ST Scope</b>. <code>PLANNING_OPERATION → MAIN</code>, <code>INTERMEDIATE → IMMEDIATE</code>, <code>ST_SCOPE_ONLY → ST ONLY</code>. Population này dùng cho <b>tất cả KPI cards, cả hai chart, Area/Main/Recipe tables và CAT3/CAT5</b>. INTERMEDIATE vẫn chỉ là nhãn Dashboard, không thay đổi All Open Jobs, Planning Chain, Candidate, Batch hoặc Schedule.</div>
+    <div className="st-dashboard-note">V423 giữ một <b>canonical Dashboard ST Job population</b>: <b>1) resolve Current Main từ LastOperation + RAW NextOperation</b>; <b>2) lọc RAW NextOperation theo Dashboard ST Scope</b>. Sau đó <b>Workload cards / Surface Workload / Area-Main-Recipe</b> mở rộng đúng các Job này theo active Planning Chain để giữ đầy đủ <b>READY / WAIT / PLANNED-UNSCHEDULED / SCHEDULED / HOLD</b>. Vì vậy future <code>LOCKED</code> quay lại bucket <b>WAIT</b>. Chart Current Main / Immediate / ST Only và CAT3/CAT5 vẫn một dòng cho current open Job. INTERMEDIATE vẫn chỉ là nhãn Dashboard, không thay đổi Planning Chain, Candidate, Batch hoặc Schedule.</div>
 
     <section className="st-dashboard-area-workloads">
-     <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>ST Workload Summary · By Area</b><small>Same canonical Dashboard population. IMMEDIATE is grouped under resolved Current Main; ST Only is placed in its own Area/operation group.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Workload Groups</span></div>
+     <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>ST Workload Summary · By Area</b><small>Canonical ST Job population expanded to active Planning Chain occurrences for READY/WAIT/HOLD workload. ST Only remains standalone.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Workload Groups</span></div>
      {data.areas.map(area=><AreaWorkloadTable key={`${area.areaId}-${area.areaName}`} area={area}/>)}
     </section>
 

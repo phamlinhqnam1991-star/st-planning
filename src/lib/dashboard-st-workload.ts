@@ -2,15 +2,16 @@ import type {PoolClient} from "pg";
 import {bestRecipeMatch} from "@/lib/planning/live-recipe";
 import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 
-// V422: one canonical Dashboard population for every remaining Dashboard card, table and chart.
-// 1) Read the Current Main already positioned by the canonical Planning Chain resolver
-//    (LastOperation + RAW NextOperation -> Current Main).
-// 2) Bridge Role is diagnostic/classification only; it never becomes a second inclusion gate.
-// 3) After Current Main resolution, join RAW NextOperation to active Dashboard ST Scope:
+// V423: keep one canonical Dashboard ST Job population, but preserve Planning workload statuses.
+// 1) Resolve Current Main first from the live Planning Chain (LastOperation + RAW NextOperation).
+// 2) Filter RAW NextOperation after resolution by Dashboard ST Scope:
 //      PLANNING_OPERATION -> MAIN
 //      INTERMEDIATE       -> IMMEDIATE (Dashboard-only ST membership)
 //      ST_SCOPE_ONLY      -> ST ONLY
-// 4) Every Dashboard component below is derived from this same one-row-per-open-Job set.
+// 3) That one-row-per-open-Job population is the inclusion source of truth.
+// 4) Workload cards / Area-Main-Recipe table / Surface Workload chart then expand ONLY those
+//    included Jobs back to their active Planning Chain occurrences so future LOCKED rows remain WAIT.
+//    Current-position chart and CAT3/CAT5 remain one row per current open Job.
 // INTERMEDIATE remains Dashboard-only and never syncs Planning Chain / Candidate / Batch / Schedule.
 
 export type StDashboardMetric={jobs:number;qty:number;surface:number};
@@ -316,6 +317,66 @@ const DASHBOARD_VISIBLE_SQL=`
   area_sort,main_order,chart_main,upper(trim(v.raw_next_operation)),v.job_num
 `;
 
+
+const DASHBOARD_CHAIN_WORKLOAD_SQL=`
+ with area_by_group as (
+  select ag.st_group,min(ag.area_id) area_id
+  from public.md_area_operation_group ag
+  join public.md_area ax on ax.id=ag.area_id and ax.is_active=true
+  where ag.is_active=true
+  group by ag.st_group
+ ), base as (
+  select
+   p.id,p.job_num,p.standard_operation,p.source_operation_code,p.planning_seq,p.source_seq,
+   p.recipe_key planning_recipe_key,p.status internal_status,p.is_hold,p.st_group,
+   coalesce(a.id,0)::bigint area_id,
+   coalesce(a.area_name,'Unmapped') area_name,
+   coalesce(a.sort_order,999999)::int area_sort,
+   coalesce(om.planning_sort_order,pscope.sort_order,999999)::int main_order,
+   case
+    when coalesce(p.is_hold,false)=true and active_batch.batch_id is null then 'HOLD'
+    when active_schedule.schedule_id is not null then 'SCHEDULED'
+    when active_batch.batch_id is not null then 'PLANNED_UNSCHEDULED'
+    when p.status='PLANNED' then 'PLANNED_UNSCHEDULED'
+    when p.status='ELIGIBLE' then 'READY'
+    else 'WAIT'
+   end dashboard_status,
+   active_batch.recipe_key batch_recipe_key
+  from public.planning_job_operation p
+  left join area_by_group abg on abg.st_group=p.st_group
+  left join public.md_area a on a.id=abg.area_id and a.is_active=true
+  left join public.md_operation_master om on om.standard_operation=p.standard_operation and om.is_active=true
+  left join public.md_planning_operation_scope pscope on pscope.standard_operation=p.standard_operation and pscope.is_active=true
+  left join lateral (
+   select b.id batch_id,b.batch_no,b.status batch_status,b.recipe_key
+   from public.planning_batch_job bj
+   join public.planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
+   where bj.planning_job_operation_id=p.id
+   order by b.created_at desc,b.id desc
+   limit 1
+  ) active_batch on true
+  left join lateral (
+   select s.id schedule_id,s.status schedule_status
+   from public.planning_schedule s
+   where s.batch_id=active_batch.batch_id and s.status<>'CANCELLED'
+   order by s.planned_start desc,s.id desc
+   limit 1
+  ) active_schedule on true
+  where p.is_active=true
+    and p.status in ('LOCKED','ELIGIBLE','PLANNED')
+    and upper(trim(p.standard_operation))<>'PIONBL'
+    and p.job_num=any($1::text[])
+ ), picked as (
+  select distinct on (job_num,standard_operation,dashboard_status)
+   *
+  from base
+  order by job_num,standard_operation,dashboard_status,coalesce(planning_seq,999999),coalesce(source_seq,999999),id
+ )
+ select *
+ from picked
+ order by area_sort,main_order,standard_operation,dashboard_status,job_num
+`;
+
 function addMetric(target:StDashboardMetric,metric:StDashboardMetric){
  target.jobs+=metric.jobs;
  target.qty+=metric.qty;
@@ -354,6 +415,19 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
  ]);
 
  const visibleRows=visibleQ.rows as any[];
+ const visibleByJob=new Map<string,any>();
+ const planningJobNums:string[]=[];
+ for(const raw of visibleRows){
+  const jobNum=text(raw.job_num);
+  if(!jobNum)continue;
+  visibleByJob.set(jobNum,raw);
+  if(text(raw.operation_type)!=="ST_SCOPE_ONLY")planningJobNums.push(jobNum);
+ }
+ const workloadQ=planningJobNums.length
+  ?await c.query(DASHBOARD_CHAIN_WORKLOAD_SQL,[planningJobNums])
+  :{rows:[] as any[]};
+ const workloadRows=workloadQ.rows as any[];
+
  const recipeMeta=new Map<string,{recipeNo:string;recipeName:string}>();
  for(const r of recipeMetaQ.rows as any[]){
   recipeMeta.set(text(r.recipe_key),{recipeNo:text(r.recipe_no),recipeName:text(r.recipe_name)});
@@ -361,67 +435,25 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
 
  const statuses=emptyStatusRecord();
  const total=zero();
+ const chartTotal=zero();
  const rows=new Map<string,StDashboardMainRow>();
  const immediateRowsMap=new Map<string,StDashboardImmediateRow>();
  const cat3:StDashboardPriorityJob[]=[];
  const cat5:StDashboardPriorityJob[]=[];
 
+ // Current-position population: one row per open Job. This drives the Immediate/Main/ST Only
+ // combo chart and priority tables. It is also the ONLY source allowed to admit a Job to Dashboard.
  for(const raw of visibleRows){
   const operationType=text(raw.operation_type) as StDashboardImmediateRow["operationType"];
   if(!["PLANNING_OPERATION","INTERMEDIATE","ST_SCOPE_ONLY"].includes(operationType))continue;
-  const bucket=text(raw.dashboard_status) as StDashboardStatus;
-  if(!(bucket in statuses))continue;
-
-  const metric={jobs:1,qty:num(raw.qty_used),surface:num(raw.surface_used)};
-  addMetric(total,metric);
-  addMetric(statuses[bucket],metric);
+  const currentMetric={jobs:1,qty:num(raw.qty_used),surface:num(raw.surface_used)};
+  addMetric(chartTotal,currentMetric);
 
   const rawNext=text(raw.raw_next_operation)||"—";
-  const standardOperation=operationType==="ST_SCOPE_ONLY"?`ST ONLY / ${rawNext}`:(text(raw.chart_main)||"UNRESOLVED");
   const areaId=num(raw.area_id);
   const areaName=text(raw.area_name)||"Unmapped";
   const areaSort=num(raw.area_sort)||999999;
   const mainOrder=num(raw.main_order)||999999;
-
-  const mainKey=`${areaId}|${standardOperation}`;
-  let row=rows.get(mainKey);
-  if(!row){
-   row=emptyMainRow({areaId,areaName,areaSort,standardOperation,mainOrder});
-   rows.set(mainKey,row);
-  }
-  addMetric(row[bucket],metric);
-
-  let recipeKey="";
-  let recipeNo="";
-  let recipeName="";
-  if(operationType!=="ST_SCOPE_ONLY"){
-   const batchRecipeKey=text(raw.current_batch_recipe_key);
-   const liveMatch=batchRecipeKey?null:bestRecipeMatch(ctx,{
-    standardOperation:text(raw.current_main),
-    sourceOperationCode:text(raw.current_main_source_operation),
-    partNum:raw.part_num,
-    revisionNum:raw.revision_num,
-    sourceData:raw.source_data||null,
-    ruleSuggestion:null
-   });
-   recipeKey=batchRecipeKey||liveMatch?.recipeKey||text(raw.current_planning_recipe_key);
-   const meta=recipeKey?recipeMeta.get(recipeKey):null;
-   recipeNo=meta?.recipeNo||"";
-   recipeName=meta?.recipeName||"";
-  }
-  const recipeGroupKey=operationType==="ST_SCOPE_ONLY"?"__ST_SCOPE_ONLY__":(recipeKey||"__NO_RECIPE__");
-  let recipe=row.recipes.find(x=>x.recipeKey===recipeGroupKey);
-  if(!recipe){
-   recipe={
-    recipeKey:recipeGroupKey,
-    recipeNo,
-    recipeName:operationType==="ST_SCOPE_ONLY"?"ST Scope Only":recipeName,
-    WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()
-   };
-   row.recipes.push(recipe);
-  }
-  addMetric(recipe[bucket],metric);
-
   const immediateKey=`${operationType}|${areaId}|${text(raw.chart_main)}|${rawNext}`;
   let immediateRow=immediateRowsMap.get(immediateKey);
   if(!immediateRow){
@@ -431,12 +463,90 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
    };
    immediateRowsMap.set(immediateKey,immediateRow);
   }
-  addMetric(immediateRow.total,metric);
-
+  addMetric(immediateRow.total,currentMetric);
 
   const priority=text(raw.priority_type).toUpperCase();
   if(priority==="CAT3")cat3.push(toPriorityJob(raw));
   if(priority==="CAT5")cat5.push(toPriorityJob(raw));
+ }
+
+ // Planning workload grain: expand only canonical visible Jobs to all active Planning Chain
+ // occurrences. This is what restores future LOCKED operations as WAIT while keeping the new
+ // Dashboard ST Scope gate intact.
+ for(const wr of workloadRows){
+  const source=visibleByJob.get(text(wr.job_num));
+  if(!source)continue;
+  const bucket=text(wr.dashboard_status) as StDashboardStatus;
+  if(!(bucket in statuses)||bucket==="ST_ONLY")continue;
+  const metric={jobs:1,qty:num(source.qty_used),surface:num(source.surface_used)};
+  addMetric(total,metric);
+  addMetric(statuses[bucket],metric);
+
+  const areaId=num(wr.area_id);
+  const areaName=text(wr.area_name)||"Unmapped";
+  const areaSort=num(wr.area_sort)||999999;
+  const standardOperation=text(wr.standard_operation)||"UNRESOLVED";
+  const mainOrder=num(wr.main_order)||999999;
+  const mainKey=`${areaId}|${standardOperation}`;
+  let row=rows.get(mainKey);
+  if(!row){
+   row=emptyMainRow({areaId,areaName,areaSort,standardOperation,mainOrder});
+   rows.set(mainKey,row);
+  }
+  addMetric(row[bucket],metric);
+
+  const batchRecipeKey=text(wr.batch_recipe_key);
+  const liveMatch=batchRecipeKey?null:bestRecipeMatch(ctx,{
+   standardOperation,
+   sourceOperationCode:text(wr.source_operation_code),
+   partNum:source.part_num,
+   revisionNum:source.revision_num,
+   sourceData:source.source_data||null,
+   ruleSuggestion:null
+  });
+  const recipeKey=batchRecipeKey||liveMatch?.recipeKey||text(wr.planning_recipe_key);
+  const meta=recipeKey?recipeMeta.get(recipeKey):null;
+  const recipeNo=meta?.recipeNo||"";
+  const recipeName=meta?.recipeName||"";
+  const recipeGroupKey=recipeKey||"__NO_RECIPE__";
+  let recipe=row.recipes.find(x=>x.recipeKey===recipeGroupKey);
+  if(!recipe){
+   recipe={
+    recipeKey:recipeGroupKey,recipeNo,recipeName,
+    WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()
+   };
+   row.recipes.push(recipe);
+  }
+  addMetric(recipe[bucket],metric);
+ }
+
+ // ST_SCOPE_ONLY has no Planning Chain occurrence by design, so keep it as a standalone
+ // Dashboard workload row after the canonical current-position scope filter.
+ for(const raw of visibleRows){
+  if(text(raw.operation_type)!=="ST_SCOPE_ONLY")continue;
+  const bucket:StDashboardStatus="ST_ONLY";
+  const metric={jobs:1,qty:num(raw.qty_used),surface:num(raw.surface_used)};
+  addMetric(total,metric);
+  addMetric(statuses[bucket],metric);
+  const rawNext=text(raw.raw_next_operation)||"—";
+  const areaId=num(raw.area_id);
+  const areaName=text(raw.area_name)||"ST Scope Only";
+  const areaSort=num(raw.area_sort)||999999998;
+  const standardOperation=`ST ONLY / ${rawNext}`;
+  const mainOrder=num(raw.main_order)||999999998;
+  const mainKey=`${areaId}|${standardOperation}`;
+  let row=rows.get(mainKey);
+  if(!row){
+   row=emptyMainRow({areaId,areaName,areaSort,standardOperation,mainOrder});
+   rows.set(mainKey,row);
+  }
+  addMetric(row[bucket],metric);
+  let recipe=row.recipes.find(x=>x.recipeKey==="__ST_SCOPE_ONLY__");
+  if(!recipe){
+   recipe={recipeKey:"__ST_SCOPE_ONLY__",recipeNo:"",recipeName:"ST Scope Only",WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()};
+   row.recipes.push(recipe);
+  }
+  addMetric(recipe[bucket],metric);
  }
 
  const mainRows=[...rows.values()].map(row=>{
@@ -482,7 +592,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
  return {
   generatedAt:new Date().toISOString(),
   total,
-  chartTotal:{...total},
+  chartTotal,
   statuses,
   areas,
   mainRows,
