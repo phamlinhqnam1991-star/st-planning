@@ -201,3 +201,9 @@ Dashboard và Planning Board chỉ nhận Job khi RAW `open_job_current.next_ope
 ## V401 — Dashboard bỏ trạng thái PLANNED riêng
 
 Dashboard không còn hiển thị `PLANNED` như một bucket/card riêng. Trong flow hiện tại, `planning_job_operation.status='PLANNED'` là trạng thái nội bộ của occurrence đã có lịch sử Batch và trên Dashboard được chuẩn hóa vào `PLANNED-UNSCHEDULED` khi chưa có Schedule. Các lớp hiển thị Dashboard hiện chỉ dùng `WAIT / READY / PLANNED-UNSCHEDULED / SCHEDULED / HOLD`; ST TOTAL vẫn là unique open Jobs sau RAW NextOperation ST gate. Thay đổi này chỉ thuộc Dashboard presentation/aggregation, không đổi trạng thái nội bộ của Planning Chain, Batch hay Schedule.
+
+## V402 — ERP navigation visibility
+- Dashboard is a standalone first-level WORK CENTER, not a child of Vận hành.
+- All functional sub-tabs are permanently visible under their work-center headings: Vận hành, Theo dõi, Master Data and Quản trị.
+- Both legacy/migrated `AppTabs` pages and the native `ErpAppShell` Planning pages use the same visible navigation hierarchy.
+- This is presentation/navigation only; no planning or scheduling business rule changes.

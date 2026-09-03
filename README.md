@@ -181,3 +181,6 @@ Dashboard và Planning Board chỉ nhận Job khi RAW `open_job_current.next_ope
 ## V401 · Dashboard bỏ PLANNED riêng
 
 Dashboard bỏ hoàn toàn card/cột/series `PLANNED`. Nếu `planning_job_operation.status='PLANNED'` xuất hiện trong dữ liệu nội bộ nhưng chưa có Schedule, Dashboard chuẩn hóa nó vào `PLANNED-UNSCHEDULED`. Vì vậy global KPI, KPI từng Area, Main Planning → Recipe table và stacked dm² chart chỉ còn `WAIT / READY / PLANNED-UNSCHEDULED / SCHEDULED / HOLD`. Không thay Planning Chain/Batch/Schedule state model.
+
+### V402 — Navigation
+Dashboard is now a standalone top-level WORK CENTER and all sub-tabs remain visible in the left navigation for every work center. Planning/Batch/Recipe/Schedule logic is unchanged.

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
  ST_ERP_MODULE_GROUPS,
- getStErpModuleItems,
  getStErpModuleKey,
  type StErpLeafKey,
 } from "@/lib/erp/st-navigation";
@@ -15,31 +14,27 @@ export type AppTab=StErpLeafKey;
  */
 export function AppTabs({active}:{active:AppTab}){
  const activeModule=getStErpModuleKey(active);
- const functions=getStErpModuleItems(activeModule);
- const moduleLabel=ST_ERP_MODULE_GROUPS.find(x=>x.key===activeModule)?.label||"Workspace";
  return <aside className="erp-navigation-stack erp-navigation-vertical" aria-label="Điều hướng ERP">
   <div className="erp-navigation-caption">WORK CENTERS</div>
-  <nav className="erp-modules erp-modules-primary" aria-label="ST Planning modules">
-   {ST_ERP_MODULE_GROUPS.map(module=><Link
-    key={module.key}
-    href={module.href}
-    className={`erp-module ${activeModule===module.key?"active":""}`}
-    aria-current={activeModule===module.key?"page":undefined}
-   >
-    <span className="erp-module-short">{module.shortLabel}</span>
-    <span className="erp-module-label">{module.label}</span>
-   </Link>)}
-  </nav>
-  <nav className="erp-module-context" aria-label={`${ST_ERP_MODULE_GROUPS.find(x=>x.key===activeModule)?.label||"Module"} functions`}>
-   <span className="erp-module-context-title">{moduleLabel.toUpperCase()}</span>
-   <div className="erp-module-context-items">
-    {functions.map(item=><Link
-     key={item.key}
-     href={item.href}
-     className={`erp-module-context-item ${active===item.key?"active":""}`}
-     aria-current={active===item.key?"page":undefined}
-    >{item.label}</Link>)}
-   </div>
+  <nav className="erp-modules erp-modules-primary erp-modules-all" aria-label="ST Planning modules">
+   {ST_ERP_MODULE_GROUPS.map(module=><section key={module.key} className="erp-navigation-module-group">
+    <Link
+     href={module.href}
+     className={`erp-module ${activeModule===module.key?"active":""}`}
+     aria-current={activeModule===module.key?"page":undefined}
+    >
+     <span className="erp-module-short">{module.shortLabel}</span>
+     <span className="erp-module-label">{module.label}</span>
+    </Link>
+    {module.items.length>0?<div className="erp-module-context-items erp-module-context-items-always">
+     {module.items.map(item=><Link
+      key={item.key}
+      href={item.href}
+      className={`erp-module-context-item ${active===item.key?"active":""}`}
+      aria-current={active===item.key?"page":undefined}
+     >{item.label}</Link>)}
+    </div>:null}
+   </section>)}
   </nav>
  </aside>;
 }

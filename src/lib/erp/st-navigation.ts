@@ -14,7 +14,7 @@ export type StErpLeafKey=
  |"import"
  |"guide";
 
-export type StErpModuleKey="operations"|"tracking"|"masterdata"|"administration";
+export type StErpModuleKey="dashboard"|"operations"|"tracking"|"masterdata"|"administration";
 
 export type StErpModuleGroup=ErpNavItem&{
  key:StErpModuleKey;
@@ -28,9 +28,12 @@ export type StErpModuleGroup=ErpNavItem&{
  */
 export const ST_ERP_MODULE_GROUPS:StErpModuleGroup[]=[
  {
-  key:"operations",label:"Vận hành",href:"/dashboard",shortLabel:"OP",
+  key:"dashboard",label:"Dashboard",href:"/dashboard",shortLabel:"DB",
+  items:[]
+ },
+ {
+  key:"operations",label:"Vận hành",href:"/all-open-jobs",shortLabel:"OP",
   items:[
-   {key:"dashboard",label:"Dashboard",href:"/dashboard",shortLabel:"DB"},
    {key:"jobs",label:"All Open Jobs",href:"/all-open-jobs",shortLabel:"OJ"},
    {key:"planning",label:"Planning Board",href:"/planning",shortLabel:"PL"},
    {key:"masking",label:"Masking / Unmasking",href:"/masking-unmasking-planning",shortLabel:"MU"},
@@ -66,10 +69,11 @@ export const ST_ERP_MODULES:ErpNavItem[]=ST_ERP_MODULE_GROUPS.map(({items:_items
 
 const LEAF_TO_GROUP=Object.fromEntries(
  ST_ERP_MODULE_GROUPS.flatMap(group=>group.items.map(item=>[item.key,group.key]))
-) as Record<StErpLeafKey,StErpModuleKey>;
+) as Partial<Record<StErpLeafKey,StErpModuleKey>>;
 
 export function getStErpModuleKey(active:StErpLeafKey):StErpModuleKey{
- return LEAF_TO_GROUP[active];
+ if(active==="dashboard")return "dashboard";
+ return LEAF_TO_GROUP[active]||"operations";
 }
 
 export function getStErpModuleItems(groupKey:StErpModuleKey):ErpNavItem[]{

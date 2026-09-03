@@ -2735,3 +2735,40 @@
 @media(max-width:900px){.erpkit-migrated-page .st-dashboard-area-kpis{grid-template-columns:repeat(2,minmax(118px,1fr))}}
 .erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-recipe-row td:nth-child(3){width:auto}
 .erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-recipe-row td:nth-child(4){min-width:0;max-width:none;color:inherit}
+
+/* V402 · permanent ERP navigation: Dashboard is a first-level tab and every
+   work-center keeps all of its sub-tabs visible at the same time. */
+.erpkit-migrated-page .erp-navigation-module-group,
+.erpkit-shell-body .erpkit-navigation-module-group{
+ display:block!important;
+ min-width:0!important;
+}
+.erpkit-migrated-page .erp-navigation-module-group+.erp-navigation-module-group,
+.erpkit-shell-body .erpkit-navigation-module-group+.erpkit-navigation-module-group{
+ margin-top:3px!important;
+}
+.erpkit-migrated-page .erp-module-context-items-always,
+.erpkit-shell-body .erpkit-context-items-always{
+ display:flex!important;
+ flex-direction:column!important;
+ align-items:stretch!important;
+ gap:2px!important;
+ padding:2px 0 5px!important;
+ min-width:0!important;
+}
+.erpkit-migrated-page>.erp-navigation-stack>.erp-modules-primary.erp-modules-all,
+.erpkit-shell-body>.erpkit-navigation-stack>.erpkit-module-nav.erpkit-module-nav-all{
+ padding-bottom:10px!important;
+}
+.erpkit-migrated-page .erp-navigation-module-group .erp-module-context-item,
+.erpkit-shell-body .erpkit-navigation-module-group .erpkit-context-link{
+ padding-left:35px!important;
+}
+@media(max-width:900px){
+ .erpkit-migrated-page .erp-navigation-module-group .erp-module-context-item,
+ .erpkit-shell-body .erpkit-navigation-module-group .erpkit-context-link{padding-left:29px!important;}
+}
+@media(max-width:680px){
+ .erpkit-migrated-page .erp-navigation-module-group .erp-module-context-item,
+ .erpkit-shell-body .erpkit-navigation-module-group .erpkit-context-link{padding-left:16px!important;}
+}

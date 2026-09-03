@@ -3,7 +3,7 @@ import {notFound} from "next/navigation";
 import {BatchDetailManager} from "@/components/batch-detail-manager";
 import {LogoutButton} from "@/components/logout-button";
 import {ErpAppShell,ErpPageHeader,ErpTabs} from "@/components/erp";
-import {ST_ERP_MODULES,getStErpModuleItems} from "@/lib/erp/st-navigation";
+import {ST_ERP_MODULE_GROUPS} from "@/lib/erp/st-navigation";
 import {getPool} from "@/lib/db";
 import {loadLiveRecipeContext,effectiveRecipeKey} from "@/lib/planning/live-recipe";
 
@@ -421,11 +421,9 @@ export default async function Page({
    }
 
    return <ErpAppShell
-    moduleItems={ST_ERP_MODULES}
+    moduleGroups={ST_ERP_MODULE_GROUPS}
     activeModule="operations"
-   secondaryItems={getStErpModuleItems("operations")}
-   activeSecondary="planning"
-   secondaryLabel="VẬN HÀNH"
+    activeSecondary="planning"
     environment="ST PLANNING"
     userArea={<LogoutButton presentation="erp"/>}
     breadcrumb={<><Link href="/planning">Planning Board</Link><span>/</span><Link href="/planning/batches">Batch gần đây</Link><span>/</span><b>{batch.batch_no||"—"}</b></>}

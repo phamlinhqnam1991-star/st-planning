@@ -1,11 +1,9 @@
 import {ErpAppShell,ErpPageHeader} from "@/components/erp";
-import {ST_ERP_MODULES,getStErpModuleItems} from "@/lib/erp/st-navigation";
+import {ST_ERP_MODULE_GROUPS} from "@/lib/erp/st-navigation";
 
 export default function Loading(){
- return <ErpAppShell moduleItems={ST_ERP_MODULES} activeModule="operations"
-   secondaryItems={getStErpModuleItems("operations")}
-   activeSecondary="planning"
-   secondaryLabel="VẬN HÀNH" environment="ST PLANNING">
+ return <ErpAppShell moduleGroups={ST_ERP_MODULE_GROUPS} activeModule="operations"
+   activeSecondary="planning" environment="ST PLANNING">
   <div className="planning-erp-version">
    <ErpPageHeader
     eyebrow="PLANNING BOARD"
