@@ -4,14 +4,16 @@ import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 import {rawStJobMatchSql,rawStOperationTypeSql} from "@/lib/planning/raw-st-visible-sql";
 
 
-// V414 keeps Planning workload sections on the existing Planning-chain
+// V416 keeps Planning workload sections on the existing Planning-chain
 // population, but the Surface + Qty Current Position chart has its own
 // read-only ST visibility population:
 //   PLANNING_OPERATION  -> Current Main / RAW NextOperation
 //   INTERMEDIATE        -> resolved Current Main / auto Bridge RAW NextOperation
 //   ST_SCOPE_ONLY       -> ST_SCOPE_ONLY / RAW NextOperation
-// Auto Intermediate is derived from md_intermediate_bridge_* (not from active
-// md_st_operation_scope INTERMEDIATE rows, which were retired in v297).
+// Auto Intermediate is derived from md_intermediate_bridge_* for sequence context,
+// then Dashboard applies one extra RAW NextOperation ST-membership gate: the raw
+// operation itself must still exist in active md_st_operation_scope. This prevents
+// non-ST route steps physically located between two ST Mains from entering chart 2.
 // ST_SCOPE_ONLY is chart/audit visibility only and still never enters
 // Planning Chain / Batch / Schedule.
 
@@ -255,7 +257,7 @@ const CHART_SQL=`
    current_main.status current_internal_status,
    current_main.is_hold current_is_hold,
    current_main.st_group current_st_group,
-   ${rawStOperationTypeSql("j","current_main")} operation_type
+   ${rawStOperationTypeSql("j","current_main",{requireExplicitStScopeForIntermediate:true})} operation_type
   from public.open_job_current j
   left join lateral (
    select
@@ -315,7 +317,7 @@ const AUDIT_SQL=`
    current_main.source_seq current_source_seq,
    current_main.status current_internal_status,
    current_main.is_hold current_is_hold,
-   ${rawStOperationTypeSql("j","current_main")} operation_type
+   ${rawStOperationTypeSql("j","current_main",{requireExplicitStScopeForIntermediate:true})} operation_type
   from public.open_job_current j
   left join lateral (
    select

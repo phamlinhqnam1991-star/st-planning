@@ -567,6 +567,9 @@ export default async function Page(){
     <Rule title="RAW NextOperation ST là Population Gate" tone="important">
      Workload không bắt đầu từ toàn bộ <code>planning_job_operation</code>. Hệ thống lọc <code>open_job_current.next_operation</code> RAW trước: chỉ Job có RAW NextOperation thuộc ST Planning view (Planning Operation hoặc Auto Bridge intermediate; loại <b>ST_SCOPE_ONLY</b>) mới được đưa vào population. Sau đó mới tổng hợp <code>planning_job_operation</code> theo <b>Area → Main Operation</b> và READY / WAIT / HOLD bằng <b>Jobs · pcs · dm²</b>. Future ST operation không được kéo một Job có RAW NextOperation ngoài ST vào Summary.
     </Rule>
+    <Rule title="Dashboard Immediate phải qua ST Scope gate" tone="important">
+     Riêng chart <b>Surface + Qty by Main Planning / Immediate Operation / ST Only</b>, một RAW NextOperation chỉ được gắn nhãn <b>IMMEDIATE</b> khi thỏa đồng thời: (1) nằm đúng vị trí trong Active Bridge theo LastOperation → RAW NextOperation → Current Main và (2) chính RAW NextOperation đó tồn tại trong <code>md_st_operation_scope</code> active. Operation ngoài ST dù nằm vật lý giữa hai Main ST sẽ không được tính vào chart/audit Immediate.
+    </Rule>
     <ul className="lg-list">
      <li><b>Qty:</b> dùng CurrentGoodWIPQty nếu &gt; 0, nếu không dùng ProdQty — cùng quy tắc Candidate.</li>
      <li><b>Surface:</b> dùng TotalSurface; nếu thiếu thì Qty × SurfacePerPart.</li>
@@ -762,6 +765,7 @@ export default async function Page(){
     ]}/>
     <div className="lg-key lg-key-2">
      <Rule title="Dashboard remains deterministic" tone="important">Open Jobs, READY, Unscheduled Backlog, Scheduled Today, Execution WAITING / ON-GOING / DONE, delayed work, resource load and schedule conflicts are calculated by application / SQL logic. AI does not calculate or replace these source-of-truth values.</Rule>
+     <Rule title="ST workload chart layout">Main Planning, auto Bridge Immediate and ST_SCOPE_ONLY remain the operation buckets. <b>TOTAL / ALL ST</b> uses the same calculated total but is displayed in a separate summary zone on the right; it is not part of the operation sequence or Qty trend line.</Rule>
      <Rule title="AI providers are read-only">Groq is primary and OpenRouter is fallback. Both start with the structured Dashboard snapshot and use the same controlled read-only tools for public application tables/views, Job context, Batch context, daily operations and ST logic. No write tool is exposed, so AI cannot create/delete Batch, change Recipe, move Schedule, change READY/WAIT, edit configuration or update Production Execution.</Rule>
      <Rule title="AI connection is explicit">Dashboard shows Groq and OpenRouter connection state separately and provides <b>Test connection</b>. Groq remains primary; OpenRouter is marked ready as fallback when configured. API keys never reach the browser.</Rule>
      <Rule title="AI data access is visible">The AI panel shows the initial Dashboard snapshot plus database access mode. Ask AI can discover/read application tables and aggregate filtered data through validated tools, but cannot execute arbitrary SQL. Every answer reports which tools/tables were used and how many rows were inspected.</Rule>

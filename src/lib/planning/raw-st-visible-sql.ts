@@ -50,13 +50,23 @@ export const RAW_ST_VISIBLE_CTE_SQL = `
  * Context-aware ST classification for one open Job.
  * The aliases are internal fixed identifiers supplied by server code only.
  */
-export function rawStOperationTypeSql(jobAlias="j",currentMainAlias="current_main"){
+export function rawStOperationTypeSql(
+ jobAlias="j",
+ currentMainAlias="current_main",
+ options:{requireExplicitStScopeForIntermediate?:boolean}={}
+){
  const j=jobAlias;
  const p=currentMainAlias;
  const raw=`upper(trim(coalesce(${j}.next_operation,'')))`;
  const last=`upper(trim(coalesce(${j}.last_operation,'')))`;
  const currentMain=`upper(trim(coalesce(${p}.standard_operation,'')))`;
  const currentSource=`upper(trim(coalesce(${p}.source_operation_code,'')))`;
+ const intermediateStScopeGate=options.requireExplicitStScopeForIntermediate?`
+   and exists(
+    select 1 from public.md_st_operation_scope st_scope_gate
+    where st_scope_gate.is_active=true
+      and upper(trim(st_scope_gate.operation_code))=${raw}
+   )`:``;
  return `case
   when exists(
    select 1 from public.md_st_operation_scope sx
@@ -114,7 +124,7 @@ export function rawStOperationTypeSql(jobAlias="j",currentMainAlias="current_mai
          )
         )
        )
-      )
+      )${intermediateStScopeGate}
    ) then 'INTERMEDIATE'
   else null
  end`;

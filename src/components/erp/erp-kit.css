@@ -2815,3 +2815,7 @@
 .erpkit-migrated-page .st-dashboard-audit-table td small{display:block;margin-top:2px;color:#7c8997;font-size:6.2px}
 .erpkit-migrated-page .st-dashboard-audit-table .num{font-variant-numeric:tabular-nums;text-align:right}
 .erpkit-migrated-page .st-dashboard-audit-allop{max-width:420px;overflow:hidden;text-overflow:ellipsis}
+
+/* V415 · Dashboard Total is a separate summary column, not part of the operation sequence. */
+.erpkit-migrated-page .st-dashboard-combo-total-separator{stroke:#cbd4dd;stroke-width:1;stroke-dasharray:4 4}
+.erpkit-migrated-page .st-dashboard-combo-total-title{fill:#263f57;font-size:6.4px;font-weight:950;letter-spacing:.04em}
