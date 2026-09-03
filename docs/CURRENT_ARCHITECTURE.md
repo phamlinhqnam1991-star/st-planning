@@ -257,3 +257,6 @@ The `Dashboard Calculation Audit · Job Detail` table has been removed from `/da
 ## V424 — Planning Board Workload Summary mirrors active Planning Chain
 
 Planning Board Workload Summary is intentionally independent from Dashboard canonical ST population. It aggregates every open Job's active `planning_job_operation` rows and maps `ELIGIBLE -> READY`, `LOCKED -> WAIT`, hold -> HOLD, de-duplicated per Job + Main + bucket. This makes the summary reconcile with the Route Matrix below, including Jobs whose physical RAW `NextOperation` is currently outside ST but whose ST Main is already `ELIGIBLE`/`LOCKED` in the active Planning Chain. Dashboard ST Scope remains Dashboard-only.
+
+## V427 — Dashboard Main Planning chart roll-up
+The Dashboard `Surface + Qty` combo chart now renders at resolved Main Planning grain. Current-position MAIN and Dashboard-ST INTERMEDIATE rows are summed under the same resolved Main Planning operation. `ST_SCOPE_ONLY` stays as one standalone `ST ONLY` bucket and `TOTAL / ALL ST` stays separate. This is presentation-only; the canonical Dashboard population and all planning/scheduling logic are unchanged.

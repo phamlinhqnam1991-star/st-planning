@@ -28,6 +28,29 @@ function tm(v:string|null){
 function generated(v:string){const d=new Date(v);return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ho_Chi_Minh",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);}
 
 function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total:StDashboardMetric}){
+ // V427: presentation-only aggregation. MAIN and Dashboard-ST INTERMEDIATE rows are
+ // rolled up to their resolved Main Planning operation so the chart has one column per Main.
+ // ST_SCOPE_ONLY has no Main Planning parent, therefore all ST Only current-position rows
+ // remain in one standalone ST ONLY column. The canonical Dashboard population and totals
+ // are unchanged; only this chart grain changes.
+ const groupedMap=new Map<string,StDashboardImmediateRow>();
+ for(const row of rows){
+  const isStOnly=row.operationType==="ST_SCOPE_ONLY";
+  const key=isStOnly?"ST_SCOPE_ONLY":`MAIN|${row.standardOperation}`;
+  let grouped=groupedMap.get(key);
+  if(!grouped){
+   grouped={...row,immediateOperation:isStOnly?"ST ONLY":row.standardOperation,operationType:isStOnly?"ST_SCOPE_ONLY":"PLANNING_OPERATION",total:{jobs:0,qty:0,surface:0}};
+   groupedMap.set(key,grouped);
+  }
+  grouped.total.jobs+=Number(row.total.jobs||0);
+  grouped.total.qty+=Number(row.total.qty||0);
+  grouped.total.surface+=Number(row.total.surface||0);
+ }
+ const chartRows=[...groupedMap.values()].sort((a,b)=>{
+  if(a.operationType==="ST_SCOPE_ONLY"&&b.operationType!=="ST_SCOPE_ONLY")return 1;
+  if(b.operationType==="ST_SCOPE_ONLY"&&a.operationType!=="ST_SCOPE_ONLY")return -1;
+  return a.areaSort-b.areaSort||a.mainOrder-b.mainOrder||a.standardOperation.localeCompare(b.standardOperation);
+ });
  const width=1560,height=390;
  const left=66,right=70,top=40,bottom=120;
  const plotW=width-left-right,plotH=height-top-bottom;
@@ -36,12 +59,12 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
  const totalZoneW=92;
  const totalGap=34;
  const normalPlotW=Math.max(1,plotW-totalZoneW-totalGap);
- const normalStep=rows.length?normalPlotW/rows.length:normalPlotW;
+ const normalStep=chartRows.length?normalPlotW/chartRows.length:normalPlotW;
  const barW=Math.max(3,Math.min(24,normalStep*.55));
  const totalX=left+normalPlotW+totalGap+totalZoneW/2;
  const dividerX=left+normalPlotW+totalGap/2;
  const ticks=[0,1,2,3,4,5];
- const points=rows.map((row,i)=>{
+ const points=chartRows.map((row,i)=>{
   const x=left+normalStep*(i+.5);
   const qtyPlot=Math.min(qtyMax,Math.max(0,row.total.qty));
   const y=top+plotH-(qtyPlot/qtyMax)*plotH;
@@ -51,7 +74,7 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
  const totalPoint={x:totalX,y:top+plotH-(totalQtyPlot/qtyMax)*plotH};
  const path=points.map((p,i)=>`${i?"L":"M"}${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
  return <div className="st-dashboard-combo-chart-wrap">
-  <svg className="st-dashboard-combo-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Surface dm² columns and pcs line by Current Main Planning, RAW Immediate Operation, ST Only, with Total shown separately">
+  <svg className="st-dashboard-combo-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Surface dm² columns and pcs line grouped by resolved Main Planning operation, with ST Only and Total shown separately">
    <text x={12} y={20} className="st-dashboard-axis-title">dm² · max 50,000</text>
    <text x={width-12} y={20} textAnchor="end" className="st-dashboard-axis-title">pcs · max 10,000</text>
    {ticks.map(t=>{
@@ -70,15 +93,14 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
     const h=Math.max(0,(surfacePlot/surfaceMax)*plotH);
     const y=top+plotH-h;
     const barLabelY=Math.max(12,y-5);
-    const tag=chartTypeTag(row.operationType);
-    const label=row.operationType==="ST_SCOPE_ONLY"?`ST ONLY / ${row.immediateOperation}`:`${row.standardOperation} / ${row.immediateOperation} [${tag}]`;
+    const label=row.operationType==="ST_SCOPE_ONLY"?"ST ONLY":row.standardOperation;
     return <g key={`${row.operationType}-${row.areaId}-${row.standardOperation}-${row.immediateOperation}-${i}`}>
      <rect x={x-barW/2} y={y} width={barW} height={h} rx="1.5" className="st-dashboard-combo-bar">
       <title>{`${row.areaName} · ${label} · ${fmt(row.total.surface)} dm² · ${fmt(row.total.qty,0)} pcs`}</title>
      </rect>
      <text x={x} y={barLabelY} textAnchor="middle" className="st-dashboard-combo-value surface">{fmt(row.total.surface,0)} dm²</text>
      <text transform={`translate(${x+2} ${top+plotH+10}) rotate(58)`} className="st-dashboard-combo-x-label">
-      <tspan>{row.operationType==="ST_SCOPE_ONLY"?"ST ONLY":row.standardOperation}</tspan><tspan> / {row.immediateOperation} [{tag}]</tspan>
+      <tspan>{row.operationType==="ST_SCOPE_ONLY"?"ST ONLY":row.standardOperation}</tspan>
      </text>
     </g>;
    })}
@@ -87,7 +109,7 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
     const qtyLabelY=y<=top+12?y+13:y-7;
     return <g key={`p-${i}`}>
      <circle cx={x} cy={y} r={2.7} className="st-dashboard-combo-point">
-      <title>{`${row.operationType==="ST_SCOPE_ONLY"?`ST ONLY / ${row.immediateOperation}`:`${row.standardOperation} / ${row.immediateOperation} [${chartTypeTag(row.operationType)}]`} · ${fmt(row.total.qty,0)} pcs · ${fmt(row.total.surface)} dm²`}</title>
+      <title>{`${row.operationType==="ST_SCOPE_ONLY"?"ST ONLY":row.standardOperation} · ${fmt(row.total.qty,0)} pcs · ${fmt(row.total.surface)} dm²`}</title>
      </circle>
      <text x={x} y={qtyLabelY} textAnchor="middle" className="st-dashboard-combo-value qty">{fmt(row.total.qty,0)} pcs</text>
     </g>;
@@ -207,7 +229,7 @@ export default async function DashboardPage(){
     </section>
 
     <section className="erp-table-panel st-dashboard-panel st-dashboard-chart-panel st-dashboard-combo-panel">
-     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation / ST Only</b><small>Canonical Dashboard ST population. Planning = MAIN, INTERMEDIATE Dashboard ST = IMMEDIATE, ST_SCOPE_ONLY = ST ONLY. Column = dm² · Line = pcs.</small></div></div>
+     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / ST Only</b><small>Canonical Dashboard ST population grouped to resolved Main Planning. MAIN + Dashboard-ST INTERMEDIATE are summed into one column per Main; ST_SCOPE_ONLY stays standalone. Column = dm² · Line = pcs.</small></div></div>
      <div className="st-dashboard-combo-legend"><span><i className="surface"></i>Surface dm² · left axis max 50,000</span><span><i className="qty"></i>Qty pcs · right axis max 10,000</span></div>
      <SurfaceQtyComboChart rows={data.immediateRows} total={data.chartTotal}/>
     </section>
