@@ -461,13 +461,24 @@ type WorkloadSummaryRow={
  standardOperation:string;
  mainOrder:number;
  ready:WorkloadMetric;
+ readyPrevScheduled:WorkloadMetric;
+ readyPrevUnscheduled:WorkloadMetric;
  wait:WorkloadMetric;
  hold:WorkloadMetric;
  total:WorkloadMetric;
 };
-type WorkloadBucket="READY"|"WAIT"|"HOLD";
-const EMPTY_WORKLOAD_TOTALS:{READY:WorkloadMetric;WAIT:WorkloadMetric;HOLD:WorkloadMetric}={
+type WorkloadBucket="READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED"|"WAIT"|"HOLD";
+type WorkloadTotals={
+ READY:WorkloadMetric;
+ READY_PREV_SCHEDULED:WorkloadMetric;
+ READY_PREV_UNSCHEDULED:WorkloadMetric;
+ WAIT:WorkloadMetric;
+ HOLD:WorkloadMetric;
+};
+const EMPTY_WORKLOAD_TOTALS:WorkloadTotals={
  READY:{jobs:0,qty:0,surface:0},
+ READY_PREV_SCHEDULED:{jobs:0,qty:0,surface:0},
+ READY_PREV_UNSCHEDULED:{jobs:0,qty:0,surface:0},
  WAIT:{jobs:0,qty:0,surface:0},
  HOLD:{jobs:0,qty:0,surface:0}
 };
@@ -713,6 +724,8 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
    setWorkloadRows(Array.isArray(d.rows)?d.rows:[]);
    setWorkloadTotals({
     READY:{jobs:Number(d?.totals?.READY?.jobs||0),qty:Number(d?.totals?.READY?.qty||0),surface:Number(d?.totals?.READY?.surface||0)},
+    READY_PREV_SCHEDULED:{jobs:Number(d?.totals?.READY_PREV_SCHEDULED?.jobs||0),qty:Number(d?.totals?.READY_PREV_SCHEDULED?.qty||0),surface:Number(d?.totals?.READY_PREV_SCHEDULED?.surface||0)},
+    READY_PREV_UNSCHEDULED:{jobs:Number(d?.totals?.READY_PREV_UNSCHEDULED?.jobs||0),qty:Number(d?.totals?.READY_PREV_UNSCHEDULED?.qty||0),surface:Number(d?.totals?.READY_PREV_UNSCHEDULED?.surface||0)},
     WAIT:{jobs:Number(d?.totals?.WAIT?.jobs||0),qty:Number(d?.totals?.WAIT?.qty||0),surface:Number(d?.totals?.WAIT?.surface||0)},
     HOLD:{jobs:Number(d?.totals?.HOLD?.jobs||0),qty:Number(d?.totals?.HOLD?.qty||0),surface:Number(d?.totals?.HOLD?.surface||0)}
    });
@@ -1810,6 +1823,41 @@ const currentPriorityMonth=useMemo(()=>{
    return true;
   };
 
+ // V426: READY is split by the immediate Previous Main scheduling context.
+ // This is a read/filter classification only; it does not change Planning Chain.
+ const readyPreviousScheduleState=(x:Candidate,mainOperation:string):"SCHEDULED"|"UNSCHEDULED"|null=>{
+  const main=normalized(mainOperation);
+  if(!main)return null;
+  const route=(Array.isArray(x.route_status)?x.route_status:[])
+   .filter(r=>r.standard_operation&&normalized(r.standard_operation)!=="PIONBL")
+   .sort((a,b)=>Number(a.source_seq||0)-Number(b.source_seq||0));
+
+  const targets=route.filter(r=>normalized(r.standard_operation)===main&&normalized(r.route_status)==="READY");
+  const target=targets[0]||null;
+  if(!target)return null;
+
+  let previous:RouteStatusItem|null=null;
+  const targetSeq=Number(target.source_seq);
+  if(Number.isFinite(targetSeq)){
+   for(const item of route){
+    const seq=Number(item.source_seq);
+    if(!Number.isFinite(seq)||seq>=targetSeq)break;
+    previous=item;
+   }
+  }
+
+  // First Main / no previous Main belongs to the "not scheduled / START" side.
+  if(!previous)return "UNSCHEDULED";
+  return previous.schedule_id&&previous.planned_start?"SCHEDULED":"UNSCHEDULED";
+ };
+
+ const workloadReadyPreviousFilterPass=(x:Candidate)=>{
+  if(!workloadDrill)return true;
+  if(workloadDrill.bucket!=="READY_PREV_SCHEDULED"&&workloadDrill.bucket!=="READY_PREV_UNSCHEDULED")return true;
+  const state=readyPreviousScheduleState(x,workloadDrill.main);
+  return workloadDrill.bucket==="READY_PREV_SCHEDULED"?state==="SCHEDULED":state==="UNSCHEDULED";
+ };
+
  // v339: giá trị hiển thị của 1 dòng theo cột (để lọc Excel-style).
  // Trả về MẢNG — cột route có thể có nhiều occurrence.
  const colFilterValues=(x:Candidate,key:string):string[]=>{
@@ -1935,6 +1983,7 @@ const currentPriorityMonth=useMemo(()=>{
      (!filterPrimer3 || normalized(x.part_master_primer3)===normalized(filterPrimer3)) &&
      routeOpMatch(x) &&
      routeStatusFilterPass(x) &&
+     workloadReadyPreviousFilterPass(x) &&
      colFilterPass(x) &&
      (statusFilter===""
        || (statusFilter==="NO_CHAIN"&&x.has_planning_chain===false)
@@ -1997,7 +2046,7 @@ const currentPriorityMonth=useMemo(()=>{
  },[
    candidates,filterNextMain,filterNextOperation,
    filterPrimer1,filterPrimer2,filterPrimer3,sortRules,stOperations,effectiveStView,statusFilter,filterRouteMain,colFilters,
-   mappedMainBySource,mainPlanningOrderByCode
+   mappedMainBySource,mainPlanningOrderByCode,workloadDrill
  ]);
 
  const candidateIdentityKey=useMemo(
@@ -2534,7 +2583,10 @@ const currentPriorityMonth=useMemo(()=>{
   setWorkloadDrill(null);
  };
  const drillWorkload=async(row:WorkloadSummaryRow,bucket:WorkloadBucket)=>{
-  const metric=bucket==="READY"?row.ready:bucket==="WAIT"?row.wait:row.hold;
+  const metric=
+   bucket==="READY_PREV_SCHEDULED"?row.readyPrevScheduled:
+   bucket==="READY_PREV_UNSCHEDULED"?row.readyPrevUnscheduled:
+   bucket==="WAIT"?row.wait:row.hold;
   if(!metric.jobs)return;
   if(batchSelectionModeActive){
    setMessage("Bỏ chọn các Job đang gom Batch trước khi lọc Workload Summary.");
@@ -2542,7 +2594,7 @@ const currentPriorityMonth=useMemo(()=>{
   }
   const main=String(row.standardOperation||"");
   const opKey=normalized(main);
-  const filterValue=bucket==="WAIT"?"WAITING":bucket;
+  const filterValue=bucket==="WAIT"?"WAITING":bucket.startsWith("READY_PREV_")?"READY":bucket;
   const loadingKey=`${opKey}|${bucket}`;
   setWorkloadDrillLoading(loadingKey);
   setMessage("");
@@ -3940,7 +3992,7 @@ const currentPriorityMonth=useMemo(()=>{
        <small>{selectedAreaId?selectedAreaName:"Tất cả khu vực"}{standardOperation?` · ${standardOperation}`:""} · Candidate ST View → READY / WAIT / HOLD theo Route Matrix / Planning Chain đang active</small>
       </div>
       <div className="erpkit-workload-summary-kpis">
-       <div className="erpkit-workload-summary-kpi is-ready"><b>{formatNumber(workloadTotals.READY.surface)} dm²</b><span>{formatNumber(workloadTotals.READY.qty)} pcs · {formatNumber(workloadTotals.READY.jobs,0)} Job</span><small>READY</small></div>
+       <div className="erpkit-workload-summary-kpi is-ready"><b>{formatNumber(workloadTotals.READY.surface)} dm²</b><span>{formatNumber(workloadTotals.READY.qty)} pcs · {formatNumber(workloadTotals.READY.jobs,0)} Job</span><small>READY · Prev S {formatNumber(workloadTotals.READY_PREV_SCHEDULED.jobs,0)} · Prev U/Start {formatNumber(workloadTotals.READY_PREV_UNSCHEDULED.jobs,0)}</small></div>
        <div className="erpkit-workload-summary-kpi is-wait"><b>{formatNumber(workloadTotals.WAIT.surface)} dm²</b><span>{formatNumber(workloadTotals.WAIT.qty)} pcs · {formatNumber(workloadTotals.WAIT.jobs,0)} Job</span><small>WAIT</small></div>
        <div className="erpkit-workload-summary-kpi is-hold"><b>{formatNumber(workloadTotals.HOLD.surface)} dm²</b><span>{formatNumber(workloadTotals.HOLD.qty)} pcs · {formatNumber(workloadTotals.HOLD.jobs,0)} Job</span><small>HOLD</small></div>
        <div className="erpkit-workload-summary-kpi is-total"><b>{formatNumber(workloadGrandTotal.surface)} dm²</b><span>{formatNumber(workloadGrandTotal.qty)} pcs · {formatNumber(workloadGrandTotal.jobs,0)} Job</span><small>TỔNG R+W+H</small></div>
@@ -3954,19 +4006,21 @@ const currentPriorityMonth=useMemo(()=>{
      {workloadError&&<div className="erpkit-workload-summary-error">Không đọc được Workload Summary: {workloadError}</div>}
      {workloadOpen&&!workloadError&&<div className="erpkit-workload-summary-table-wrap">
       <table className="erpkit-workload-summary-table">
-       <thead><tr><th>Khu vực</th><th>Main Operation</th><th>READY</th><th>WAIT</th><th>HOLD</th><th>Tổng tải</th></tr></thead>
+       <thead><tr><th>Khu vực</th><th>Main Operation</th><th>READY · Previous Main Scheduled</th><th>READY · Previous Main Unscheduled / START</th><th>WAIT</th><th>HOLD</th><th>Tổng tải</th></tr></thead>
        <tbody>
         {workloadRows.map(row=>{
          const key=`${row.areaId}|${row.standardOperation}`;
          const metricButton=(bucket:WorkloadBucket,metric:WorkloadMetric)=>{
           const active=Boolean(workloadDrill&&normalized(workloadDrill.main)===normalized(row.standardOperation)&&workloadDrill.bucket===bucket);
           const busyKey=`${normalized(row.standardOperation)}|${bucket}`;
+          const tone=bucket.startsWith("READY_PREV_")?"ready":bucket.toLowerCase();
+          const label=bucket==="READY_PREV_SCHEDULED"?"READY · Previous Main Scheduled":bucket==="READY_PREV_UNSCHEDULED"?"READY · Previous Main Unscheduled / START":bucket;
           return <button
            type="button"
-           className={`erpkit-workload-metric is-${bucket.toLowerCase()} ${active?"is-active":""}`}
+           className={`erpkit-workload-metric is-${tone} ${active?"is-active":""}`}
            disabled={!metric.jobs||Boolean(workloadDrillLoading)}
            onClick={()=>void drillWorkload(row,bucket)}
-           title={metric.jobs?`Lọc Candidate: ${row.standardOperation} · ${bucket}`:"Không có Job"}
+           title={metric.jobs?`Lọc Candidate: ${row.standardOperation} · ${label}`:"Không có Job"}
           >
            <b>{workloadDrillLoading===busyKey?"…":`${formatNumber(metric.surface)} dm²`}</b>
            <span>{formatNumber(metric.qty)} pcs · {formatNumber(metric.jobs,0)} Job</span>
@@ -3975,13 +4029,14 @@ const currentPriorityMonth=useMemo(()=>{
          return <tr key={key}>
           <td><b>{row.areaName}</b></td>
           <td><b className="mono">{row.standardOperation}</b></td>
-          <td>{metricButton("READY",row.ready)}</td>
+          <td>{metricButton("READY_PREV_SCHEDULED",row.readyPrevScheduled)}</td>
+          <td>{metricButton("READY_PREV_UNSCHEDULED",row.readyPrevUnscheduled)}</td>
           <td>{metricButton("WAIT",row.wait)}</td>
           <td>{metricButton("HOLD",row.hold)}</td>
           <td><div className="erpkit-workload-total"><b>{formatNumber(row.total.surface)} dm²</b><span>{formatNumber(row.total.qty)} pcs · {formatNumber(row.total.jobs,0)} Job</span></div></td>
          </tr>;
         })}
-        {!workloadRows.length&&!workloadLoading&&<tr><td colSpan={6} className="muted">Không có READY / WAIT / HOLD trong phạm vi này.</td></tr>}
+        {!workloadRows.length&&!workloadLoading&&<tr><td colSpan={7} className="muted">Không có READY / WAIT / HOLD trong phạm vi này.</td></tr>}
        </tbody>
       </table>
      </div>}

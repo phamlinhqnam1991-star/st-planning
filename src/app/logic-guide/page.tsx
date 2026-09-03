@@ -566,7 +566,10 @@ export default async function Page(){
 
     <div className="lg-subtitle">7.1.1 · Workload Summary — READY / WAIT / HOLD theo Main</div>
     <Rule title="Workload Summary phải mirror đúng Candidate / Route Matrix" tone="important">
-     Workload Summary không được quét toàn bộ <code>planning_job_operation</code> trong database. Population Job phải giống chính Planning Board: <b>Open Job + live Current Main + RAW NextOperation nằm trong ST View đang resolve cho Board</b> (Planning Operation hoặc active Bridge Intermediate; <b>ST_SCOPE_ONLY</b> không vào Candidate). Chỉ sau khi có đúng tập Candidate Job này mới mở các active <code>planning_job_operation</code> của chính các Job đó để cộng <b>Area → Main Operation → READY / WAIT / HOLD</b>. Vì vậy click <b>CMSA · READY</b> lọc Route Matrix ra 10 Job thì cell CMSA READY của Summary cũng phải là 10 Job, không được cộng thêm các Job ngoài Candidate population.
+     Workload Summary không được quét toàn bộ <code>planning_job_operation</code> trong database. Population Job phải giống chính Planning Board: <b>Open Job + live Current Main + RAW NextOperation nằm trong ST View đang resolve cho Board</b> (Planning Operation hoặc active Bridge Intermediate; <b>ST_SCOPE_ONLY</b> không vào Candidate). Chỉ sau khi có đúng tập Candidate Job này mới mở các active <code>planning_job_operation</code> của chính các Job đó để cộng <b>Area → Main Operation → READY / WAIT / HOLD</b>. Vì vậy click <b>CMSA · READY</b> lọc Route Matrix ra 10 Job thì tổng hai cột READY của CMSA cũng phải là 10 Job, không được cộng thêm các Job ngoài Candidate population.
+    </Rule>
+    <Rule title="READY tách theo trạng thái điều độ của Previous Main">
+     Cùng một Main đang <code>ELIGIBLE / READY</code> được tách thành hai cột đọc-only: <b>READY · Previous Main Scheduled</b> khi immediate Previous Main đã có Schedule hợp lệ; và <b>READY · Previous Main Unscheduled / START</b> khi Previous Main chưa có Schedule hoặc đây là Main đầu tiên không có Previous Main. Hai cột cộng lại đúng bằng READY tổng và chỉ dùng để planner phân biệt mức độ sẵn sàng/handoff; không thay đổi Sequential READY rule.
     </Rule>
     <Rule title="Dashboard: một population Job chuẩn, workload vẫn giữ đầy đủ READY / WAIT" tone="important">
      Dashboard dùng một population Job chuẩn: <b>(1)</b> lấy <b>Current Main</b> từ live Planning Chain đã được resolver <b>LastOperation + RAW NextOperation</b> định vị; <b>(2)</b> trên kết quả đã resolve mới lọc RAW NextOperation theo Dashboard ST Scope; <code>PLANNING_OPERATION → MAIN</code>, <code>INTERMEDIATE → IMMEDIATE</code>, <code>ST_SCOPE_ONLY → ST ONLY</code>. Sau khi xác định Job thuộc Dashboard ST, các <b>Workload KPI / Surface Workload / Area-Main-Recipe</b> mở rộng <u>chỉ các Job này</u> theo toàn bộ active Planning Chain occurrence để giữ đúng trạng thái: <code>ELIGIBLE → READY</code>, <code>LOCKED → WAIT</code>, planned chưa điều độ → <code>PLANNED-UNSCHEDULED</code>, có schedule → <code>SCHEDULED</code>, Hold → <code>HOLD</code>. Vì vậy Main tương lai không bị mất WAIT. Riêng chart <b>Main / Immediate / ST Only</b> và CAT3/CAT5 vẫn dùng một dòng cho current open Job. Nhãn INTERMEDIATE vẫn <b>chỉ dành cho Dashboard</b>; không thay đổi Planning Chain/Candidate/Batch/Schedule.
@@ -575,7 +578,7 @@ export default async function Page(){
      <li><b>Qty:</b> dùng CurrentGoodWIPQty nếu &gt; 0, nếu không dùng ProdQty — cùng quy tắc Candidate.</li>
      <li><b>Surface:</b> dùng TotalSurface; nếu thiếu thì Qty × SurfacePerPart.</li>
      <li><b>Repeated occurrence:</b> cùng Job + cùng Main + cùng status bucket chỉ tính một lần để không nhân đôi pcs/dm².</li>
-     <li><b>Drill-down:</b> click READY / WAIT / HOLD của một Main để lọc Candidate Matrix theo đúng Main + route status. Nếu Route Matrix của Job chưa tải, Board hydrate trước rồi mới áp dụng filter.</li>
+     <li><b>Drill-down:</b> click một trong hai cột READY, WAIT hoặc HOLD để lọc Candidate Matrix theo đúng Main + route status; hai cột READY còn lọc thêm theo Previous Main Scheduled / Unscheduled. Nếu Route Matrix của Job chưa tải, Board hydrate trước rồi mới áp dụng filter.</li>
      <li><b>Refresh:</b> tự cập nhật sau Create/Add Batch, Hold/Unhold, Rebuild Planning Chain và khi đổi Area/Main scope; có nút Làm mới thủ công.</li>
     </ul>
 
@@ -707,6 +710,9 @@ export default async function Page(){
 
     <div className="lg-subtitle">8.3 · Các vùng/lane khác</div>
     <p>Painting và các khu vực khác lấy danh sách lane/resource từ <b>Schedule Area Mapping</b>. Painting hiện hỗ trợ các CAB được cấu hình (hệ thống hiện có CAB1–CAB4 theo Board). Công đoạn chỉ được kéo vào vùng đã map cho Main đó.</p>
+    <Rule title="ST Workload Summary · By Area trên Board Điều Độ" tone="important">
+     Trên đầu mỗi khu vực điều độ, Board hiển thị bảng workload của chính tập Main Operation được map cho Schedule Area đó. Bảng này <b>không có công thức workload riêng</b>: nó đọc cùng canonical Dashboard ST workload và chỉ lọc theo operation set của Schedule Area, giữ các bucket <b>WAIT / READY / PLANNED-UNSCHEDULED / SCHEDULED / HOLD</b> cùng breakdown Recipe. Với khu gộp nhiều lane/cabin, hiển thị một bảng chung cho operation pool của khu rồi các lane bên dưới dùng chung context đó.
+    </Rule>
 
     <div className="lg-subtitle">8.4 · Schedule Table / Timeline / Planner</div>
     <ul className="lg-list">
@@ -766,7 +772,7 @@ export default async function Page(){
     ]}/>
     <div className="lg-key lg-key-2">
      <Rule title="Dashboard remains deterministic" tone="important">Open Jobs, READY, Unscheduled Backlog, Scheduled Today, Execution WAITING / ON-GOING / DONE, delayed work, resource load and schedule conflicts are calculated by application / SQL logic. AI does not calculate or replace these source-of-truth values.</Rule>
-     <Rule title="ST workload chart layout">Chart population is the post-resolver ST Scope result: Planning Operation, Bridge-validated Intermediate that is in ST Scope, and ST_SCOPE_ONLY. <b>TOTAL / ALL ST</b> uses the same calculated total but is displayed in a separate summary zone on the right; it is not part of the operation sequence or Qty trend line.</Rule>
+     <Rule title="ST workload chart layout">Chart population is the post-resolver ST Scope result: Planning Operation, Bridge-validated Intermediate that is in ST Scope, and ST_SCOPE_ONLY. <b>TOTAL / ALL ST</b> uses the same calculated total but is displayed in a separate summary zone on the right; it is not part of the operation sequence or Qty trend line. Combo chart dùng viewBox ngang rộng hơn và không còn bị max-height co chiều ngang, nên tận dụng toàn bộ bề rộng panel Dashboard.</Rule>
      <Rule title="AI providers are read-only">Groq is primary and OpenRouter is fallback. Both start with the structured Dashboard snapshot and use the same controlled read-only tools for public application tables/views, Job context, Batch context, daily operations and ST logic. No write tool is exposed, so AI cannot create/delete Batch, change Recipe, move Schedule, change READY/WAIT, edit configuration or update Production Execution.</Rule>
      <Rule title="AI connection is explicit">Dashboard shows Groq and OpenRouter connection state separately and provides <b>Test connection</b>. Groq remains primary; OpenRouter is marked ready as fallback when configured. API keys never reach the browser.</Rule>
      <Rule title="AI data access is visible">The AI panel shows the initial Dashboard snapshot plus database access mode. Ask AI can discover/read application tables and aggregate filtered data through validated tools, but cannot execute arbitrary SQL. Every answer reports which tools/tables were used and how many rows were inspected.</Rule>

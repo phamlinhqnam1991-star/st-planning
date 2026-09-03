@@ -222,3 +222,6 @@ Bridge discovery and ST membership are now independent. ST Operation Flow lists 
 - V424: superseded by V425. Directly scanning every active Planning Chain row was too broad and could count Jobs not present on the Planning Board Candidate matrix.
 
 - V425: Planning Board Workload Summary now uses the exact Candidate Job membership gate first (Open Job + live Current Main + RAW NextOperation in the resolved Planning ST View), then aggregates READY/WAIT/HOLD only for those Jobs. Workload drill-down and Route Matrix therefore reconcile by Job count; Dashboard ST Scope remains Dashboard-only.
+
+
+- V426: Planning Board Workload Summary keeps V425 Candidate reconciliation but splits READY into `Previous Main Scheduled` and `Previous Main Unscheduled / START` (their sum is the original READY). Dashboard Surface+Qty combo chart now consumes the full panel width. Scheduling Board adds `ST Workload Summary · By Area` above each top-level schedule area, reusing the canonical Dashboard workload engine and filtering only by that area's mapped Main Operation pool.

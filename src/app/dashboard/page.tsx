@@ -28,7 +28,7 @@ function tm(v:string|null){
 function generated(v:string){const d=new Date(v);return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ho_Chi_Minh",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);}
 
 function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total:StDashboardMetric}){
- const width=1200,height=390;
+ const width=1560,height=390;
  const left=66,right=70,top=40,bottom=120;
  const plotW=width-left-right,plotH=height-top-bottom;
  const surfaceMax=50000;

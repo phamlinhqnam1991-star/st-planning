@@ -96,3 +96,7 @@ export function getStLogicReference(topic?:string){
  });
  return {version:ST_AI_KNOWLEDGE_VERSION,sections:matched.length?matched:ST_AI_LOGIC_SECTIONS};
 }
+
+
+// V426
+export const V426_WORKLOAD_PRESENTATION = `Planning Board Workload Summary keeps the V425 Candidate/Route-Matrix population and splits READY into two read-only columns by the immediate Previous Main scheduling context: Previous Main Scheduled versus Previous Main Unscheduled / START. The two READY sub-buckets sum to the original READY total and do not change Sequential READY gating. Dashboard Surface+Qty combo chart uses the full panel width. Scheduling Board shows ST Workload Summary · By Area above each top-level schedule area by reusing the canonical Dashboard ST workload engine and filtering it by that Schedule Area's mapped Main Operation pool; no separate scheduling workload formula is allowed.`;

@@ -2816,3 +2816,67 @@
 .erpkit-migrated-page .st-dashboard-status-text.st-only{color:#526d50}
 .erpkit-migrated-page .st-dashboard-area-main-table{min-width:1560px}
 .erpkit-migrated-page .st-dashboard-priority-table{min-width:1260px}
+
+
+/* V426 · Combo chart uses the full Dashboard panel width.
+   A wider SVG viewBox keeps the existing chart height while consuming the
+   horizontal space that was previously left blank by the max-height cap. */
+.erpkit-migrated-page .st-dashboard-combo-chart{
+ width:100%!important;
+ height:auto!important;
+ min-height:0!important;
+ max-height:none!important;
+}
+
+/* V426 · Scheduling Board gets the canonical Dashboard ST Workload Summary above each top-level schedule area. */
+.erpkit-migrated-page .schedule-area-st-workload{
+ margin:7px 8px 9px;
+ border:1px solid #d9e2eb;
+ border-radius:6px;
+ background:#fff;
+ overflow:hidden;
+}
+.erpkit-migrated-page .schedule-area-st-workload-head{
+ min-height:36px;
+ padding:6px 9px;
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:12px;
+ background:#f7f9fb;
+ border-bottom:1px solid #e2e8ef;
+}
+.erpkit-migrated-page .schedule-area-st-workload-head>div{display:grid;gap:2px;min-width:0}
+.erpkit-migrated-page .schedule-area-st-workload-head b{font-size:9px;color:#263f57}
+.erpkit-migrated-page .schedule-area-st-workload-head small{font-size:6.8px;color:#748496;line-height:1.35}
+.erpkit-migrated-page .schedule-area-st-workload-head>span{font-size:7px;color:#66788a;white-space:nowrap}
+.erpkit-migrated-page .schedule-area-st-workload-error{padding:7px 9px;color:#b42318;background:#fff6f4;font-size:7.5px}
+.erpkit-migrated-page .schedule-area-st-workload-wrap{overflow-x:auto!important;overflow-y:visible!important}
+.erpkit-migrated-page .schedule-area-st-workload-table{min-width:1180px}
+.erpkit-migrated-page .schedule-area-st-workload-table th{white-space:nowrap;background:#f4f7fa!important;font-size:7px!important}
+.erpkit-migrated-page .schedule-area-st-workload-table td{vertical-align:middle;padding:3px 5px!important}
+.erpkit-migrated-page .schedule-area-st-workload-table td:nth-child(1){min-width:105px}
+.erpkit-migrated-page .schedule-area-st-workload-table td:nth-child(2){min-width:72px;white-space:nowrap}
+.erpkit-migrated-page .schedule-area-st-workload-table td:nth-child(3){min-width:170px;max-width:260px}
+.erpkit-migrated-page .schedule-area-st-workload-table td:nth-child(3)>small{display:block;margin-top:1px;color:#8693a1;font-size:6px}
+.erpkit-migrated-page .schedule-area-st-workload-main>td{background:#f9fbfd!important;border-top:1px solid #dce4ec}
+.erpkit-migrated-page .schedule-area-st-workload-recipe:nth-child(even)>td{background:#fcfdff}
+.erpkit-migrated-page .schedule-area-st-workload-indent{color:#8b98a7;font-size:9px}
+.erpkit-migrated-page .schedule-area-workload-metric{
+ min-width:118px;
+ min-height:28px;
+ padding:3px 5px;
+ border-radius:4px;
+ display:grid;
+ grid-template-columns:1fr auto;
+ gap:2px 6px;
+ align-items:center;
+}
+.erpkit-migrated-page .schedule-area-workload-metric>b{grid-row:1/3;font-size:7.8px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.erpkit-migrated-page .schedule-area-workload-metric>span{font-size:6.2px;color:#6f7e8f;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.erpkit-migrated-page .schedule-area-workload-metric.is-ready{background:#f1f8ff;color:#155f9c}
+.erpkit-migrated-page .schedule-area-workload-metric.is-wait{background:#fff9ed;color:#8e610f}
+.erpkit-migrated-page .schedule-area-workload-metric.is-planned-unscheduled{background:#f5f7fa;color:#596b7e}
+.erpkit-migrated-page .schedule-area-workload-metric.is-scheduled{background:#f1f5fc;color:#426aa3}
+.erpkit-migrated-page .schedule-area-workload-metric.is-hold{background:#fff3f1;color:#a84d45}
+.erpkit-migrated-page .schedule-area-workload-metric.is-total{background:#f4f6f8;color:#3f5368}

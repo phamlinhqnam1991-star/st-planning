@@ -50,6 +50,19 @@ type Draft={
  overrides:{processStart:string|null;ndtStart:string|null;unloadingStart:string|null};
 };
 
+type ScheduleWorkloadMetric={jobs:number;qty:number;surface:number};
+type ScheduleWorkloadStatus="WAIT"|"READY"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
+type ScheduleWorkloadRecipeRow={
+ recipeKey:string;recipeNo:string;recipeName:string;
+ WAIT:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
+ total:ScheduleWorkloadMetric;
+};
+type ScheduleWorkloadMainRow={
+ areaId:number;areaName:string;areaSort:number;standardOperation:string;mainOrder:number;
+ WAIT:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
+ total:ScheduleWorkloadMetric;recipes:ScheduleWorkloadRecipeRow[];
+};
+
 const blank=(date:string,resourceCode=""):Draft=>({
  standardOperation:"",recipeKey:"",resourceCode,date,startTime:"",duration:"",noLoading:false,chainFrom:null,chainFromExisting:null,startIso:null,keep:false,
  batchId:null,batchNo:"",totalJobs:0,totalQty:0,totalSurfaceDm2:0,
@@ -163,6 +176,9 @@ export function ManualScheduleGrid({
  const [dropTarget,setDropTarget]=useState<string|null>(null);
  const [suggestBusy,setSuggestBusy]=useState<string|null>(null);
  const [saveAllBusy,setSaveAllBusy]=useState<string|null>(null);
+ const [stWorkloadRows,setStWorkloadRows]=useState<ScheduleWorkloadMainRow[]>([]);
+ const [stWorkloadLoading,setStWorkloadLoading]=useState(false);
+ const [stWorkloadError,setStWorkloadError]=useState("");
 
 
  function areaOps(a:ScheduleArea){
@@ -541,6 +557,29 @@ export function ManualScheduleGrid({
  useEffect(()=>{setLiveRows(scheduledRows)},[scheduledRows]);
  useEffect(()=>{setLiveBatches(planningBatches)},[planningBatches]);
 
+ async function refreshStWorkload(){
+  setStWorkloadLoading(true);
+  setStWorkloadError("");
+  try{
+   const res=await fetch("/api/schedule/st-workload-summary",{cache:"no-store"});
+   const d=await safeJson(res);
+   if(!res.ok)throw new Error(d?.error||"Không đọc được ST Workload Summary.");
+   setStWorkloadRows(Array.isArray(d?.mainRows)?d.mainRows:[]);
+  }catch(e){
+   setStWorkloadError(e instanceof Error?e.message:String(e));
+  }finally{
+   setStWorkloadLoading(false);
+  }
+ }
+
+ useEffect(()=>{
+  void refreshStWorkload();
+  const onChanged=()=>{void refreshStWorkload();};
+  window.addEventListener("st-schedule-changed",onChanged);
+  return ()=>window.removeEventListener("st-schedule-changed",onChanged);
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[]);
+
  async function refreshRows(){
   try{
    const res=await fetch(`/api/schedule/rows?date=${encodeURIComponent(date)}`);
@@ -845,9 +884,57 @@ export function ManualScheduleGrid({
   for(const area of [hub,...children])for(const op of (area.operations||[]))set.add(String(op.standard_operation||"").trim().toUpperCase());
   return set;
  }
- function renderAreaBlock(a:ScheduleArea,poolAllowed?:Set<string>){
+
+ const workloadStatuses:ScheduleWorkloadStatus[]=["WAIT","READY","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"];
+ const workloadLabel:Record<ScheduleWorkloadStatus,string>={
+  WAIT:"WAIT",READY:"READY",PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",SCHEDULED:"SCHEDULED",HOLD:"HOLD"
+ };
+ function workloadMetric(metric:ScheduleWorkloadMetric|undefined,status?:ScheduleWorkloadStatus){
+  const m=metric||{jobs:0,qty:0,surface:0};
+  return <div className={`schedule-area-workload-metric${status?` is-${status.toLowerCase().replace(/_/g,"-")}`:" is-total"}`}>
+   <b>{fmt(m.surface)} dm²</b><span>{fmt(m.qty,0)} pcs · {fmt(m.jobs,0)} Job</span>
+  </div>;
+ }
+ function renderScheduleAreaWorkload(areaName:string,allowed:Set<string>){
+  const rows=stWorkloadRows
+   .filter(row=>allowed.has(String(row.standardOperation||"").trim().toUpperCase()))
+   .sort((a,b)=>Number(a.mainOrder||999999)-Number(b.mainOrder||999999)||String(a.standardOperation).localeCompare(String(b.standardOperation)));
+
+  return <section className="schedule-area-st-workload">
+   <div className="schedule-area-st-workload-head">
+    <div><b>ST Workload Summary · By Area</b><small>{areaName} · cùng canonical Dashboard ST workload, lọc theo Main Operation của khu vực điều độ</small></div>
+    <span>{stWorkloadLoading?"Đang đọc…":`${rows.length} Workload Groups`}</span>
+   </div>
+   {stWorkloadError?<div className="schedule-area-st-workload-error">{stWorkloadError}</div>:
+    <div className="table-wrap schedule-area-st-workload-wrap"><table className="erp-table schedule-area-st-workload-table">
+     <thead><tr><th>Main Operation</th><th>Recipe No</th><th>Recipe Name</th>{workloadStatuses.map(status=><th key={status}>{workloadLabel[status]}</th>)}<th>Total</th></tr></thead>
+     <tbody>
+      {rows.flatMap(row=>{
+       const key=`${areaName}-${row.standardOperation}`;
+       const main=<tr key={`${key}-main`} className="schedule-area-st-workload-main">
+        <td><b>{row.standardOperation}</b></td><td>—</td><td><b>MAIN TOTAL</b><small>{row.recipes?.length||0} Recipe groups</small></td>
+        {workloadStatuses.map(status=><td key={status}>{workloadMetric(row[status],status)}</td>)}
+        <td>{workloadMetric(row.total)}</td>
+       </tr>;
+       const recipes=(row.recipes||[]).map((recipe,index)=><tr key={`${key}-${recipe.recipeKey}-${index}`} className="schedule-area-st-workload-recipe">
+        <td><span className="schedule-area-st-workload-indent">↳</span></td>
+        <td><b className="mono">{recipe.recipeNo||"—"}</b></td>
+        <td>{recipe.recipeName||"No Recipe"}</td>
+        {workloadStatuses.map(status=><td key={status}>{workloadMetric(recipe[status],status)}</td>)}
+        <td>{workloadMetric(recipe.total)}</td>
+       </tr>);
+       return [main,...recipes];
+      })}
+      {!rows.length&&!stWorkloadLoading&&<tr><td colSpan={9} className="muted">Khu vực này chưa có workload trong canonical Dashboard ST population.</td></tr>}
+     </tbody>
+    </table></div>}
+  </section>;
+ }
+
+ function renderAreaBlock(a:ScheduleArea,poolAllowed?:Set<string>,showWorkload=true){
  const aOps=areaOps(a),aResources=areaResources(a),actual=scheduledFor(a),unscheduledArea=unscheduledFor(a,poolAllowed),count=rowCounts[a.schedule_area_code]||20;
  const chemical=a.resource_group==="CHEMICAL_LINE"||aResources.some(x=>x.resource_group==="CHEMICAL_LINE");
+ const workloadOps=poolAllowed||new Set((a.operations||[]).map(x=>String(x.standard_operation||"").trim().toUpperCase()).filter(Boolean));
  return <div className="schedule-area-grid-block" key={a.schedule_area_code}>
      <div className="schedule-area-grid-title">
       <div><b>{a.schedule_area_name}</b><small>{a.schedule_area_code} · {aOps.length?aOps.map(x=>x.standard_operation).join(" / "):"CHƯA MAP OPERATION"}</small></div>
@@ -879,6 +966,8 @@ export function ManualScheduleGrid({
        </button>
       </div>
      </div>
+
+     {showWorkload&&renderScheduleAreaWorkload(a.schedule_area_name,workloadOps)}
 
      {unscheduledArea.length>0&&
       <div className="schedule-area-unscheduled-strip">
@@ -1307,8 +1396,9 @@ export function ManualScheduleGrid({
        <div><b>{a.schedule_area_name}</b><small>{a.schedule_area_code} · khu gộp {children.map(c=>c.schedule_area_name).join(" / ")} — mỗi lane dùng chung lô Unscheduled của cả khu, chọn vào lane nào tùy ý</small></div>
        <div className="schedule-area-row-actions"><span>{children.length} lane · từng cabin điều độ riêng (logic giữ nguyên)</span></div>
       </div>
+      {renderScheduleAreaWorkload(a.schedule_area_name,pool)}
       <div className="schedule-area-group-children">
-       {children.map(ch=>renderAreaBlock(ch,pool))}
+       {children.map(ch=>renderAreaBlock(ch,pool,false))}
       </div>
      </div>;
     }
