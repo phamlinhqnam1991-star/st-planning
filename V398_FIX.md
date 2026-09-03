@@ -8,10 +8,7 @@ Dashboard and Planning Board Workload now use:
 
 `open_job_current.next_operation (RAW) -> visible ST RAW operations -> planning_job_operation`
 
-Visible ST RAW operations match the Planning Board:
-- active `PLANNING_OPERATION` from `md_st_operation_scope`;
-- active Auto Bridge intermediate operation;
-- explicit `ST_SCOPE_ONLY` excluded.
+V398 initially treated active Auto Bridge intermediate operations as visible RAW operations. **V400 supersedes this membership rule**: only explicit active `PLANNING_OPERATION` from `md_st_operation_scope` is now canonical; Auto Bridge/intermediate and `ST_SCOPE_ONLY` do not enter Board/Dashboard population.
 
 ## Applied to
 - Planning Board Workload Summary READY / WAIT / HOLD.

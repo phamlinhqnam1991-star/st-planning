@@ -1,3 +1,5 @@
+import {RAW_ST_VISIBLE_CTE_SQL} from "@/lib/planning/raw-st-visible-sql";
+
 export async function resolvePlanningView(c:any,op:string,areaId:string){
  const viewKeys:string[]=[];
  if(op)viewKeys.push(`OP:${op}`);
@@ -29,13 +31,27 @@ export async function resolvePlanningView(c:any,op:string,areaId:string){
    }
   }
  }
- let stViewParams:string[]=[];
- if(stViewCodes===null){
-  const defQ=await c.query(`
-   select upper(trim(operation_code)) op from md_st_operation_scope
-   where is_active=true group by upper(trim(operation_code))
-   having not bool_or(operation_type='ST_SCOPE_ONLY')`);
-  stViewParams=defQ.rows.map((r:any)=>String(r.op));
- }else stViewParams=stViewCodes;
+
+ // v400: the persisted VIEW is only a SUBSET selector. It can never widen the
+ // Planning Board beyond the canonical explicit ST PLANNING_OPERATION list.
+ // This also cleans legacy saved views that contained Auto-Bridge/intermediate
+ // or unrelated RAW NextOperations.
+ const defQ=await c.query(`
+  with ${RAW_ST_VISIBLE_CTE_SQL}
+  select operation_code op
+  from visible_st_raw
+  order by operation_code`);
+ const canonicalCodes=defQ.rows.map((r:any)=>String(r.op||"").trim().toUpperCase()).filter(Boolean);
+ const canonicalSet=new Set(canonicalCodes);
+ const stViewParams=stViewCodes===null
+  ?canonicalCodes
+  :[...new Set(stViewCodes.filter(code=>canonicalSet.has(code)))];
+
+ if(initialView){
+  if(Array.isArray(initialView.stView))initialView.stView=stViewParams;
+  const nextOperation=String(initialView.filters?.nextOperation||"").trim().toUpperCase();
+  if(nextOperation&&!canonicalSet.has(nextOperation))initialView.filters={...(initialView.filters||{}),nextOperation:""};
+ }
+
  return {stViewParams,initialView,serverViews};
 }

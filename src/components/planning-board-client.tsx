@@ -536,7 +536,7 @@ export function PlanningBoardClient({
  areaMode:boolean;
  selectedAreaId:string;
  mainOperations:MainOperationMaster[];
- stOperations:{operation_code:string;standard_operation:string|null;config_status?:string|null}[];
+ stOperations:{operation_code:string;standard_operation:string|null;operation_type?:string|null;config_status?:string|null}[];
  nextOperations:{operation_code:string;jobs:number}[];
  sourceColumnNames:string[];
  operationMappings:OperationMappingMaster[];
@@ -764,15 +764,27 @@ useEffect(()=>{
  const defaultStView=useMemo(()=>{
    const set=new Set<string>();
    for(const x of (stOperations||[])){
-    if(String(x.config_status)==="ST_SCOPE_ONLY")continue;
+    // v400: RAW NextOperation membership is explicit ST PLANNING_OPERATION
+    // only. Auto-Bridge/INTERMEDIATE stays a chain helper and cannot become a
+    // Planning Board population selector.
+    if(normalized(x.operation_type)!=="PLANNING_OPERATION")continue;
     const c=normalized(x.operation_code);
     if(c)set.add(c);
    }
    return set;
   },[stOperations]);
 
+ // Legacy saved views could contain bridge/intermediate or unrelated RAW Ops.
+ // Keep the user subset, but always intersect it with the canonical ST set.
+ useEffect(()=>{
+  if(stViewOverride===null)return;
+  const safe=[...new Set(stViewOverride.map(normalized).filter(code=>defaultStView.has(code)))];
+  const current=[...new Set(stViewOverride.map(normalized).filter(Boolean))];
+  if(safe.length!==current.length||safe.some((code,index)=>code!==current[index]))setStViewOverride(safe);
+ },[defaultStView,stViewOverride]);
+
  const effectiveStView=useMemo(
-   ()=>new Set(stViewOverride??[...defaultStView]),
+   ()=>new Set((stViewOverride??[...defaultStView]).map(normalized).filter(code=>defaultStView.has(code))),
    [stViewOverride,defaultStView]
   );
 
@@ -1125,9 +1137,12 @@ useEffect(()=>{
      ?preset.columnLayout.map(x=>String(x))
      :collapsedColumnLayoutFromVisible(cols)
    );
-   if(Array.isArray(preset.stView))setStViewOverride(preset.stView);
+   if(Array.isArray(preset.stView)){
+    setStViewOverride([...new Set(preset.stView.map(normalized).filter(code=>defaultStView.has(code)))]);
+   }
    setFilterNextMain(preset.filters?.nextMain||"");
-   setFilterNextOperation(preset.filters?.nextOperation||"");
+   const presetNextOperation=normalized(preset.filters?.nextOperation||"");
+   setFilterNextOperation(presetNextOperation&&defaultStView.has(presetNextOperation)?presetNextOperation:"");
    setFilterPrimer1(preset.filters?.primer1||"");
    setFilterPrimer2(preset.filters?.primer2||"");
    setFilterPrimer3(preset.filters?.primer3||"");
@@ -1737,19 +1752,25 @@ const currentPriorityMonth=useMemo(()=>{
  // thuộc các công đoạn ST (danh sách panel "Các công đoạn được hiển thị").
  // Bỏ chọn hết trong bảng "Công đoạn" → danh sách Job trống; chọn một phần →
  // chỉ Job có next operation thuộc nhóm source của công đoạn đang chọn.
- // v241 — VIEW CÔNG ĐOẠN ST (TÁCH RIÊNG): Candidate Jobs nhìn vào VIEW này.
- // VIEW = danh sách các NEXT OPERATION được chọn hiển thị (tick trong bảng
- // "Công đoạn"). Mặc định = các công đoạn ST đã cấu hình (panel, trừ ST_SCOPE_ONLY);
- // user có thể tick thêm công đoạn khác (vd trung gian) hoặc bỏ bớt — bỏ hết → trống.
- // Panel "Các công đoạn được hiển thị" (VIEW CÔNG ĐOẠN CHÍNH) giữ nguyên vai trò cấu hình.
+ // v400 — VIEW CÔNG ĐOẠN ST is now a strict SUBSET of explicit ST
+ // PLANNING_OPERATION codes. The selector no longer offers All Open Job RAW
+ // operations from other areas and no longer offers Auto-Bridge intermediates.
  const allNextOps=useMemo(()=>{
    const seen=new Set<string>();
    const panel=new Set<string>();
+   const jobsByCode=new Map<string,number>();
+   for(const n of (nextOperations||[]))jobsByCode.set(normalized(n.operation_code),Number(n.jobs||0));
+   for(const x of (stOperations||[])){
+    if(normalized(x.operation_type)!=="PLANNING_OPERATION")continue;
+    const c=normalized(x.operation_code);
+    if(c)panel.add(c);
+   }
    const out:{code:string;jobs:number;inPanel:boolean}[]=[];
-   for(const x of (stOperations||[])){const c=normalized(x.operation_code);if(c)panel.add(c);}
-   const add=(code:string,jobs:number)=>{if(!code||seen.has(code))return;seen.add(code);out.push({code,jobs,inPanel:panel.has(code)});};
-   for(const n of (nextOperations||[]))add(normalized(n.operation_code),Number(n.jobs||0));
-   for(const x of (stOperations||[]))add(normalized(x.operation_code),0);
+   for(const code of panel){
+    if(!code||seen.has(code))continue;
+    seen.add(code);
+    out.push({code,jobs:Number(jobsByCode.get(code)||0),inPanel:true});
+   }
    return out.sort((a,b)=>Number(b.jobs)-Number(a.jobs)||a.code.localeCompare(b.code));
   },[nextOperations,stOperations]);
 

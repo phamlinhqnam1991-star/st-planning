@@ -172,3 +172,7 @@ Dashboard `Main Planning Workload Summary` now expands every Main Planning into 
 ## V399 · Dashboard split by Area
 
 Dashboard `Main Planning Workload Summary` is now rendered as one section per Area instead of one table mixing all Areas. Every Area has the same KPI-card family as the global Dashboard (`UNIQUE JOBS`, WAIT, READY, PLANNED, PLANNED-UNSCHEDULED, SCHEDULED, HOLD), followed by that Area's Main Planning → Recipe No./Recipe Name workload table. Main/Recipe and CAT3/CAT5 tables no longer use vertical max-height scrollers; all rows render in the page while horizontal scrolling remains available for wide ERP tables. V398 RAW NextOperation ST filtering and all Planning/Recipe/Batch/Schedule business logic are unchanged.
+## V400 — Strict RAW NextOperation ST-only gate
+
+Dashboard và Planning Board chỉ nhận Job khi RAW `open_job_current.next_operation` là `PLANNING_OPERATION` active được khai báo trực tiếp trong `md_st_operation_scope`. `ST_SCOPE_ONLY`, Auto-Bridge/INTERMEDIATE và RAW operation ngoài ST không được dùng để đưa Job vào Board/Dashboard. Bridge vẫn giữ vai trò nội bộ trong Planning Chain sau khi Job đã thuộc population hợp lệ. Saved ST View chỉ được phép là tập con của danh sách ST canonical này.
+

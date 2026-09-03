@@ -60,3 +60,7 @@ Planning Matrix no longer renders a permanent `H` button beside every READY/WAIT
 
 ## V399 · Dashboard workload theo Area
 Dashboard giữ RAW NextOperation ST gate của V398, sau đó chia Workload theo `Area -> Main Planning -> Recipe`. Mỗi Area có bộ card `Unique Jobs / WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD` riêng và bảng Main Planning + Recipe riêng. Các bảng Dashboard không giới hạn chiều cao theo viewport nữa; hiển thị toàn bộ dòng, chỉ giữ cuộn ngang khi bảng rộng.
+## V400 — Strict RAW NextOperation ST-only gate
+
+Dashboard và Planning Board chỉ nhận Job khi RAW `open_job_current.next_operation` là `PLANNING_OPERATION` active được khai báo trực tiếp trong `md_st_operation_scope`. `ST_SCOPE_ONLY`, Auto-Bridge/INTERMEDIATE và RAW operation ngoài ST không được dùng để đưa Job vào Board/Dashboard. Bridge vẫn giữ vai trò nội bộ trong Planning Chain sau khi Job đã thuộc population hợp lệ. Saved ST View chỉ được phép là tập con của danh sách ST canonical này.
+

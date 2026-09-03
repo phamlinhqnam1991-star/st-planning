@@ -192,3 +192,7 @@ Dashboard presentation is grouped `Area -> Main Planning -> Recipe` after the ex
 - Each Area table retains V397 Recipe No. / Recipe Name breakdown and the same status columns.
 - Dashboard Main/Recipe and CAT3/CAT5 tables render all rows without vertical table scroll containers; horizontal scrolling remains for wide tables.
 - This is a read/display aggregation change only. Planning Chain, Recipe resolver, Batch, Schedule, Hold, Production Execution, and V398 RAW ST scope remain unchanged.
+## V400 — Strict RAW NextOperation ST-only gate
+
+Dashboard và Planning Board chỉ nhận Job khi RAW `open_job_current.next_operation` là `PLANNING_OPERATION` active được khai báo trực tiếp trong `md_st_operation_scope`. `ST_SCOPE_ONLY`, Auto-Bridge/INTERMEDIATE và RAW operation ngoài ST không được dùng để đưa Job vào Board/Dashboard. Bridge vẫn giữ vai trò nội bộ trong Planning Chain sau khi Job đã thuộc population hợp lệ. Saved ST View chỉ được phép là tập con của danh sách ST canonical này.
+
