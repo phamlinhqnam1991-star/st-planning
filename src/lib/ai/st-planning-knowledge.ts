@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V387";
+export const ST_AI_KNOWLEDGE_VERSION="V401";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -68,6 +68,12 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
   key:"production-execution",
   title:"Production Execution",
   content:`Production Execution reads scheduled production plus derived Masking/Unmasking work. WAITING/ON-GOING/DONE and Actual Start/End are execution-report facts and are intentionally independent from Planning Chain and planning_schedule status.`
+ },
+
+ {
+  key:"dashboard-status",
+  title:"Dashboard workload status",
+  content:`Dashboard workload uses WAIT, READY, PLANNED-UNSCHEDULED, SCHEDULED and HOLD only. PLANNED remains an internal Planning Chain/Batch-history state, not a separate Dashboard bucket. If an active planning occurrence is internally PLANNED and has no Schedule, Dashboard classifies it as PLANNED-UNSCHEDULED. This normalization is presentation/aggregation only and does not rewrite Planning Chain state.`
  },
  {
   key:"ai-boundary",

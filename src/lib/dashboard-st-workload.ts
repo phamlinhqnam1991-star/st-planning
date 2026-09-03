@@ -4,7 +4,7 @@ import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 import {RAW_ST_VISIBLE_CTE_SQL} from "@/lib/planning/raw-st-visible-sql";
 
 export type StDashboardMetric={jobs:number;qty:number;surface:number};
-export type StDashboardStatus="WAIT"|"READY"|"PLANNED"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
+export type StDashboardStatus="WAIT"|"READY"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
 
 export type StDashboardRecipeRow={
  recipeKey:string;
@@ -12,7 +12,6 @@ export type StDashboardRecipeRow={
  recipeName:string;
  WAIT:StDashboardMetric;
  READY:StDashboardMetric;
- PLANNED:StDashboardMetric;
  PLANNED_UNSCHEDULED:StDashboardMetric;
  SCHEDULED:StDashboardMetric;
  HOLD:StDashboardMetric;
@@ -27,7 +26,6 @@ export type StDashboardMainRow={
  mainOrder:number;
  WAIT:StDashboardMetric;
  READY:StDashboardMetric;
- PLANNED:StDashboardMetric;
  PLANNED_UNSCHEDULED:StDashboardMetric;
  SCHEDULED:StDashboardMetric;
  HOLD:StDashboardMetric;
@@ -101,7 +99,7 @@ const WORKLOAD_SQL=`
     when coalesce(p.is_hold,false)=true and active_batch.batch_id is null then 'HOLD'
     when active_schedule.schedule_id is not null then 'SCHEDULED'
     when active_batch.batch_id is not null then 'PLANNED_UNSCHEDULED'
-    when p.status='PLANNED' then 'PLANNED'
+    when p.status='PLANNED' then 'PLANNED_UNSCHEDULED'
     when p.status='ELIGIBLE' then 'READY'
     else 'WAIT'
    end bucket,
@@ -179,7 +177,7 @@ async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboar
      when coalesce(p.is_hold,false)=true and fb.batch_id is null then 'HOLD'
      when fs.schedule_id is not null then 'SCHEDULED'
      when fb.batch_id is not null then 'PLANNED-UNSCHEDULED'
-     when p.status='PLANNED' then 'PLANNED'
+     when p.status='PLANNED' then 'PLANNED-UNSCHEDULED'
      when p.status='ELIGIBLE' then 'READY'
      else 'WAIT'
     end display_status
@@ -268,7 +266,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
  ]);
 
  const statuses:Record<StDashboardStatus,StDashboardMetric>={
-  WAIT:zero(),READY:zero(),PLANNED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero()
+  WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero()
  };
  const rows=new Map<string,StDashboardMainRow>();
  const areaUniqueJobs=new Map<string,Map<string,StDashboardMetric>>();
@@ -295,7 +293,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
    row={
     areaId:num(raw.area_id),areaName:text(raw.area_name)||"Unmapped",areaSort:num(raw.area_sort)||999999,
     standardOperation:text(raw.standard_operation),mainOrder:num(raw.main_order)||999999,
-    WAIT:zero(),READY:zero(),PLANNED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),total:zero(),recipes:[]
+    WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),total:zero(),recipes:[]
    };
    rows.set(mainKey,row);
   }
@@ -317,17 +315,17 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   const recipeGroupKey=recipeKey||"__NO_RECIPE__";
   let recipe=row.recipes.find(x=>x.recipeKey===recipeGroupKey);
   if(!recipe){
-   recipe={recipeKey:recipeGroupKey,recipeNo,recipeName,WAIT:zero(),READY:zero(),PLANNED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),total:zero()};
+   recipe={recipeKey:recipeGroupKey,recipeNo,recipeName,WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),total:zero()};
    row.recipes.push(recipe);
   }
   recipe[bucket].jobs+=1;recipe[bucket].qty+=metric.qty;recipe[bucket].surface+=metric.surface;
  }
 
  const mainRows=[...rows.values()].map(row=>{
-  const metrics=[row.WAIT,row.READY,row.PLANNED,row.PLANNED_UNSCHEDULED,row.SCHEDULED,row.HOLD];
+  const metrics=[row.WAIT,row.READY,row.PLANNED_UNSCHEDULED,row.SCHEDULED,row.HOLD];
   row.total={jobs:metrics.reduce((s,x)=>s+x.jobs,0),qty:metrics.reduce((s,x)=>s+x.qty,0),surface:metrics.reduce((s,x)=>s+x.surface,0)};
   row.recipes=row.recipes.map(recipe=>{
-   const rm=[recipe.WAIT,recipe.READY,recipe.PLANNED,recipe.PLANNED_UNSCHEDULED,recipe.SCHEDULED,recipe.HOLD];
+   const rm=[recipe.WAIT,recipe.READY,recipe.PLANNED_UNSCHEDULED,recipe.SCHEDULED,recipe.HOLD];
    recipe.total={jobs:rm.reduce((s,x)=>s+x.jobs,0),qty:rm.reduce((s,x)=>s+x.qty,0),surface:rm.reduce((s,x)=>s+x.surface,0)};
    return recipe;
   }).sort((a,b)=>{
@@ -344,13 +342,13 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   if(!area){
    area={
     areaId:row.areaId,areaName:row.areaName,areaSort:row.areaSort,total:zero(),
-    statuses:{WAIT:zero(),READY:zero(),PLANNED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero()},
+    statuses:{WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero()},
     mainRows:[]
    };
    areasMap.set(key,area);
   }
   area.mainRows.push(row);
-  for(const status of ["WAIT","READY","PLANNED","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"] as StDashboardStatus[]){
+  for(const status of ["WAIT","READY","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"] as StDashboardStatus[]){
    area.statuses[status].jobs+=row[status].jobs;
    area.statuses[status].qty+=row[status].qty;
    area.statuses[status].surface+=row[status].surface;

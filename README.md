@@ -176,3 +176,8 @@ Dashboard `Main Planning Workload Summary` is now rendered as one section per Ar
 
 Dashboard và Planning Board chỉ nhận Job khi RAW `open_job_current.next_operation` là `PLANNING_OPERATION` active được khai báo trực tiếp trong `md_st_operation_scope`. `ST_SCOPE_ONLY`, Auto-Bridge/INTERMEDIATE và RAW operation ngoài ST không được dùng để đưa Job vào Board/Dashboard. Bridge vẫn giữ vai trò nội bộ trong Planning Chain sau khi Job đã thuộc population hợp lệ. Saved ST View chỉ được phép là tập con của danh sách ST canonical này.
 
+
+
+## V401 · Dashboard bỏ PLANNED riêng
+
+Dashboard bỏ hoàn toàn card/cột/series `PLANNED`. Nếu `planning_job_operation.status='PLANNED'` xuất hiện trong dữ liệu nội bộ nhưng chưa có Schedule, Dashboard chuẩn hóa nó vào `PLANNED-UNSCHEDULED`. Vì vậy global KPI, KPI từng Area, Main Planning → Recipe table và stacked dm² chart chỉ còn `WAIT / READY / PLANNED-UNSCHEDULED / SCHEDULED / HOLD`. Không thay Planning Chain/Batch/Schedule state model.

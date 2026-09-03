@@ -10,7 +10,7 @@
 6. Planning Board selects Jobs and creates/updates Batch.
 7. Board Điều Độ assigns existing Batch to Resource / Date / Start / Duration.
 8. Production Execution reads scheduled Batch plus Masking/Unmasking support work and stores WAITING / ON-GOING / DONE separately from Planning/Schedule state.
-9. Dashboard V396 is the ST workload control view: unique open ST totals plus WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD workload by Main Planning Operation, stacked dm² chart, and full CAT3/CAT5 planning + schedule lists. The former Dashboard KPI/AI layout is no longer rendered.
+9. Dashboard V396 is the ST workload control view: unique open ST totals plus WAIT / READY / PLANNED-UNSCHEDULED / SCHEDULED / HOLD workload by Main Planning Operation, stacked dm² chart, and full CAT3/CAT5 planning + schedule lists. The former Dashboard KPI/AI layout is no longer rendered.
 10. Job Tracker and Part Tracker are read-only trace views.
 
 
@@ -167,7 +167,7 @@ Nguồn chuẩn vẫn là `planning_job_operation` + `open_job_current`; Summary
 UI gồm KPI tổng và bảng ERP compact. Click READY / WAIT / HOLD của một Main sẽ hydrate Route Matrix nếu cần rồi drill-down Candidate Matrix bằng đúng Main + route status. Khi đang có Batch Selection, drill-down bị khóa để bảo toàn ngữ cảnh gom lô. Summary refresh sau Batch mutation, Hold/Unhold, Rebuild Chain và khi thay scope Area/Main.
 
 ## V397 — Dashboard Recipe-level workload
-`Main Planning Workload Summary` is hierarchical: Main Planning total → Recipe No./Recipe Name detail. Every Recipe detail retains WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD with Job / pcs / dm². Batched work uses the Batch Recipe; unbatched work uses the current live Planning Recipe resolver. No-Recipe workload is retained explicitly so Main totals reconcile.
+`Main Planning Workload Summary` is hierarchical: Main Planning total → Recipe No./Recipe Name detail. Every Recipe detail retains WAIT / READY / PLANNED-UNSCHEDULED / SCHEDULED / HOLD with Job / pcs / dm². Batched work uses the Batch Recipe; unbatched work uses the current live Planning Recipe resolver. No-Recipe workload is retained explicitly so Main totals reconcile.
 
 ## V398 — RAW NextOperation ST population gate
 
@@ -187,7 +187,7 @@ Dashboard và Planning Board Workload Summary không được bắt đầu từ 
 Dashboard presentation is grouped `Area -> Main Planning -> Recipe` after the existing V398 RAW NextOperation ST population gate.
 
 - The former single Main Planning Workload table that mixed all Areas is replaced by one independent table per Area.
-- Each Area renders its own KPI cards: Area TOTAL unique Jobs plus WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD in Job / pcs / dm².
+- Each Area renders its own KPI cards: Area TOTAL unique Jobs plus WAIT / READY / PLANNED-UNSCHEDULED / SCHEDULED / HOLD in Job / pcs / dm².
 - Area TOTAL deduplicates the same Job inside that Area. Status cards remain Job × Main Planning workload and therefore reconcile with the Main rows for that Area.
 - Each Area table retains V397 Recipe No. / Recipe Name breakdown and the same status columns.
 - Dashboard Main/Recipe and CAT3/CAT5 tables render all rows without vertical table scroll containers; horizontal scrolling remains for wide tables.
@@ -196,3 +196,8 @@ Dashboard presentation is grouped `Area -> Main Planning -> Recipe` after the ex
 
 Dashboard và Planning Board chỉ nhận Job khi RAW `open_job_current.next_operation` là `PLANNING_OPERATION` active được khai báo trực tiếp trong `md_st_operation_scope`. `ST_SCOPE_ONLY`, Auto-Bridge/INTERMEDIATE và RAW operation ngoài ST không được dùng để đưa Job vào Board/Dashboard. Bridge vẫn giữ vai trò nội bộ trong Planning Chain sau khi Job đã thuộc population hợp lệ. Saved ST View chỉ được phép là tập con của danh sách ST canonical này.
 
+
+
+## V401 — Dashboard bỏ trạng thái PLANNED riêng
+
+Dashboard không còn hiển thị `PLANNED` như một bucket/card riêng. Trong flow hiện tại, `planning_job_operation.status='PLANNED'` là trạng thái nội bộ của occurrence đã có lịch sử Batch và trên Dashboard được chuẩn hóa vào `PLANNED-UNSCHEDULED` khi chưa có Schedule. Các lớp hiển thị Dashboard hiện chỉ dùng `WAIT / READY / PLANNED-UNSCHEDULED / SCHEDULED / HOLD`; ST TOTAL vẫn là unique open Jobs sau RAW NextOperation ST gate. Thay đổi này chỉ thuộc Dashboard presentation/aggregation, không đổi trạng thái nội bộ của Planning Chain, Batch hay Schedule.

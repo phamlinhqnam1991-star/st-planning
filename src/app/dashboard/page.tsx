@@ -6,12 +6,12 @@ import {loadStDashboardData,type StDashboardAreaRow,type StDashboardMetric,type 
 
 export const dynamic="force-dynamic";
 
-const STATUS_ORDER:StDashboardStatus[]=["WAIT","READY","PLANNED","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"];
+const STATUS_ORDER:StDashboardStatus[]=["WAIT","READY","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"];
 const STATUS_LABEL:Record<StDashboardStatus,string>={
- WAIT:"WAIT",READY:"READY",PLANNED:"PLANNED",PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",SCHEDULED:"SCHEDULED",HOLD:"HOLD"
+ WAIT:"WAIT",READY:"READY",PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",SCHEDULED:"SCHEDULED",HOLD:"HOLD"
 };
 const STATUS_CLASS:Record<StDashboardStatus,string>={
- WAIT:"wait",READY:"ready",PLANNED:"planned",PLANNED_UNSCHEDULED:"unscheduled",SCHEDULED:"scheduled",HOLD:"hold"
+ WAIT:"wait",READY:"ready",PLANNED_UNSCHEDULED:"unscheduled",SCHEDULED:"scheduled",HOLD:"hold"
 };
 
 function fmt(v:number,max=1){return new Intl.NumberFormat("en-US",{maximumFractionDigits:max}).format(Number(v||0));}
