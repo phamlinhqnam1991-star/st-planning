@@ -35,6 +35,15 @@ export type StDashboardMainRow={
  recipes:StDashboardRecipeRow[];
 };
 
+export type StDashboardAreaRow={
+ areaId:number;
+ areaName:string;
+ areaSort:number;
+ total:StDashboardMetric;
+ statuses:Record<StDashboardStatus,StDashboardMetric>;
+ mainRows:StDashboardMainRow[];
+};
+
 export type StDashboardPriorityJob={
  jobNum:string;
  partNum:string;
@@ -59,6 +68,7 @@ export type StDashboardData={
  generatedAt:string;
  total:StDashboardMetric;
  statuses:Record<StDashboardStatus,StDashboardMetric>;
+ areas:StDashboardAreaRow[];
  mainRows:StDashboardMainRow[];
  cat3:StDashboardPriorityJob[];
  cat5:StDashboardPriorityJob[];
@@ -261,6 +271,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   WAIT:zero(),READY:zero(),PLANNED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero()
  };
  const rows=new Map<string,StDashboardMainRow>();
+ const areaUniqueJobs=new Map<string,Map<string,StDashboardMetric>>();
  const recipeMeta=new Map<string,{recipeNo:string;recipeName:string}>();
  for(const r of recipeMetaQ.rows as any[]){
   recipeMeta.set(text(r.recipe_key),{recipeNo:text(r.recipe_no),recipeName:text(r.recipe_name)});
@@ -271,6 +282,12 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   if(!(bucket in statuses))continue;
   const metric={jobs:1,qty:num(raw.qty),surface:num(raw.surface)};
   statuses[bucket].jobs+=1;statuses[bucket].qty+=metric.qty;statuses[bucket].surface+=metric.surface;
+
+  const areaKey=String(raw.area_id);
+  let areaJobs=areaUniqueJobs.get(areaKey);
+  if(!areaJobs){areaJobs=new Map<string,StDashboardMetric>();areaUniqueJobs.set(areaKey,areaJobs);}
+  const jobNum=text(raw.job_num);
+  if(jobNum&&!areaJobs.has(jobNum))areaJobs.set(jobNum,{jobs:1,qty:metric.qty,surface:metric.surface});
 
   const mainKey=`${raw.area_id}|${raw.standard_operation}`;
   let row=rows.get(mainKey);
@@ -320,7 +337,37 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   });
   return row;
  }).sort((a,b)=>a.areaSort-b.areaSort||a.mainOrder-b.mainOrder||a.standardOperation.localeCompare(b.standardOperation));
+ const areasMap=new Map<string,StDashboardAreaRow>();
+ for(const row of mainRows){
+  const key=String(row.areaId);
+  let area=areasMap.get(key);
+  if(!area){
+   area={
+    areaId:row.areaId,areaName:row.areaName,areaSort:row.areaSort,total:zero(),
+    statuses:{WAIT:zero(),READY:zero(),PLANNED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero()},
+    mainRows:[]
+   };
+   areasMap.set(key,area);
+  }
+  area.mainRows.push(row);
+  for(const status of ["WAIT","READY","PLANNED","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"] as StDashboardStatus[]){
+   area.statuses[status].jobs+=row[status].jobs;
+   area.statuses[status].qty+=row[status].qty;
+   area.statuses[status].surface+=row[status].surface;
+  }
+ }
+ const areas=[...areasMap.values()].map(area=>{
+  const unique=areaUniqueJobs.get(String(area.areaId));
+  if(unique){
+   for(const metric of unique.values()){
+    area.total.jobs+=1;
+    area.total.qty+=metric.qty;
+    area.total.surface+=metric.surface;
+   }
+  }
+  return area;
+ }).sort((a,b)=>a.areaSort-b.areaSort||a.areaName.localeCompare(b.areaName));
  const tr=totalQ.rows[0]||{};
- return {generatedAt:new Date().toISOString(),total:{jobs:num(tr.jobs),qty:num(tr.qty),surface:num(tr.surface)},statuses,mainRows,cat3,cat5};
+ return {generatedAt:new Date().toISOString(),total:{jobs:num(tr.jobs),qty:num(tr.qty),surface:num(tr.surface)},statuses,areas,mainRows,cat3,cat5};
 }
 

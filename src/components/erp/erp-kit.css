@@ -2713,3 +2713,25 @@
 .erpkit-migrated-page .st-dashboard-recipe-indent{font-size:10px;color:#8b98a7}
 .erpkit-migrated-page .st-dashboard-recipe-row td:nth-child(3){width:92px;white-space:nowrap}
 .erpkit-migrated-page .st-dashboard-recipe-row td:nth-child(4){min-width:220px;max-width:320px;color:#41566c}
+
+/* V399 · Dashboard workload split by Area; no vertical table scrollers. */
+.erpkit-migrated-page .st-dashboard-area-workloads{display:grid;gap:10px}
+.erpkit-migrated-page .st-dashboard-area-summary-head{border:1px solid #dbe3ea;border-radius:5px;background:#f8fafc}
+.erpkit-migrated-page .st-dashboard-area-panel{display:block}
+.erpkit-migrated-page .st-dashboard-area-head{border-left:3px solid #526b83;background:#fbfcfd}
+.erpkit-migrated-page .st-dashboard-area-head b{font-size:9px;color:#263f57}
+.erpkit-migrated-page .st-dashboard-area-kpis{padding:8px;border-bottom:1px solid #e4e9ee;background:#fbfcfd}
+.erpkit-migrated-page .st-dashboard-area-kpis .st-dashboard-kpi{min-height:72px}
+.erpkit-migrated-page .st-dashboard-main-wrap{max-height:none!important;overflow-x:auto!important;overflow-y:visible!important;scrollbar-gutter:auto!important}
+.erpkit-migrated-page .st-dashboard-priority-wrap{max-height:none!important;overflow-x:auto!important;overflow-y:visible!important;scrollbar-gutter:auto!important}
+.erpkit-migrated-page .st-dashboard-area-main-table{min-width:1450px}
+.erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-main-total-row td:nth-child(1){color:#263f57}
+.erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-main-total-row td:nth-child(3)>b{display:block;font-size:7px;color:#526579;letter-spacing:.025em}
+.erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-main-total-row td:nth-child(3)>small{display:block;margin-top:2px;font-size:6.2px;color:#8592a1;font-weight:500}
+.erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-recipe-row td:nth-child(1){text-align:center;color:#8b98a7;width:92px}
+.erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-recipe-row td:nth-child(2){width:92px;white-space:nowrap;text-align:left;color:inherit}
+.erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-recipe-row td:nth-child(3){min-width:220px;max-width:320px;color:#41566c}
+@media(max-width:1450px){.erpkit-migrated-page .st-dashboard-area-kpis{grid-template-columns:repeat(4,minmax(118px,1fr))}}
+@media(max-width:900px){.erpkit-migrated-page .st-dashboard-area-kpis{grid-template-columns:repeat(2,minmax(118px,1fr))}}
+.erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-recipe-row td:nth-child(3){width:auto}
+.erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-recipe-row td:nth-child(4){min-width:0;max-width:none;color:inherit}

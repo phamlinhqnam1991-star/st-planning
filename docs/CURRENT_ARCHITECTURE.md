@@ -181,3 +181,14 @@ Dashboard và Planning Board Workload Summary không được bắt đầu từ 
 - Job có RAW NextOperation ngoài ST không được xuất hiện trong Workload/Dashboard chỉ vì Planning Chain của nó có future ST operations.
 - CAT3/CAT5 Dashboard dùng cùng RAW ST gate, vì vậy danh sách priority và KPI/Main/Recipe summary dùng cùng một population.
 - Source chuẩn được gom trong `src/lib/planning/raw-st-visible-sql.ts` để Dashboard và Planning Board không lệch logic về sau.
+
+## V399 — Dashboard Area sections
+
+Dashboard presentation is grouped `Area -> Main Planning -> Recipe` after the existing V398 RAW NextOperation ST population gate.
+
+- The former single Main Planning Workload table that mixed all Areas is replaced by one independent table per Area.
+- Each Area renders its own KPI cards: Area TOTAL unique Jobs plus WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD in Job / pcs / dm².
+- Area TOTAL deduplicates the same Job inside that Area. Status cards remain Job × Main Planning workload and therefore reconcile with the Main rows for that Area.
+- Each Area table retains V397 Recipe No. / Recipe Name breakdown and the same status columns.
+- Dashboard Main/Recipe and CAT3/CAT5 tables render all rows without vertical table scroll containers; horizontal scrolling remains for wide tables.
+- This is a read/display aggregation change only. Planning Chain, Recipe resolver, Batch, Schedule, Hold, Production Execution, and V398 RAW ST scope remain unchanged.

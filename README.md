@@ -168,3 +168,7 @@ Planning Board adds a read-only ERP Workload Summary above the Matrix. It aggreg
 
 ## V397
 Dashboard `Main Planning Workload Summary` now expands every Main Planning into Recipe No. + Recipe Name workload rows, with WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD metrics in Job / pcs / dm².
+
+## V399 · Dashboard split by Area
+
+Dashboard `Main Planning Workload Summary` is now rendered as one section per Area instead of one table mixing all Areas. Every Area has the same KPI-card family as the global Dashboard (`UNIQUE JOBS`, WAIT, READY, PLANNED, PLANNED-UNSCHEDULED, SCHEDULED, HOLD), followed by that Area's Main Planning → Recipe No./Recipe Name workload table. Main/Recipe and CAT3/CAT5 tables no longer use vertical max-height scrollers; all rows render in the page while horizontal scrolling remains available for wide ERP tables. V398 RAW NextOperation ST filtering and all Planning/Recipe/Batch/Schedule business logic are unchanged.

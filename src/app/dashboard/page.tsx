@@ -2,7 +2,7 @@ import Link from "next/link";
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
 import {getPool} from "@/lib/db";
-import {loadStDashboardData,type StDashboardMetric,type StDashboardPriorityJob,type StDashboardStatus} from "@/lib/dashboard-st-workload";
+import {loadStDashboardData,type StDashboardAreaRow,type StDashboardMetric,type StDashboardPriorityJob,type StDashboardStatus} from "@/lib/dashboard-st-workload";
 
 export const dynamic="force-dynamic";
 
@@ -25,6 +25,36 @@ function tm(v:string|null){
  return `${get("hour")}:${get("minute")} ${get("day")}-${month[Math.max(0,Number(get("month"))-1)]}`;
 }
 function generated(v:string){const d=new Date(v);return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ho_Chi_Minh",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);}
+
+
+function AreaWorkloadTable({area}:{area:StDashboardAreaRow}){
+ return <section className="erp-table-panel st-dashboard-panel st-dashboard-area-panel">
+  <div className="erp-panel-head st-dashboard-area-head"><div><b>{area.areaName}</b><small>Main Planning + Recipe workload in this Area.</small></div><span>{fmt(area.mainRows.length,0)} Main Operations</span></div>
+  <section className="st-dashboard-kpis st-dashboard-area-kpis">
+   <article className="st-dashboard-kpi total"><small>{area.areaName.toUpperCase()} · UNIQUE JOBS</small>{metricLines(area.total)}</article>
+   {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(area.statuses[status])}</article>)}
+  </section>
+  <div className="table-wrap st-dashboard-main-wrap"><table className="erp-table st-dashboard-main-table st-dashboard-area-main-table">
+   <thead><tr><th>Main Planning</th><th>Recipe No</th><th>Recipe Name</th>{STATUS_ORDER.map(s=><th key={s}>{STATUS_LABEL[s]}</th>)}<th>Total</th></tr></thead>
+   <tbody>{area.mainRows.flatMap(row=>{
+    const key=`${row.areaId}-${row.standardOperation}`;
+    const main=<tr key={`${key}-total`} className="st-dashboard-main-total-row">
+     <td><b>{row.standardOperation}</b></td><td>—</td><td><b>MAIN TOTAL</b><small>{fmt(row.recipes.length,0)} Recipe groups</small></td>
+     {STATUS_ORDER.map(s=><td key={s}><div className={`st-dashboard-metric-cell ${STATUS_CLASS[s]}`}>{metricLines(row[s])}</div></td>)}
+     <td><div className="st-dashboard-metric-cell total">{metricLines(row.total)}</div></td>
+    </tr>;
+    const recipes=row.recipes.map((recipe,index)=><tr key={`${key}-${recipe.recipeKey}-${index}`} className="st-dashboard-recipe-row">
+     <td><span className="st-dashboard-recipe-indent">↳</span></td>
+     <td><b className="mono">{recipe.recipeNo||"—"}</b></td>
+     <td>{recipe.recipeName||"No Recipe"}</td>
+     {STATUS_ORDER.map(s=><td key={s}><div className={`st-dashboard-metric-cell ${STATUS_CLASS[s]}`}>{metricLines(recipe[s])}</div></td>)}
+     <td><div className="st-dashboard-metric-cell total">{metricLines(recipe.total)}</div></td>
+    </tr>);
+    return [main,...recipes];
+   })}</tbody>
+  </table></div>
+ </section>;
+}
 
 function PriorityTable({title,rows,tone}:{title:string;rows:StDashboardPriorityJob[];tone:"cat3"|"cat5"}){
  return <section className={`erp-table-panel st-dashboard-panel st-dashboard-priority ${tone}`}>
@@ -68,27 +98,9 @@ export default async function DashboardPage(){
     </section>
     <div className="st-dashboard-note">ST TOTAL chỉ lấy Open Job có RAW NextOperation hiện tại thuộc ST Planning view. Sau bước lọc RAW này, các status mới tổng hợp theo Job × Main Planning trong Planning Chain; Job có RAW NextOperation ngoài ST không được kéo vào Dashboard chỉ vì có future Planning Operation.</div>
 
-    <section className="erp-table-panel st-dashboard-panel">
-     <div className="erp-panel-head"><div><b>Main Planning Workload Summary</b><small>Job / pcs / dm² by Main Planning, then detailed again by Recipe No. and Recipe Name with the same Planning statuses.</small></div><span>{fmt(data.mainRows.length,0)} Main Operations</span></div>
-     <div className="table-wrap st-dashboard-main-wrap"><table className="erp-table st-dashboard-main-table">
-      <thead><tr><th>Area</th><th>Main Planning</th><th>Recipe No</th><th>Recipe Name</th>{STATUS_ORDER.map(s=><th key={s}>{STATUS_LABEL[s]}</th>)}<th>Total</th></tr></thead>
-      <tbody>{data.mainRows.flatMap(row=>{
-       const key=`${row.areaId}-${row.standardOperation}`;
-       const main=<tr key={`${key}-total`} className="st-dashboard-main-total-row">
-        <td><b>{row.areaName}</b></td><td><b>{row.standardOperation}</b></td><td>—</td><td><b>MAIN TOTAL</b><small>{fmt(row.recipes.length,0)} Recipe groups</small></td>
-        {STATUS_ORDER.map(s=><td key={s}><div className={`st-dashboard-metric-cell ${STATUS_CLASS[s]}`}>{metricLines(row[s])}</div></td>)}
-        <td><div className="st-dashboard-metric-cell total">{metricLines(row.total)}</div></td>
-       </tr>;
-       const recipes=row.recipes.map((recipe,index)=><tr key={`${key}-${recipe.recipeKey}-${index}`} className="st-dashboard-recipe-row">
-        <td></td><td><span className="st-dashboard-recipe-indent">↳</span></td>
-        <td><b className="mono">{recipe.recipeNo||"—"}</b></td>
-        <td>{recipe.recipeName||"No Recipe"}</td>
-        {STATUS_ORDER.map(s=><td key={s}><div className={`st-dashboard-metric-cell ${STATUS_CLASS[s]}`}>{metricLines(recipe[s])}</div></td>)}
-        <td><div className="st-dashboard-metric-cell total">{metricLines(recipe.total)}</div></td>
-       </tr>);
-       return [main,...recipes];
-      })}</tbody>
-     </table></div>
+    <section className="st-dashboard-area-workloads">
+     <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>Main Planning Workload Summary · By Area</b><small>Each Area has its own KPI cards and its own Main Planning → Recipe workload table. All table rows stay visible without vertical scrolling.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Main Operations</span></div>
+     {data.areas.map(area=><AreaWorkloadTable key={`${area.areaId}-${area.areaName}`} area={area}/>)}
     </section>
 
     <section className="erp-table-panel st-dashboard-panel st-dashboard-chart-panel">

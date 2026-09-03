@@ -1,5 +1,7 @@
 # Dashboard ST Workload V396
 
+> V399 layout note: the workload logic below remains valid, but Main Planning workload is now rendered as one KPI + table section per Area and Dashboard tables no longer use vertical max-height scrollers. See `DASHBOARD_AREA_WORKLOAD_V399.md`.
+
 ## Flow
 
 `open_job_current + planning_job_operation + planning_batch_job + planning_batch + planning_schedule`

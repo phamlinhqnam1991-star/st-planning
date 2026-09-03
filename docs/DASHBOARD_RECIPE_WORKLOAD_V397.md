@@ -1,5 +1,7 @@
 # Dashboard Recipe Workload V397
 
+> V399 layout note: Recipe detail remains unchanged, but it is now displayed inside separate Area sections with Area KPI cards. See `DASHBOARD_AREA_WORKLOAD_V399.md`.
+
 Dashboard hierarchy:
 
 ST TOTAL / status KPI

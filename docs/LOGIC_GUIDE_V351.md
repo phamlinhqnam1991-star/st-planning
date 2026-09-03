@@ -57,3 +57,6 @@ Planning Matrix no longer renders a permanent `H` button beside every READY/WAIT
 - Mỗi lần tải Candidate đầy đủ sẽ xóa Route Matrix cache cũ trước khi tải để không giữ trạng thái stale.
 - Save Operation View không còn fallback `location.reload()`.
 - Batch/Rebuild chỉ báo thành công khi HTTP response thực sự thành công.
+
+## V399 · Dashboard workload theo Area
+Dashboard giữ RAW NextOperation ST gate của V398, sau đó chia Workload theo `Area -> Main Planning -> Recipe`. Mỗi Area có bộ card `Unique Jobs / WAIT / READY / PLANNED / PLANNED-UNSCHEDULED / SCHEDULED / HOLD` riêng và bảng Main Planning + Recipe riêng. Các bảng Dashboard không giới hạn chiều cao theo viewport nữa; hiển thị toàn bộ dòng, chỉ giữ cuộn ngang khi bảng rộng.
