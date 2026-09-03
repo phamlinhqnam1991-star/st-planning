@@ -106,8 +106,8 @@ function AuditJobTable({rows}:{rows:StDashboardAuditJob[]}){
  const totalSurface=rows.reduce((sum,row)=>sum+Number(row.surfaceUsed||0),0);
  const totalQty=rows.reduce((sum,row)=>sum+Number(row.qtyUsed||0),0);
  return <section className="erp-table-panel st-dashboard-panel st-dashboard-audit-panel">
-  <div className="erp-panel-head"><div><b>Chart Calculation Audit · Job Detail</b><small>One row per open Job used by the Current Main / Immediate Operation chart. Check RAW Last/Next, resolver output, Qty and Surface inputs before changing the chart formula.</small></div><span>{fmt(totalSurface)} dm² · {fmt(totalQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
-  <div className="st-dashboard-audit-note">Chart Group = <b>Current Main / RAW NextOperation</b>. Immediate Operation is the RAW NextOperation from All Open Job. Current/Next Main come from the same synced Planning Chain used by Planning Board.</div>
+  <div className="erp-panel-head"><div><b>Chart Calculation Audit · Job Detail</b><small>One row per ST-visible open Job used by the Current Main / Immediate Operation chart. RAW NextOperation must be active ST Planning/Intermediate scope before resolver, Qty and Surface are counted.</small></div><span>{fmt(totalSurface)} dm² · {fmt(totalQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
+  <div className="st-dashboard-audit-note">Chart Group = <b>Current Main / ST RAW NextOperation</b>. Immediate Operation is the ST-visible RAW NextOperation from All Open Job. RAW LastOperation is resolver context only; Current/Next Main come from the same synced Planning Chain used by Planning Board.</div>
   <div className="table-wrap st-dashboard-audit-wrap"><table className="erp-table st-dashboard-audit-table">
    <thead><tr>
     <th>Job</th><th>Part / Rev</th><th>Priority</th><th>Chart Group</th><th>Last Operation</th><th>RAW NextOperation<br/>Immediate</th>
@@ -231,7 +231,7 @@ export default async function DashboardPage(){
     </section>
 
     <section className="erp-table-panel st-dashboard-panel st-dashboard-chart-panel st-dashboard-combo-panel">
-     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation</b><small>Column = dm² on the left axis · Line = pcs on the right axis · X = Current Main Planning grouped with RAW NextOperation (Immediate Operation).</small></div></div>
+     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation</b><small>Column = dm² on the left axis · Line = pcs on the right axis · X = Current Main Planning grouped only with ST-visible RAW NextOperation (Immediate Operation).</small></div></div>
      <div className="st-dashboard-combo-legend"><span><i className="surface"></i>Surface dm²</span><span><i className="qty"></i>Qty pcs · right axis max 10,000</span></div>
      <SurfaceQtyComboChart rows={data.immediateRows} total={data.total}/>
     </section>
@@ -242,7 +242,7 @@ export default async function DashboardPage(){
      <article className="st-dashboard-kpi total"><small>ST TOTAL · SURFACE WORKLOAD</small>{metricLines(data.total)}</article>
      {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(data.statuses[status])}</article>)}
     </section>
-    <div className="st-dashboard-note">V409 population: Dashboard bắt đầu từ <b>tất cả RAW NextOperation</b> của Open Job. Không pre-filter RAW theo <code>PLANNING_OPERATION</code>. Cùng resolver của Planning Board dùng LastOperation + RAW NextOperation để xác định Current Main ST; direct ST operation và Intermediate hợp lệ trong Active Bridge đều được giữ, flow ngoài ST/ST_SCOPE_ONLY bị loại. Công thức chart chưa đổi ở bản này.</div>
+    <div className="st-dashboard-note">V411 population: Dashboard chỉ nhận Job khi RAW <code>NextOperation</code> đang nằm trong <code>md_st_operation_scope</code> active với loại <code>PLANNING_OPERATION</code> hoặc <code>INTERMEDIATE</code>, sau đó mới dùng resolver của Planning Board để xác nhận Current Main. <code>LastOperation</code> chỉ là context để resolve Bridge, không dùng làm ST visibility gate. Vì vậy flow ngoài ST và <code>ST_SCOPE_ONLY</code> không thể lọt vào chart.</div>
 
     <section className="st-dashboard-area-workloads">
      <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>Main Planning Workload Summary · By Area</b><small>Each Area has its own KPI cards and its own Main Planning → Recipe workload table. All table rows stay visible without vertical scrolling.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Main Operations</span></div>

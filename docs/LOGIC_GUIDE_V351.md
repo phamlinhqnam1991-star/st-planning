@@ -78,3 +78,6 @@ Dashboard bỏ bucket `PLANNED` riêng. Job/Main có trạng thái nội bộ `p
 
 ## V408 · Dashboard kiểm tra lại population theo RAW NextOperation
 Dashboard trước tiên lọc trực tiếp `open_job_current.next_operation`: chỉ Open Job có RAW NextOperation match `md_st_operation_scope` active với `operation_type='PLANNING_OPERATION'` mới được tính. Bridge Intermediate và `ST_SCOPE_ONLY` không mở rộng population Dashboard ở bước kiểm tra này. `ST TOTAL` là unique Open Job sau RAW gate; Planning Chain/Batch/Schedule chỉ được đọc sau đó để lấy Main/Recipe/status. Planning Board giữ resolver V404; chart chưa đổi công thức, chỉ nhận population Dashboard đã lọc chặt hơn.
+
+## V411 · Dashboard chart chỉ nhận Immediate Operation thuộc ST
+Nguồn của Dashboard/chart được lọc theo đúng ST visibility trước khi cộng Qty/Surface: RAW `NextOperation` phải nằm trong `md_st_operation_scope` active và có loại `PLANNING_OPERATION` hoặc `INTERMEDIATE`; sau đó resolver hiện hành mới xác nhận Current Main. `ST_SCOPE_ONLY` và operation ngoài ST bị loại. RAW `LastOperation` chỉ dùng làm context để kiểm tra thứ tự Bridge, không bắt buộc phải là ST vì một Job có thể vừa đi từ công đoạn ngoài ST vào công đoạn ST đầu tiên.

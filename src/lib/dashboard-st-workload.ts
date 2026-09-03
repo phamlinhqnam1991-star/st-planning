@@ -4,13 +4,15 @@ import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 import {rawStJobMatchSql} from "@/lib/planning/raw-st-visible-sql";
 
 
-// V409 Dashboard population gate:
-// Start from EVERY physical RAW NextOperation in All Open Job. Do not pre-filter
-// the RAW code to PLANNING_OPERATION. The same context-aware resolver used by
-// Planning Board decides whether LastOperation + RAW NextOperation belongs to
-// the live ST Current Main (direct ST operation or a valid active Bridge
-// intermediate). Only Jobs that resolve to a live ST Current Main are counted.
-// ST_SCOPE_ONLY / unrelated non-ST flows remain excluded.
+// V411 Dashboard population gate:
+// Dashboard must start from the same ST-visible RAW NextOperation population as
+// All Open Jobs. A physical RAW NextOperation must exist in active
+// md_st_operation_scope as PLANNING_OPERATION or INTERMEDIATE before the
+// Planning Board context resolver is allowed to classify it. This prevents a
+// non-ST RAW code that merely exists in bridge/mapping context from entering the
+// Dashboard chart. LastOperation remains resolver context only; it is not an ST
+// visibility gate because the first ST operation can legitimately follow a
+// non-ST predecessor. ST_SCOPE_ONLY remains excluded.
 
 export type StDashboardMetric={jobs:number;qty:number;surface:number};
 export type StDashboardStatus="WAIT"|"READY"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
@@ -129,6 +131,14 @@ const iso=(v:unknown)=>{
  return Number.isNaN(d.getTime())?null:d.toISOString();
 };
 
+const DASHBOARD_ST_RAW_SCOPE_SQL=(jobAlias="j")=>`exists(
+ select 1
+ from public.md_st_operation_scope dashboard_scope
+ where dashboard_scope.is_active=true
+   and dashboard_scope.operation_type in ('PLANNING_OPERATION','INTERMEDIATE')
+   and upper(trim(dashboard_scope.operation_code))=upper(trim(coalesce(${jobAlias}.next_operation,'')))
+)`;
+
 const WORKLOAD_SQL=`
  with area_by_group as (
   select ag.st_group,min(ag.area_id) area_id
@@ -137,8 +147,8 @@ const WORKLOAD_SQL=`
   where ag.is_active=true
   group by ag.st_group
  ), eligible_jobs as (
-  -- V409: evaluate every RAW NextOperation. Planning Board's canonical
-  -- LastOperation + RAW NextOperation resolver decides whether the Job is in ST.
+  -- V411: first enforce the canonical ST-visible RAW NextOperation gate used by
+  -- All Open Jobs, then let the Planning Board resolver validate Current Main.
   select
    j.*,
    current_main.id current_planning_id,
@@ -155,6 +165,7 @@ const WORKLOAD_SQL=`
    limit 1
   ) current_main on true
   where j.is_open=true
+    and ${DASHBOARD_ST_RAW_SCOPE_SQL("j")}
     and ${rawStJobMatchSql("j","current_main")}
  ), base as (
   select
@@ -287,6 +298,7 @@ const AUDIT_SQL=`
   limit 1
  ) current_schedule on true
  where j.is_open=true
+   and ${DASHBOARD_ST_RAW_SCOPE_SQL("j")}
    and ${rawStJobMatchSql("j","current_main")}
  order by current_main.planning_seq,current_main.standard_operation,upper(trim(coalesce(j.next_operation,''))),j.job_num
 `;
@@ -367,6 +379,7 @@ async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboar
    limit 1
   ) latest_schedule on true
   where j.is_open=true
+    and ${DASHBOARD_ST_RAW_SCOPE_SQL("j")}
     and ${rawStJobMatchSql("j","focus")}
     and upper(trim(coalesce(j.priority_type,'')))=$1
   order by j.job_num
@@ -404,6 +417,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
      limit 1
     ) current_main on true
     where j.is_open=true
+      and ${DASHBOARD_ST_RAW_SCOPE_SQL("j")}
       and ${rawStJobMatchSql("j","current_main")}
    )
    select count(*)::int jobs,coalesce(sum(qty),0)::float8 qty,coalesce(sum(surface),0)::float8 surface
@@ -462,11 +476,12 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   }
   row[bucket].jobs+=1;row[bucket].qty+=metric.qty;row[bucket].surface+=metric.surface;
 
-  // V404 canonical Immediate Workload:
+  // V411 canonical Immediate Workload:
+  // - Population already passed the active ST RAW scope gate.
   // - Current Main = FIRST active row of the synced Planning Chain suffix.
-  // - Immediate Operation = RAW All Open Job NextOperation.
-  // Therefore intermediate Bridge codes (e.g. INS-AND / MSKG-TC) are grouped
-  // under the exact Current Main already resolved by Planning Board.
+  // - Immediate Operation = that ST-visible RAW All Open Job NextOperation.
+  // Valid ST Intermediate Bridge codes stay grouped under the exact Current Main
+  // already resolved by Planning Board; unrelated non-ST RAW codes never enter.
   if(Boolean(raw.is_current_main)){
    const immediateOperation=text(raw.raw_next_operation)||text(raw.source_operation_code)||text(raw.standard_operation)||"—";
    const immediateKey=`${raw.area_id}|${raw.standard_operation}|${immediateOperation}`;
