@@ -8040,6 +8040,31 @@
       "en": "Recipe groups",
       "vi": "nhóm Recipe",
       "mode": "phrase"
+    },
+    {
+      "en": "Surface + Qty by Main Planning / Immediate Operation",
+      "vi": "Diện tích + Số lượng theo Main Planning / Immediate Operation",
+      "mode": "phrase"
+    },
+    {
+      "en": "Column = dm² on the left axis · Line = pcs on the right axis · X = Main Planning grouped with its Immediate Operation.",
+      "vi": "Cột = dm² theo trục trái · Đường = pcs theo trục phải · X = Main Planning gộp với Immediate Operation của nó.",
+      "mode": "phrase"
+    },
+    {
+      "en": "Surface dm²",
+      "vi": "Diện tích dm²",
+      "mode": "phrase"
+    },
+    {
+      "en": "Qty pcs",
+      "vi": "Số lượng pcs",
+      "mode": "phrase"
+    },
+    {
+      "en": "Surface dm² columns and pcs line by Main Planning and Immediate Operation",
+      "vi": "Cột diện tích dm² và đường pcs theo Main Planning và Immediate Operation",
+      "mode": "phrase"
     }
   ]
 }

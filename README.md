@@ -184,3 +184,7 @@ Dashboard bỏ hoàn toàn card/cột/series `PLANNED`. Nếu `planning_job_oper
 
 ### V402 — Navigation
 Dashboard is now a standalone top-level WORK CENTER and all sub-tabs remain visible in the left navigation for every work center. Planning/Batch/Recipe/Schedule logic is unchanged.
+
+## V403 · Dashboard chart fit + Surface/Qty combo
+
+The existing stacked Surface dm² chart by Main Planning now compresses to the available Dashboard width with no horizontal scrollbar. A second dual-axis chart groups `Main Planning / Immediate Operation` (`planning_job_operation.source_operation_code`): columns use Surface dm² on the left Y axis and the line uses Qty pcs on the right Y axis. Both charts use the existing strict RAW NextOperation ST-only population; no planning business rule or migration changes.

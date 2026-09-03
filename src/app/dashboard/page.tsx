@@ -2,7 +2,7 @@ import Link from "next/link";
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
 import {getPool} from "@/lib/db";
-import {loadStDashboardData,type StDashboardAreaRow,type StDashboardMetric,type StDashboardPriorityJob,type StDashboardStatus} from "@/lib/dashboard-st-workload";
+import {loadStDashboardData,type StDashboardAreaRow,type StDashboardImmediateRow,type StDashboardMetric,type StDashboardPriorityJob,type StDashboardStatus} from "@/lib/dashboard-st-workload";
 
 export const dynamic="force-dynamic";
 
@@ -25,6 +25,67 @@ function tm(v:string|null){
  return `${get("hour")}:${get("minute")} ${get("day")}-${month[Math.max(0,Number(get("month"))-1)]}`;
 }
 function generated(v:string){const d=new Date(v);return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ho_Chi_Minh",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);}
+
+function niceAxisMax(value:number){
+ const v=Math.max(0,Number(value||0));
+ if(v<=0)return 1;
+ const power=10**Math.floor(Math.log10(v));
+ const n=v/power;
+ const step=n<=1?1:n<=2?2:n<=5?5:10;
+ return step*power;
+}
+
+function SurfaceQtyComboChart({rows}:{rows:StDashboardImmediateRow[]}){
+ const width=1200,height=360;
+ const left=66,right=66,top=24,bottom=112;
+ const plotW=width-left-right,plotH=height-top-bottom;
+ const surfaceMax=niceAxisMax(Math.max(0,...rows.map(x=>x.total.surface)));
+ const qtyMax=niceAxisMax(Math.max(0,...rows.map(x=>x.total.qty)));
+ const step=rows.length?plotW/rows.length:plotW;
+ const barW=Math.max(3,Math.min(24,step*.55));
+ const ticks=[0,1,2,3,4,5];
+ const points=rows.map((row,i)=>{
+  const x=left+step*(i+.5);
+  const y=top+plotH-(row.total.qty/qtyMax)*plotH;
+  return {x,y,row};
+ });
+ const path=points.map((p,i)=>`${i?"L":"M"}${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+ return <div className="st-dashboard-combo-chart-wrap">
+  <svg className="st-dashboard-combo-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Surface dm² columns and pcs line by Main Planning and Immediate Operation">
+   <text x={12} y={14} className="st-dashboard-axis-title">dm²</text>
+   <text x={width-12} y={14} textAnchor="end" className="st-dashboard-axis-title">pcs</text>
+   {ticks.map(t=>{
+    const y=top+plotH-(t/5)*plotH;
+    const surface=surfaceMax*t/5,qty=qtyMax*t/5;
+    return <g key={t}>
+     <line x1={left} y1={y} x2={width-right} y2={y} className="st-dashboard-combo-grid"/>
+     <text x={left-8} y={y+3} textAnchor="end" className="st-dashboard-axis-tick">{fmt(surface,0)}</text>
+     <text x={width-right+8} y={y+3} textAnchor="start" className="st-dashboard-axis-tick">{fmt(qty,0)}</text>
+    </g>;
+   })}
+   {points.map(({x,row},i)=>{
+    const h=Math.max(0,(row.total.surface/surfaceMax)*plotH);
+    const y=top+plotH-h;
+    const label=`${row.standardOperation} / ${row.immediateOperation}`;
+    return <g key={`${row.areaId}-${row.standardOperation}-${row.immediateOperation}-${i}`}>
+     <rect x={x-barW/2} y={y} width={barW} height={h} rx="1.5" className="st-dashboard-combo-bar">
+      <title>{`${row.areaName} · ${label} · ${fmt(row.total.surface)} dm² · ${fmt(row.total.qty,0)} pcs`}</title>
+     </rect>
+     <text transform={`translate(${x+2} ${top+plotH+10}) rotate(58)`} className="st-dashboard-combo-x-label">
+      <tspan>{row.standardOperation}</tspan><tspan> / {row.immediateOperation}</tspan>
+     </text>
+    </g>;
+   })}
+   {points.length>1?<path d={path} className="st-dashboard-combo-line"/>:null}
+   {points.map(({x,y,row},i)=><circle key={`p-${i}`} cx={x} cy={y} r="2.7" className="st-dashboard-combo-point">
+    <title>{`${row.standardOperation} / ${row.immediateOperation} · ${fmt(row.total.qty,0)} pcs · ${fmt(row.total.surface)} dm²`}</title>
+   </circle>)}
+   <line x1={left} y1={top} x2={left} y2={top+plotH} className="st-dashboard-combo-axis"/>
+   <line x1={width-right} y1={top} x2={width-right} y2={top+plotH} className="st-dashboard-combo-axis"/>
+   <line x1={left} y1={top+plotH} x2={width-right} y2={top+plotH} className="st-dashboard-combo-axis"/>
+  </svg>
+ </div>;
+}
 
 
 function AreaWorkloadTable({area}:{area:StDashboardAreaRow}){
@@ -120,6 +181,12 @@ export default async function DashboardPage(){
        </div>;
       })}
      </div></div>
+    </section>
+
+    <section className="erp-table-panel st-dashboard-panel st-dashboard-chart-panel st-dashboard-combo-panel">
+     <div className="erp-panel-head"><div><b>Surface + Qty by Main Planning / Immediate Operation</b><small>Column = dm² on the left axis · Line = pcs on the right axis · X = Main Planning grouped with its Immediate Operation.</small></div></div>
+     <div className="st-dashboard-combo-legend"><span><i className="surface"></i>Surface dm²</span><span><i className="qty"></i>Qty pcs</span></div>
+     <SurfaceQtyComboChart rows={data.immediateRows}/>
     </section>
 
     <PriorityTable title="CAT3" rows={data.cat3} tone="cat3"/>

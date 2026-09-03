@@ -2772,3 +2772,26 @@
  .erpkit-migrated-page .erp-navigation-module-group .erp-module-context-item,
  .erpkit-shell-body .erpkit-navigation-module-group .erpkit-context-link{padding-left:16px!important;}
 }
+
+/* V403 · Dashboard charts fit viewport + dual-axis Surface/Qty combo. */
+.erpkit-migrated-page .st-dashboard-chart-scroll{overflow-x:hidden!important;overflow-y:hidden!important;scrollbar-gutter:auto!important;padding:8px 8px 0}
+.erpkit-migrated-page .st-dashboard-chart{width:100%!important;min-width:0!important;gap:clamp(2px,.32vw,6px)!important;padding-left:4px!important;padding-right:4px!important}
+.erpkit-migrated-page .st-dashboard-bar-group{width:auto!important;min-width:0!important;flex:1 1 0!important}
+.erpkit-migrated-page .st-dashboard-bar-value{font-size:clamp(5px,.42vw,6.5px)!important;white-space:nowrap;overflow:hidden;text-overflow:clip}
+.erpkit-migrated-page .st-dashboard-bar-label{font-size:clamp(5px,.4vw,6.2px)!important;padding-left:0!important;padding-right:0!important;word-break:break-word;overflow:hidden}
+.erpkit-migrated-page .st-dashboard-combo-panel{min-height:420px}
+.erpkit-migrated-page .st-dashboard-combo-legend{padding:7px 11px;border-bottom:1px solid #e6ebf0;display:flex;align-items:center;justify-content:flex-end;gap:14px;color:#657689;font-size:7px}
+.erpkit-migrated-page .st-dashboard-combo-legend span{display:inline-flex;align-items:center;gap:5px}
+.erpkit-migrated-page .st-dashboard-combo-legend i{display:inline-block;width:12px;height:8px;border-radius:2px}
+.erpkit-migrated-page .st-dashboard-combo-legend i.surface{background:#6ca7d4}
+.erpkit-migrated-page .st-dashboard-combo-legend i.qty{height:2px;border-radius:999px;background:#334e68}
+.erpkit-migrated-page .st-dashboard-combo-chart-wrap{width:100%;overflow:hidden;padding:4px 8px 2px}
+.erpkit-migrated-page .st-dashboard-combo-chart{display:block;width:100%;height:auto;min-height:330px;max-height:390px}
+.erpkit-migrated-page .st-dashboard-combo-grid{stroke:#e6ebf0;stroke-width:1}
+.erpkit-migrated-page .st-dashboard-combo-axis{stroke:#aab6c3;stroke-width:1}
+.erpkit-migrated-page .st-dashboard-combo-bar{fill:#6ca7d4;opacity:.92}
+.erpkit-migrated-page .st-dashboard-combo-line{fill:none;stroke:#334e68;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.erpkit-migrated-page .st-dashboard-combo-point{fill:#fff;stroke:#334e68;stroke-width:1.6}
+.erpkit-migrated-page .st-dashboard-axis-title{fill:#526579;font-size:8px;font-weight:900}
+.erpkit-migrated-page .st-dashboard-axis-tick{fill:#728294;font-size:6.3px;font-variant-numeric:tabular-nums}
+.erpkit-migrated-page .st-dashboard-combo-x-label{fill:#526579;font-size:5.4px;font-weight:800}

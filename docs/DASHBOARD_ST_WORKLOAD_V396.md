@@ -31,3 +31,12 @@ ST TOTAL counts each open ST Job once. Main/status metrics de-duplicate the same
 CAT3 then CAT5 list all open Jobs in that priority class. Each row includes Job, Part/Revision, description, Qty, dm², Next Operation, current/focus Planning Main, latest Batch Main/No/status and latest active Schedule resource/start/end.
 
 No write operation is exposed from this Dashboard.
+
+## V403 chart note
+
+- `Surface Workload by Main Planning` remains a status-stacked dm² chart but now fits the viewport without a horizontal scrollbar.
+- Added `Surface + Qty by Main Planning / Immediate Operation`:
+  - X = Main Planning + `planning_job_operation.source_operation_code` (Immediate Operation)
+  - Column / left Y = total dm²
+  - Line / right Y = total pcs
+- This is a read-only presentation/aggregation extension over the same strict RAW ST population.

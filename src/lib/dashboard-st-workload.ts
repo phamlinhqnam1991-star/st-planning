@@ -33,6 +33,16 @@ export type StDashboardMainRow={
  recipes:StDashboardRecipeRow[];
 };
 
+export type StDashboardImmediateRow={
+ areaId:number;
+ areaName:string;
+ areaSort:number;
+ standardOperation:string;
+ mainOrder:number;
+ immediateOperation:string;
+ total:StDashboardMetric;
+};
+
 export type StDashboardAreaRow={
  areaId:number;
  areaName:string;
@@ -68,6 +78,7 @@ export type StDashboardData={
  statuses:Record<StDashboardStatus,StDashboardMetric>;
  areas:StDashboardAreaRow[];
  mainRows:StDashboardMainRow[];
+ immediateRows:StDashboardImmediateRow[];
  cat3:StDashboardPriorityJob[];
  cat5:StDashboardPriorityJob[];
 };
@@ -269,6 +280,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero()
  };
  const rows=new Map<string,StDashboardMainRow>();
+ const immediateRowsMap=new Map<string,StDashboardImmediateRow>();
  const areaUniqueJobs=new Map<string,Map<string,StDashboardMetric>>();
  const recipeMeta=new Map<string,{recipeNo:string;recipeName:string}>();
  for(const r of recipeMetaQ.rows as any[]){
@@ -298,6 +310,22 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
    rows.set(mainKey,row);
   }
   row[bucket].jobs+=1;row[bucket].qty+=metric.qty;row[bucket].surface+=metric.surface;
+
+  // V403: the second Dashboard chart groups the concrete/immediate Operation
+  // under its Main Planning Operation. source_operation_code is the exact
+  // Planning Chain operation occurrence that maps to standard_operation.
+  const immediateOperation=text(raw.source_operation_code)||text(raw.standard_operation)||"—";
+  const immediateKey=`${raw.area_id}|${raw.standard_operation}|${immediateOperation}`;
+  let immediateRow=immediateRowsMap.get(immediateKey);
+  if(!immediateRow){
+   immediateRow={
+    areaId:num(raw.area_id),areaName:text(raw.area_name)||"Unmapped",areaSort:num(raw.area_sort)||999999,
+    standardOperation:text(raw.standard_operation),mainOrder:num(raw.main_order)||999999,
+    immediateOperation,total:zero()
+   };
+   immediateRowsMap.set(immediateKey,immediateRow);
+  }
+  immediateRow.total.jobs+=1;immediateRow.total.qty+=metric.qty;immediateRow.total.surface+=metric.surface;
 
   const batchRecipeKey=text(raw.batch_recipe_key);
   const liveMatch=batchRecipeKey?null:bestRecipeMatch(ctx,{
@@ -365,7 +393,10 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   }
   return area;
  }).sort((a,b)=>a.areaSort-b.areaSort||a.areaName.localeCompare(b.areaName));
+ const immediateRows=[...immediateRowsMap.values()].sort((a,b)=>
+  a.areaSort-b.areaSort||a.mainOrder-b.mainOrder||a.standardOperation.localeCompare(b.standardOperation)||a.immediateOperation.localeCompare(b.immediateOperation,undefined,{numeric:true})
+ );
  const tr=totalQ.rows[0]||{};
- return {generatedAt:new Date().toISOString(),total:{jobs:num(tr.jobs),qty:num(tr.qty),surface:num(tr.surface)},statuses,areas,mainRows,cat3,cat5};
+ return {generatedAt:new Date().toISOString(),total:{jobs:num(tr.jobs),qty:num(tr.qty),surface:num(tr.surface)},statuses,areas,mainRows,immediateRows,cat3,cat5};
 }
 

@@ -207,3 +207,17 @@ Dashboard không còn hiển thị `PLANNED` như một bucket/card riêng. Tron
 - All functional sub-tabs are permanently visible under their work-center headings: Vận hành, Theo dõi, Master Data and Quản trị.
 - Both legacy/migrated `AppTabs` pages and the native `ErpAppShell` Planning pages use the same visible navigation hierarchy.
 - This is presentation/navigation only; no planning or scheduling business rule changes.
+
+## V403 — Dashboard chart density + Main/Immediate dual-axis workload
+
+Dashboard keeps the existing status-stacked Surface dm² chart by Main Planning, but the chart now fits the available viewport and does not use a horizontal scrollbar.
+
+A second read-only combo chart is added from the same strict RAW NextOperation ST-only Dashboard population:
+
+`Main Planning -> Immediate Operation (planning_job_operation.source_operation_code) -> Surface dm² column + Qty pcs line`
+
+- X-axis label combines Main Planning with its concrete Immediate/Source Operation.
+- Left Y axis = Surface dm².
+- Right Y axis = Qty pcs.
+- The second chart uses total workload across the Dashboard status buckets; status composition remains visible in the first stacked chart.
+- No Planning Chain, Recipe, Batch, Schedule, Hold or RAW ST gate rule changes.
