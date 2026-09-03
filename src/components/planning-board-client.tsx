@@ -3385,6 +3385,8 @@ const currentPriorityMonth=useMemo(()=>{
       onContextMenu={e=>openJobHoldContextMenu(e,x,fallbackItem,status)}
      >
       <b>{fallbackDisplay}</b>
+      {normalized(status)==="READY"&&String(x.recipe_no||"").trim()&&
+       <span className="route-status-ready-recipe-no" title={fallbackRecipe||String(x.recipe_no||"").trim()}>{String(x.recipe_no||"").trim()}</span>}
       {!currentMainFocus&&x.batch_no&&<span className="route-status-batch">{x.batch_no}</span>}
      </td>;
     }
@@ -3549,6 +3551,8 @@ const currentPriorityMonth=useMemo(()=>{
     onContextMenu={e=>openJobHoldContextMenu(e,x,selectableItem,status)}
    >
     <b>{displayStatus}</b>
+    {normalized(status)==="READY"&&String(displayItem.recipe_no||"").trim()&&
+     <span className="route-status-ready-recipe-no" title={[String(displayItem.recipe_no||"").trim(),String(displayItem.recipe_name||"").trim()].filter(Boolean).join(" · ")}>{String(displayItem.recipe_no||"").trim()}</span>}
 
     {!currentMainFocus&&<>
      {(scheduledEnds.length>0||batchNos.length>0)&&

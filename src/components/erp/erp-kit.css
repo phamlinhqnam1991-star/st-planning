@@ -2606,3 +2606,18 @@
 .job-hold-current{display:grid;grid-template-columns:1fr 1fr;gap:8px}.job-hold-current>div{display:grid;gap:3px;padding:8px;border:1px solid #eaecf0;border-radius:8px;background:#f9fafb}.job-hold-current span{font-size:10px;color:#667085}.job-hold-current b{font-size:11px;color:#344054;overflow-wrap:anywhere}
 .job-hold-modal-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:2px}
 .erpkit-live-kpi.is-hold{background:#fff4f2;border-color:#efb9b2;color:#b42318}
+
+
+/* v392 · READY recipe number micro-label --------------------------------------
+   Keep the READY badge compact while exposing only Recipe No. in the lower-right
+   corner. Recipe name/compatibility logic remains in the existing tooltip/server. */
+.planning-erp-version .planning-erp-matrix-table td.route-status-cell{position:relative!important}
+.planning-erp-version .planning-erp-matrix-table td.route-status-cell .route-status-ready-recipe-no{
+  position:absolute;right:3px;bottom:2px;z-index:1;display:block;max-width:calc(100% - 7px);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;
+  color:#3f6f9f!important;font:800 5.8px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace!important;
+  letter-spacing:.01em;text-align:right;opacity:.92;
+}
+.planning-erp-version .candidate-density-normal .planning-erp-matrix-table td.route-status-cell .route-status-ready-recipe-no{
+  right:4px;bottom:3px;font-size:6.5px!important;
+}
