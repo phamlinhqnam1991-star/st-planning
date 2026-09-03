@@ -213,3 +213,7 @@ Dashboard không còn hiển thị `PLANNED` như một bucket/card riêng. Tron
 ## V404 — Dashboard charts + canonical Immediate Operation
 
 Hai chart được đặt ở đầu Dashboard. Chart Surface dm² theo Main Planning vẫn fit theo viewport và không có horizontal scrollbar. Chart combo dùng nguồn chuẩn `Current Main + RAW NextOperation`: cột = dm² theo trục trái, line = pcs theo trục phải cố định max 10,000 pcs. Mỗi cột và mỗi line point hiển thị giá trị trực tiếp; cuối chart có nhóm `TOTAL / ALL ST` cho tổng dm² và pcs. Không dùng `planning_job_operation.source_operation_code` để xác định Immediate Operation nữa.
+
+## V406 — Surface-first workload presentation
+
+Workload UI priority is now `Surface dm² -> pcs -> Job count`. This applies to Dashboard global/Area KPI cards, Dashboard Main Planning -> Recipe status/total cells, CAT3/CAT5 workload summary headers, and Planning Board Workload Summary KPI/drill/total cells. Job remains the row identifier in Job/Candidate lists; only workload metric emphasis/order changed. No SQL population, Current Main resolver, Bridge, Recipe, Batch, Schedule or status logic changed.

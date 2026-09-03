@@ -3940,10 +3940,10 @@ const currentPriorityMonth=useMemo(()=>{
        <small>{selectedAreaId?selectedAreaName:"Tất cả khu vực"}{standardOperation?` · ${standardOperation}`:""} · RAW NextOperation thuộc ST → READY / WAIT / HOLD theo Planning Chain đang active</small>
       </div>
       <div className="erpkit-workload-summary-kpis">
-       <div className="erpkit-workload-summary-kpi is-ready"><b>{formatNumber(workloadTotals.READY.jobs,0)} Job</b><span>{formatNumber(workloadTotals.READY.qty)} pcs · {formatNumber(workloadTotals.READY.surface)} dm²</span><small>READY</small></div>
-       <div className="erpkit-workload-summary-kpi is-wait"><b>{formatNumber(workloadTotals.WAIT.jobs,0)} Job</b><span>{formatNumber(workloadTotals.WAIT.qty)} pcs · {formatNumber(workloadTotals.WAIT.surface)} dm²</span><small>WAIT</small></div>
-       <div className="erpkit-workload-summary-kpi is-hold"><b>{formatNumber(workloadTotals.HOLD.jobs,0)} Job</b><span>{formatNumber(workloadTotals.HOLD.qty)} pcs · {formatNumber(workloadTotals.HOLD.surface)} dm²</span><small>HOLD</small></div>
-       <div className="erpkit-workload-summary-kpi is-total"><b>{formatNumber(workloadGrandTotal.jobs,0)} Job</b><span>{formatNumber(workloadGrandTotal.qty)} pcs · {formatNumber(workloadGrandTotal.surface)} dm²</span><small>TỔNG R+W+H</small></div>
+       <div className="erpkit-workload-summary-kpi is-ready"><b>{formatNumber(workloadTotals.READY.surface)} dm²</b><span>{formatNumber(workloadTotals.READY.qty)} pcs · {formatNumber(workloadTotals.READY.jobs,0)} Job</span><small>READY</small></div>
+       <div className="erpkit-workload-summary-kpi is-wait"><b>{formatNumber(workloadTotals.WAIT.surface)} dm²</b><span>{formatNumber(workloadTotals.WAIT.qty)} pcs · {formatNumber(workloadTotals.WAIT.jobs,0)} Job</span><small>WAIT</small></div>
+       <div className="erpkit-workload-summary-kpi is-hold"><b>{formatNumber(workloadTotals.HOLD.surface)} dm²</b><span>{formatNumber(workloadTotals.HOLD.qty)} pcs · {formatNumber(workloadTotals.HOLD.jobs,0)} Job</span><small>HOLD</small></div>
+       <div className="erpkit-workload-summary-kpi is-total"><b>{formatNumber(workloadGrandTotal.surface)} dm²</b><span>{formatNumber(workloadGrandTotal.qty)} pcs · {formatNumber(workloadGrandTotal.jobs,0)} Job</span><small>TỔNG R+W+H</small></div>
       </div>
       <div className="erpkit-workload-summary-actions">
        {workloadDrill&&<button type="button" className="erpkit-btn" onClick={clearWorkloadDrill}>Xóa lọc {workloadDrill.main} · {workloadDrill.bucket}</button>}
@@ -3968,8 +3968,8 @@ const currentPriorityMonth=useMemo(()=>{
            onClick={()=>void drillWorkload(row,bucket)}
            title={metric.jobs?`Lọc Candidate: ${row.standardOperation} · ${bucket}`:"Không có Job"}
           >
-           <b>{workloadDrillLoading===busyKey?"…":`${formatNumber(metric.jobs,0)} Job`}</b>
-           <span>{formatNumber(metric.qty)} pcs · {formatNumber(metric.surface)} dm²</span>
+           <b>{workloadDrillLoading===busyKey?"…":`${formatNumber(metric.surface)} dm²`}</b>
+           <span>{formatNumber(metric.qty)} pcs · {formatNumber(metric.jobs,0)} Job</span>
           </button>;
          };
          return <tr key={key}>
@@ -3978,7 +3978,7 @@ const currentPriorityMonth=useMemo(()=>{
           <td>{metricButton("READY",row.ready)}</td>
           <td>{metricButton("WAIT",row.wait)}</td>
           <td>{metricButton("HOLD",row.hold)}</td>
-          <td><div className="erpkit-workload-total"><b>{formatNumber(row.total.jobs,0)} Job</b><span>{formatNumber(row.total.qty)} pcs · {formatNumber(row.total.surface)} dm²</span></div></td>
+          <td><div className="erpkit-workload-total"><b>{formatNumber(row.total.surface)} dm²</b><span>{formatNumber(row.total.qty)} pcs · {formatNumber(row.total.jobs,0)} Job</span></div></td>
          </tr>;
         })}
         {!workloadRows.length&&!workloadLoading&&<tr><td colSpan={6} className="muted">Không có READY / WAIT / HOLD trong phạm vi này.</td></tr>}

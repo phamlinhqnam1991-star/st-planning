@@ -15,7 +15,7 @@ const STATUS_CLASS:Record<StDashboardStatus,string>={
 };
 
 function fmt(v:number,max=1){return new Intl.NumberFormat("en-US",{maximumFractionDigits:max}).format(Number(v||0));}
-function metricLines(m:StDashboardMetric){return <><b>{fmt(m.jobs,0)} Job</b><span>{fmt(m.qty,0)} pcs</span><span>{fmt(m.surface)} dm²</span></>;}
+function metricLines(m:StDashboardMetric){return <><b>{fmt(m.surface)} dm²</b><span>{fmt(m.qty,0)} pcs</span><span>{fmt(m.jobs,0)} Job</span></>;}
 function tm(v:string|null){
  if(!v)return "—";
  const d=new Date(v);if(Number.isNaN(d.getTime()))return "—";
@@ -105,7 +105,7 @@ function AreaWorkloadTable({area}:{area:StDashboardAreaRow}){
  return <section className="erp-table-panel st-dashboard-panel st-dashboard-area-panel">
   <div className="erp-panel-head st-dashboard-area-head"><div><b>{area.areaName}</b><small>Main Planning + Recipe workload in this Area.</small></div><span>{fmt(area.mainRows.length,0)} Main Operations</span></div>
   <section className="st-dashboard-kpis st-dashboard-area-kpis">
-   <article className="st-dashboard-kpi total"><small>{area.areaName.toUpperCase()} · UNIQUE JOBS</small>{metricLines(area.total)}</article>
+   <article className="st-dashboard-kpi total"><small>{area.areaName.toUpperCase()} · SURFACE WORKLOAD</small>{metricLines(area.total)}</article>
    {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(area.statuses[status])}</article>)}
   </section>
   <div className="table-wrap st-dashboard-main-wrap"><table className="erp-table st-dashboard-main-table st-dashboard-area-main-table">
@@ -131,16 +131,18 @@ function AreaWorkloadTable({area}:{area:StDashboardAreaRow}){
 }
 
 function PriorityTable({title,rows,tone}:{title:string;rows:StDashboardPriorityJob[];tone:"cat3"|"cat5"}){
+ const prioritySurface=rows.reduce((sum,row)=>sum+Number(row.surface||0),0);
+ const priorityQty=rows.reduce((sum,row)=>sum+Number(row.qty||0),0);
  return <section className={`erp-table-panel st-dashboard-panel st-dashboard-priority ${tone}`}>
-  <div className="erp-panel-head"><div><b>{title}</b><small>All open priority Jobs with current planning and latest Batch / Schedule information.</small></div><span>{fmt(rows.length,0)} Jobs</span></div>
+  <div className="erp-panel-head"><div><b>{title}</b><small>All open priority Jobs with current planning and latest Batch / Schedule information.</small></div><span>{fmt(prioritySurface)} dm² · {fmt(priorityQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
   <div className="table-wrap st-dashboard-priority-wrap"><table className="erp-table st-dashboard-priority-table">
-   <thead><tr><th>Job</th><th>Part / Rev</th><th>Part Description</th><th>Qty</th><th>dm²</th><th>Next Operation</th><th>Planning</th><th>Latest Batch</th><th>Schedule</th></tr></thead>
+   <thead><tr><th>Job</th><th>Part / Rev</th><th>Part Description</th><th>dm²</th><th>Qty</th><th>Next Operation</th><th>Planning</th><th>Latest Batch</th><th>Schedule</th></tr></thead>
    <tbody>{rows.length?rows.map(row=><tr key={row.jobNum}>
     <td><b className="mono">{row.jobNum}</b></td>
     <td><b>{row.partNum||"—"}</b><small>{row.revisionNum?`Rev ${row.revisionNum}`:""}</small></td>
     <td>{row.partDescription||"—"}</td>
+    <td className="num"><b>{fmt(row.surface)}</b></td>
     <td className="num">{fmt(row.qty,0)}</td>
-    <td className="num">{fmt(row.surface)}</td>
     <td className="mono">{row.nextOperation||"—"}</td>
     <td><b>{row.planningMain||"—"}</b><small className={`st-dashboard-status-text ${String(row.planningStatus||"").toLowerCase().replace(/[^a-z]+/g,"-")}`}>{row.planningStatus||"—"}</small></td>
     <td><b>{row.batchNo||"—"}</b><small>{row.batchMain?`${row.batchMain}${row.batchStatus?` · ${row.batchStatus}`:""}`:""}</small></td>
@@ -192,7 +194,7 @@ export default async function DashboardPage(){
     </section>
 
     <section className="st-dashboard-kpis">
-     <article className="st-dashboard-kpi total"><small>ST TOTAL · UNIQUE OPEN JOBS</small>{metricLines(data.total)}</article>
+     <article className="st-dashboard-kpi total"><small>ST TOTAL · SURFACE WORKLOAD</small>{metricLines(data.total)}</article>
      {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(data.statuses[status])}</article>)}
     </section>
     <div className="st-dashboard-note">V404 dùng cùng Current Main resolver đã materialize bởi Planning Board: LastOperation + RAW NextOperation → Bridge / AllOperation fallback → Current Main. RAW Intermediate nằm trong active Bridge được tính là ST khi Job có live Current Main; Immediate Operation chính là RAW NextOperation hiện tại. Các Main phía sau vẫn được tổng hợp từ cùng Planning Chain.</div>
