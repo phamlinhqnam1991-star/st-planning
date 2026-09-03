@@ -154,3 +154,7 @@ Normal Planning Board saves no longer reload the page. Create/Add Batch and Job/
 
 ### V391 Logic & Guide live DB
 `/logic-guide` now reads each live Mapping table independently. One query error no longer makes the entire live Mapping section appear empty; healthy production tables continue to render and the affected table shows its own DB error.
+
+## V395 · Planning Workload Summary
+
+Planning Board adds a read-only ERP Workload Summary above the Matrix. It aggregates active Planning Chain rows by Area + Main Operation and shows READY / WAIT / HOLD as Jobs, pcs and dm², plus total load. Clicking a status metric hydrates route state if necessary and filters the Candidate Matrix to that exact Main + status. Summary refreshes after Batch create/add, Hold/Unhold, Rebuild Chain and scope changes. No migration is required.

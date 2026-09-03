@@ -7880,6 +7880,61 @@
       "en": "Next Main Planning",
       "vi": "Main kế tiếp",
       "mode": "phrase"
+    },
+    {
+      "en": "Workload Summary",
+      "vi": "Tổng hợp tải kế hoạch",
+      "mode": "exact"
+    },
+    {
+      "en": "READY / WAIT / HOLD by active Planning Chain",
+      "vi": "READY / WAIT / HOLD theo Planning Chain đang active",
+      "mode": "exact"
+    },
+    {
+      "en": "Refreshing…",
+      "vi": "Đang đọc…",
+      "mode": "exact"
+    },
+    {
+      "en": "Collapse",
+      "vi": "Thu gọn",
+      "mode": "phrase"
+    },
+    {
+      "en": "Open table",
+      "vi": "Mở bảng",
+      "mode": "exact"
+    },
+    {
+      "en": "Clear filter",
+      "vi": "Xóa lọc",
+      "mode": "phrase"
+    },
+    {
+      "en": "Total load",
+      "vi": "Tổng tải",
+      "mode": "exact"
+    },
+    {
+      "en": "TOTAL R+W+H",
+      "vi": "TỔNG R+W+H",
+      "mode": "exact"
+    },
+    {
+      "en": "No READY / WAIT / HOLD in this scope.",
+      "vi": "Không có READY / WAIT / HOLD trong phạm vi này.",
+      "mode": "exact"
+    },
+    {
+      "en": "Could not read Workload Summary:",
+      "vi": "Không đọc được Workload Summary:",
+      "mode": "exact"
+    },
+    {
+      "en": "Remove the Jobs currently being grouped into a Batch before filtering Workload Summary.",
+      "vi": "Bỏ chọn các Job đang gom Batch trước khi lọc Workload Summary.",
+      "mode": "exact"
     }
   ]
 }

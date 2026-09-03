@@ -563,7 +563,19 @@ export default async function Page(){
      </tbody>
     </table></div>
 
-    <div className="lg-subtitle">7.1.1 · NextOperation lặp lại nhiều occurrence</div>
+    <div className="lg-subtitle">7.1.1 · Workload Summary — READY / WAIT / HOLD theo Main</div>
+    <Rule title="Summary chỉ đọc Planning Chain" tone="important">
+     Planning Board tổng hợp trực tiếp <code>planning_job_operation + open_job_current</code> theo <b>Area → Main Operation</b>. Mỗi Main hiển thị READY / WAIT / HOLD bằng <b>Jobs · pcs · dm²</b>; Total Load = R + W + H. Summary không tạo trạng thái riêng và không thay đổi Planning Chain.
+    </Rule>
+    <ul className="lg-list">
+     <li><b>Qty:</b> dùng CurrentGoodWIPQty nếu &gt; 0, nếu không dùng ProdQty — cùng quy tắc Candidate.</li>
+     <li><b>Surface:</b> dùng TotalSurface; nếu thiếu thì Qty × SurfacePerPart.</li>
+     <li><b>Repeated occurrence:</b> cùng Job + cùng Main + cùng status bucket chỉ tính một lần để không nhân đôi pcs/dm².</li>
+     <li><b>Drill-down:</b> click READY / WAIT / HOLD của một Main để lọc Candidate Matrix theo đúng Main + route status. Nếu Route Matrix của Job chưa tải, Board hydrate trước rồi mới áp dụng filter.</li>
+     <li><b>Refresh:</b> tự cập nhật sau Create/Add Batch, Hold/Unhold, Rebuild Planning Chain và khi đổi Area/Main scope; có nút Làm mới thủ công.</li>
+    </ul>
+
+    <div className="lg-subtitle">7.1.2 · NextOperation lặp lại nhiều occurrence</div>
     <Rule title="Earliest unfinished occurrence" tone="important">
      Một raw Operation Code có thể xuất hiện nhiều lần trong cùng Job, ví dụ <code>SIPT</code> lần đầu chuẩn hóa thành PRIMER1 và lần sau thành PRIMER2, hoặc <code>HE-BAKE</code> xuất hiện ở before blasting / after plating / HE-BAKE thường. Nếu <code>LastLaborOp → NextOperation</code> vẫn trùng ở nhiều occurrence, hoặc <code>LastLaborOp</code> đang blank/<code>START</code>, resolver không trả NO CHAIN chỉ vì NextOperation lặp. Hệ thống xét Batch history của từng occurrence theo đúng <code>operation_instance_key</code> và chọn <b>occurrence sớm nhất chưa có Batch</b>; nếu chưa có progress context thì chọn occurrence đầu tiên theo route. Ví dụ PRIMER1 chưa plan → PRIMER1 READY; PRIMER1 đã có Batch → SIPT kế tiếp/PRIMER2 trở thành Current Main. Với START → HE-BAKE, occurrence HE-BAKE đầu tiên chưa plan (ví dụ HE-BAKE before blasting) là Current Main. Nếu tất cả occurrence lặp lại đã plan, resolver giữ occurrence đầu để sequential gating replay chuỗi đã plan và mở Main chưa plan tiếp theo. Logic này áp dụng chung cho mọi raw Operation lặp, không hard-code SIPT hay HE-BAKE.
     </Rule>

@@ -147,3 +147,11 @@ Administrative PostgreSQL backups are created outside Vercel with `pg_dump` agai
 - Live Mapping queries are isolated: one missing/invalid optional table can no longer blank every Mapping table.
 - Each section reports its own query error while healthy sections continue to show production data.
 - This is a diagnostic/documentation read-path change only; it does not alter Mapping, Planning Chain, Recipe, Batch, Schedule or Production Execution data.
+
+## V395 — Planning Workload Summary
+
+Planning Board có thêm lớp tổng hợp read-only theo `Area -> Main Operation` để planner nhìn workload READY / WAIT / HOLD bằng `Jobs / pcs / dm²` trước khi thao tác trên Matrix.
+
+Nguồn chuẩn vẫn là `planning_job_operation` + `open_job_current`; Summary không tạo trạng thái riêng và không can thiệp Planning Chain. Qty/Surface dùng cùng quy tắc Candidate hiện hành. Một Job được deduplicate trong cùng `Main Operation + status bucket` để không nhân đôi số lượng khi routing có occurrence lặp.
+
+UI gồm KPI tổng và bảng ERP compact. Click READY / WAIT / HOLD của một Main sẽ hydrate Route Matrix nếu cần rồi drill-down Candidate Matrix bằng đúng Main + route status. Khi đang có Batch Selection, drill-down bị khóa để bảo toàn ngữ cảnh gom lô. Summary refresh sau Batch mutation, Hold/Unhold, Rebuild Chain và khi thay scope Area/Main.

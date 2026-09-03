@@ -453,6 +453,25 @@ type JobHoldContextMenuState={
  target:JobHoldDialogTarget;
 };
 
+type WorkloadMetric={jobs:number;qty:number;surface:number};
+type WorkloadSummaryRow={
+ areaId:number;
+ areaName:string;
+ areaSort:number;
+ standardOperation:string;
+ mainOrder:number;
+ ready:WorkloadMetric;
+ wait:WorkloadMetric;
+ hold:WorkloadMetric;
+ total:WorkloadMetric;
+};
+type WorkloadBucket="READY"|"WAIT"|"HOLD";
+const EMPTY_WORKLOAD_TOTALS:{READY:WorkloadMetric;WAIT:WorkloadMetric;HOLD:WorkloadMetric}={
+ READY:{jobs:0,qty:0,surface:0},
+ WAIT:{jobs:0,qty:0,surface:0},
+ HOLD:{jobs:0,qty:0,surface:0}
+};
+
 type CandidateViewPreset={
  columns:string[];
  // v292: virtual layout item. All Open Job columns can stay collapsed in one group
@@ -527,7 +546,7 @@ export function PlanningBoardClient({
  initialView?:CandidateViewPreset|null;
  initialServerViews?:Record<string,unknown>|null;
  pagination:{page:number;pageSize:number;totalCandidates:number;totalPages:number};
- onVisibleCandidateIds?:(ids:number[])=>void;
+ onVisibleCandidateIds?:(ids:number[])=>void|Promise<void>;
  onReloadCandidates?:()=>void;
  // v390: all normal Planning Board saves refresh only affected Jobs. Optional
  // operationState lets Hold/Unhold patch the visible cell immediately before
@@ -659,6 +678,13 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
  const candidateTableWrapRef=useRef<HTMLDivElement|null>(null);
  const [candidateDensity,setCandidateDensity]=useState<"normal"|"compact"|"ultra">(erpMode?"compact":(initialView?.density??"compact"));
  const [matrixZoom,setMatrixZoom]=useState(100);
+ const [workloadOpen,setWorkloadOpen]=useState(true);
+ const [workloadLoading,setWorkloadLoading]=useState(false);
+ const [workloadError,setWorkloadError]=useState("");
+ const [workloadRows,setWorkloadRows]=useState<WorkloadSummaryRow[]>([]);
+ const [workloadTotals,setWorkloadTotals]=useState(EMPTY_WORKLOAD_TOTALS);
+ const [workloadDrill,setWorkloadDrill]=useState<{main:string;bucket:WorkloadBucket}|null>(null);
+ const [workloadDrillLoading,setWorkloadDrillLoading]=useState("");
  const [routeFocus,setRouteFocus]=useState(erpMode?true:Boolean(initialView?.routeFocus));
  useEffect(()=>{
   if(!erpMode)return;
@@ -672,6 +698,34 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
   setMatrixZoom(value);
   try{window.localStorage.setItem(MATRIX_ZOOM_STORAGE_KEY,String(value));}catch{}
  };
+
+ const refreshWorkloadSummary=useCallback(async()=>{
+  if(!erpMode)return;
+  setWorkloadLoading(true);
+  setWorkloadError("");
+  try{
+   const qs=new URLSearchParams();
+   if(selectedAreaId)qs.set("areaId",selectedAreaId);
+   if(standardOperation)qs.set("op",standardOperation);
+   const r=await fetch(`/api/planning/workload-summary${qs.toString()?`?${qs.toString()}`:""}`,{cache:"no-store"});
+   const d=await safeJson(r);
+   if(!r.ok)throw new Error(d?.error||"Không đọc được Workload Summary.");
+   setWorkloadRows(Array.isArray(d.rows)?d.rows:[]);
+   setWorkloadTotals({
+    READY:{jobs:Number(d?.totals?.READY?.jobs||0),qty:Number(d?.totals?.READY?.qty||0),surface:Number(d?.totals?.READY?.surface||0)},
+    WAIT:{jobs:Number(d?.totals?.WAIT?.jobs||0),qty:Number(d?.totals?.WAIT?.qty||0),surface:Number(d?.totals?.WAIT?.surface||0)},
+    HOLD:{jobs:Number(d?.totals?.HOLD?.jobs||0),qty:Number(d?.totals?.HOLD?.qty||0),surface:Number(d?.totals?.HOLD?.surface||0)}
+   });
+  }catch(e){
+   setWorkloadError(e instanceof Error?e.message:String(e));
+  }finally{setWorkloadLoading(false);}
+ },[erpMode,selectedAreaId,standardOperation]);
+ useEffect(()=>{void refreshWorkloadSummary();},[refreshWorkloadSummary]);
+ const workloadGrandTotal=useMemo(()=>({
+  jobs:workloadTotals.READY.jobs+workloadTotals.WAIT.jobs+workloadTotals.HOLD.jobs,
+  qty:workloadTotals.READY.qty+workloadTotals.WAIT.qty+workloadTotals.HOLD.qty,
+  surface:workloadTotals.READY.surface+workloadTotals.WAIT.surface+workloadTotals.HOLD.surface
+ }),[workloadTotals]);
 
  // v282: Chẩn đoán Recipe + So sánh Cấu hình ↔ Board.
  const [recipeDiag,setRecipeDiag]=useState<any|null>(null);
@@ -2445,6 +2499,43 @@ const currentPriorityMonth=useMemo(()=>{
    ?`Đang tạo lô cho ${batchSelectionOperation}; ${operation} tạm thời bị khóa.`
    :"";
 
+ const clearWorkloadDrill=()=>{
+  if(!workloadDrill)return;
+  const opKey=normalized(workloadDrill.main);
+  setFilterRouteMain(prev=>{
+   const next={...prev};
+   delete next[opKey];
+   return next;
+  });
+  setWorkloadDrill(null);
+ };
+ const drillWorkload=async(row:WorkloadSummaryRow,bucket:WorkloadBucket)=>{
+  const metric=bucket==="READY"?row.ready:bucket==="WAIT"?row.wait:row.hold;
+  if(!metric.jobs)return;
+  if(batchSelectionModeActive){
+   setMessage("Bỏ chọn các Job đang gom Batch trước khi lọc Workload Summary.");
+   return;
+  }
+  const main=String(row.standardOperation||"");
+  const opKey=normalized(main);
+  const filterValue=bucket==="WAIT"?"WAITING":bucket;
+  const loadingKey=`${opKey}|${bucket}`;
+  setWorkloadDrillLoading(loadingKey);
+  setMessage("");
+  try{
+   // Route Matrix is lazy-loaded. A Workload drill-down may target rows that
+   // have not entered the DOM yet, so hydrate all currently loaded Candidate
+   // route states once before applying the exact Main/status filter.
+   if(onVisibleCandidateIds){
+    const ids=candidates.map(x=>Number(x.id)).filter(Number.isFinite);
+    await Promise.resolve(onVisibleCandidateIds(ids));
+   }
+   setStatusFilter("");
+   setFilterRouteMain({[opKey]:filterValue});
+   setWorkloadDrill({main,bucket});
+  }finally{setWorkloadDrillLoading("");}
+ };
+
  // ERP focus mode: once a Batch Main Operation is established, hide rows whose
  // current selectable READY belongs to another Main Operation. Rows in the same
  // Main remain visible; Recipe/condition incompatibility is still shown by the
@@ -2881,6 +2972,7 @@ const currentPriorityMonth=useMemo(()=>{
       console.error("[planning] batch delta refresh failed",deltaError);
       setMessage(prev=>`${prev} · ${erpMode?"Dữ liệu hiển thị chưa đồng bộ hết; bấm Áp dụng để nạp lại.":"Danh sách chưa cập nhật hết; bấm Áp dụng & nạp Candidate nếu cần."}`);
      }
+     void refreshWorkloadSummary();
    }catch(e){
      setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`);
    }finally{
@@ -2898,6 +2990,7 @@ const currentPriorityMonth=useMemo(()=>{
      if(!r.ok)throw new Error(d?.error||(erpMode?"Không dựng lại được chuỗi kế hoạch.":"Không dựng lại được Planning Chain."));
 
      setMessage(erpMode?`Đã dựng lại chuỗi: ${d.jobs||0} Job · ${d.operations||0} công đoạn.`:`Đã dựng lại Planning Chain: ${d.jobs||0} Job · ${d.operations||0} công đoạn.`);
+     void refreshWorkloadSummary();
      setTimeout(()=>onAfterMutation?.(),800);
    }catch(e){
      setMessage(`Lỗi: ${e instanceof Error?e.message:String(e)}`);
@@ -3118,6 +3211,7 @@ const currentPriorityMonth=useMemo(()=>{
      console.error("[planning] hold delta refresh failed",refreshError);
      setMessage("HOLD đã lưu. Dữ liệu nền chưa đồng bộ hết; bấm Áp dụng nếu cần tải lại.");
     }
+    void refreshWorkloadSummary();
    }catch(e){setMessage(e instanceof Error?e.message:String(e));}
    finally{setHoldBusy(false);}
  };
@@ -3143,6 +3237,7 @@ const currentPriorityMonth=useMemo(()=>{
      console.error("[planning] release hold delta refresh failed",refreshError);
      setMessage("Bỏ HOLD đã lưu. Dữ liệu nền chưa đồng bộ hết; bấm Áp dụng nếu cần tải lại.");
     }
+    void refreshWorkloadSummary();
    }catch(e){setMessage(e instanceof Error?e.message:String(e));}
    finally{setHoldBusy(false);}
  };
@@ -3813,6 +3908,60 @@ const currentPriorityMonth=useMemo(()=>{
        <button className="btn small" disabled={busy} onClick={rebuild}>Rebuild Chain</button>
       </div>
      </div>}
+
+    {erpMode&&<div className="erpkit-workload-summary">
+     <div className="erpkit-workload-summary-head">
+      <div>
+       <b>Workload Summary</b>
+       <small>{selectedAreaId?selectedAreaName:"Tất cả khu vực"}{standardOperation?` · ${standardOperation}`:""} · READY / WAIT / HOLD theo Planning Chain đang active</small>
+      </div>
+      <div className="erpkit-workload-summary-kpis">
+       <div className="erpkit-workload-summary-kpi is-ready"><b>{formatNumber(workloadTotals.READY.jobs,0)} Job</b><span>{formatNumber(workloadTotals.READY.qty)} pcs · {formatNumber(workloadTotals.READY.surface)} dm²</span><small>READY</small></div>
+       <div className="erpkit-workload-summary-kpi is-wait"><b>{formatNumber(workloadTotals.WAIT.jobs,0)} Job</b><span>{formatNumber(workloadTotals.WAIT.qty)} pcs · {formatNumber(workloadTotals.WAIT.surface)} dm²</span><small>WAIT</small></div>
+       <div className="erpkit-workload-summary-kpi is-hold"><b>{formatNumber(workloadTotals.HOLD.jobs,0)} Job</b><span>{formatNumber(workloadTotals.HOLD.qty)} pcs · {formatNumber(workloadTotals.HOLD.surface)} dm²</span><small>HOLD</small></div>
+       <div className="erpkit-workload-summary-kpi is-total"><b>{formatNumber(workloadGrandTotal.jobs,0)} Job</b><span>{formatNumber(workloadGrandTotal.qty)} pcs · {formatNumber(workloadGrandTotal.surface)} dm²</span><small>TỔNG R+W+H</small></div>
+      </div>
+      <div className="erpkit-workload-summary-actions">
+       {workloadDrill&&<button type="button" className="erpkit-btn" onClick={clearWorkloadDrill}>Xóa lọc {workloadDrill.main} · {workloadDrill.bucket}</button>}
+       <button type="button" className="erpkit-btn" onClick={()=>void refreshWorkloadSummary()} disabled={workloadLoading}>{workloadLoading?"Đang đọc…":"Làm mới"}</button>
+       <button type="button" className="erpkit-btn" onClick={()=>setWorkloadOpen(x=>!x)}>{workloadOpen?"Thu gọn":"Mở bảng"}</button>
+      </div>
+     </div>
+     {workloadError&&<div className="erpkit-workload-summary-error">Không đọc được Workload Summary: {workloadError}</div>}
+     {workloadOpen&&!workloadError&&<div className="erpkit-workload-summary-table-wrap">
+      <table className="erpkit-workload-summary-table">
+       <thead><tr><th>Khu vực</th><th>Main Operation</th><th>READY</th><th>WAIT</th><th>HOLD</th><th>Tổng tải</th></tr></thead>
+       <tbody>
+        {workloadRows.map(row=>{
+         const key=`${row.areaId}|${row.standardOperation}`;
+         const metricButton=(bucket:WorkloadBucket,metric:WorkloadMetric)=>{
+          const active=Boolean(workloadDrill&&normalized(workloadDrill.main)===normalized(row.standardOperation)&&workloadDrill.bucket===bucket);
+          const busyKey=`${normalized(row.standardOperation)}|${bucket}`;
+          return <button
+           type="button"
+           className={`erpkit-workload-metric is-${bucket.toLowerCase()} ${active?"is-active":""}`}
+           disabled={!metric.jobs||Boolean(workloadDrillLoading)}
+           onClick={()=>void drillWorkload(row,bucket)}
+           title={metric.jobs?`Lọc Candidate: ${row.standardOperation} · ${bucket}`:"Không có Job"}
+          >
+           <b>{workloadDrillLoading===busyKey?"…":`${formatNumber(metric.jobs,0)} Job`}</b>
+           <span>{formatNumber(metric.qty)} pcs · {formatNumber(metric.surface)} dm²</span>
+          </button>;
+         };
+         return <tr key={key}>
+          <td><b>{row.areaName}</b></td>
+          <td><b className="mono">{row.standardOperation}</b></td>
+          <td>{metricButton("READY",row.ready)}</td>
+          <td>{metricButton("WAIT",row.wait)}</td>
+          <td>{metricButton("HOLD",row.hold)}</td>
+          <td><div className="erpkit-workload-total"><b>{formatNumber(row.total.jobs,0)} Job</b><span>{formatNumber(row.total.qty)} pcs · {formatNumber(row.total.surface)} dm²</span></div></td>
+         </tr>;
+        })}
+        {!workloadRows.length&&!workloadLoading&&<tr><td colSpan={6} className="muted">Không có READY / WAIT / HOLD trong phạm vi này.</td></tr>}
+       </tbody>
+      </table>
+     </div>}
+    </div>}
 
     {freezePick&&!freezeDraft&&
      <div className="freeze-hint-bar">{erpMode?<><b>Chọn cột cần ghim.</b> Các cột bên trái và hàng tiêu đề sẽ được cố định. Nhấn Esc để hủy.</>:<><b>Chọn vị trí freeze:</b> click vào <b>tiêu đề cột</b> trong bảng — các cột bên trái và dòng tiêu đề sẽ được ghìm (ESC để hủy).</>}</div>}
