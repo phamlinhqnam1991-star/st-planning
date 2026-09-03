@@ -123,8 +123,8 @@ function AuditJobTable({rows}:{rows:StDashboardAuditJob[]}){
  const totalSurface=rows.reduce((sum,row)=>sum+Number(row.surfaceUsed||0),0);
  const totalQty=rows.reduce((sum,row)=>sum+Number(row.qtyUsed||0),0);
  return <section className="erp-table-panel st-dashboard-panel st-dashboard-audit-panel">
-  <div className="erp-panel-head"><div><b>Chart Calculation Audit · Job Detail</b><small>Exactly the Jobs used by chart 2: direct ST Planning Operation, ST-only Bridge Immediate, and ST_SCOPE_ONLY. Qty and Surface are counted once from the current Open Job row.</small></div><span>{fmt(totalSurface)} dm² · {fmt(totalQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
-  <div className="st-dashboard-audit-note">Chart grouping: <b>Main / RAW NextOperation</b> for Planning + Immediate; <b>ST_SCOPE_ONLY / RAW NextOperation</b> for display-only ST operations. Immediate requires both an active Bridge match and RAW NextOperation itself to belong to active ST Scope, so non-ST routing steps are excluded.</div>
+  <div className="erp-panel-head"><div><b>Chart Calculation Audit · Job Detail</b><small>Exactly the Jobs used by chart 2 after two stages: resolve LastOperation → RAW NextOperation → Current Main first, then filter RAW NextOperation by active ST Scope (Planning / Immediate / ST Only). Qty and Surface are counted once from the current Open Job row.</small></div><span>{fmt(totalSurface)} dm² · {fmt(totalQty,0)} pcs · {fmt(rows.length,0)} Jobs</span></div>
+  <div className="st-dashboard-audit-note">Chart pipeline: <b>1) Bridge resolver: LastOperation → RAW NextOperation → Current Main</b>; <b>2) ST Scope filter</b>: keep only RAW NextOperation tagged Planning Operation / Intermediate / ST_SCOPE_ONLY. Intermediate must also match the resolved active Bridge context. Generic non-ST route steps are therefore removed only after resolution.</div>
   <div className="table-wrap st-dashboard-audit-wrap"><table className="erp-table st-dashboard-audit-table">
    <thead><tr>
     <th>Job</th><th>ST Type</th><th>Part / Rev</th><th>Priority</th><th>Chart Group</th><th>Last Operation</th><th>RAW NextOperation<br/>Immediate</th>
@@ -260,7 +260,7 @@ export default async function DashboardPage(){
      <article className="st-dashboard-kpi total"><small>ST TOTAL · SURFACE WORKLOAD</small>{metricLines(data.total)}</article>
      {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(data.statuses[status])}</article>)}
     </section>
-    <div className="st-dashboard-note">V416 chart 2 dùng population riêng theo vị trí ST hiện tại: <code>PLANNING_OPERATION</code> trực tiếp + <code>INTERMEDIATE</code> phải đồng thời match Active Bridge và RAW NextOperation thuộc active ST Scope + <code>ST_SCOPE_ONLY</code>. Vì vậy các bước non-ST nằm giữa hai Main ST không còn lọt vào Immediate. ST_SCOPE_ONLY vẫn chỉ hiển thị trên chart/audit và không tham gia Planning Chain/Batch/Schedule.</div>
+    <div className="st-dashboard-note">V417 chart 2 chạy 2 lớp theo đúng thứ tự: <b>LastOperation → RAW NextOperation → Current Main</b> trước; sau đó mới lọc RAW NextOperation theo active ST Scope gồm <code>PLANNING_OPERATION</code> + <code>INTERMEDIATE</code> + <code>ST_SCOPE_ONLY</code>. INTERMEDIATE vẫn phải khớp Active Bridge đã resolve; ST_SCOPE_ONLY chỉ hiển thị chart/audit và không tham gia Planning Chain/Batch/Schedule.</div>
 
     <section className="st-dashboard-area-workloads">
      <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>Main Planning Workload Summary · By Area</b><small>Each Area has its own KPI cards and its own Main Planning → Recipe workload table. All table rows stay visible without vertical scrolling.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Main Operations</span></div>

@@ -1,21 +1,19 @@
 import type {PoolClient} from "pg";
 import {bestRecipeMatch} from "@/lib/planning/live-recipe";
 import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
-import {rawStJobMatchSql,rawStOperationTypeSql} from "@/lib/planning/raw-st-visible-sql";
+import {rawStJobMatchSql} from "@/lib/planning/raw-st-visible-sql";
 
 
-// V416 keeps Planning workload sections on the existing Planning-chain
-// population, but the Surface + Qty Current Position chart has its own
-// read-only ST visibility population:
-//   PLANNING_OPERATION  -> Current Main / RAW NextOperation
-//   INTERMEDIATE        -> resolved Current Main / auto Bridge RAW NextOperation
-//   ST_SCOPE_ONLY       -> ST_SCOPE_ONLY / RAW NextOperation
-// Auto Intermediate is derived from md_intermediate_bridge_* for sequence context,
-// then Dashboard applies one extra RAW NextOperation ST-membership gate: the raw
-// operation itself must still exist in active md_st_operation_scope. This prevents
-// non-ST route steps physically located between two ST Mains from entering chart 2.
-// ST_SCOPE_ONLY is chart/audit visibility only and still never enters
-// Planning Chain / Batch / Schedule.
+// V417 keeps Planning workload sections unchanged. Chart 2 + its Audit use a
+// deliberate two-stage pipeline requested by Planning:
+//   1) resolve the live position first: LastOperation -> RAW NextOperation -> Current Main
+//      using the already-built Planning Chain + active Intermediate Bridge context;
+//   2) only AFTER resolution, keep the Job when RAW NextOperation is explicitly in
+//      active ST Scope as PLANNING_OPERATION, INTERMEDIATE, or ST_SCOPE_ONLY.
+// INTERMEDIATE scope is only an ST-membership tag here; Previous/Next Main still come
+// from md_intermediate_bridge_* and are not defined by the scope row. This prevents
+// generic non-ST route steps inside a Main-to-Main span from entering the chart.
+// ST_SCOPE_ONLY remains chart/audit visibility only and never enters Batch/Schedule.
 
 export type StDashboardMetric={jobs:number;qty:number;surface:number};
 export type StDashboardStatus="WAIT"|"READY"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
@@ -145,6 +143,49 @@ const DASHBOARD_ST_RAW_SCOPE_SQL=(jobAlias="j")=>`exists(
    and upper(trim(dashboard_scope.operation_code))=upper(trim(coalesce(${jobAlias}.next_operation,'')))
 )`;
 
+// Bridge validation is intentionally scope-agnostic. Dashboard first resolves the
+// physical/current position, then a separate ST Scope join decides visibility.
+const DASHBOARD_BRIDGE_MATCH_SQL=(jobAlias="j",currentMainAlias="current_main")=>{
+ const raw=`upper(trim(coalesce(${jobAlias}.next_operation,'')))`;
+ const last=`upper(trim(coalesce(${jobAlias}.last_operation,'')))`;
+ const currentMain=`upper(trim(coalesce(${currentMainAlias}.standard_operation,'')))`;
+ return `exists(
+  select 1
+  from public.md_intermediate_bridge_operation bo
+  join public.md_intermediate_bridge_segment bs
+    on bs.id=bo.segment_id
+   and bs.is_active=true
+  where upper(trim(bo.operation_code))=${raw}
+    and upper(trim(bs.next_main_operation))=${currentMain}
+    and (
+     (
+      bo.sequence_no>1
+      and exists(
+       select 1
+       from public.md_intermediate_bridge_operation prevbo
+       where prevbo.segment_id=bo.segment_id
+         and prevbo.sequence_no=bo.sequence_no-1
+         and upper(trim(prevbo.operation_code))=${last}
+      )
+     )
+     or
+     (
+      bo.sequence_no=1
+      and (
+       upper(trim(bs.previous_main_operation))=${last}
+       or exists(
+        select 1
+        from public.md_st_operation_mapping pm
+        where pm.is_active=true
+          and upper(trim(pm.source_operation_code))=${last}
+          and upper(trim(pm.standard_operation_rule))=upper(trim(bs.previous_main_operation))
+       )
+      )
+     )
+    )
+ )`;
+};
+
 const WORKLOAD_SQL=`
  with area_by_group as (
   select ag.st_group,min(ag.area_id) area_id
@@ -241,7 +282,8 @@ const CHART_SQL=`
   join public.md_area ax on ax.id=ag.area_id and ax.is_active=true
   where ag.is_active=true
   group by ag.st_group
- ), classified as (
+ ), resolved as (
+  -- Stage 1: resolve Current Main / Bridge context for every open Job first.
   select
    j.job_num,j.part_num,j.revision_num,j.priority_type,j.last_operation,
    coalesce(j.next_operation,'') raw_next_operation,
@@ -257,7 +299,7 @@ const CHART_SQL=`
    current_main.status current_internal_status,
    current_main.is_hold current_is_hold,
    current_main.st_group current_st_group,
-   ${rawStOperationTypeSql("j","current_main",{requireExplicitStScopeForIntermediate:true})} operation_type
+   ${DASHBOARD_BRIDGE_MATCH_SQL("j","current_main")} bridge_matches_current_main
   from public.open_job_current j
   left join lateral (
    select
@@ -272,6 +314,34 @@ const CHART_SQL=`
    limit 1
   ) current_main on true
   where j.is_open=true
+ ), st_scope as (
+  -- Stage 2 source of truth: explicit ST membership only.
+  select
+   upper(trim(operation_code)) operation_code,
+   case
+    when bool_or(operation_type='ST_SCOPE_ONLY') then 'ST_SCOPE_ONLY'
+    when bool_or(operation_type='INTERMEDIATE') then 'INTERMEDIATE'
+    when bool_or(operation_type='PLANNING_OPERATION') then 'PLANNING_OPERATION'
+    else null
+   end operation_type
+  from public.md_st_operation_scope
+  where is_active=true
+    and operation_type in ('PLANNING_OPERATION','INTERMEDIATE','ST_SCOPE_ONLY')
+    and nullif(trim(operation_code),'') is not null
+  group by upper(trim(operation_code))
+ ), classified as (
+  select
+   r.*,
+   case
+    when scope.operation_type='ST_SCOPE_ONLY' then 'ST_SCOPE_ONLY'
+    when r.current_planning_id is null then null
+    when scope.operation_type='PLANNING_OPERATION' then 'PLANNING_OPERATION'
+    when scope.operation_type='INTERMEDIATE' and r.bridge_matches_current_main then 'INTERMEDIATE'
+    else null
+   end operation_type
+  from resolved r
+  join st_scope scope
+    on scope.operation_code=upper(trim(r.raw_next_operation))
  ), visible as (
   select *
   from classified
@@ -302,7 +372,8 @@ const CHART_SQL=`
 
 
 const AUDIT_SQL=`
- with classified as (
+ with resolved as (
+  -- Same two-stage pipeline as CHART_SQL. Keep this audit 1:1 with chart rows.
   select
    j.job_num,j.part_num,j.revision_num,j.priority_type,j.last_operation,
    coalesce(j.next_operation,'') raw_next_operation,
@@ -317,7 +388,7 @@ const AUDIT_SQL=`
    current_main.source_seq current_source_seq,
    current_main.status current_internal_status,
    current_main.is_hold current_is_hold,
-   ${rawStOperationTypeSql("j","current_main",{requireExplicitStScopeForIntermediate:true})} operation_type
+   ${DASHBOARD_BRIDGE_MATCH_SQL("j","current_main")} bridge_matches_current_main
   from public.open_job_current j
   left join lateral (
    select
@@ -332,6 +403,33 @@ const AUDIT_SQL=`
    limit 1
   ) current_main on true
   where j.is_open=true
+ ), st_scope as (
+  select
+   upper(trim(operation_code)) operation_code,
+   case
+    when bool_or(operation_type='ST_SCOPE_ONLY') then 'ST_SCOPE_ONLY'
+    when bool_or(operation_type='INTERMEDIATE') then 'INTERMEDIATE'
+    when bool_or(operation_type='PLANNING_OPERATION') then 'PLANNING_OPERATION'
+    else null
+   end operation_type
+  from public.md_st_operation_scope
+  where is_active=true
+    and operation_type in ('PLANNING_OPERATION','INTERMEDIATE','ST_SCOPE_ONLY')
+    and nullif(trim(operation_code),'') is not null
+  group by upper(trim(operation_code))
+ ), classified as (
+  select
+   r.*,
+   case
+    when scope.operation_type='ST_SCOPE_ONLY' then 'ST_SCOPE_ONLY'
+    when r.current_planning_id is null then null
+    when scope.operation_type='PLANNING_OPERATION' then 'PLANNING_OPERATION'
+    when scope.operation_type='INTERMEDIATE' and r.bridge_matches_current_main then 'INTERMEDIATE'
+    else null
+   end operation_type
+  from resolved r
+  join st_scope scope
+    on scope.operation_code=upper(trim(r.raw_next_operation))
  )
  select
   c.*,
@@ -387,6 +485,7 @@ const AUDIT_SQL=`
   coalesce(c.current_planning_seq,999999),coalesce(c.current_main,'ST_SCOPE_ONLY'),
   upper(trim(c.raw_next_operation)),c.job_num
 `;
+
 
 async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboardPriorityJob[]>{
  const q=await c.query(`
