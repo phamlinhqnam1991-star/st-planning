@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:webpack": "next dev --webpack",
-    "build": "next build",
+    "build": "npm run clean:stale && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

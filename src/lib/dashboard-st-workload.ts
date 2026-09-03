@@ -1,7 +1,16 @@
 import type {PoolClient} from "pg";
 import {bestRecipeMatch} from "@/lib/planning/live-recipe";
 import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
-import {RAW_ST_VISIBLE_CTE_SQL} from "@/lib/planning/raw-st-visible-sql";
+import {rawStJobMatchSql} from "@/lib/planning/raw-st-visible-sql";
+
+
+// V409 Dashboard population gate:
+// Start from EVERY physical RAW NextOperation in All Open Job. Do not pre-filter
+// the RAW code to PLANNING_OPERATION. The same context-aware resolver used by
+// Planning Board decides whether LastOperation + RAW NextOperation belongs to
+// the live ST Current Main (direct ST operation or a valid active Bridge
+// intermediate). Only Jobs that resolve to a live ST Current Main are counted.
+// ST_SCOPE_ONLY / unrelated non-ST flows remain excluded.
 
 export type StDashboardMetric={jobs:number;qty:number;surface:number};
 export type StDashboardStatus="WAIT"|"READY"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
@@ -121,27 +130,22 @@ const iso=(v:unknown)=>{
 };
 
 const WORKLOAD_SQL=`
- with ${RAW_ST_VISIBLE_CTE_SQL}, area_by_group as (
+ with area_by_group as (
   select ag.st_group,min(ag.area_id) area_id
   from public.md_area_operation_group ag
   join public.md_area ax on ax.id=ag.area_id and ax.is_active=true
   where ag.is_active=true
   group by ag.st_group
  ), eligible_jobs as (
-  -- V404 canonical population: RAW NextOperation must be an ST Planning/Bridge
-  -- operation AND the synced Planning Chain must have a Current Main. The first
-  -- active planning occurrence is exactly the Current Main already resolved by
-  -- Planning Board from LastOperation + NextOperation (Bridge -> AllOperation
-  -- fallback -> direct Next Main rescue).
+  -- V409: evaluate every RAW NextOperation. Planning Board's canonical
+  -- LastOperation + RAW NextOperation resolver decides whether the Job is in ST.
   select
    j.*,
    current_main.id current_planning_id,
    current_main.standard_operation current_standard_operation
   from public.open_job_current j
-  join visible_st_raw rawst
-    on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
   join lateral (
-   select p0.id,p0.standard_operation
+   select p0.id,p0.standard_operation,p0.source_operation_code
    from public.planning_job_operation p0
    where p0.job_num=j.job_num
      and p0.is_active=true
@@ -151,6 +155,7 @@ const WORKLOAD_SQL=`
    limit 1
   ) current_main on true
   where j.is_open=true
+    and ${rawStJobMatchSql("j","current_main")}
  ), base as (
   select
    p.id,p.job_num,p.standard_operation,p.source_operation_code,p.planning_seq,p.recipe_key planning_recipe_key,
@@ -213,7 +218,6 @@ const WORKLOAD_SQL=`
 
 
 const AUDIT_SQL=`
- with ${RAW_ST_VISIBLE_CTE_SQL}
  select
   j.job_num,j.part_num,j.revision_num,j.priority_type,j.last_operation,
   coalesce(j.next_operation,'') raw_next_operation,
@@ -245,8 +249,6 @@ const AUDIT_SQL=`
   coalesce(next_main.source_operation_code,'') next_main_source_operation,
   coalesce(next_main.planning_seq,0)::int next_planning_seq
  from public.open_job_current j
- join visible_st_raw rawst
-   on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
  join lateral (
   select
    p0.id,p0.standard_operation,p0.source_operation_code,p0.route_resolution_mode,
@@ -285,12 +287,12 @@ const AUDIT_SQL=`
   limit 1
  ) current_schedule on true
  where j.is_open=true
+   and ${rawStJobMatchSql("j","current_main")}
  order by current_main.planning_seq,current_main.standard_operation,upper(trim(coalesce(j.next_operation,''))),j.job_num
 `;
 
 async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboardPriorityJob[]>{
  const q=await c.query(`
-  with ${RAW_ST_VISIBLE_CTE_SQL}
   select
    j.job_num,j.part_num,j.revision_num,j.part_description,j.priority_type,
    coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)::float8 qty,
@@ -310,13 +312,12 @@ async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboar
    latest_schedule.planned_start,
    latest_schedule.planned_end
   from public.open_job_current j
-  join visible_st_raw rawst on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
   join lateral (
    -- Same Current Main already used by Planning Board Candidate: first active
    -- occurrence of the synced chain suffix positioned by LastOperation + RAW
    -- NextOperation.
    select
-    p.id,p.standard_operation,p.planning_seq,
+    p.id,p.standard_operation,p.source_operation_code,p.planning_seq,
     case
      when coalesce(p.is_hold,false)=true and fb.batch_id is null then 'HOLD'
      when fs.schedule_id is not null then 'SCHEDULED'
@@ -365,7 +366,9 @@ async function loadPriorityJobs(c:PoolClient,priority:string):Promise<StDashboar
    order by s.planned_start desc,s.id desc
    limit 1
   ) latest_schedule on true
-  where j.is_open=true and upper(trim(coalesce(j.priority_type,'')))=$1
+  where j.is_open=true
+    and ${rawStJobMatchSql("j","focus")}
+    and upper(trim(coalesce(j.priority_type,'')))=$1
   order by j.job_num
  `,[priority]);
  return (q.rows as any[]).map(r=>({
@@ -380,7 +383,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
  const [workloadQ,totalQ,auditQ,cat3,cat5,ctx,recipeMetaQ]=await Promise.all([
   c.query(WORKLOAD_SQL),
   c.query(`
-   with ${RAW_ST_VISIBLE_CTE_SQL}, per_job as (
+   with per_job as (
     select
      j.job_num,
      coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)::numeric qty,
@@ -390,9 +393,8 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
       0
      )::numeric surface
     from public.open_job_current j
-    join visible_st_raw rawst on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
     join lateral (
-     select p0.id
+     select p0.id,p0.standard_operation,p0.source_operation_code
      from public.planning_job_operation p0
      where p0.job_num=j.job_num
        and p0.is_active=true
@@ -402,6 +404,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
      limit 1
     ) current_main on true
     where j.is_open=true
+      and ${rawStJobMatchSql("j","current_main")}
    )
    select count(*)::int jobs,coalesce(sum(qty),0)::float8 qty,coalesce(sum(surface),0)::float8 surface
    from per_job

@@ -1,6 +1,9 @@
 @echo off
 setlocal
 echo Removing stale ST Planning source files...
+for /d %%D in (st_v* work_v*) do (
+  if exist "%%D" rmdir /s /q "%%D"
+)
 if exist "src\app\api\config\batch-key-recipe-rules\route.ts" (del /f /q "src\app\api\config\batch-key-recipe-rules\route.ts" >nul 2>nul)
 if exist "src\app\api\config\st-operation-flow\bulk\route.ts" (del /f /q "src\app\api\config\st-operation-flow\bulk\route.ts" >nul 2>nul)
 if exist "src\app\api\config\st-operation-flow\impact\route.ts" (del /f /q "src\app\api\config\st-operation-flow\impact\route.ts" >nul 2>nul)

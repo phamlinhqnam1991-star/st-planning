@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
 echo "Removing stale ST Planning source files..."
+for d in st_v[0-9]* work_v[0-9]*; do
+  [ -d "$d" ] && rm -rf -- "$d"
+done
 rm -f -- 'src/app/api/config/batch-key-recipe-rules/route.ts'
 rm -f -- 'src/app/api/config/st-operation-flow/bulk/route.ts'
 rm -f -- 'src/app/api/config/st-operation-flow/impact/route.ts'

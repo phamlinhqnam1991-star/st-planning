@@ -1,7 +1,7 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {requireApiUser} from "@/lib/api-auth";
-import {RAW_ST_VISIBLE_CTE_SQL} from "@/lib/planning/raw-st-visible-sql";
+import {RAW_ST_VISIBLE_CTE_SQL,rawStJobMatchSql} from "@/lib/planning/raw-st-visible-sql";
 
 type Metric={jobs:number;qty:number;surface:number};
 const zeroMetric=():Metric=>({jobs:0,qty:0,surface:0});
@@ -40,7 +40,6 @@ export async function GET(req:Request){
    ), eligible_jobs as (
     select j.job_num
     from public.open_job_current j
-    join visible_st_raw rawst on rawst.operation_code=upper(trim(coalesce(j.next_operation,'')))
     join lateral (
      select p0.id
      from public.planning_job_operation p0
@@ -52,6 +51,7 @@ export async function GET(req:Request){
      limit 1
     ) current_main on true
     where j.is_open=true
+      and ${rawStJobMatchSql("j","current_main")}
    ), base as (
     select
      p.job_num,

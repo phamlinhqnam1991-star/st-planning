@@ -21,7 +21,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"st-scope",
   title:"ST Scope and Intermediate operations",
-  content:`Planning Board and Dashboard use the synced Planning Chain Current Main as the canonical ST resolver output. The Current Main is the first active planning_job_operation after syncPlanningChains positions the chain from LastOperation + RAW NextOperation using Bridge -> AllOperation fallback -> direct Next Main rescue. RAW NextOperation may therefore be either a configured PLANNING_OPERATION or an Intermediate Operation in an active Bridge; ST_SCOPE_ONLY never enters Planning Chain/Batch/Schedule. For Immediate workload, Immediate Operation is the current RAW NextOperation and it is grouped under that resolved Current Main.`
+  content:`Planning Board and Dashboard V409 share one population resolver. Start from every Open Job physical RAW open_job_current.next_operation, then use LastOperation + RAW NextOperation against the synced Current Main context. A Job belongs to ST workload when the RAW operation is a direct active ST Planning Operation resolving to Current Main, or a valid active Bridge Intermediate pair leading to that same Current Main. Do not pre-filter RAW NextOperation to PLANNING_OPERATION before resolution. Unrelated non-ST flows and ST_SCOPE_ONLY are excluded. After membership is resolved, Planning Chain/Batch/Schedule/Recipe provide status and workload context.`
  },
  {
   key:"recipe-batch",

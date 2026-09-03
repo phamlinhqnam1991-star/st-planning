@@ -75,3 +75,6 @@ Dashboard bỏ bucket `PLANNED` riêng. Job/Main có trạng thái nội bộ `p
 - `Immediate Operation = RAW NextOperation`; Bridge Intermediate hợp lệ được giữ và gán vào Current Main mà resolver đã xác định.
 - Ví dụ `BSAUNSLD -> INS-AND -> MSKG-TC -> PPRSLVT(PRIMER)`: Job có NextOperation lần lượt `INS-AND`, `MSKG-TC`, `PPRSLVT` đều được nhóm vào `PRIMER / <RAW NextOperation>` khi Current Main là PRIMER.
 - Hai chart nằm ở đầu Dashboard. Combo chart: dm² column (left axis), pcs line (right axis max 10,000), data label trực tiếp trên bar/point và thêm `TOTAL / ALL ST`.
+
+## V408 · Dashboard kiểm tra lại population theo RAW NextOperation
+Dashboard trước tiên lọc trực tiếp `open_job_current.next_operation`: chỉ Open Job có RAW NextOperation match `md_st_operation_scope` active với `operation_type='PLANNING_OPERATION'` mới được tính. Bridge Intermediate và `ST_SCOPE_ONLY` không mở rộng population Dashboard ở bước kiểm tra này. `ST TOTAL` là unique Open Job sau RAW gate; Planning Chain/Batch/Schedule chỉ được đọc sau đó để lấy Main/Recipe/status. Planning Board giữ resolver V404; chart chưa đổi công thức, chỉ nhận population Dashboard đã lọc chặt hơn.

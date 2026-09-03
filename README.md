@@ -199,3 +199,12 @@ Dashboard and Planning Board Workload Summary now treat **Surface dm² as the pr
 ## V407 · Dashboard chart calculation audit
 
 Dashboard adds a read-only per-Job audit table directly below the `Current Main / RAW NextOperation` combo chart. It exposes LastOperation, RAW NextOperation/Immediate Operation, Planning Board resolver mode, Previous/Current/Next Main, Qty source fields, Surface source/calculation fields and AllOperation. `Chart Group` is the exact `Current Main / RAW NextOperation` aggregation key. V407 does not change the chart formula; it makes the source rows visible first so the formula can be validated Job-by-Job.
+
+## V409 · Dashboard all RAW NextOperation + canonical ST resolver
+Dashboard no longer pre-filters RAW `open_job_current.next_operation` to direct `PLANNING_OPERATION`. It starts from every Open Job RAW NextOperation, resolves the live Current Main with the same context-aware Planning Board rule (`LastOperation + RAW NextOperation`), then keeps only ST membership: direct ST Planning Operation resolving to Current Main or a valid Active Bridge Intermediate pair leading to that Current Main. Unrelated non-ST flows and `ST_SCOPE_ONLY` are excluded. `ST TOTAL`, status workload, Area/Main/Recipe summary, CAT3/CAT5 and audit rows use this same population. Chart grouping/formula is not redesigned in V409; only its input population is corrected.
+
+## V408 · Dashboard strict RAW NextOperation ST validation
+Dashboard population is temporarily made deliberately strict for validation: an Open Job is included only when its physical RAW `open_job_current.next_operation` directly matches an active `md_st_operation_scope` row with `operation_type='PLANNING_OPERATION'`. Bridge Intermediate and `ST_SCOPE_ONLY` codes do not widen Dashboard population. `ST TOTAL` is a pure unique Open Job total after this RAW gate; Planning Chain/Batch/Schedule are read only afterward for status/Main/Recipe context. Planning Board V404 resolver behavior is unchanged. Chart grouping is intentionally not redesigned in V408 and will be reviewed after the filtered Dashboard numbers are validated.
+
+## V410 build isolation
+Build now removes/excludes nested stale version source folders (`st_v###`, `work_v###`) before Next.js type-check. This prevents copied legacy source trees from being compiled together with the current `src/`.

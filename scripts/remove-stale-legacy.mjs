@@ -1,4 +1,4 @@
-import { rmSync, existsSync } from "node:fs";
+import { rmSync, existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = process.cwd();
@@ -50,6 +50,18 @@ const stale = [
 ];
 
 let removed = 0;
+
+// Remove accidentally copied version/work directories at project root.
+// TypeScript includes **/*.ts and **/*.tsx, so any nested old source tree can break a clean build.
+for (const entry of readdirSync(root, { withFileTypes: true })) {
+  if (!entry.isDirectory()) continue;
+  if (!/^(st_v\d+|work_v\d+)$/i.test(entry.name)) continue;
+  const full = resolve(root, entry.name);
+  rmSync(full, { force: true, recursive: true });
+  console.log(`REMOVED stale version directory ${entry.name}`);
+  removed += 1;
+}
+
 for (const rel of stale) {
   const full = resolve(root, rel);
   if (!existsSync(full)) continue;

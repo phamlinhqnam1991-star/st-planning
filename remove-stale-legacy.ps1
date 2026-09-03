@@ -1,4 +1,5 @@
 $ErrorActionPreference = "SilentlyContinue"
+Get-ChildItem -Directory | Where-Object { $_.Name -match '^(st_v\d+|work_v\d+)$' } | ForEach-Object { Remove-Item -Force -Recurse $_.FullName }
 $files = @(
   "src/app/api/config/batch-key-recipe-rules/route.ts",
   "src/app/api/config/st-operation-flow/bulk/route.ts",

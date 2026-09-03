@@ -206,7 +206,7 @@ export default async function DashboardPage(){
   <AppTabs active="dashboard"/>
   <section className="erp-content erp-content-full st-dashboard-page">
    <div className="erp-page-head st-dashboard-head">
-    <div><div className="erp-object-eyebrow">ST · PLANNING WORKLOAD</div><h2>ST Planning Dashboard</h2><p>Planning Board Current Main resolver → ST workload, Main/Recipe status and RAW Immediate Operation.</p></div>
+    <div><div className="erp-object-eyebrow">ST · PLANNING WORKLOAD</div><h2>ST Planning Dashboard</h2><p>All RAW NextOperation → Planning Board Current Main resolver → ST workload/status/Main/Recipe context.</p></div>
     <div className="st-dashboard-head-actions"><span>{data?`Updated ${generated(data.generatedAt)}`:""}</span><Link className="btn" href="/dashboard">Refresh</Link></div>
    </div>
 
@@ -242,7 +242,7 @@ export default async function DashboardPage(){
      <article className="st-dashboard-kpi total"><small>ST TOTAL · SURFACE WORKLOAD</small>{metricLines(data.total)}</article>
      {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(data.statuses[status])}</article>)}
     </section>
-    <div className="st-dashboard-note">V404 dùng cùng Current Main resolver đã materialize bởi Planning Board: LastOperation + RAW NextOperation → Bridge / AllOperation fallback → Current Main. RAW Intermediate nằm trong active Bridge được tính là ST khi Job có live Current Main; Immediate Operation chính là RAW NextOperation hiện tại. Các Main phía sau vẫn được tổng hợp từ cùng Planning Chain.</div>
+    <div className="st-dashboard-note">V409 population: Dashboard bắt đầu từ <b>tất cả RAW NextOperation</b> của Open Job. Không pre-filter RAW theo <code>PLANNING_OPERATION</code>. Cùng resolver của Planning Board dùng LastOperation + RAW NextOperation để xác định Current Main ST; direct ST operation và Intermediate hợp lệ trong Active Bridge đều được giữ, flow ngoài ST/ST_SCOPE_ONLY bị loại. Công thức chart chưa đổi ở bản này.</div>
 
     <section className="st-dashboard-area-workloads">
      <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>Main Planning Workload Summary · By Area</b><small>Each Area has its own KPI cards and its own Main Planning → Recipe workload table. All table rows stay visible without vertical scrolling.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Main Operations</span></div>

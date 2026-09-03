@@ -34,3 +34,13 @@ Script **không xóa `.env.local`**.
 ## Cách an toàn nhất khi thay toàn bộ source
 
 Nếu không có chỉnh sửa local chưa merge trong `src`, có thể xóa thư mục `src` cũ rồi copy nguyên thư mục `src` từ ZIP mới vào. Cách này đảm bảo không còn file orphan từ các version trước.
+
+## V410 — nested version source hardening
+
+Ngoài orphan file trong `src`, build còn có thể lỗi nếu một thư mục backup/version như `st_v407/` bị copy lồng vào project root. Vì `tsconfig` quét `**/*.ts` / `**/*.tsx`, source cũ đó cũng bị type-check.
+
+V410:
+- delivery không chứa `st_v407/`;
+- `tsconfig.json` exclude `st_v*/**` và `work_v*/**`;
+- `npm run build` tự chạy `npm run clean:stale` trước `next build`;
+- cleanup script xóa luôn các thư mục version/work lồng ở project root.
