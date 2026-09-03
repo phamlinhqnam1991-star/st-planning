@@ -47,7 +47,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"job-main-hold",
   title:"Job/Main Hold",
-  content:`Planner Hold is stored on the exact planning_job_operation occurrence using is_hold plus reason/note/user/time. An unbatched READY or WAIT Main on Hold displays H and cannot be added to Batch; the Batch API validates the hold again server-side. Hold survives All Open Job incremental imports and normal chain rebuilds for the same live occurrence. Release Hold clears only hold metadata and incrementally recalculates READY/WAIT for that Job. planning_schedule.status=HOLD remains a separate Batch/Schedule-level state.`
+  content:`Planner Hold is stored on the exact planning_job_operation occurrence using is_hold plus reason/note/user/time. On Planning Matrix, right-click an unbatched READY/WAIT Main and choose Hold; held Jobs remain visible in Candidate Jobs and the exact cell displays HOLD. Right-click a held cell and choose Unhold. A held occurrence cannot be added to Batch and the Batch API validates the hold again server-side. Hold survives All Open Job incremental imports and normal chain rebuilds for the same live occurrence. Release Hold clears only hold metadata and incrementally recalculates READY/WAIT for that Job. planning_schedule.status=HOLD remains a separate Batch/Schedule-level state.`
  },
  {
   key:"chemical-line",

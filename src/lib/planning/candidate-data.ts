@@ -41,7 +41,6 @@ const RECIPE_OPTIONS_SQL=`
          and ocr.is_active=true
         where p.standard_operation=$1
           and p.status='ELIGIBLE'
-          and coalesce(p.is_hold,false)=false
           and p.is_active=true
       )
     )

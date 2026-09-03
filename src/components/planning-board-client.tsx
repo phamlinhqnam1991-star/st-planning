@@ -447,6 +447,11 @@ type JobHoldDialogTarget={
  heldAt?:string|null;
  heldBy?:string|null;
 };
+type JobHoldContextMenuState={
+ x:number;
+ y:number;
+ target:JobHoldDialogTarget;
+};
 
 type CandidateViewPreset={
  columns:string[];
@@ -556,10 +561,26 @@ export function PlanningBoardClient({
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
  const [holdDialog,setHoldDialog]=useState<JobHoldDialogTarget|null>(null);
+ const [holdContextMenu,setHoldContextMenu]=useState<JobHoldContextMenuState|null>(null);
  const [holdReason,setHoldReason]=useState("DMR");
  const [holdNote,setHoldNote]=useState("");
  const [holdBusy,setHoldBusy]=useState(false);
  const [targetBatchId,setTargetBatchId]=useState("");
+ useEffect(()=>{
+  if(!holdContextMenu)return;
+  const close=()=>setHoldContextMenu(null);
+  const onKey=(e:KeyboardEvent)=>{if(e.key==="Escape")close();};
+  window.addEventListener("click",close);
+  window.addEventListener("keydown",onKey);
+  window.addEventListener("scroll",close,true);
+  window.addEventListener("resize",close);
+  return ()=>{
+   window.removeEventListener("click",close);
+   window.removeEventListener("keydown",onKey);
+   window.removeEventListener("scroll",close,true);
+   window.removeEventListener("resize",close);
+  };
+ },[holdContextMenu]);
  // v336: first READY Job (or Existing Batch) establishes Recipe + Process
  // condition compatibility. Only incompatible READY cells of that Main are dimmed/disabled; other Main columns stay untouched.
  const [compatibilityLock,setCompatibilityLock]=useState<BatchCompatibilityLock|null>(null);
@@ -3028,13 +3049,13 @@ const currentPriorityMonth=useMemo(()=>{
    return Number.isFinite(id)&&selected.includes(id);
  };
 
- const openJobHoldDialog=(candidate:Candidate,item:RouteStatusItem)=>{
+ const resolveJobHoldTarget=(candidate:Candidate,item:RouteStatusItem):JobHoldDialogTarget|null=>{
    const rawId=Number(item.planning_job_operation_id);
    const fallbackId=Number(candidate.id);
    const sameAsCandidate=normalized(item.standard_operation||candidate.standard_operation)===normalized(candidate.standard_operation);
    const id=Number.isFinite(rawId)?rawId:(sameAsCandidate&&Number.isFinite(fallbackId)?fallbackId:NaN);
-   if(!Number.isFinite(id)){setMessage(`${candidate.job_num}: không xác định được Planning Operation để Hold.`);return;}
-   const target:JobHoldDialogTarget={
+   if(!Number.isFinite(id))return null;
+   return {
     id,
     jobNum:candidate.job_num,
     standardOperation:String(item.standard_operation||candidate.standard_operation||""),
@@ -3045,9 +3066,29 @@ const currentPriorityMonth=useMemo(()=>{
     heldAt:item.held_at??candidate.held_at??null,
     heldBy:item.held_by??candidate.held_by??null
    };
+ };
+
+ const openJobHoldDialog=(candidate:Candidate,item:RouteStatusItem)=>{
+   const target=resolveJobHoldTarget(candidate,item);
+   if(!target){setMessage(`${candidate.job_num}: không xác định được Planning Operation để Hold.`);return;}
+   setHoldContextMenu(null);
    setHoldDialog(target);
    setHoldReason(String(target.holdReason||"DMR").toUpperCase());
    setHoldNote(String(target.holdNote||""));
+ };
+
+ const openJobHoldContextMenu=(event:ReactMouseEvent,candidate:Candidate,item:RouteStatusItem,status:string)=>{
+   const target=resolveJobHoldTarget(candidate,item);
+   const isHold=Boolean(target?.isHold);
+   const canPlaceHold=Boolean(target)&&!item.batch_id&&["READY","WAITING"].includes(normalized(status));
+   if(!target||(!isHold&&!canPlaceHold))return;
+   event.preventDefault();
+   event.stopPropagation();
+   const menuWidth=178;
+   const menuHeight=isHold?74:74;
+   const x=Math.max(8,Math.min(event.clientX,window.innerWidth-menuWidth-8));
+   const y=Math.max(8,Math.min(event.clientY,window.innerHeight-menuHeight-8));
+   setHoldContextMenu({x,y,target});
  };
 
  const saveJobHold=async()=>{
@@ -3068,36 +3109,26 @@ const currentPriorityMonth=useMemo(()=>{
    finally{setHoldBusy(false);}
  };
 
- const releaseJobHold=async()=>{
-   if(!holdDialog||!holdDialog.isHold)return;
-   setHoldBusy(true);setMessage("");
+ const releaseJobHoldTarget=async(target:JobHoldDialogTarget)=>{
+   if(!target.isHold)return;
+   setHoldBusy(true);setMessage("");setHoldContextMenu(null);
    try{
     const r=await fetch("/api/planning/job-hold",{
      method:"DELETE",headers:{"content-type":"application/json"},
-     body:JSON.stringify({planning_job_operation_id:holdDialog.id})
+     body:JSON.stringify({planning_job_operation_id:target.id})
     });
     const data=await safeJson(r);
     if(!r.ok)throw new Error(data?.error||"Không bỏ Hold được Job.");
     setHoldDialog(null);
-    pushAppToast(`${holdDialog.jobNum} · ${holdDialog.standardOperation}: đã bỏ HOLD`);
+    pushAppToast(`${target.jobNum} · ${target.standardOperation}: đã bỏ HOLD`);
     onReloadCandidates?.();
    }catch(e){setMessage(e instanceof Error?e.message:String(e));}
    finally{setHoldBusy(false);}
  };
 
- const renderJobHoldButton=(candidate:Candidate,item:RouteStatusItem,status:string)=>{
-   const isJobHold=Boolean(item.is_hold??candidate.is_hold);
-   const rawId=Number(item.planning_job_operation_id);
-   const hasResolvableId=Number.isFinite(rawId)||(normalized(item.standard_operation||candidate.standard_operation)===normalized(candidate.standard_operation)&&Number.isFinite(Number(candidate.id)));
-   const canPlaceHold=hasResolvableId&&!item.batch_id && ["READY","WAITING"].includes(normalized(status));
-   if(!isJobHold&&!canPlaceHold)return null;
-   return <button
-    type="button"
-    className={`route-job-hold-btn ${isJobHold?"is-held":""}`}
-    title={isJobHold?"Bỏ Hold Job/Main":"Hold Job/Main"}
-    aria-label={isJobHold?"Bỏ Hold Job/Main":"Hold Job/Main"}
-    onClick={e=>{e.preventDefault();e.stopPropagation();openJobHoldDialog(candidate,item);}}
-   >{isJobHold?"↺":"H"}</button>;
+ const releaseJobHold=async()=>{
+   if(!holdDialog||!holdDialog.isHold)return;
+   await releaseJobHoldTarget(holdDialog);
  };
 
  const toggleRouteCell=(candidate:Candidate,item:RouteStatusItem)=>{
@@ -3316,7 +3347,7 @@ const currentPriorityMonth=useMemo(()=>{
      };
 
      const fallbackWaiting=waitingDisplayFor(x,fallbackItem);
-     const fallbackDisplay=normalized(status)==="WAITING"?fallbackWaiting.label:routeStatusLabel(status);
+     const fallbackDisplay=normalized(status)==="HOLD"?"HOLD":normalized(status)==="WAITING"?fallbackWaiting.label:routeStatusLabel(status);
      const fallbackCompatLocked=
       normalized(status)==="READY" &&
       compatibilityLockedId(Number(x.id),mainOperation);
@@ -3330,8 +3361,9 @@ const currentPriorityMonth=useMemo(()=>{
        if(mainDimmed){setMessage(mainDimReason);return;}
        toggleRouteCell(x,fallbackItem);
       }}
+      onContextMenu={e=>openJobHoldContextMenu(e,x,fallbackItem,status)}
      >
-      <b>{fallbackDisplay}</b>{renderJobHoldButton(x,fallbackItem,status)}
+      <b>{fallbackDisplay}</b>
       {!currentMainFocus&&x.batch_no&&<span className="route-status-batch">{x.batch_no}</span>}
      </td>;
     }
@@ -3415,9 +3447,11 @@ const currentPriorityMonth=useMemo(()=>{
    const isCurrent=chosen.current;
 
    const waitingDisplay=waitingDisplayFor(x,displayItem);
-   const displayStatus=normalized(status)==="WAITING"
-    ?waitingDisplay.label
-    :routeStatusLabel(status);
+   const displayStatus=normalized(status)==="HOLD"
+    ?"HOLD"
+    :normalized(status)==="WAITING"
+     ?waitingDisplay.label
+     :routeStatusLabel(status);
    const waitingClass=normalized(status)==="WAITING"
     ?waitingDisplay.kind
     :"";
@@ -3491,8 +3525,9 @@ const currentPriorityMonth=useMemo(()=>{
      if(mainDimmed){setMessage(mainDimReason);return;}
      if(clickable)toggleRouteCell(x,selectableItem);
     }}
+    onContextMenu={e=>openJobHoldContextMenu(e,x,selectableItem,status)}
    >
-    <b>{displayStatus}</b>{renderJobHoldButton(x,selectableItem,status)}
+    <b>{displayStatus}</b>
 
     {!currentMainFocus&&<>
      {(scheduledEnds.length>0||batchNos.length>0)&&
@@ -4494,6 +4529,27 @@ const currentPriorityMonth=useMemo(()=>{
 
     </div>
    </aside>
+
+   {holdContextMenu&&<div
+    className="job-hold-context-menu"
+    style={{left:holdContextMenu.x,top:holdContextMenu.y}}
+    onClick={e=>e.stopPropagation()}
+    onContextMenu={e=>e.preventDefault()}
+   >
+    <div className="job-hold-context-title">
+     <b>{holdContextMenu.target.jobNum}</b>
+     <span>{holdContextMenu.target.standardOperation}</span>
+    </div>
+    {holdContextMenu.target.isHold
+     ?<button type="button" disabled={holdBusy} onClick={()=>releaseJobHoldTarget(holdContextMenu.target)}>Unhold</button>
+     :<button type="button" disabled={holdBusy} onClick={()=>{
+       const target=holdContextMenu.target;
+       setHoldContextMenu(null);
+       setHoldDialog(target);
+       setHoldReason(String(target.holdReason||"DMR").toUpperCase());
+       setHoldNote(String(target.holdNote||""));
+      }}>Hold</button>}
+   </div>}
 
    {holdDialog&&<div className="job-hold-modal-backdrop" onMouseDown={()=>!holdBusy&&setHoldDialog(null)}>
     <div className="job-hold-modal" onMouseDown={e=>e.stopPropagation()}>

@@ -44,3 +44,6 @@ Cập nhật toàn bộ tab `/logic-guide` theo hệ thống hiện tại.
 - Ví dụ Painting có PRIMER/TOPCOAT/ANTI-ABRASION/... thì chỉ các Main thuộc Painting được mở thành cột; Job có Previous Main là BSASLD hay BSAUNSLD vẫn gộp trong cùng một cột Previous Main theo từng dòng.
 - Khi planner bấm một READY cell, Batch Selection Mode vẫn chuyển sang `Previous Main | Selected Main | Next Main Planning` như V385; Recipe Lock không đổi.
 
+## V389 — Job/Main Hold interaction
+
+Planning Matrix no longer renders a permanent `H` button beside every READY/WAIT cell. Right-click the exact Main Operation cell to open the Hold context action. `Hold` uses the existing Hold Reason + Note dialog. A held Job stays visible in Candidate Jobs and its exact Main cell renders `HOLD`; that occurrence is not selectable for Batch. Right-click a held cell and choose `Unhold`; only that Job is incrementally recalculated back to READY/WAIT. This does not change Schedule/Batch HOLD semantics.
