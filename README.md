@@ -25,7 +25,7 @@ For Candidate presentation when sorting by NextOperation:
 
 Operation Code Order (`md_operation.planning_sort_order`) is only an optional tie-breaker inside the same Main. READY/WAIT, Batch and Schedule remain controlled by their canonical models and are not changed by presentation sorting.
 
-Dashboard and Planning Board Workload use the same ST population gate: RAW `open_job_current.next_operation` must belong to the visible ST Planning scope before any Planning Chain status is aggregated. Future ST chain rows do not pull a Job into ST workload when its current RAW NextOperation is outside ST.
+Dashboard and Planning Board Workload intentionally use different read populations. Dashboard uses its canonical Dashboard ST Scope (`PLANNING_OPERATION + Dashboard INTERMEDIATE + ST_SCOPE_ONLY`). Planning Board Workload Summary mirrors the Planning Board Candidate population: Open Job + live Current Main + RAW `NextOperation` inside the resolved Planning ST View, then aggregates READY / WAIT / HOLD from active Planning Chain rows of those Candidate Jobs only.
 
 
 ## All Open Job incremental sync
@@ -219,4 +219,6 @@ Bridge discovery and ST membership are now independent. ST Operation Flow lists 
 
 - V423: Dashboard WAIT restored by expanding only canonical Dashboard ST Jobs to their active Planning Chain occurrences; Dashboard ST Scope logic remains unchanged.
 
-- V424: Planning Board Workload Summary restored as an active Planning Chain mirror; removed Dashboard/RAW-ST population gate so READY/WAIT/HOLD job counts reconcile with the Route Matrix. Dashboard ST Scope remains Dashboard-only.
+- V424: superseded by V425. Directly scanning every active Planning Chain row was too broad and could count Jobs not present on the Planning Board Candidate matrix.
+
+- V425: Planning Board Workload Summary now uses the exact Candidate Job membership gate first (Open Job + live Current Main + RAW NextOperation in the resolved Planning ST View), then aggregates READY/WAIT/HOLD only for those Jobs. Workload drill-down and Route Matrix therefore reconcile by Job count; Dashboard ST Scope remains Dashboard-only.

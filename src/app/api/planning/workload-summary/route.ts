@@ -1,6 +1,7 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {requireApiUser} from "@/lib/api-auth";
+import {resolvePlanningView} from "@/lib/planning/planning-view-server";
 
 type Metric={jobs:number;qty:number;surface:number};
 const zeroMetric=():Metric=>({jobs:0,qty:0,surface:0});
@@ -19,23 +20,71 @@ export async function GET(req:Request){
 
  const c=await getPool().connect();
  try{
-  const params:any[]=[];
-  const where=[
+  // V425: Workload Summary must use the SAME Job population as the Planning
+  // Board rows. Route Matrix drill-down starts from Candidate rows, whose
+  // membership is: Open Job + live Current Main + RAW NextOperation in the
+  // resolved ST View. Do not aggregate every active planning_job_operation in
+  // the database, otherwise a Main such as CMSA can show dozens of historical /
+  // out-of-view Jobs while clicking CMSA READY reveals only the Candidate rows.
+  const {stViewParams}=await resolvePlanningView(c,op,areaIdRaw);
+  if(!stViewParams.length){
+   return NextResponse.json({rows:[],totals:{READY:zeroMetric(),WAIT:zeroMetric(),HOLD:zeroMetric()},scope:{areaId:areaId||null,op:op||null}});
+  }
+
+  const params:any[]=[stViewParams];
+  const candidateWhere=[
+   "j.is_open=true",
+   "current_main.id is not null",
+   "upper(trim(coalesce(j.next_operation,''))) = any($1::text[])"
+  ];
+  const baseWhere=[
    "j.is_open=true",
    "p.is_active=true",
    "upper(trim(p.standard_operation))<>'PIONBL'",
    "(coalesce(p.is_hold,false)=true or p.status in ('ELIGIBLE','LOCKED'))"
   ];
-  if(areaId){params.push(areaId);where.push(`a.id=$${params.length}`);}
-  if(op){params.push(op);where.push(`upper(trim(p.standard_operation))=upper(trim($${params.length}))`);}
+  if(areaId){
+   params.push(areaId);
+   const n=params.length;
+   candidateWhere.push(`candidate_area.area_id=$${n}`);
+   baseWhere.push(`row_area.area_id=$${n}`);
+  }
+  if(op){
+   params.push(op);
+   const n=params.length;
+   candidateWhere.push(`upper(trim(current_main.standard_operation))=upper(trim($${n}))`);
+   baseWhere.push(`upper(trim(p.standard_operation))=upper(trim($${n}))`);
+  }
 
   const q=await c.query(`
-   with area_by_group as (
-    select ag.st_group,min(ag.area_id) area_id
-    from public.md_area_operation_group ag
-    join public.md_area ax on ax.id=ag.area_id and ax.is_active=true
-    where ag.is_active=true
-    group by ag.st_group
+   with candidate_jobs as (
+    select j.job_num
+    from public.open_job_current j
+    left join lateral (
+     select p0.id,p0.standard_operation,p0.source_operation_code,p0.st_group
+     from public.planning_job_operation p0
+     where p0.job_num=j.job_num
+       and p0.is_active=true
+       and p0.status in ('LOCKED','ELIGIBLE','PLANNED')
+     order by p0.planning_seq asc,p0.source_seq asc,p0.id asc
+     limit 1
+    ) current_main on true
+    left join lateral (
+     select ag.area_id
+     from public.md_area_operation_group ag
+     join public.md_area ax
+       on ax.id=ag.area_id
+      and ax.is_active=true
+     where current_main.id is not null
+       and ag.st_group=current_main.st_group
+       and ag.is_active=true
+     order by
+       ax.sort_order asc nulls last,
+       ax.area_name asc,
+       ag.area_id asc
+     limit 1
+    ) candidate_area on true
+    where ${candidateWhere.join(" and ")}
    ), base as (
     select
      p.job_num,
@@ -56,13 +105,27 @@ export async function GET(req:Request){
       coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0) * coalesce(j.surface_per_part_dm2,0),
       0
      )::numeric surface
-    from public.planning_job_operation p
-    join public.open_job_current j on j.job_num=p.job_num
-    left join area_by_group abg on abg.st_group=p.st_group
-    left join public.md_area a on a.id=abg.area_id and a.is_active=true
+    from candidate_jobs cj
+    join public.open_job_current j on j.job_num=cj.job_num
+    join public.planning_job_operation p on p.job_num=cj.job_num
+    left join lateral (
+     select ag.area_id
+     from public.md_area_operation_group ag
+     join public.md_area ax
+       on ax.id=ag.area_id
+      and ax.is_active=true
+     where ag.st_group=p.st_group
+       and ag.is_active=true
+     order by
+       ax.sort_order asc nulls last,
+       ax.area_name asc,
+       ag.area_id asc
+     limit 1
+    ) row_area on true
+    left join public.md_area a on a.id=row_area.area_id and a.is_active=true
     left join public.md_operation_master om on om.standard_operation=p.standard_operation and om.is_active=true
     left join public.md_planning_operation_scope scope on scope.standard_operation=p.standard_operation and scope.is_active=true
-    where ${where.join(" and ")}
+    where ${baseWhere.join(" and ")}
    ), per_job_main as (
     -- One physical Job is counted once for the same Main + status bucket.
     -- Repeated occurrences in the same bucket must not multiply pcs/surface.
