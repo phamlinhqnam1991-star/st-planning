@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V439";
+export const ST_AI_KNOWLEDGE_VERSION="V441";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {

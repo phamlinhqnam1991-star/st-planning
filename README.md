@@ -259,3 +259,7 @@ Operational DB is Aiven via `DATABASE_URL`. Supabase is no longer used as a data
 ## V439 · Aiven TLS compatibility
 
 Fixes Node `pg` connection failures such as `SELF_SIGNED_CERT_IN_CHAIN` against Aiven while keeping TLS enabled. Business logic is unchanged.
+
+
+### V441 runtime database check
+After deployment, open `/api/system/db-info` to verify the live Vercel instance is using the expected PostgreSQL provider. The endpoint is read-only and does not expose credentials.

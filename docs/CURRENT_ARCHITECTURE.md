@@ -302,3 +302,7 @@ ST Planning moves its operational PostgreSQL database from Supabase to Aiven. Th
 ## V439 — Aiven TLS compatibility
 
 Aiven remains the canonical PostgreSQL provider from V438. V439 changes only the Node `pg` TLS connection adapter: when `DATABASE_URL` uses `sslmode=require`, TLS remains enabled but Node uses libpq-compatible `require` semantics to avoid `SELF_SIGNED_CERT_IN_CHAIN`. If `DATABASE_CA_CERT` is configured, strict CA verification is enabled. No Planning, Batch, Schedule, Chemical Line, Masking/Unmasking, Production or data-model logic changes.
+
+## V441 — Runtime database identity endpoint
+
+Add read-only `GET /api/system/db-info` so deployment can confirm which PostgreSQL provider the running Vercel instance is actually using. The endpoint opens the canonical `DATABASE_URL` connection through `src/lib/db.ts` and returns provider, host, port, current database/user, PostgreSQL version, server address/port and latency. It never returns the connection URI or password and disables response caching. This is diagnostics only; no Planning/Batch/Schedule/Recipe/Chemical/Production logic changes.
