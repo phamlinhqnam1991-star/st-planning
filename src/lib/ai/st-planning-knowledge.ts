@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V447";
+export const ST_AI_KNOWLEDGE_VERSION="V448";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -82,7 +82,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"production-execution",
   title:"Production Execution",
-  content:`Production Execution reads every scheduled work item whose planned_start belongs to the canonical production day 06:00 D <= planned_start < 06:00 D+1, plus derived Masking/Unmasking support work. V447 uses mixed reporting granularity: Chemical Line and Painting are reported directly per scheduled Batch/row using the parent production_execution record and do not load/show Job detail for reporting; all other production areas retain Job-level WAITING/ON-GOING/DONE and Actual Start/End in production_execution_job with the parent production_execution row as aggregate compatibility summary. The UI has area sub-tabs for Chemical Line; Shot Peening (Automatic + Manual); Masking & Unmasking; Painting; Sirius Cleaning; Blasting (Manual + Auto); Plating (Plating + He-Bake); and Passivation/Brightening, while preserving an All view and an Other fallback only when unmapped work exists. Each physical area panel has its own header color. Job rows keep Shift 1 = 06:00-13:59, Shift 2 = 14:00-21:59, Shift 3 = 22:00-05:59 next day. Date navigation reloads the selected production day without F5, and tables do not use inner vertical scroll containers. These execution facts remain independent from Planning Chain and planning_schedule status.`
+  content:`Production Execution reads every scheduled work item whose planned_start belongs to the canonical production day 06:00 D <= planned_start < 06:00 D+1, plus derived Masking/Unmasking support work. Chemical Line and Painting are reported directly per scheduled Batch/row using the parent production_execution record and do not load/show Job detail for reporting; all other production areas retain Job-level WAITING/ON-GOING/DONE and Actual Start/End in production_execution_job with the parent production_execution row as aggregate compatibility summary. The UI has area sub-tabs for Chemical Line; Shot Peening (Automatic + Manual); Masking & Unmasking; Painting; Sirius Cleaning; Blasting (Manual + Auto); Plating (Plating + He-Bake); and Passivation/Brightening, while preserving an All view and an Other fallback only when unmapped work exists. V448 strengthens visual separation between report panels, groups Masking + Unmasking by linked Main Planning operation in Main Planning sequence (for example BSAUNSLD (Unmasking & Masking)), and splits Painting into four fixed report panels: CAB1, CAB2, CAB3 and Powercoating. Painting resources other than CAB1/CAB2/CAB3 are kept in Powercoating so no scheduled row is lost. Job rows keep Shift 1 = 06:00-13:59, Shift 2 = 14:00-21:59, Shift 3 = 22:00-05:59 next day. Date navigation reloads the selected production day without F5, and tables do not use inner vertical scroll containers. These execution facts remain independent from Planning Chain and planning_schedule status.`
  },
 
  {

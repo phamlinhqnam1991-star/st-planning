@@ -2927,3 +2927,54 @@
 .erpkit-migrated-page .production-area-panel.area-tone-pass-brtg{--area-accent:#418467;--area-bg:#eef7f2;--area-text:#31674f}
 .erpkit-migrated-page .production-area-panel.area-tone-other{--area-accent:#7b8793;--area-bg:#f4f6f8;--area-text:#53616e}
 @media(max-width:720px){.erpkit-migrated-page .production-subtab{min-width:105px}}
+
+/* ============================================================
+   V448 Production report visual grouping
+   - stronger panel separation
+   - Masking/Unmasking grouped by Main Planning
+   - Painting split CAB1/CAB2/CAB3/Powercoating
+   ============================================================ */
+.erpkit-migrated-page .production-area-stack{gap:15px!important}
+.erpkit-migrated-page .production-area-panel{
+ border:1px solid color-mix(in srgb,var(--area-accent,#718096) 32%,#dce4eb)!important;
+ border-radius:7px!important;background:#fff!important;
+ box-shadow:0 3px 10px rgba(28,47,65,.055)!important;
+ overflow:visible!important;
+}
+.erpkit-migrated-page .production-area-panel+.production-area-panel{margin-top:2px}
+.erpkit-migrated-page .production-area-head{
+ min-height:46px!important;padding:8px 12px!important;
+ border-left:7px solid var(--area-accent,#718096)!important;
+ border-bottom:1px solid color-mix(in srgb,var(--area-accent,#718096) 28%,#dce4eb)!important;
+ background:linear-gradient(90deg,var(--area-bg,#f7f9fb),#fff 72%)!important;
+}
+.erpkit-migrated-page .production-area-title{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.erpkit-migrated-page .production-area-title>b{font-size:10px!important;font-weight:900!important;letter-spacing:.01em;color:var(--area-text,#344b60)!important}
+.erpkit-migrated-page .production-area-title>small{font-size:7px!important;font-weight:760;color:#718294!important}
+.erpkit-migrated-page .production-area-panel .production-table thead th{
+ background:color-mix(in srgb,var(--area-bg,#f7f9fb) 74%,#eef3f7)!important;
+ border-bottom:2px solid color-mix(in srgb,var(--area-accent,#718096) 30%,#dce4eb)!important;
+ color:#40566b!important;
+}
+.erpkit-migrated-page .production-area-panel .production-table>tbody>tr.production-row>td{border-bottom:1px solid #dfe7ee!important}
+.erpkit-migrated-page .production-area-panel .production-detail-row>td{background:#f7f9fb!important}
+.erpkit-migrated-page .production-area-panel .production-job-detail-wrap{
+ margin:0 8px 10px 22px;padding:8px 10px 10px!important;
+ border-left:4px solid color-mix(in srgb,var(--area-accent,#718096) 58%,#cbd6df);
+ border-radius:0 0 5px 5px;background:#f8fafc;
+}
+.erpkit-migrated-page .production-area-panel .production-job-detail-table{box-shadow:0 1px 3px rgba(30,48,65,.04)}
+.erpkit-migrated-page .production-area-panel .production-job-detail-table th{
+ background:color-mix(in srgb,var(--area-bg,#f7f9fb) 55%,#edf2f6)!important;
+ border-color:#dbe4ec!important;
+}
+.erpkit-migrated-page .production-area-panel .production-job-detail-table tbody tr:nth-child(even) td{filter:brightness(.992)}
+
+.erpkit-migrated-page .production-area-panel.area-tone-mask-main{--area-accent:#cf8620;--area-bg:#fff7e7;--area-text:#86580f}
+.erpkit-migrated-page .production-area-panel.area-tone-paint-cab1{--area-accent:#2c7fb8;--area-bg:#edf7fd;--area-text:#1c608d}
+.erpkit-migrated-page .production-area-panel.area-tone-paint-cab2{--area-accent:#338c7b;--area-bg:#eef9f6;--area-text:#276c60}
+.erpkit-migrated-page .production-area-panel.area-tone-paint-cab3{--area-accent:#7665b1;--area-bg:#f3f0fb;--area-text:#594b91}
+.erpkit-migrated-page .production-area-panel.area-tone-paint-power{--area-accent:#b96d29;--area-bg:#fff4e9;--area-text:#8a4f1c}
+
+.erpkit-migrated-page .production-area-panel.area-tone-mask-main .production-source.source-masking{background:#fff1d5;color:#95610e}
+.erpkit-migrated-page .production-area-panel.area-tone-mask-main .production-source.source-unmasking{background:#f8e9dd;color:#99562d}

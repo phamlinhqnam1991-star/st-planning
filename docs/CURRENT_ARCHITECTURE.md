@@ -349,3 +349,11 @@ Aiven remains the canonical operational PostgreSQL provider and Vercel keeps `DB
 - The API validates LINE reporting server-side and permits it only for Chemical Line/Painting resources. Existing Job-level rows from prior testing are not deleted; they are simply ignored for LINE-mode ownership.
 - Each physical area panel gets its own header accent color for quick recognition. No inner vertical table scroll is reintroduced.
 - Canonical Production Day remains `06:00 D <= planned_start < 06:00 D+1`. Planning Chain, READY/WAIT, Batch membership, Recipe, Schedule status, Previous Main lock and Chemical Line proposal/capacity are unchanged.
+
+
+## V448 — Production report Main grouping + Painting cabin panels
+
+- Production report panels use stronger visual separation (accent border, tinted header, panel spacing) without changing data ownership or execution state.
+- Masking/Unmasking report items are grouped by `linkedMainOperation` and ordered by Main Planning sequence. One panel can therefore contain both support sides for the same Main, e.g. `BSAUNSLD (Unmasking & Masking)`.
+- Painting is rendered as four explicit panels in report order: `CAB1`, `CAB2`, `CAB3`, `Powercoating`. Any Painting resource not CAB1/CAB2/CAB3 falls into Powercoating to preserve all scheduled rows.
+- Chemical Line/Painting remain LINE reporting; all other areas remain JOB reporting. Production Day 06:00→05:59, Planning Chain, Batch, Recipe, Schedule and Chemical Line proposal/capacity are unchanged.

@@ -10,6 +10,7 @@ const statusOrder:ProductionExecutionStatus[]=["WAITING","ON-GOING","DONE"];
 const statusClass=(status:ProductionExecutionStatus)=>status==="DONE"?"done":status==="ON-GOING"?"ongoing":"waiting";
 
 type GroupFilter="ALL"|ProductionReportGroup;
+type DisplayGroup={key:string;title:string;subtitle:string;rows:ProductionWorkItem[];tone:string;order:number};
 
 export function ProductionExecutionClient({initialItems}:{initialItems:ProductionWorkItem[]}){
  const {locale,text}=useUiLanguage();
@@ -61,6 +62,14 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
   if(x.includes("PASSIVATION")||x.includes("BRIGHTEN"))return "pass-brtg";
   return "other";
  };
+ const paintingBucket=(item:ProductionWorkItem)=>{
+  const r=item.resource.trim().toUpperCase();
+  if(r==="CAB1")return "CAB1" as const;
+  if(r==="CAB2")return "CAB2" as const;
+  if(r==="CAB3")return "CAB3" as const;
+  return "POWERCOATING" as const;
+ };
+ const productionGroupOrder:Record<ProductionReportGroup,number>={CHEMICAL_LINE:10,SHOT_PEENING:20,MASK_UNMASK:30,PAINTING:40,SIRIUS_CLEANING:50,BLASTING:60,PLATING:70,PASS_BRTG:80,OTHER:90};
 
  const tabGroups=useMemo(()=>{
   const base:ProductionReportGroup[]=["CHEMICAL_LINE","SHOT_PEENING","MASK_UNMASK","PAINTING","SIRIUS_CLEANING","BLASTING","PLATING","PASS_BRTG"];
@@ -205,10 +214,77 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
   </table></div>;
  }
 
- const grouped=useMemo(()=>{
-  const names=[...new Set(filtered.map(item=>item.area).filter(Boolean))];
-  return names.map(name=>({name,rows:filtered.filter(item=>item.area===name)}));
- },[filtered]);
+ const grouped=useMemo<DisplayGroup[]>(()=>{
+  const result:DisplayGroup[]=[];
+  const sortRows=(rows:ProductionWorkItem[])=>[...rows].sort((a,b)=>{
+   const at=a.targetTime?new Date(a.targetTime).getTime():Number.MAX_SAFE_INTEGER;
+   const bt=b.targetTime?new Date(b.targetTime).getTime():Number.MAX_SAFE_INTEGER;
+   return a.sequence-b.sequence || at-bt || a.batchNo.localeCompare(b.batchNo);
+  });
+  const addAreaGroups=(group:ProductionReportGroup)=>{
+   const rows=filtered.filter(item=>item.reportGroup===group);
+   const names=[...new Set(rows.map(item=>item.area||text("Unmapped area","Chưa map khu vực")))];
+   for(const name of names){
+    const list=sortRows(rows.filter(item=>(item.area||text("Unmapped area","Chưa map khu vực"))===name));
+    if(!list.length)continue;
+    result.push({
+     key:`${group}|AREA|${name}`,title:name,subtitle:`${list.length} ${text("work items","công việc")}`,rows:list,
+     tone:areaTone(name),order:productionGroupOrder[group]*100000+Math.min(...list.map(x=>x.sequence))
+    });
+   }
+  };
+
+  addAreaGroups("CHEMICAL_LINE");
+  addAreaGroups("SHOT_PEENING");
+
+  const maskRows=filtered.filter(item=>item.reportGroup==="MASK_UNMASK");
+  const mainMap=new Map<string,{label:string;rows:ProductionWorkItem[]}>();
+  for(const item of maskRows){
+   const label=item.linkedMainOperation.trim()||text("Unmapped Main Planning","Chưa map Main Planning");
+   const key=label.toUpperCase();
+   const entry=mainMap.get(key)||{label,rows:[]};
+   entry.rows.push(item);mainMap.set(key,entry);
+  }
+  for(const [mainKey,entry] of mainMap){
+   const list=sortRows(entry.rows);
+   const masking=list.filter(x=>x.sourceType==="MASKING").length;
+   const unmasking=list.filter(x=>x.sourceType==="UNMASKING").length;
+   result.push({
+    key:`MASK_UNMASK|MAIN|${mainKey}`,
+    title:`${entry.label} (Unmasking & Masking)`,
+    subtitle:`${unmasking} Unmasking · ${masking} Masking`,
+    rows:list,tone:"mask-main",
+    order:productionGroupOrder.MASK_UNMASK*100000+Math.min(...list.map(x=>x.sequence))
+   });
+  }
+
+  const paintRows=filtered.filter(item=>item.reportGroup==="PAINTING");
+  const paintDefs=[
+   {key:"CAB1" as const,title:"CAB1",tone:"paint-cab1"},
+   {key:"CAB2" as const,title:"CAB2",tone:"paint-cab2"},
+   {key:"CAB3" as const,title:"CAB3",tone:"paint-cab3"},
+   {key:"POWERCOATING" as const,title:"Powercoating",tone:"paint-power"},
+  ];
+  paintDefs.forEach((def,index)=>{
+   const list=sortRows(paintRows.filter(item=>paintingBucket(item)===def.key));
+   const showEmpty=reportGroup==="PAINTING";
+   if(!list.length&&!showEmpty)return;
+   const resources=[...new Set(list.map(x=>x.resource).filter(Boolean))];
+   result.push({
+    key:`PAINTING|${def.key}`,title:def.title,
+    subtitle:list.length?`${list.length} ${text("work items","công việc")}${resources.length?` · ${resources.join(" / ")}`:""}`:text("No scheduled work","Chưa có kế hoạch"),
+    rows:list,tone:def.tone,order:productionGroupOrder.PAINTING*100000+index
+   });
+  });
+
+  addAreaGroups("SIRIUS_CLEANING");
+  addAreaGroups("BLASTING");
+  addAreaGroups("PLATING");
+  addAreaGroups("PASS_BRTG");
+  addAreaGroups("OTHER");
+
+  return result.sort((a,b)=>a.order-b.order||a.title.localeCompare(b.title));
+ },[filtered,reportGroup,text]);
 
  return <div className="production-execution-workspace">
   <div className="production-kpis">
@@ -234,8 +310,8 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
 
   <div className="production-result-meta"><b>{filtered.length}</b> {text("work items","công việc")}<span>·</span><span>{text("Chemical Line and Painting are reported by scheduled row; all other areas are reported by Job.","Chemical Line và Painting báo cáo theo từng dòng kế hoạch; các khu vực còn lại báo cáo theo từng Job.")}</span><span>·</span><span>{text("Production day: 06:00 → 05:59 next day.","Ngày sản xuất: 06:00 → 05:59 ngày hôm sau.")}</span></div>
 
-  <div className="production-area-stack">{grouped.map(group=><section className={`erp-table-panel production-area-panel area-tone-${areaTone(group.name)}`} key={group.name}>
-   <div className="erp-panel-head production-area-head"><div><b>{group.name||"—"}</b><small>{group.rows.length} {text("work items","công việc")}</small></div></div>
+  <div className="production-area-stack">{grouped.map(group=><section className={`erp-table-panel production-area-panel area-tone-${group.tone}`} key={group.key}>
+   <div className="erp-panel-head production-area-head"><div className="production-area-title"><b>{group.title||"—"}</b><small>{group.subtitle}</small></div></div>
    <WorkTable rows={group.rows}/>
   </section>)}</div>
  </div>;

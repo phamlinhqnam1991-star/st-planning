@@ -278,3 +278,7 @@ Production date stays `06:00 D <= planned_start < 06:00 D+1`. Previous/Next/Toda
 
 ## V447 · Production report sub-tabs and mixed reporting
 Production Execution is grouped into production sub-tabs: Chemical Line; Shot Peening; Masking & Unmasking; Painting; Sirius Cleaning; Blasting; Plating; and Passivation / Brightening. Chemical Line and Painting report status per scheduled row and do not render Job detail. All other groups keep Job-level WAITING / ON-GOING / DONE reporting. Area panel headers use distinct visual accents; Production Day remains 06:00 → 05:59 next day. No additional database migration is required beyond V446 migration 074.
+
+
+## V448 · Production report visual grouping
+Production report panels are visually separated more strongly. Masking & Unmasking are grouped by linked Main Planning operation in Main Planning order (e.g. `BSAUNSLD (Unmasking & Masking)`). Painting is split into four explicit panels: CAB1, CAB2, CAB3 and Powercoating, each with a distinct accent. Reporting granularity is unchanged: Chemical Line/Painting = line-level, remaining areas = Job-level. No database migration is required.
