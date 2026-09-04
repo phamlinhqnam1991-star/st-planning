@@ -267,3 +267,7 @@ After deployment, open `/api/system/db-info` to verify the live Vercel instance 
 
 ## V442 — Aiven Planning pool safety
 Planning Board/Candidate DB reads are safe with the Aiven Free default `DB_POOL_MAX=1`; nested second-client acquisition was removed from that flow without changing business logic.
+
+
+## V445 · Canonical Production Day
+Operational day ownership is unified as `06:00 D <= planned_start < 06:00 D+1` (Asia/Ho_Chi_Minh) across Scheduling, Masking/Unmasking, Production Execution and daily operational summaries. `planning_schedule.schedule_date` now represents this production date; migration 073 backfills old rows.

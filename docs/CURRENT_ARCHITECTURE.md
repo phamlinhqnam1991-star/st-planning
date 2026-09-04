@@ -319,3 +319,13 @@ Aiven remains the canonical operational PostgreSQL provider and Vercel keeps `DB
 - Khi MOVE, `schedule_date` được tính lại từ **shifted planned_start theo Asia/Ho_Chi_Minh**, giữ nhất quán với semantics của Schedule API.
 - MOVE vẫn in-place/all-or-nothing; không clone Batch/Schedule; giữ Resource/Recipe/Duration/Sequence/status và dịch đồng bộ Loading/Process/NDT/Unloading.
 - Không thay đổi Planning Chain, Candidate, Batch membership, Recipe hay Chemical Line proposal/capacity logic.
+
+
+## V445 — Canonical Production Day 06:00 → 06:00 toàn app
+
+- Production Date D là cửa sổ `06:00 D <= planned_start < 06:00 D+1` theo `Asia/Ho_Chi_Minh`.
+- Ownership dựa trên **planned_start**, không dựa ngày lịch của End. Vì vậy Start 00:00–05:59 ngày D+1 vẫn thuộc D; End có thể kéo qua 06:00 tiếp theo nhưng vẫn thuộc D.
+- Cùng một boundary được dùng cho Board Điều Độ (table + timeline + live rows), Masking/Unmasking, Production Execution, daily Dashboard metrics/trend và AI day operations.
+- `planning_schedule.schedule_date` từ V445 mang nghĩa **production date**, được tính bằng Vietnam local `planned_start - 6 hours`; migration `073_canonical_production_day_0600.sql` backfill dữ liệu cũ.
+- Trial Shift V444 tiếp tục MOVE toàn production day ±1 ngày; Chemical Line Loading/Process/NDT/Unloading dịch cùng.
+- Không thay đổi Planning Chain READY/WAIT, Batch membership, Recipe, Previous Main Schedule Lock, Chemical Line proposal/capacity hay Production WAITING/ON-GOING/DONE.

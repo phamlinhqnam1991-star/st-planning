@@ -4,7 +4,7 @@ import {AppTabs} from "@/components/app-tabs";
 import {ProductionExecutionClient} from "@/components/production-execution-client";
 import {getPool} from "@/lib/db";
 import {loadProductionExecution} from "@/lib/production-execution";
-import {getProductionDay} from "@/lib/schedule-time";
+import {getProductionDateString} from "@/lib/schedule-time";
 
 export const dynamic="force-dynamic";
 
@@ -14,7 +14,7 @@ function displayDate(value:string){const d=new Date(`${value}T00:00:00Z`);return
 
 export default async function Page({searchParams}:{searchParams:Promise<{date?:string}>}){
  const sp=await searchParams;
- const current=getProductionDay(new Date()).toLocaleDateString("en-CA",{timeZone:"Asia/Ho_Chi_Minh"});
+ const current=getProductionDateString(new Date());
  const date=safeDate(sp.date,current);
  const prev=shiftDate(date,-1),next=shiftDate(date,1);
  const c=await getPool().connect();
@@ -24,7 +24,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{date?:s
   <ErpAppHeader module="PRODUCTION EXECUTION"/>
   <AppTabs active="production"/>
   <section className="erp-content erp-content-full production-execution-page">
-   <div className="erp-page-head production-page-head"><div><div className="erp-object-eyebrow">OPERATIONS · EXECUTION</div><h2>Production Execution</h2><p>Scheduled production + Masking / Unmasking worklist · report WAITING → ON-GOING → DONE without changing Planning or Schedule status.</p></div><div className="production-date-nav"><Link className="btn" href={`/production-execution?date=${prev}`}>‹ Previous</Link><span>{displayDate(date)}</span><Link className="btn" href={`/production-execution?date=${next}`}>Next ›</Link>{date!==current?<Link className="btn primary" href={`/production-execution?date=${current}`}>Today</Link>:null}</div></div>
+   <div className="erp-page-head production-page-head"><div><div className="erp-object-eyebrow">OPERATIONS · EXECUTION</div><h2>Production Execution</h2><p>Production day 06:00 → 06:00 next day · Scheduled production + Masking / Unmasking worklist · report WAITING → ON-GOING → DONE without changing Planning or Schedule status.</p></div><div className="production-date-nav"><Link className="btn" href={`/production-execution?date=${prev}`}>‹ Previous</Link><span>{displayDate(date)}</span><Link className="btn" href={`/production-execution?date=${next}`}>Next ›</Link>{date!==current?<Link className="btn primary" href={`/production-execution?date=${current}`}>Today</Link>:null}</div></div>
    <div className="production-source-note"><b>Source of truth</b><span>Scheduling Board provides Batch / Resource / Planned Time. Masking / Unmasking provides support work. This page stores only execution status and Actual Start/End.</span></div>
    {error?<div className="notice error"><b>Unable to load Production Execution:</b> {error}</div>:<ProductionExecutionClient initialItems={items}/>}
   </section>

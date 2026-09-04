@@ -191,14 +191,18 @@ export async function loadDashboardData(c:PoolClient,input:{scheduleDate:string}
     count(*)::int batches,
     coalesce(sum(s.duration_minutes),0)::numeric planned_minutes
    from public.planning_schedule s
-   where s.status<>'CANCELLED' and s.schedule_date=$1::date
+   where s.status<>'CANCELLED'
+     and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+     and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
   `,[scheduleDate]),
   c.query(`
    with schedule_rows as (
     select s.resource_code,s.planned_start,s.planned_end,coalesce(r.max_concurrent,1) max_concurrent
     from public.planning_schedule s
     left join public.md_schedule_resource r on r.resource_code=s.resource_code
-    where s.status<>'CANCELLED' and s.schedule_date=$1::date
+    where s.status<>'CANCELLED'
+     and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+     and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
    ), events as (
     select resource_code,planned_start ts,1 delta,max_concurrent from schedule_rows
     union all
@@ -226,7 +230,9 @@ export async function loadDashboardData(c:PoolClient,input:{scheduleDate:string}
    from public.planning_schedule s
    join public.planning_batch b on b.id=s.batch_id and b.status<>'CANCELLED'
    left join public.md_schedule_resource r on r.resource_code=s.resource_code
-   where s.status<>'CANCELLED' and s.schedule_date=$1::date
+   where s.status<>'CANCELLED'
+     and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+     and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
    group by s.resource_code,r.area_name
    order by coalesce(sum(s.duration_minutes),0) desc,s.resource_code
   `,[scheduleDate]),
@@ -235,7 +241,7 @@ export async function loadDashboardData(c:PoolClient,input:{scheduleDate:string}
     select generate_series($1::date-6,$1::date,'1 day'::interval)::date d
    ), daily as (
     select
-     s.schedule_date d,
+     (((s.planned_start at time zone 'Asia/Ho_Chi_Minh') - interval '6 hours')::date) d,
      count(*)::int scheduled_batches,
      count(*) filter(where coalesce(pe.execution_status,'WAITING')='DONE')::int done_batches,
      coalesce(sum(s.duration_minutes),0)::numeric planned_minutes
@@ -244,8 +250,9 @@ export async function loadDashboardData(c:PoolClient,input:{scheduleDate:string}
       on pe.source_type='BATCH'
      and pe.source_key='BATCH:'||s.batch_id::text
     where s.status<>'CANCELLED'
-      and s.schedule_date between $1::date-6 and $1::date
-    group by s.schedule_date
+      and s.planned_start >= ((($1::date-6) + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+      and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+    group by (((s.planned_start at time zone 'Asia/Ho_Chi_Minh') - interval '6 hours')::date)
    )
    select days.d,coalesce(daily.scheduled_batches,0)::int scheduled_batches,
           coalesce(daily.done_batches,0)::int done_batches,
@@ -257,11 +264,14 @@ export async function loadDashboardData(c:PoolClient,input:{scheduleDate:string}
     return c.query(`
      with days as (select generate_series($1::date-6,$1::date,'1 day'::interval)::date d),
      daily as (
-      select schedule_date d,count(*)::int scheduled_batches,0::int done_batches,
+      select (((planned_start at time zone 'Asia/Ho_Chi_Minh') - interval '6 hours')::date) d,
+             count(*)::int scheduled_batches,0::int done_batches,
              coalesce(sum(duration_minutes),0)::numeric planned_minutes
       from public.planning_schedule
-      where status<>'CANCELLED' and schedule_date between $1::date-6 and $1::date
-      group by schedule_date
+      where status<>'CANCELLED'
+        and planned_start >= ((($1::date-6) + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+        and planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+      group by (((planned_start at time zone 'Asia/Ho_Chi_Minh') - interval '6 hours')::date)
      )
      select days.d,coalesce(daily.scheduled_batches,0)::int scheduled_batches,
             coalesce(daily.done_batches,0)::int done_batches,

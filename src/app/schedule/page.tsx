@@ -5,7 +5,7 @@ import ScheduleBoardClient from "@/components/schedule-board-client";
 import {ManualScheduleGrid} from "@/components/manual-schedule-grid";
 import ProductionTimelineClient from "@/components/production-timeline-client";
 import {ScheduleDayShiftControl} from "@/components/schedule-day-shift-control";
-import {calculateScheduleEnd,getProductionDay} from "@/lib/schedule-time";
+import {calculateScheduleEnd,getProductionDateString} from "@/lib/schedule-time";
 
 export const dynamic="force-dynamic";
 
@@ -25,10 +25,8 @@ export default async function Page({
  searchParams
 }:{searchParams:Promise<{date?:string;planner?:string}>}){
  const sp=await searchParams;
- // v187: Production day starts at 06:00
- const now=new Date();
- const productionDay=getProductionDay(now);
- const today=productionDay.toLocaleDateString("en-CA",{timeZone:"Asia/Ho_Chi_Minh"});
+ // V445: canonical production date owns every Schedule whose START is 06:00 -> 06:00 next day.
+ const today=getProductionDateString(new Date());
  const date=sp.date||today;
  const planner=sp.planner==="2"?"2":"1";
  const c=await getPool().connect();
@@ -297,7 +295,8 @@ export default async function Page({
       b.id
    `),
 
-   // Schedule Table: show EVERY active schedule assigned to the selected calendar date.
+   // V445: Schedule Table population = canonical production day by planned START:
+   // selected date 06:00 -> next date 06:00. End may extend beyond the boundary.
    c.query(`
     select
       s.*,
@@ -320,10 +319,8 @@ export default async function Page({
     left join md_schedule_resource sr
       on sr.resource_code=s.resource_code
     where s.status<>'CANCELLED'
-      and (
-        s.schedule_date=$1::date
-        or (s.planned_start at time zone 'Asia/Ho_Chi_Minh')::date=$1::date
-      )
+      and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+      and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
     order by
       case when coalesce(s.sequence_no,0)>0 then 0 else 1 end,
       coalesce(s.sequence_no,0),
@@ -332,7 +329,8 @@ export default async function Page({
       coalesce(b.batch_no,'LEGACY-'||s.batch_id::text)
    `,[date]),
 
-   // Timeline: production day remains 06:00 selected date -> 06:00 next day.
+   // V445: Timeline uses the SAME production-day ownership as Schedule Table.
+   // A Batch starting in this 06:00->06:00 window stays on this day even if End runs later.
    c.query(`
     select
       s.*,
@@ -355,8 +353,8 @@ export default async function Page({
     left join md_schedule_resource sr
       on sr.resource_code=s.resource_code
     where s.status<>'CANCELLED'
-      and s.planned_start < (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
-      and s.planned_end   > (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+      and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+      and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
     order by
       coalesce(sr.sort_order,9999),
       s.planned_start,

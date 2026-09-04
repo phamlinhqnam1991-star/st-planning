@@ -169,7 +169,9 @@ export async function loadMaskingUnmaskingPlan(
           j.priority_type,
           om.planning_sort_order planning_order,
           ps.id schedule_id,
-          ps.schedule_date,
+          case when ps.id is null then null
+               else (((ps.planned_start at time zone 'Asia/Ho_Chi_Minh') - interval '6 hours')::date)
+          end schedule_date,
           ps.resource_code,
           ps.planned_start,
           ps.planned_end,
@@ -191,7 +193,9 @@ export async function loadMaskingUnmaskingPlan(
           on ps.batch_id=b.id
          and ps.status<>'CANCELLED'
         where
-          (($2::text='scheduled' and ps.id is not null and ps.schedule_date=$3::date)
+          (($2::text='scheduled' and ps.id is not null
+             and ps.planned_start >= (($3::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+             and ps.planned_start <  (($3::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh'))
            or
            ($2::text='unscheduled' and ps.id is null))
       ),

@@ -8,6 +8,7 @@ import {
   type SupportPlanJob,
   type SupportView
 } from "@/lib/masking-unmasking-plan";
+import {getProductionDateString} from "@/lib/schedule-time";
 
 export const dynamic="force-dynamic";
 
@@ -16,12 +17,8 @@ const dt=(v:unknown)=>{if(!v)return "—";const d=new Date(String(v));return Num
 const dOnly=(v:string)=>{const [y,m,d]=v.split("-");return y&&m&&d?`${d}/${m}/${y}`:v;};
 const duration=(minutes:number|null)=>minutes==null?"—":`${String(Math.floor(minutes/60)).padStart(2,"0")}:${String(minutes%60).padStart(2,"0")}`;
 
-function vnToday(){
- const p=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
- const get=(type:string)=>p.find(x=>x.type===type)?.value||"";
- return `${get("year")}-${get("month")}-${get("day")}`;
-}
-function safeDate(value:unknown){const x=String(value??"").trim();return /^\d{4}-\d{2}-\d{2}$/.test(x)?x:vnToday();}
+function productionToday(){return getProductionDateString(new Date());}
+function safeDate(value:unknown){const x=String(value??"").trim();return /^\d{4}-\d{2}-\d{2}$/.test(x)?x:productionToday();}
 function shiftDate(value:string,days:number){const d=new Date(`${value}T00:00:00Z`);d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);}
 function hrefWith(input:{date:string;view:SupportView;q:string}){
  const p=new URLSearchParams();p.set("date",input.date);p.set("view",input.view);if(input.q)p.set("q",input.q);return `/masking-unmasking-planning?${p.toString()}`;
@@ -92,17 +89,17 @@ export default async function Page({searchParams}:{searchParams:Promise<{q?:stri
  const masking=groups.reduce((n,g)=>n+g.masking.length,0);
  const unmasking=groups.reduce((n,g)=>n+g.unmasking.length,0);
  const activeMain=groups.filter(g=>g.masking.length||g.unmasking.length).length;
- const prev=shiftDate(date,-1),next=shiftDate(date,1),today=vnToday();
+ const prev=shiftDate(date,-1),next=shiftDate(date,1),today=productionToday();
  return <main className="erp-shell erpkit-migrated-page">
   <ErpAppHeader module="MASKING / UNMASKING"/>
   <AppTabs active="masking"/>
   <section className="erp-content erp-content-full support-planning-page">
-   <div className="erp-page-head"><div><h2>Masking / Unmasking Planning</h2><p>Ngày điều độ → Main Planning Order → Main Operation → Masking / Unmasking → Job · Batch · Time</p></div></div>
+   <div className="erp-page-head"><div><h2>Masking / Unmasking Planning</h2><p>Ngày sản xuất 06:00 → 06:00 hôm sau → Main Planning Order → Main Operation → Masking / Unmasking → Job · Batch · Time</p></div></div>
 
 
    <div className="support-date-bar">
     <div className="support-view-tabs">
-     <Link className={`btn ${view==="scheduled"?"primary":""}`} href={hrefWith({date,view:"scheduled",q})}>Theo ngày điều độ</Link>
+     <Link className={`btn ${view==="scheduled"?"primary":""}`} href={hrefWith({date,view:"scheduled",q})}>Theo ngày sản xuất</Link>
      <Link className={`btn ${view==="unscheduled"?"primary":""}`} href={hrefWith({date,view:"unscheduled",q})}>Chưa điều độ</Link>
     </div>
     {view==="scheduled"?<div className="support-date-nav">

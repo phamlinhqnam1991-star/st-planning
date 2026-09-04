@@ -219,7 +219,8 @@ export async function loadProductionExecution(
    limit 1
   ) sa on true
   where s.status<>'CANCELLED'
-    and s.schedule_date=$1::date
+    and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+    and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
   order by s.planned_start,coalesce(om.planning_sort_order,999999),b.batch_no
  `,[date]);
 

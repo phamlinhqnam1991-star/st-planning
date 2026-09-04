@@ -3,7 +3,7 @@ import {getPool} from "@/lib/db";
 
 // =====================================================================
 // GET /api/schedule/rows?date=YYYY-MM-DD
-// Trả về toàn bộ lịch (chưa CANCELLED) của ngày — dùng để cập nhật lưới
+// Trả về toàn bộ lịch (chưa CANCELLED) của NGÀY SẢN XUẤT 06:00→06:00 — dùng để cập nhật lưới
 // điều độ sau khi Save/Edit/Delete/Move mà KHÔNG tải lại trang (giữ các
 // dòng đang nhập dở của planner).
 // =====================================================================
@@ -40,14 +40,8 @@ export async function GET(req:Request){
    left join md_process_recipe pr on pr.recipe_key=b.recipe_key and pr.is_active=true
    left join md_schedule_resource sr on sr.resource_code=s.resource_code
    where s.status<>'CANCELLED'
-     and (
-       s.schedule_date=$1::date
-       or (s.planned_start at time zone 'Asia/Ho_Chi_Minh')::date=$1::date
-       or (
-         s.planned_start < (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
-         and s.planned_end > (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
-       )
-     )
+     and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+     and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
    order by
     coalesce(sr.sort_order,9999),
     s.sequence_no,

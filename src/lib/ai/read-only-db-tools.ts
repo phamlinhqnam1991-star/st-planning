@@ -222,7 +222,9 @@ async function dayOperations(c:PoolClient,args:any):Promise<AiToolExecution>{
   left join public.md_schedule_resource r on r.resource_code=s.resource_code
   left join public.production_execution pe on pe.source_type='BATCH' and pe.source_key='BATCH:'||b.id::text
   left join lateral (select array_agg(bj.job_num order by bj.job_num) job_numbers from public.planning_batch_job bj where bj.batch_id=b.id) jobs on true
-  where s.status<>'CANCELLED' and s.schedule_date=$1::date
+  where s.status<>'CANCELLED'
+    and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+    and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
     and ($2::text='' or coalesce(r.area_name,'') ilike '%'||$2||'%')
     and ($3::text='' or s.resource_code ilike '%'||$3||'%')
   order by s.planned_start,b.batch_no
@@ -235,7 +237,9 @@ async function dayOperations(c:PoolClient,args:any):Promise<AiToolExecution>{
    from public.planning_schedule s join public.planning_batch b on b.id=s.batch_id and b.status<>'CANCELLED'
    left join public.md_schedule_resource r on r.resource_code=s.resource_code
    left join lateral (select array_agg(bj.job_num order by bj.job_num) job_numbers from public.planning_batch_job bj where bj.batch_id=b.id) jobs on true
-   where s.status<>'CANCELLED' and s.schedule_date=$1::date
+   where s.status<>'CANCELLED'
+    and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+    and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
      and ($2::text='' or coalesce(r.area_name,'') ilike '%'||$2||'%')
      and ($3::text='' or s.resource_code ilike '%'||$3||'%')
    order by s.planned_start,b.batch_no limit $4

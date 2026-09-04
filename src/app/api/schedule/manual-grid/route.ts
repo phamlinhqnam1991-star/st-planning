@@ -273,7 +273,7 @@ export async function POST(req:Request){
     ndt_start,ndt_end,ndt_duration_minutes,
     unloading_start,unloading_end,unloading_duration_minutes
    ) values(
-    $1,$2,($3 at time zone 'Asia/Ho_Chi_Minh')::date,$3,$4,
+    $1,$2,((($3::timestamptz at time zone 'Asia/Ho_Chi_Minh') - interval '6 hours')::date),$3,$4,
     $5,'SCHEDULED',$6,'MANUAL_GRID',$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
    ) returning *
   `,[batchId,resourceCode,effectiveStart,end,columns?.durationMinutes||Math.round(duration),note,

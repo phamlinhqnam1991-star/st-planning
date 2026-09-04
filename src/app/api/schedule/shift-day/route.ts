@@ -103,7 +103,7 @@ export async function POST(req:Request){
   const movedQ=await c.query(`
    update planning_schedule
    set
-    schedule_date=((planned_start + ($2::int * interval '1 day')) at time zone 'Asia/Ho_Chi_Minh')::date,
+    schedule_date=((((planned_start + ($2::int * interval '1 day')) at time zone 'Asia/Ho_Chi_Minh') - interval '6 hours')::date),
     planned_start=planned_start + ($2::int * interval '1 day'),
     planned_end=planned_end + ($2::int * interval '1 day'),
     loading_start=case when loading_start is null then null else loading_start + ($2::int * interval '1 day') end,
