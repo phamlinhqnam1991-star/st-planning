@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V442";
+export const ST_AI_KNOWLEDGE_VERSION="V444";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -113,7 +113,7 @@ export const V426_WORKLOAD_PRESENTATION = `Planning Board Workload Summary keeps
 
 
 // V430
-export const V430_TRIAL_SCHEDULE_DAY_SHIFT = `Scheduling Board trial control moves the entire selected schedule day in-place by +1 or -1 calendar day. It never clones Batch or planning_schedule rows. The source Board date is required to be empty after commit; the destination must not contain independent active schedules. All planned and Chemical Line segment timestamps shift together, Resource/Recipe/Duration/Sequence/status remain unchanged, and planning_batch planned_start/planned_end are synchronized. RUNNING/COMPLETED schedules are not movable. The whole operation is one transaction and rolls back on any conflict. This utility is Schedule-only and does not change Planning Chain, Candidate, Batch membership or Recipe.`;
+export const V430_TRIAL_SCHEDULE_DAY_SHIFT = `Scheduling Board trial control moves the entire selected PRODUCTION DAY in-place by +1 or -1 day. Since V444, a production day is canonical 06:00 selected date -> 06:00 next date, so schedules starting 00:00-05:59 next calendar day still belong to the source production day and move with it instead of blocking the destination. It never clones Batch or planning_schedule rows. schedule_date is recalculated from each shifted planned_start local calendar date; all planned and Chemical Line segment timestamps shift together. The source production day must be empty after commit, and the destination production day must not contain independent active schedules. Resource/Recipe/Duration/Sequence/status remain unchanged, planning_batch planned_start/planned_end are synchronized, RUNNING/COMPLETED schedules are not movable, and the operation is one transaction. This utility is Schedule-only and does not change Planning Chain, Candidate, Batch membership or Recipe.`;
 
 // V431
 export const V431_SCHEDULE_AREA_RECIPE_FILTER = `Scheduling Board Recipe selectors are scoped by Schedule Area/Main Operation mapping. A Recipe is selectable in a lane only when an active md_main_operation_recipe row maps that recipe_key to a standard_operation in the lane's md_schedule_area_operation pool; grouped hubs use the union pool. Existing Schedule/Batch edits preserve the current Recipe option if configuration changed, but unrelated Recipes are not offered. Create Empty Batch filters by the selected Main Operation, and manual-grid creation revalidates Recipe -> Main server-side. This does not alter Planning Board Recipe resolution or existing Batch membership.`;

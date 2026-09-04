@@ -26,8 +26,9 @@ export function ScheduleDayShiftControl({
   const target=shiftDate(date,direction);
   const verb=direction===1?"DỜI SANG NGÀY HÔM SAU":"LÙI VỀ NGÀY HÔM TRƯỚC";
   const ok=window.confirm(
-   `${verb}\n\n${scheduleCount} lô đang hiển thị ở ${date} sẽ được MOVE in-place sang ${target}.\n`+
-   `Không clone Batch/Schedule. Ngày ${date} sẽ rỗng sau khi hoàn tất.\n`+
+   `${verb}\n\n${scheduleCount} lô thuộc ngày sản xuất ${date} (06:00 → 06:00 hôm sau) sẽ được MOVE in-place sang ${target}.\n`+
+   `Các lô bắt đầu sau 00:00 nhưng trước 06:00 hôm sau vẫn được dời cùng ngày nguồn.\n`+
+   `Không clone Batch/Schedule. Ngày sản xuất ${date} sẽ rỗng sau khi hoàn tất.\n`+
    `Resource, Recipe, Duration và toàn bộ mốc Chemical Line sẽ giữ nguyên tương đối.\n\nTiếp tục?`
   );
   if(!ok)return;
@@ -42,7 +43,7 @@ export function ScheduleDayShiftControl({
    });
    const data=await safeJson(response);
    if(!response.ok)throw new Error(data.error||"Không thể dời ngày điều độ.");
-   setMsg(`Đã dời ${data.moved||0} lô: ${date} → ${data.targetDate}. Ngày cũ đã rỗng.`);
+   setMsg(`Đã dời ${data.moved||0} lô: ngày sản xuất ${date} → ${data.targetDate}. Ngày nguồn đã rỗng.`);
    window.setTimeout(()=>{
     window.location.href=`/schedule?date=${encodeURIComponent(data.targetDate)}&planner=${encodeURIComponent(planner)}`;
    },500);
@@ -59,7 +60,7 @@ export function ScheduleDayShiftControl({
    className="btn"
    disabled={busy||scheduleCount<=0}
    onClick={()=>move(-1)}
-   title="Hoàn tác kiểu trial: move toàn bộ lịch của ngày đang xem về ngày hôm trước, không clone"
+   title="Hoàn tác trial theo ngày sản xuất 06:00→06:00: move toàn bộ lịch về ngày hôm trước, không clone"
   >
    ← Lùi 1 ngày
   </button>
@@ -68,10 +69,10 @@ export function ScheduleDayShiftControl({
    className="btn primary"
    disabled={busy||scheduleCount<=0}
    onClick={()=>move(1)}
-   title="Move toàn bộ lịch của ngày đang xem sang ngày hôm sau; ngày cũ sẽ rỗng"
+   title="Move toàn bộ ngày sản xuất 06:00→06:00 sang ngày hôm sau; ngày nguồn sẽ rỗng"
   >
    {busy?"Đang dời…":"Dời toàn bộ lịch → +1 ngày"}
   </button>
-  <small>{scheduleCount>0?`${scheduleCount} lô · MOVE, không copy`:"Ngày này chưa có lô để dời"}</small>
+  <small>{scheduleCount>0?`${scheduleCount} lô · ngày SX 06:00→06:00 · MOVE`:"Ngày này chưa có lô để dời"}</small>
  </div>;
 }

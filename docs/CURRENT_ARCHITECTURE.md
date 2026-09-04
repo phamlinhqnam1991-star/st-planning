@@ -310,3 +310,12 @@ Add read-only `GET /api/system/db-info` so deployment can confirm which PostgreS
 
 ## V442 — Aiven single-connection Planning safety
 Aiven remains the canonical operational PostgreSQL provider and Vercel keeps `DB_POOL_MAX=1` by default to protect the Aiven Free 20-connection budget. Planning Board must therefore never reserve one pool client and then wait for a second client from the same pool. V442 makes initial Planning static data complete before the page acquires its live client, reuses that client for metadata, and makes Candidate side reads reuse the existing client when the configured pool max is one. If `DB_POOL_MAX>1` is explicitly configured later, the historical two-connection Candidate parallel path remains available. Business logic and data populations are unchanged.
+
+## V444 — Trial Schedule Day Shift dùng Production Day 06:00 → 06:00
+
+- `Dời toàn bộ lịch ±1 ngày` xác định population theo **planned_start trong ngày sản xuất 06:00 ngày chọn → 06:00 ngày kế tiếp**, không còn dùng calendar `schedule_date` làm population.
+- Lô bắt đầu `00:00–05:59` ở ngày lịch kế tiếp vẫn thuộc production day nguồn và được MOVE cùng toàn bộ ngày.
+- Destination guard cũng dùng cùng production-day window, nên các lô after-midnight của nguồn không bị báo nhầm là “lịch ngày đích”.
+- Khi MOVE, `schedule_date` được tính lại từ **shifted planned_start theo Asia/Ho_Chi_Minh**, giữ nhất quán với semantics của Schedule API.
+- MOVE vẫn in-place/all-or-nothing; không clone Batch/Schedule; giữ Resource/Recipe/Duration/Sequence/status và dịch đồng bộ Loading/Process/NDT/Unloading.
+- Không thay đổi Planning Chain, Candidate, Batch membership, Recipe hay Chemical Line proposal/capacity logic.

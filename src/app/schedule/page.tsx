@@ -467,6 +467,15 @@ export default async function Page({
   const allRows=scheduleTableQ.rows as any[];
   const plannerScheduleAreas=scheduleAreasQ.rows as any[];
 
+  // V444 · Trial shift follows the production day used by the timeline: 06:00 -> 06:00.
+  // A schedule starting 00:xx-05:59 on the next calendar date still belongs to this production day.
+  const productionDayStartMs=new Date(`${date}T06:00:00+07:00`).getTime();
+  const productionDayEndMs=productionDayStartMs+24*60*60*1000;
+  const shiftScheduleCount=(timelineQ.rows as any[]).filter((x:any)=>{
+   const startMs=new Date(x.planned_start).getTime();
+   return Number.isFinite(startMs)&&startMs>=productionDayStartMs&&startMs<productionDayEndMs;
+  }).length;
+
   // Dynamic Planner scope:
   // Planner ownership comes from Schedule Area assignment + its mapped Standard Operations.
   // Fall back to the previous fixed Planner operation list only while no Schedule Area
@@ -530,7 +539,7 @@ export default async function Page({
        <input className="input" type="date" name="date" defaultValue={date}/>
        <button className="btn" type="submit">Tải</button>
       </form>
-      <ScheduleDayShiftControl date={date} planner={planner} scheduleCount={allRows.length}/>
+      <ScheduleDayShiftControl date={date} planner={planner} scheduleCount={shiftScheduleCount}/>
      </div>
     </div>
 

@@ -30,8 +30,9 @@ export async function POST(req:Request){
  try{
   await c.query("begin");
 
-  // Lấy đúng population đang hiện trên Bảng điều độ ngày được chọn.
-  // UPDATE in-place, không clone Batch/Schedule => ngày cũ tự rỗng sau khi commit.
+  // V444 · Trial day = production day 06:00 -> 06:00 next day, KHÔNG phải calendar date.
+  // Vì vậy lô bắt đầu 00:xx-05:59 của ngày kế tiếp vẫn thuộc ngày sản xuất nguồn
+  // và phải MOVE cùng cả ngày (không bị hiểu nhầm là lịch độc lập của ngày đích).
   const sourceQ=await c.query(`
    select
     s.id,s.batch_id,s.status,s.resource_code,s.schedule_date,
@@ -40,10 +41,8 @@ export async function POST(req:Request){
    from planning_schedule s
    left join planning_batch b on b.id=s.batch_id
    where s.status<>'CANCELLED'
-     and (
-      s.schedule_date=$1::date
-      or (s.planned_start at time zone 'Asia/Ho_Chi_Minh')::date=$1::date
-     )
+     and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+     and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
    order by s.planned_start,s.resource_code,s.id
    for update of s
   `,[sourceDate]);
@@ -59,8 +58,9 @@ export async function POST(req:Request){
 
   const sourceIds=sourceQ.rows.map((x:any)=>Number(x.id));
 
-  // Trial mode yêu cầu chỉ giữ một ngày. Nếu ngày đích đã có lịch độc lập,
-  // không merge/chồng dữ liệu: chặn toàn bộ transaction để planner xử lý trước.
+  // Trial mode chỉ giữ một PRODUCTION DAY. Chỉ lịch độc lập có Start nằm trong
+  // 06:00 ngày đích -> 06:00 ngày kế tiếp mới được xem là population ngày đích.
+  // Các lô nguồn bắt đầu sau 00:00 nhưng trước 06:00 đã nằm trong sourceIds ở trên.
   const targetQ=await c.query(`
    select
     count(*)::int total,
@@ -69,15 +69,13 @@ export async function POST(req:Request){
    left join planning_batch b on b.id=s.batch_id
    where s.status<>'CANCELLED'
      and not (s.id=any($2::bigint[]))
-     and (
-      s.schedule_date=$1::date
-      or (s.planned_start at time zone 'Asia/Ho_Chi_Minh')::date=$1::date
-     )
+     and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+     and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
   `,[targetDate,sourceIds]);
   const targetCount=Number(targetQ.rows[0]?.total||0);
   if(targetCount>0){
    const names=(targetQ.rows[0]?.batch_nos||[]).slice(0,8).join(", ");
-   throw new Error(`Ngày đích ${targetDate} đã có ${targetCount} lô${names?`: ${names}`:""}. Để giữ chế độ trial chỉ 1 ngày, hệ thống không tự gộp hoặc xóa lịch ngày đích.`);
+   throw new Error(`Ngày sản xuất đích ${targetDate} (06:00 → 06:00) đã có ${targetCount} lô độc lập${names?`: ${names}`:""}. Hệ thống không tự gộp hoặc xóa lịch ngày đích.`);
   }
 
   // Bảo vệ thêm cho lô dài qua ngày: không cho một lịch ngoài population nguồn
@@ -105,21 +103,21 @@ export async function POST(req:Request){
   const movedQ=await c.query(`
    update planning_schedule
    set
-    schedule_date=$2::date,
-    planned_start=planned_start + ($3::int * interval '1 day'),
-    planned_end=planned_end + ($3::int * interval '1 day'),
-    loading_start=case when loading_start is null then null else loading_start + ($3::int * interval '1 day') end,
-    loading_end=case when loading_end is null then null else loading_end + ($3::int * interval '1 day') end,
-    process_start=case when process_start is null then null else process_start + ($3::int * interval '1 day') end,
-    process_end=case when process_end is null then null else process_end + ($3::int * interval '1 day') end,
-    ndt_start=case when ndt_start is null then null else ndt_start + ($3::int * interval '1 day') end,
-    ndt_end=case when ndt_end is null then null else ndt_end + ($3::int * interval '1 day') end,
-    unloading_start=case when unloading_start is null then null else unloading_start + ($3::int * interval '1 day') end,
-    unloading_end=case when unloading_end is null then null else unloading_end + ($3::int * interval '1 day') end,
+    schedule_date=((planned_start + ($2::int * interval '1 day')) at time zone 'Asia/Ho_Chi_Minh')::date,
+    planned_start=planned_start + ($2::int * interval '1 day'),
+    planned_end=planned_end + ($2::int * interval '1 day'),
+    loading_start=case when loading_start is null then null else loading_start + ($2::int * interval '1 day') end,
+    loading_end=case when loading_end is null then null else loading_end + ($2::int * interval '1 day') end,
+    process_start=case when process_start is null then null else process_start + ($2::int * interval '1 day') end,
+    process_end=case when process_end is null then null else process_end + ($2::int * interval '1 day') end,
+    ndt_start=case when ndt_start is null then null else ndt_start + ($2::int * interval '1 day') end,
+    ndt_end=case when ndt_end is null then null else ndt_end + ($2::int * interval '1 day') end,
+    unloading_start=case when unloading_start is null then null else unloading_start + ($2::int * interval '1 day') end,
+    unloading_end=case when unloading_end is null then null else unloading_end + ($2::int * interval '1 day') end,
     updated_at=now()
    where id=any($1::bigint[])
    returning id,batch_id,schedule_date,planned_start,planned_end
-  `,[sourceIds,targetDate,direction]);
+  `,[sourceIds,direction]);
 
   // Batch vẫn là Batch cũ; chỉ đồng bộ lại planned window theo Schedule đã move.
   await c.query(`
@@ -132,19 +130,17 @@ export async function POST(req:Request){
      and b.id=s.batch_id
   `,[sourceIds]);
 
-  // All-or-nothing invariant: sau khi move, ngày nguồn không còn schedule active
-  // thuộc đúng population mà Board đã dùng trước đó.
+  // All-or-nothing invariant: sau MOVE, production day nguồn 06:00 -> 06:00
+  // không còn schedule active có Start thuộc ngày sản xuất đó.
   const oldDateQ=await c.query(`
    select count(*)::int total
    from planning_schedule s
    where s.status<>'CANCELLED'
-     and (
-      s.schedule_date=$1::date
-      or (s.planned_start at time zone 'Asia/Ho_Chi_Minh')::date=$1::date
-     )
+     and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+     and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
   `,[sourceDate]);
   if(Number(oldDateQ.rows[0]?.total||0)!==0)
-   throw new Error("Dời ngày chưa hoàn tất: ngày nguồn vẫn còn lô. Transaction đã được rollback.");
+   throw new Error("Dời ngày chưa hoàn tất: ngày sản xuất nguồn 06:00 → 06:00 vẫn còn lô. Transaction đã được rollback.");
 
   await c.query("commit");
   return NextResponse.json({
