@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V445";
+export const ST_AI_KNOWLEDGE_VERSION="V446";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -82,7 +82,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"production-execution",
   title:"Production Execution",
-  content:`Production Execution reads scheduled production plus derived Masking/Unmasking work. WAITING/ON-GOING/DONE and Actual Start/End are execution-report facts and are intentionally independent from Planning Chain and planning_schedule status. V437 reuses the narrowed support resolver and derives Batch jobNumbers from the already-loaded Batch Job detail set instead of issuing a second per-Batch aggregation.`
+  content:`Production Execution reads every scheduled work item whose planned_start belongs to the canonical production day 06:00 D <= planned_start < 06:00 D+1, plus derived Masking/Unmasking support work. V446 reporting is Job-level: each planning_job_operation in the work item has its own WAITING/ON-GOING/DONE and Actual Start/End in production_execution_job. The parent production_execution row remains an aggregate compatibility summary only, so Dashboard/read-only consumers keep working without controlling individual Jobs. Every area, including Chemical Line and Painting, shows Job detail rows. Shift is derived from the Job work-item target time: Shift 1 = 06:00-13:59, Shift 2 = 14:00-21:59, Shift 3 = 22:00-05:59 next day. Date navigation must remount/reload the selected day without browser F5, and area tables do not use inner vertical scroll containers. These execution facts remain independent from Planning Chain and planning_schedule status.`
  },
 
  {

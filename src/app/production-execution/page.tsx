@@ -24,9 +24,9 @@ export default async function Page({searchParams}:{searchParams:Promise<{date?:s
   <ErpAppHeader module="PRODUCTION EXECUTION"/>
   <AppTabs active="production"/>
   <section className="erp-content erp-content-full production-execution-page">
-   <div className="erp-page-head production-page-head"><div><div className="erp-object-eyebrow">OPERATIONS · EXECUTION</div><h2>Production Execution</h2><p>Production day 06:00 → 06:00 next day · Scheduled production + Masking / Unmasking worklist · report WAITING → ON-GOING → DONE without changing Planning or Schedule status.</p></div><div className="production-date-nav"><Link className="btn" href={`/production-execution?date=${prev}`}>‹ Previous</Link><span>{displayDate(date)}</span><Link className="btn" href={`/production-execution?date=${next}`}>Next ›</Link>{date!==current?<Link className="btn primary" href={`/production-execution?date=${current}`}>Today</Link>:null}</div></div>
+   <div className="erp-page-head production-page-head"><div><div className="erp-object-eyebrow">OPERATIONS · EXECUTION</div><h2>Production Execution</h2><p>Production day 06:00 → 05:59 next day · all work is owned by planned start · Job-level WAITING → ON-GOING → DONE reporting without changing Planning or Schedule status.</p></div><div className="production-date-nav"><Link className="btn" href={`/production-execution?date=${prev}`}>‹ Previous</Link><span>{displayDate(date)}</span><Link className="btn" href={`/production-execution?date=${next}`}>Next ›</Link>{date!==current?<Link className="btn primary" href={`/production-execution?date=${current}`}>Today</Link>:null}</div></div>
    <div className="production-source-note"><b>Source of truth</b><span>Scheduling Board provides Batch / Resource / Planned Time. Masking / Unmasking provides support work. This page stores only execution status and Actual Start/End.</span></div>
-   {error?<div className="notice error"><b>Unable to load Production Execution:</b> {error}</div>:<ProductionExecutionClient initialItems={items}/>}
+   {error?<div className="notice error"><b>Unable to load Production Execution:</b> {error}</div>:<ProductionExecutionClient key={date} initialItems={items}/>}
   </section>
  </main>;
 }

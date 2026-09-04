@@ -329,3 +329,13 @@ Aiven remains the canonical operational PostgreSQL provider and Vercel keeps `DB
 - `planning_schedule.schedule_date` từ V445 mang nghĩa **production date**, được tính bằng Vietnam local `planned_start - 6 hours`; migration `073_canonical_production_day_0600.sql` backfill dữ liệu cũ.
 - Trial Shift V444 tiếp tục MOVE toàn production day ±1 ngày; Chemical Line Loading/Process/NDT/Unloading dịch cùng.
 - Không thay đổi Planning Chain READY/WAIT, Batch membership, Recipe, Previous Main Schedule Lock, Chemical Line proposal/capacity hay Production WAITING/ON-GOING/DONE.
+
+## V446 — Production Execution Job-level + Shift + live date navigation
+
+- Production day remains canonical: `06:00 D <= planned_start < 06:00 D+1` (`Asia/Ho_Chi_Minh`), equivalent to 06:00 through 05:59 next calendar day.
+- Date navigation on `/production-execution` remounts the client dataset by production date, so Previous / Next / Today reload immediately without browser F5.
+- Every Production work item exposes Job details in every Area, including Chemical Line and Painting. The old work-item Status column/report control is removed.
+- Execution reporting is stored per Job in `production_execution_job` using `(source_type, source_key, planning_job_operation_id)` identity. `production_execution` remains a derived aggregate compatibility summary for existing Dashboard/AI reads.
+- Job rows show Shift derived from planned target: Shift 1 `06:00-13:59`, Shift 2 `14:00-21:59`, Shift 3 `22:00-05:59` next day. Planned Target is positioned immediately before Job Actual Start/End.
+- Production tables no longer use inner vertical max-height scrolling; page-level vertical scrolling shows every row. Horizontal scrolling remains for wide tables.
+- Migration `074_production_execution_job_level.sql` creates only the Job execution table/indexes. Planning Chain, Batch, Recipe, Schedule, Previous Main lock, Chemical Line proposal/capacity and canonical production-day ownership are unchanged.

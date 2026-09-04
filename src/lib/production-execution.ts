@@ -5,6 +5,7 @@ export type ProductionExecutionStatus="WAITING"|"ON-GOING"|"DONE";
 export type ProductionExecutionSource="BATCH"|"MASKING"|"UNMASKING";
 
 export type ProductionJobDetail={
+ planningJobOperationId:number;
  jobNum:string;
  partDescription:string;
  currentGoodWipQty:number|null;
@@ -12,6 +13,10 @@ export type ProductionJobDetail={
  lastLaborOp:string;
  nextOperation:string;
  priority:string;
+ status:ProductionExecutionStatus;
+ actualStart:string|null;
+ actualEnd:string|null;
+ remark:string;
 };
 
 export type ProductionWorkItem={
@@ -53,8 +58,14 @@ type ExecutionRow={
  remark:string|null;
 };
 
+type JobExecutionRow=ExecutionRow&{
+ planning_job_operation_id:number;
+ job_num:string;
+};
+
 type BatchJobDetailRow={
  batch_id:number;
+ planning_job_operation_id:number;
  job_num:string;
  part_description:string|null;
  current_good_wip_qty:number|null;
@@ -64,12 +75,15 @@ type BatchJobDetailRow={
  priority_type:string|null;
 };
 
+type RawJobDetail=Omit<ProductionJobDetail,"status"|"actualStart"|"actualEnd"|"remark">;
+
 const clean=(v:unknown)=>String(v??"").trim();
 const num=(v:unknown)=>Number.isFinite(Number(v))?Number(v):0;
 const iso=(v:unknown)=>{if(!v)return null;const d=v instanceof Date?v:new Date(String(v));return Number.isNaN(d.getTime())?null:d.toISOString();};
 const keyForBatch=(batchId:number)=>`BATCH:${batchId}`;
 const keyForSupport=(type:SupportType,batchId:number,main:string)=>`${type}:${batchId}:${clean(main).toUpperCase()}`;
-const makeJobDetail=(data:{jobNum:string;partDescription:string;currentGoodWipQty:number|null;totalSurface:number|null;lastLaborOp:string;nextOperation:string;priority:string;}):ProductionJobDetail=>({
+const makeRawJobDetail=(data:{planningJobOperationId:number;jobNum:string;partDescription:string;currentGoodWipQty:number|null;totalSurface:number|null;lastLaborOp:string;nextOperation:string;priority:string;}):RawJobDetail=>({
+ planningJobOperationId:Number(data.planningJobOperationId)||0,
  jobNum:clean(data.jobNum),
  partDescription:clean(data.partDescription),
  currentGoodWipQty:data.currentGoodWipQty==null?null:Number(data.currentGoodWipQty),
@@ -89,18 +103,42 @@ async function loadExecutionRows(c:PoolClient,batchIds:number[]){
   `,[batchIds]);
   return new Map<string,ExecutionRow>(q.rows.map((row:ExecutionRow)=>[`${row.source_type}|${row.source_key}`,row]));
  }catch(e:any){
-  // Allow the new page to render in WAITING mode before migration 068 is applied.
-  // Reporting writes will still require the migration, but existing Planning/Schedule stays unaffected.
   if(e?.code==="42P01")return new Map<string,ExecutionRow>();
   throw e;
  }
 }
 
+async function loadJobExecutionRows(c:PoolClient,batchIds:number[]){
+ const empty={map:new Map<string,JobExecutionRow>(),sources:new Set<string>()};
+ if(!batchIds.length)return empty;
+ try{
+  const q=await c.query(`
+   select source_type,source_key,planning_job_operation_id,job_num,
+          execution_status,actual_start,actual_end,remark
+   from public.production_execution_job
+   where batch_id=any($1::bigint[])
+  `,[batchIds]);
+  const rows=q.rows as JobExecutionRow[];
+  return {
+   map:new Map<string,JobExecutionRow>(rows.map(row=>[
+    `${row.source_type}|${row.source_key}|${Number(row.planning_job_operation_id)}`,row
+   ])),
+   sources:new Set<string>(rows.map(row=>`${row.source_type}|${row.source_key}`)),
+  };
+ }catch(e:any){
+  // V446 can render from the legacy parent execution row before migration 074 is applied.
+  // Per-Job reporting writes require migration 074 on Aiven.
+  if(e?.code==="42P01")return empty;
+  throw e;
+ }
+}
+
 async function loadBatchJobDetails(c:PoolClient,batchIds:number[]){
- if(!batchIds.length)return new Map<number,ProductionJobDetail[]>();
+ if(!batchIds.length)return new Map<number,RawJobDetail[]>();
  const q=await c.query(`
   select
    bj.batch_id,
+   bj.planning_job_operation_id,
    bj.job_num,
    oj.part_description,
    oj.current_good_wip_qty,
@@ -114,11 +152,12 @@ async function loadBatchJobDetails(c:PoolClient,batchIds:number[]){
   where bj.batch_id=any($1::bigint[])
   order by bj.batch_id,bj.created_at,bj.job_num
  `,[batchIds]);
- const map=new Map<number,ProductionJobDetail[]>();
+ const map=new Map<number,RawJobDetail[]>();
  for(const row of q.rows as BatchJobDetailRow[]){
   const batchId=Number(row.batch_id);
   const list=map.get(batchId)||[];
-  list.push(makeJobDetail({
+  list.push(makeRawJobDetail({
+   planningJobOperationId:Number(row.planning_job_operation_id),
    jobNum:clean(row.job_num),
    partDescription:clean(row.part_description),
    currentGoodWipQty:row.current_good_wip_qty==null?null:Number(row.current_good_wip_qty),
@@ -132,17 +171,46 @@ async function loadBatchJobDetails(c:PoolClient,batchIds:number[]){
  return map;
 }
 
-function applyExecution(
- base:Omit<ProductionWorkItem,"status"|"actualStart"|"actualEnd"|"remark">,
- map:Map<string,ExecutionRow>
-):ProductionWorkItem{
- const row=map.get(`${base.sourceType}|${base.sourceKey}`);
+function jobExecution(
+ detail:RawJobDetail,
+ sourceType:ProductionExecutionSource,
+ sourceKey:string,
+ parent:ExecutionRow|undefined,
+ map:Map<string,JobExecutionRow>,
+ sources:Set<string>
+):ProductionJobDetail{
+ const row=map.get(`${sourceType}|${sourceKey}|${detail.planningJobOperationId}`);
+ const legacyParent=sources.has(`${sourceType}|${sourceKey}`)?undefined:parent;
  return {
-  ...base,
-  status:row?.execution_status||"WAITING",
-  actualStart:iso(row?.actual_start),
-  actualEnd:iso(row?.actual_end),
-  remark:clean(row?.remark),
+  ...detail,
+  status:row?.execution_status||legacyParent?.execution_status||"WAITING",
+  actualStart:iso(row?.actual_start)||iso(legacyParent?.actual_start),
+  actualEnd:iso(row?.actual_end)||iso(legacyParent?.actual_end),
+  remark:clean(row?.remark)||clean(legacyParent?.remark),
+ };
+}
+
+function workExecutionSummary(
+ sourceType:ProductionExecutionSource,
+ sourceKey:string,
+ rows:ProductionJobDetail[],
+ parentMap:Map<string,ExecutionRow>
+){
+ const parent=parentMap.get(`${sourceType}|${sourceKey}`);
+ if(!rows.length)return {
+  status:parent?.execution_status||"WAITING" as ProductionExecutionStatus,
+  actualStart:iso(parent?.actual_start),actualEnd:iso(parent?.actual_end),remark:clean(parent?.remark)
+ };
+ const done=rows.filter(x=>x.status==="DONE").length;
+ const active=rows.filter(x=>x.status==="ON-GOING").length;
+ const status:ProductionExecutionStatus=done===rows.length?"DONE":active>0||done>0?"ON-GOING":"WAITING";
+ const starts=rows.map(x=>x.actualStart).filter((x):x is string=>Boolean(x)).map(x=>new Date(x).getTime()).filter(Number.isFinite);
+ const ends=rows.map(x=>x.actualEnd).filter((x):x is string=>Boolean(x)).map(x=>new Date(x).getTime()).filter(Number.isFinite);
+ return {
+  status,
+  actualStart:starts.length?new Date(Math.min(...starts)).toISOString():status==="WAITING"?null:iso(parent?.actual_start),
+  actualEnd:status==="DONE"&&ends.length?new Date(Math.max(...ends)).toISOString():status==="DONE"?iso(parent?.actual_end):null,
+  remark:clean(parent?.remark),
  };
 }
 
@@ -161,7 +229,8 @@ function aggregateSupportRows(type:SupportType,rows:SupportPlanJob[]){
   const surface=list.reduce((sum,x)=>sum+num(x.surface),0);
   const jobDetails=[...new Map(list.map(x=>[
    `${x.planningJobOperationId}|${x.jobNum}`,
-   makeJobDetail({
+   makeRawJobDetail({
+    planningJobOperationId:x.planningJobOperationId,
     jobNum:x.jobNum,
     partDescription:x.partDescription,
     currentGoodWipQty:x.currentGoodWipQty,
@@ -233,20 +302,24 @@ export async function loadProductionExecution(
   ...batchQ.rows.map((x:any)=>Number(x.batch_id)),
   ...supportAggregates.flatMap(([,groups])=>groups.map(g=>Number(g.first.batchId)))
  ].filter(Number.isFinite))];
- const [execution,batchJobDetails]=await Promise.all([
+ const [execution,jobExecutionState,batchJobDetails]=await Promise.all([
   loadExecutionRows(c,batchIds),
+  loadJobExecutionRows(c,batchIds),
   loadBatchJobDetails(c,batchIds),
  ]);
 
  const work:ProductionWorkItem[]=[];
  for(const row of batchQ.rows){
   const batchId=Number(row.batch_id);
+  const sourceType:ProductionExecutionSource="BATCH";
   const sourceKey=keyForBatch(batchId);
-  work.push(applyExecution({
-   sourceType:"BATCH",
-   sourceKey,
-   batchId,
+  const parent=execution.get(`${sourceType}|${sourceKey}`);
+  const details=(batchJobDetails.get(batchId)||[]).map(d=>jobExecution(d,sourceType,sourceKey,parent,jobExecutionState.map,jobExecutionState.sources));
+  const summary=workExecutionSummary(sourceType,sourceKey,details,execution);
+  work.push({
+   sourceType,sourceKey,batchId,
    scheduleId:Number(row.schedule_id)||null,
+   ...summary,
    plannedStart:iso(row.planned_start),
    plannedEnd:iso(row.planned_end),
    targetTime:iso(row.planned_start),
@@ -258,48 +331,34 @@ export async function loadProductionExecution(
    recipeKey:clean(row.recipe_key),
    recipeNo:clean(row.recipe_no),
    recipeName:clean(row.recipe_name),
-   jobs:num(row.total_jobs),
-   qty:num(row.total_qty),
-   surface:num(row.total_surface_dm2),
-   jobNumbers:(batchJobDetails.get(batchId)||[]).map(x=>x.jobNum).filter(Boolean),
-   jobDetails:batchJobDetails.get(batchId)||[],
-   supportOperations:[],
-   sequence:num(row.planning_order),
-   scheduleStatus:clean(row.schedule_status),
-  },execution));
+   jobs:num(row.total_jobs),qty:num(row.total_qty),surface:num(row.total_surface_dm2),
+   jobNumbers:details.map(x=>x.jobNum).filter(Boolean),jobDetails:details,supportOperations:[],
+   sequence:num(row.planning_order),scheduleStatus:clean(row.schedule_status),
+  });
  }
 
  for(const [type,groups] of supportAggregates){
   for(const group of groups){
    const first=group.first;
    const batchId=Number(first.batchId);
+   const sourceType:ProductionExecutionSource=type;
    const sourceKey=keyForSupport(type,batchId,first.standardOperation);
+   const parent=execution.get(`${sourceType}|${sourceKey}`);
+   const details=group.jobDetails.map(d=>jobExecution(d,sourceType,sourceKey,parent,jobExecutionState.map,jobExecutionState.sources));
+   const summary=workExecutionSummary(sourceType,sourceKey,details,execution);
    const anchor=iso(type==="MASKING"?first.plannedStart:first.plannedEnd);
-   work.push(applyExecution({
-    sourceType:type,
-    sourceKey,
-    batchId,
-    scheduleId:first.scheduleId,
-    plannedStart:anchor,
-    plannedEnd:null,
-    targetTime:anchor,
+   work.push({
+    sourceType,sourceKey,batchId,scheduleId:first.scheduleId,...summary,
+    plannedStart:anchor,plannedEnd:null,targetTime:anchor,
     area:type==="MASKING"?"Masking":"Unmasking",
     resource:clean(first.resourceCode),
     operation:group.supportOps.join(" / ")||(type==="MASKING"?"MASKING":"UNMASKING"),
     linkedMainOperation:clean(first.standardOperation),
-    batchNo:clean(first.batchNo),
-    recipeKey:clean(first.recipeKey),
-    recipeNo:clean(first.recipeNo),
-    recipeName:clean(first.recipeName),
-    jobs:group.jobs.length,
-    qty:group.qty,
-    surface:group.surface,
-    jobNumbers:group.jobs,
-    jobDetails:group.jobDetails,
-    supportOperations:group.supportOps,
-    sequence:(first.planningOrder??999999)+(type==="MASKING"?-0.2:0.2),
-    scheduleStatus:clean(first.scheduleStatus),
-   },execution));
+    batchNo:clean(first.batchNo),recipeKey:clean(first.recipeKey),recipeNo:clean(first.recipeNo),recipeName:clean(first.recipeName),
+    jobs:group.jobs.length,qty:group.qty,surface:group.surface,
+    jobNumbers:group.jobs,jobDetails:details,supportOperations:group.supportOps,
+    sequence:(first.planningOrder??999999)+(type==="MASKING"?-0.2:0.2),scheduleStatus:clean(first.scheduleStatus),
+   });
   }
  }
 

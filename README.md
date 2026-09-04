@@ -104,7 +104,7 @@ For every future UI text change, update EN and VI together and run `npm run i18n
 
 ## Production Execution
 
-Added `/production-execution` for Production department work reporting. Data comes from Scheduling + Masking/Unmasking; execution status is stored separately in migration `068_production_execution.sql`. Status flow: `WAITING → ON-GOING → DONE`. See `PRODUCTION_EXECUTION.md`.
+Added `/production-execution` for Production department work reporting. Data comes from Scheduling + Masking/Unmasking. V446 stores execution per Job in migration `074_production_execution_job_level.sql` while `production_execution` remains an aggregate compatibility summary. Job flow: `WAITING → ON-GOING → DONE`; each Job shows Shift and Actual Start/End. See `PRODUCTION_EXECUTION.md`.
 
 ## Process Requirement storage
 
@@ -271,3 +271,6 @@ Planning Board/Candidate DB reads are safe with the Aiven Free default `DB_POOL_
 
 ## V445 · Canonical Production Day
 Operational day ownership is unified as `06:00 D <= planned_start < 06:00 D+1` (Asia/Ho_Chi_Minh) across Scheduling, Masking/Unmasking, Production Execution and daily operational summaries. `planning_schedule.schedule_date` now represents this production date; migration 073 backfills old rows.
+
+## V446 · Production Execution Job-level reporting
+Production date stays `06:00 D <= planned_start < 06:00 D+1`. Previous/Next/Today reload immediately without F5. Every Area shows all Job detail rows with Shift (`06:00-14:00`, `14:00-22:00`, `22:00-05:59`) and Job-level WAITING/ON-GOING/DONE reporting. The parent work-item Status/Report control is removed, Target is positioned immediately before Actual Start/End, and area tables use page-level vertical scrolling instead of inner vertical scroll containers.
