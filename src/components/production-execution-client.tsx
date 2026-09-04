@@ -12,7 +12,7 @@ const statusClass=(status:ProductionExecutionStatus)=>status==="DONE"?"done":sta
 type GroupFilter="ALL"|ProductionReportGroup;
 type DisplayGroup={key:string;title:string;subtitle:string;rows:ProductionWorkItem[];tone:string;order:number};
 
-export function ProductionExecutionClient({initialItems}:{initialItems:ProductionWorkItem[]}){
+export function ProductionExecutionClient({initialItems,productionDate}:{initialItems:ProductionWorkItem[];productionDate:string}){
  const {locale,text}=useUiLanguage();
  const [items,setItems]=useState(initialItems);
  const [search,setSearch]=useState("");
@@ -30,6 +30,23 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
   if(!v)return "—";
   const d=new Date(v);if(Number.isNaN(d.getTime()))return "—";
   return new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ho_Chi_Minh",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);
+ };
+ const localDate=(v:string|null)=>{
+  if(!v)return "";
+  const d=new Date(v);if(Number.isNaN(d.getTime()))return "";
+  const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(d);
+  const y=parts.find(x=>x.type==="year")?.value||"";
+  const m=parts.find(x=>x.type==="month")?.value||"";
+  const day=parts.find(x=>x.type==="day")?.value||"";
+  return y&&m&&day?`${y}-${m}-${day}`:"";
+ };
+ const targetDisplay=(v:string|null)=>{
+  if(!v)return "—";
+  const local=localDate(v);
+  const time=tm(v);
+  if(!local||local===productionDate)return time;
+  const d=local.split("-");
+  return d.length===3?`${d[2]}/${d[1]} ${time}`:time;
  };
  const shiftFor=(v:string|null)=>{
   if(!v)return {label:"—",title:""};
@@ -174,7 +191,7 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
      <td>{detail.nextOperation||"—"}</td>
      <td>{detail.priority||"—"}</td>
      <td><span className="production-shift" title={shift.title}>{shift.label}</span></td>
-     <td className="mono"><b>{tm(item.targetTime)}</b>{item.plannedEnd?<small className="planning-sub">→ {tm(item.plannedEnd)}</small>:null}</td>
+     <td className="mono"><b>{targetDisplay(item.targetTime)}</b>{item.plannedEnd?<small className="planning-sub">→ {targetDisplay(item.plannedEnd)}</small>:null}</td>
      <td className="mono">{dt(detail.actualStart)}</td>
      <td className="mono">{dt(detail.actualEnd)}</td>
      <td className="production-report-cell"><select className={`input production-status-select ${statusClass(detail.status)}`} disabled={isBusy} value={detail.status} onChange={e=>setJobExecution(item,detail,e.target.value as ProductionExecutionStatus)} aria-label={text(`Production status for Job ${detail.jobNum}`,`Trạng thái sản xuất Job ${detail.jobNum}`)}>
@@ -203,7 +220,7 @@ export function ProductionExecutionClient({initialItems}:{initialItems:Productio
      <td><span title={recipe}>{recipe}</span></td>
      <td className="num"><b>{item.jobs}</b></td>
      <td className="num">{fmt(item.qty,0)}</td><td className="num">{fmt(item.surface)}</td>
-     <td><b className="mono">{tm(item.targetTime)}</b>{item.plannedEnd?<small className="planning-sub">→ {tm(item.plannedEnd)}</small>:null}</td>
+     <td><b className="mono">{targetDisplay(item.targetTime)}</b>{item.plannedEnd?<small className="planning-sub">→ {targetDisplay(item.plannedEnd)}</small>:null}</td>
      <td className="mono">{dt(item.actualStart)}</td><td className="mono">{dt(item.actualEnd)}</td>
      <td className="production-report-cell">{item.reportMode==="LINE"?<><select className={`input production-status-select ${statusClass(item.status)}`} disabled={busy===lineKey} value={item.status} onChange={e=>setLineExecution(item,e.target.value as ProductionExecutionStatus)} aria-label={text(`Production status for Batch ${item.batchNo}`,`Trạng thái sản xuất Batch ${item.batchNo}`)}>{statusOrder.map(s=><option key={s} value={s}>{statusLabel(s)}</option>)}</select>{busy===lineKey?<small>{text("Saving...","Đang lưu...")}</small>:null}</>:<small className="production-job-level-note">{text("Report by Job","Báo cáo theo Job")}</small>}</td>
     </tr>;

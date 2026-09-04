@@ -194,8 +194,9 @@ export async function loadMaskingUnmaskingPlan(
          and ps.status<>'CANCELLED'
         where
           (($2::text='scheduled' and ps.id is not null
-             and ps.planned_start >= (($3::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
-             and ps.planned_start <  (($3::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh'))
+             -- V449: same canonical production-date ownership as Production Execution.
+             -- Local 00:00-05:59 belongs to the previous production date.
+             and (((ps.planned_start at time zone 'Asia/Ho_Chi_Minh') - interval '6 hours')::date)=$3::date)
            or
            ($2::text='unscheduled' and ps.id is null))
       ),

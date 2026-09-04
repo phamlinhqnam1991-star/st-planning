@@ -357,3 +357,7 @@ Aiven remains the canonical operational PostgreSQL provider and Vercel keeps `DB
 - Masking/Unmasking report items are grouped by `linkedMainOperation` and ordered by Main Planning sequence. One panel can therefore contain both support sides for the same Main, e.g. `BSAUNSLD (Unmasking & Masking)`.
 - Painting is rendered as four explicit panels in report order: `CAB1`, `CAB2`, `CAB3`, `Powercoating`. Any Painting resource not CAB1/CAB2/CAB3 falls into Powercoating to preserve all scheduled rows.
 - Chemical Line/Painting remain LINE reporting; all other areas remain JOB reporting. Production Day 06:00→05:59, Planning Chain, Batch, Recipe, Schedule and Chemical Line proposal/capacity are unchanged.
+
+
+## V449 — Production date ownership hardened
+Báo cáo sản xuất và Masking/Unmasking scheduled view xác định ngày sở hữu duy nhất bằng `planned_start` giờ Việt Nam trừ 6 giờ. Start 00:00–05:59 thuộc ngày sản xuất trước. UI hiển thị thêm ngày lịch cho mốc sau nửa đêm để tránh hiểu nhầm.

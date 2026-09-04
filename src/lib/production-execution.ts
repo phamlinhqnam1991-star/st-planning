@@ -341,8 +341,9 @@ export async function loadProductionExecution(
    limit 1
   ) sa on true
   where s.status<>'CANCELLED'
-    and s.planned_start >= (($1::date + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
-    and s.planned_start <  (($1::date + interval '1 day' + interval '6 hours') at time zone 'Asia/Ho_Chi_Minh')
+    -- V449: production-date ownership is defined ONLY by local planned START shifted back 6 hours.
+    -- Example: 04/09 05:50 local => production date 03/09.
+    and (((s.planned_start at time zone 'Asia/Ho_Chi_Minh') - interval '6 hours')::date)=$1::date
   order by s.planned_start,coalesce(om.planning_sort_order,999999),b.batch_no
  `,[date]);
 

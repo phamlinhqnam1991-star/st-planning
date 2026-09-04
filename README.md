@@ -282,3 +282,7 @@ Production Execution is grouped into production sub-tabs: Chemical Line; Shot Pe
 
 ## V448 · Production report visual grouping
 Production report panels are visually separated more strongly. Masking & Unmasking are grouped by linked Main Planning operation in Main Planning order (e.g. `BSAUNSLD (Unmasking & Masking)`). Painting is split into four explicit panels: CAB1, CAB2, CAB3 and Powercoating, each with a distinct accent. Reporting granularity is unchanged: Chemical Line/Painting = line-level, remaining areas = Job-level. No database migration is required.
+
+
+## V449 — Production date ownership hardened
+Báo cáo sản xuất và Masking/Unmasking scheduled view xác định ngày sở hữu duy nhất bằng `planned_start` giờ Việt Nam trừ 6 giờ. Start 00:00–05:59 thuộc ngày sản xuất trước. UI hiển thị thêm ngày lịch cho mốc sau nửa đêm để tránh hiểu nhầm.

@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V448";
+export const ST_AI_KNOWLEDGE_VERSION="V449";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -135,3 +135,6 @@ export const V436_IMMEDIATE_SCHEDULE_STATUS_SYNC = `Scheduling Board must reflec
 
 // V437
 export const V437_MASKING_PRODUCTION_LOAD_PERFORMANCE = `Masking/Unmasking and Production Execution page load optimization only: candidate Batch/Job rows are filtered by selected scheduled/unscheduled view and schedule date before physical routing reconstruction; md_routing_detailed is then restricted to only candidate Part/Revision pairs. Previous Main -> Current Main support boundaries, PRIMER/TOPCOAT occurrence identity, Batch/Schedule ownership and execution states are unchanged. Production Execution also reuses loaded Batch Job details for jobNumbers instead of a duplicate per-Batch array aggregation. Migration 072 adds normalized active Part/Revision/source_seq and Batch Job read indexes only.`;
+
+
+export const V449_PRODUCTION_DATE_OWNERSHIP = `Production date ownership is based only on planned_start in Asia/Ho_Chi_Minh shifted back 6 hours. Local 00:00-05:59 belongs to the previous production date. Production Execution and scheduled Masking/Unmasking use this same canonical predicate.`;
