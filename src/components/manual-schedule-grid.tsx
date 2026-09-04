@@ -1568,7 +1568,7 @@ export function ManualScheduleGrid({
          >
          <td>
           {actual.length+i+1}
-          {chainVisual&&<span className={`row-chain-badge ${chainVisual.cls}`} title={`Liên kết 1-1: ${chainVisual.label}. Bấm để xóa liên kết thủ công.`} onClick={()=>{if(r.chainFrom!=null||r.chainFromExisting!=null)patch(a,i,{chainFrom:null,chainFromExisting:null});}}>↳ {chainVisual.label}{(r.chainFrom!=null||r.chainFromExisting!=null)?" ✕":""}</span>}
+          {chainVisual&&<span className={`row-chain-badge ${chainVisual.cls}`} title={`Liên kết 1-1: ${chainVisual.label}${(r.chainFrom!=null||r.chainFromExisting!=null)?" · Bấm X để xóa liên kết thủ công.":""}`} onClick={()=>{if(r.chainFrom!=null||r.chainFromExisting!=null)patch(a,i,{chainFrom:null,chainFromExisting:null});}}>×</span>}
 
          </td><td>{r.batchId?<b>{r.batchNo}</b>:<span className="muted">MỚI</span>}</td>
          <td>

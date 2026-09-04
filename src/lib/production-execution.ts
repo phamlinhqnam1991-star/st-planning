@@ -440,10 +440,15 @@ export async function loadProductionExecution(
    const details=group.jobDetails.map(d=>jobExecution(d,sourceType,sourceKey,parent,jobExecutionState.map,jobExecutionState.sources));
    const summary=workExecutionSummary(sourceType,sourceKey,details,execution);
    const anchor=iso(type==="MASKING"?first.plannedStart:first.plannedEnd);
+   const linkedMainPlannedStart=iso(first.plannedStart);
+   const linkedMainPlannedEnd=iso(first.plannedEnd);
    const linkedArea=mainAreaByOperation.get(clean(first.standardOperation).toUpperCase());
    work.push({
     sourceType,sourceKey,batchId,scheduleId:first.scheduleId,...summary,
-    plannedStart:anchor,plannedEnd:null,targetTime:anchor,
+    // V458: keep the support anchor for ordering, but expose the linked Main's
+    // full scheduled window so Production Report Target renders exactly like
+    // normal Production rows (Start -> End).
+    plannedStart:linkedMainPlannedStart,plannedEnd:linkedMainPlannedEnd,targetTime:anchor,
     // V455: physical area belongs to the linked Main Planning operation.
     // The support type is still preserved by sourceType and supportOperations.
     area:linkedArea?.areaName||"Unmapped",

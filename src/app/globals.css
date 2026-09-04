@@ -5416,15 +5416,21 @@ thead th.time-sub{
 .schedule-area-empty-row{cursor:grab}
 .schedule-area-empty-row:active{cursor:grabbing}
 .row-chain-badge{
-  display:inline-block;
-  margin-left:5px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:16px;
+  height:16px;
+  margin-left:4px;
   background:#fff3d6;
   color:#b45309;
   border-radius:4px;
-  font-size:9.5px;
+  font-size:11px;
+  line-height:1;
   font-weight:800;
-  padding:1px 4px;
+  padding:0;
   border:1px solid #fde68a;
+  vertical-align:middle;
 }
 .fb-cell{transition:background .15s}
 .fb-cell select{background:transparent}
