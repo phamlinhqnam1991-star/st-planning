@@ -106,7 +106,7 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
    return [
     x.batchNo,x.operation,x.linkedMainOperation,x.resource,x.area,x.recipeNo,x.recipeName,
     ...x.jobNumbers,...x.supportOperations,
-    ...x.jobDetails.flatMap(d=>[d.jobNum,d.partDescription,d.lastLaborOp,d.nextOperation,d.priority,statusLabel(d.status)])
+    x.remark,...x.jobDetails.flatMap(d=>[d.jobNum,d.partDescription,d.priority,d.remark,statusLabel(d.status)])
    ].join(" ").toLowerCase().includes(q);
   });
  },[scoped,search,status]);
@@ -161,6 +161,35 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
   finally{setBusy("");}
  }
 
+ async function saveLineRemark(item:ProductionWorkItem,remark:string){
+  const k=`NOTE|LINE|${item.sourceType}|${item.sourceKey}`;setBusy(k);
+  try{
+   const r=await fetch("/api/production-execution",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({
+    reportLevel:"LINE",sourceType:item.sourceType,sourceKey:item.sourceKey,batchId:item.batchId,scheduleId:item.scheduleId,status:item.status,remark
+   })});
+   const d=await safeJson(r);if(!r.ok)throw new Error(d?.error||text("Unable to save production note.","Không lưu được ghi chú sản xuất."));
+   const ex=d.execution;
+   setItems(prev=>prev.map(x=>x.sourceType===item.sourceType&&x.sourceKey===item.sourceKey?{...x,remark:ex?.remark||""}:x));
+  }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
+  finally{setBusy("");}
+ }
+
+ async function saveJobRemark(item:ProductionWorkItem,detail:ProductionJobDetail,remark:string){
+  const k=`NOTE|JOB|${item.sourceType}|${item.sourceKey}|${detail.planningJobOperationId}`;setBusy(k);
+  try{
+   const r=await fetch("/api/production-execution",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({
+    reportLevel:"JOB",sourceType:item.sourceType,sourceKey:item.sourceKey,batchId:item.batchId,scheduleId:item.scheduleId,
+    planningJobOperationId:detail.planningJobOperationId,jobNum:detail.jobNum,status:detail.status,expectedJobs:item.jobDetails.length,remark
+   })});
+   const d=await safeJson(r);if(!r.ok)throw new Error(d?.error||text("Unable to save Job note.","Không lưu được ghi chú Job."));
+   const jobEx=d.jobExecution;
+   setItems(prev=>prev.map(x=>x.sourceType===item.sourceType&&x.sourceKey===item.sourceKey?{
+    ...x,jobDetails:x.jobDetails.map(j=>j.planningJobOperationId===detail.planningJobOperationId?{...j,remark:jobEx?.remark||""}:j)
+   }:x));
+  }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
+  finally{setBusy("");}
+ }
+
  function DetailTable({item}:{item:ProductionWorkItem}){
   const rows=item.jobDetails;
   if(!rows.length)return null;
@@ -171,29 +200,28 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
     <th>{text("Part Description","Mô tả Part")}</th>
     <th>{text("Current Good WIP Qty","SL WIP tốt hiện tại")}</th>
     <th>{text("Total Surface","Tổng diện tích")}</th>
-    <th>{text("Last Labor Op","Công đoạn trước")}</th>
-    <th>{text("Next Operation","Công đoạn kế tiếp")}</th>
     <th>{text("Priority","Ưu tiên")}</th>
     <th>{text("Shift","Ca")}</th>
     <th>{text("Target","Mốc kế hoạch")}</th>
     <th>{text("Actual Start","Bắt đầu thực tế")}</th>
     <th>{text("Actual End","Kết thúc thực tế")}</th>
+    <th>{text("Note","Ghi chú")}</th>
     <th>{text("Report","Báo cáo")}</th>
    </tr></thead>
    <tbody>{rows.map((detail,index)=>{
     const k=`JOB|${item.sourceType}|${item.sourceKey}|${detail.planningJobOperationId}`;const isBusy=busy===k;
+    const noteKey=`NOTE|JOB|${item.sourceType}|${item.sourceKey}|${detail.planningJobOperationId}`;const noteBusy=busy===noteKey;
     return <tr key={`${detail.planningJobOperationId}-${detail.jobNum}-${index}`} className={`production-job-row production-job-row-${statusClass(detail.status)}`}>
      <td className="mono"><b>{detail.jobNum||"—"}</b></td>
      <td>{detail.partDescription||"—"}</td>
      <td className="num">{detail.currentGoodWipQty==null?"—":fmt(detail.currentGoodWipQty,0)}</td>
      <td className="num">{detail.totalSurface==null?"—":fmt(detail.totalSurface)}</td>
-     <td>{detail.lastLaborOp||"—"}</td>
-     <td>{detail.nextOperation||"—"}</td>
      <td>{detail.priority||"—"}</td>
      <td><span className="production-shift" title={shift.title}>{shift.label}</span></td>
      <td className="mono"><b>{targetDisplay(item.targetTime)}</b>{item.plannedEnd?<small className="planning-sub">→ {targetDisplay(item.plannedEnd)}</small>:null}</td>
      <td className="mono">{dt(detail.actualStart)}</td>
      <td className="mono">{dt(detail.actualEnd)}</td>
+     <td className="production-note-cell"><input className="input production-note-input" maxLength={500} value={detail.remark||""} disabled={noteBusy} placeholder={text("Production note...","Ghi chú sản xuất...")} onChange={e=>{const value=e.target.value;setItems(prev=>prev.map(x=>x.sourceType===item.sourceType&&x.sourceKey===item.sourceKey?{...x,jobDetails:x.jobDetails.map(j=>j.planningJobOperationId===detail.planningJobOperationId?{...j,remark:value}:j)}:x));}} onBlur={e=>saveJobRemark(item,detail,e.currentTarget.value)} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}} aria-label={text(`Note for Job ${detail.jobNum}`,`Ghi chú cho Job ${detail.jobNum}`)}/>{noteBusy?<small>{text("Saving...","Đang lưu...")}</small>:null}</td>
      <td className="production-report-cell"><select className={`input production-status-select ${statusClass(detail.status)}`} disabled={isBusy} value={detail.status} onChange={e=>setJobExecution(item,detail,e.target.value as ProductionExecutionStatus)} aria-label={text(`Production status for Job ${detail.jobNum}`,`Trạng thái sản xuất Job ${detail.jobNum}`)}>
       {statusOrder.map(s=><option key={s} value={s}>{statusLabel(s)}</option>)}
      </select>{isBusy?<small>{text("Saving...","Đang lưu...")}</small>:null}</td>
@@ -206,22 +234,23 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
   if(!rows.length)return <div className="production-empty"><b>{text("No production work matches the current filter.","Không có công việc sản xuất phù hợp bộ lọc hiện tại.")}</b></div>;
   return <div className="table-wrap production-table-wrap"><table className="erp-table production-table">
    <thead><tr>
-    <th>{text("Type","Loại việc")}</th><th>{text("Area","Khu vực")}</th><th>{text("Resource","Resource")}</th><th>{text("Operation","Công đoạn")}</th><th>Batch No.</th><th>Recipe</th><th>{text("Jobs","Số Job")}</th><th>Qty</th><th>dm²</th><th>{text("Target","Mốc kế hoạch")}</th><th>{text("Actual Start","Bắt đầu thực tế")}</th><th>{text("Actual End","Kết thúc thực tế")}</th><th>{text("Report","Báo cáo")}</th>
+    <th>{text("Type","Loại việc")}</th><th>{text("Area","Khu vực")}</th><th>{text("Resource","Resource")}</th><th>Batch No.</th><th>Recipe</th><th>{text("Jobs","Số Job")}</th><th>Qty</th><th>dm²</th><th>{text("Target","Mốc kế hoạch")}</th><th>{text("Actual Start","Bắt đầu thực tế")}</th><th>{text("Actual End","Kết thúc thực tế")}</th><th>{text("Note","Ghi chú")}</th><th>{text("Report","Báo cáo")}</th>
    </tr></thead>
-   <tbody>{rows.flatMap(item=>{
+   <tbody>{rows.flatMap((item,rowIndex)=>{
     const k=`${item.sourceType}|${item.sourceKey}`;
     const lineKey=`LINE|${item.sourceType}|${item.sourceKey}`;
+    const noteKey=`NOTE|LINE|${item.sourceType}|${item.sourceKey}`;
     const recipe=[item.recipeNo,item.recipeName].filter(Boolean).join(" · ")||item.recipeKey||"—";
-    const mainRow=<tr key={k} className={`production-row production-row-${statusClass(item.status)}`}>
+    const mainRow=<tr key={k} className={`production-row production-batch-row ${rowIndex>0?"production-batch-start":""} production-batch-${rowIndex%2?"odd":"even"} production-row-${statusClass(item.status)}`}>
      <td><span className={`production-source source-${item.sourceType.toLowerCase()}`}>{sourceLabel(item.sourceType)}</span>{item.sourceType!=="BATCH"?<small className="planning-sub">{item.linkedMainOperation}</small>:null}</td>
      <td>{item.area||"—"}</td><td className="mono">{item.resource||"—"}</td>
-     <td><b>{item.operation||"—"}</b>{item.supportOperations.length?<small className="planning-sub" title={item.supportOperations.join(" / ")}>{item.supportOperations.join(" / ")}</small>:null}</td>
-     <td><b className="mono">{item.batchNo||`#${item.batchId}`}</b></td>
+     <td><b className="mono production-batch-no">{item.batchNo||`#${item.batchId}`}</b></td>
      <td><span title={recipe}>{recipe}</span></td>
      <td className="num"><b>{item.jobs}</b></td>
      <td className="num">{fmt(item.qty,0)}</td><td className="num">{fmt(item.surface)}</td>
      <td><b className="mono">{targetDisplay(item.targetTime)}</b>{item.plannedEnd?<small className="planning-sub">→ {targetDisplay(item.plannedEnd)}</small>:null}</td>
      <td className="mono">{dt(item.actualStart)}</td><td className="mono">{dt(item.actualEnd)}</td>
+     <td className="production-note-cell">{item.reportMode==="LINE"?<><input className="input production-note-input" maxLength={500} value={item.remark||""} disabled={busy===noteKey} placeholder={text("Production note...","Ghi chú sản xuất...")} onChange={e=>{const value=e.target.value;setItems(prev=>prev.map(x=>x.sourceType===item.sourceType&&x.sourceKey===item.sourceKey?{...x,remark:value}:x));}} onBlur={e=>saveLineRemark(item,e.currentTarget.value)} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}} aria-label={text(`Note for Batch ${item.batchNo}`,`Ghi chú cho Batch ${item.batchNo}`)}/>{busy===noteKey?<small>{text("Saving...","Đang lưu...")}</small>:null}</>:<small className="production-job-level-note">{text("Notes are entered by Job","Ghi chú theo từng Job")}</small>}</td>
      <td className="production-report-cell">{item.reportMode==="LINE"?<><select className={`input production-status-select ${statusClass(item.status)}`} disabled={busy===lineKey} value={item.status} onChange={e=>setLineExecution(item,e.target.value as ProductionExecutionStatus)} aria-label={text(`Production status for Batch ${item.batchNo}`,`Trạng thái sản xuất Batch ${item.batchNo}`)}>{statusOrder.map(s=><option key={s} value={s}>{statusLabel(s)}</option>)}</select>{busy===lineKey?<small>{text("Saving...","Đang lưu...")}</small>:null}</>:<small className="production-job-level-note">{text("Report by Job","Báo cáo theo Job")}</small>}</td>
     </tr>;
     if(item.reportMode!=="JOB"||!item.jobDetails.length)return [mainRow];

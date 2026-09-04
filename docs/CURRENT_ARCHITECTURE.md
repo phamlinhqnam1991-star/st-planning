@@ -361,3 +361,10 @@ Aiven remains the canonical operational PostgreSQL provider and Vercel keeps `DB
 
 ## V449 — Production date ownership hardened
 Báo cáo sản xuất và Masking/Unmasking scheduled view xác định ngày sở hữu duy nhất bằng `planned_start` giờ Việt Nam trừ 6 giờ. Start 00:00–05:59 thuộc ngày sản xuất trước. UI hiển thị thêm ngày lịch cho mốc sau nửa đêm để tránh hiểu nhầm.
+
+## V450 — Production report compact Batch blocks + execution notes
+
+- Long Production Report tables remove the redundant `Operation` column from Batch rows and `Previous Operation / Next Operation` from Job detail so many scheduled lots are easier to scan.
+- Each Batch block gets a stronger visual separator and compact Job detail panel; area/cabin color grouping from V448 remains unchanged.
+- New `Note / Ghi chú` UI reuses existing execution remark storage, so no database migration is required: Chemical Line/Painting use `production_execution.remark`; Job-level report areas use `production_execution_job.remark`.
+- Note edits do not mutate Planning Chain, Batch membership, Recipe, Schedule status, Previous Main lock or Chemical Line scheduler logic.
