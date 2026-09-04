@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V450";
+export const ST_AI_KNOWLEDGE_VERSION="V453";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -77,7 +77,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"masking-unmasking",
   title:"Masking / Unmasking",
-  content:`Masking and Unmasking are derived support work from detailed physical routing around the related Main Planning Batch. Production Execution may show their Job-level details, but they do not replace the Main Planning Chain or create a separate Main Batch flow. V437 preserves the same resolver but first limits candidate Batch/Job rows by selected view/date, then rebuilds Routing Main only for the affected Part/Revision set; it must never scan/rebuild the whole Routing Detail master merely to render one day/view.`
+  content:`Masking and Unmasking are derived support work from detailed physical routing around the related Main Planning Batch. Explicit Main support configuration is strict at Main level: once a Main has any support configuration, an unselected support type is NONE and must not fall back to routing. V453 presents one Preparation row per Job/Batch/Main and lists support steps in execution order Unmasking → Masking while preserving each underlying support operation. Production Execution uses the same combined Job presentation; each Unmasking/Masking step keeps its own execution status, actual time and note. These support rows do not replace the Main Planning Chain or create a separate Main Batch flow.`
  },
  {
   key:"production-execution",

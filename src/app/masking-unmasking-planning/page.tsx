@@ -35,13 +35,50 @@ function Recipe({row}:{row:SupportPlanJob}){
  return <><b>{title}</b>{title!==row.recipeKey?<div className="muted mono">{row.recipeKey}</div>:null}</>;
 }
 
-function JobTable({rows,type}:{rows:SupportPlanJob[];type:"Masking"|"Unmasking"}){
- if(!rows.length)return <div className="support-empty">Không có Job {type} cho Main Planning này trong phạm vi đang xem.</div>;
- return <div className="table-wrap support-table-wrap"><table className="erp-table support-table">
+type CombinedSupportJob={
+ key:string;
+ row:SupportPlanJob;
+ masking:SupportPlanJob[];
+ unmasking:SupportPlanJob[];
+};
+
+function combineSupportJobs(group:MainSupportPlan):CombinedSupportJob[]{
+ const map=new Map<string,CombinedSupportJob>();
+ for(const [type,rows] of [["UNMASKING",group.unmasking],["MASKING",group.masking]] as const){
+  for(const row of rows){
+   const key=`${row.planningJobOperationId}|${row.batchId}|${row.jobNum}`;
+   const item=map.get(key)||{key,row,masking:[],unmasking:[]};
+   if(type==="UNMASKING")item.unmasking.push(row);else item.masking.push(row);
+   map.set(key,item);
+  }
+ }
+ return [...map.values()].sort((a,b)=>{
+  const at=a.row.plannedStart?new Date(a.row.plannedStart).getTime():Number.MAX_SAFE_INTEGER;
+  const bt=b.row.plannedStart?new Date(b.row.plannedStart).getTime():Number.MAX_SAFE_INTEGER;
+  return at-bt||a.row.jobNum.localeCompare(b.row.jobNum);
+ });
+}
+
+function SupportSteps({item}:{item:CombinedSupportJob}){
+ const steps=[
+  ...item.unmasking.flatMap(x=>x.supportOperations.map(op=>({type:"Unmasking",op}))),
+  ...item.masking.flatMap(x=>x.supportOperations.map(op=>({type:"Masking",op}))),
+ ];
+ if(!steps.length)return <span className="muted">—</span>;
+ return <div className="support-combined-steps">{steps.map((step,index)=><div key={`${step.type}-${step.op.seq}-${step.op.detailCode}-${index}`} className={`support-operation-detail support-step-${step.type.toLowerCase()}`}>
+  <b><span className="support-step-order">{index+1}</span> {step.type}</b>
+  <div><b>{step.op.detailCode}</b>{step.op.name&&step.op.name!==step.op.detailCode?<div className="muted">{step.op.name}</div>:null}</div>
+ </div>)}</div>;
+}
+
+function CombinedJobTable({group}:{group:MainSupportPlan}){
+ const rows=combineSupportJobs(group);
+ if(!rows.length)return <div className="support-empty">Không có Job Masking / Unmasking cho Main Planning này trong phạm vi đang xem.</div>;
+ return <div className="table-wrap support-table-wrap"><table className="erp-table support-table support-combined-table">
   <thead><tr>
-   <th>Job</th><th>Part / Rev</th><th>PartDescription</th><th>Qty</th><th>Surface</th><th>LastLaborOp</th><th>NextOperation</th><th>Priority</th><th>{type} Operation Detail</th><th>Recipe</th><th>Batch No.</th><th>Start Time</th><th>End / Resource</th><th>Process</th>
+   <th>Job</th><th>Part / Rev</th><th>PartDescription</th><th>Qty</th><th>Surface</th><th>LastLaborOp</th><th>NextOperation</th><th>Priority</th><th>Preparation Operations</th><th>Recipe</th><th>Batch No.</th><th>Start Time</th><th>End / Resource</th><th>Process</th>
   </tr></thead>
-  <tbody>{rows.map((row)=><tr key={`${row.supportType}-${row.planningJobOperationId}-${row.batchId}-${row.jobNum}`}>
+  <tbody>{rows.map(item=>{const row=item.row;return <tr key={item.key}>
    <td><Link className="erp-link" href={`/job-tracker?q=${encodeURIComponent(row.jobNum)}`}><b>{row.jobNum}</b></Link></td>
    <td><b>{row.partNum||"—"}</b><div className="muted">Rev {row.revisionNum||"—"}</div></td>
    <td>{row.partDescription||"—"}</td>
@@ -50,30 +87,30 @@ function JobTable({rows,type}:{rows:SupportPlanJob[];type:"Masking"|"Unmasking"}
    <td>{row.lastOperation||"—"}</td>
    <td><b>{row.nextOperation||"—"}</b></td>
    <td>{row.priority||"—"}</td>
-   <td>{row.supportOperations.map((op)=><div key={`${op.seq}-${op.detailCode}`} className="support-operation-detail"><b>{op.detailCode}</b>{op.name&&op.name!==op.detailCode?<div className="muted">{op.name}</div>:null}</div>)}</td>
+   <td><SupportSteps item={item}/></td>
    <td><Recipe row={row}/></td>
    <td><Link className="erp-link" href={`/planning/batches/${row.batchId}`}><b>{row.batchNo||`Batch #${row.batchId}`}</b></Link><div className="muted"><Status row={row}/></div></td>
    <td>{row.plannedStart?<b>{dt(row.plannedStart)}</b>:<><span className="muted">Chưa điều độ</span>{row.planningDate?<div className="muted">Batch date: {dOnly(String(row.planningDate).slice(0,10))}</div>:null}</>}</td>
    <td>{row.plannedEnd?<>{dt(row.plannedEnd)}<div className="muted">{row.resourceCode||"—"}</div></>:<span className="muted">—</span>}</td>
    <td className="mono">{duration(row.processMinutes)}</td>
-  </tr>)}</tbody>
+  </tr>})}</tbody>
  </table></div>;
 }
 
 function MainSection({group}:{group:MainSupportPlan}){
- const total=group.masking.length+group.unmasking.length;
+ const combined=combineSupportJobs(group);
+ const total=combined.length;
  return <details className={`support-main ${total?"has-jobs":""}`} open={total>0}>
   <summary>
    <span className="support-order">{group.planningOrder??"—"}</span>
    <span className="support-main-name">{group.displayName}</span>
+   <span className="support-count">Preparation {combined.length}</span>
    <span className="support-count masking">Masking {group.masking.length}</span>
    <span className="support-count unmasking">Unmasking {group.unmasking.length}</span>
   </summary>
   <div className="support-main-body">
-   <div className="support-type-head"><b>Masking</b><span>{group.masking.length} Job</span></div>
-   <JobTable rows={group.masking} type="Masking"/>
-   <div className="support-type-head unmask"><b>Unmasking</b><span>{group.unmasking.length} Job</span></div>
-   <JobTable rows={group.unmasking} type="Unmasking"/>
+   <div className="support-type-head"><b>Preparation Jobs</b><span>{combined.length} Job · thứ tự Unmasking → Masking</span></div>
+   <CombinedJobTable group={group}/>
   </div>
  </details>;
 }

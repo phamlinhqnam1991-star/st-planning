@@ -15,6 +15,7 @@ export type ProductionJobDetail={
  lastLaborOp:string;
  nextOperation:string;
  priority:string;
+ supportOperations:string[];
  status:ProductionExecutionStatus;
  actualStart:string|null;
  actualEnd:string|null;
@@ -116,7 +117,7 @@ function parentExecutionSummary(parent:ExecutionRow|undefined){
  };
 }
 
-const makeRawJobDetail=(data:{planningJobOperationId:number;jobNum:string;partDescription:string;currentGoodWipQty:number|null;totalSurface:number|null;lastLaborOp:string;nextOperation:string;priority:string;}):RawJobDetail=>({
+const makeRawJobDetail=(data:{planningJobOperationId:number;jobNum:string;partDescription:string;currentGoodWipQty:number|null;totalSurface:number|null;lastLaborOp:string;nextOperation:string;priority:string;supportOperations?:string[];}):RawJobDetail=>({
  planningJobOperationId:Number(data.planningJobOperationId)||0,
  jobNum:clean(data.jobNum),
  partDescription:clean(data.partDescription),
@@ -125,6 +126,7 @@ const makeRawJobDetail=(data:{planningJobOperationId:number;jobNum:string;partDe
  lastLaborOp:clean(data.lastLaborOp),
  nextOperation:clean(data.nextOperation),
  priority:clean(data.priority),
+ supportOperations:[...new Set((data.supportOperations||[]).map(clean).filter(Boolean))],
 });
 
 async function loadExecutionRows(c:PoolClient,batchIds:number[]){
@@ -291,6 +293,7 @@ function aggregateSupportRows(type:SupportType,rows:SupportPlanJob[]){
     lastLaborOp:x.lastOperation,
     nextOperation:x.nextOperation,
     priority:x.priority,
+    supportOperations:x.supportOperations.map(op=>op.detailCode||op.operationCode).filter(Boolean),
    })
   ])).values()];
   return {first,list,supportOps,jobs,qty,surface,jobDetails};

@@ -6175,3 +6175,22 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .schedule-previous-main-row.is-not-planned .schedule-previous-main-top>em{
  color:#965615;
 }
+
+/* v453 · Combined Masking / Unmasking job presentation */
+.support-combined-steps{display:grid;gap:5px;min-width:220px}
+.support-combined-steps .support-operation-detail{display:grid;grid-template-columns:minmax(88px,auto) 1fr;gap:7px;align-items:start;border-top:0!important;border:1px solid #e4e9ef!important;border-radius:5px;padding:6px 7px!important}
+.support-combined-steps .support-step-unmasking{background:#fff8ed!important;border-left:3px solid #d79a3f!important}
+.support-combined-steps .support-step-masking{background:#f2f8fe!important;border-left:3px solid #4a8dcb!important}
+.support-step-order{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:999px;background:#fff;border:1px solid #d7dee8;font-size:9px}
+
+/* v453 · Production report combined Unmasking → Masking per Job */
+.production-support-step-stack{display:grid;gap:5px;min-width:150px}
+.production-support-step{display:grid;grid-template-columns:minmax(86px,auto) 1fr;gap:6px;align-items:start;padding:5px 6px;border:1px solid #e2e7ed;border-radius:5px}
+.production-support-step-unmasking{background:#fff8ed;border-left:3px solid #d79a3f}
+.production-support-step-masking{background:#f2f8fe;border-left:3px solid #4a8dcb}
+.production-support-step-value{min-height:30px;display:flex;align-items:center;padding:4px 3px;border-bottom:1px solid #eef1f4}
+.production-support-step-value:last-child{border-bottom:0}
+.production-support-control-line{display:flex;gap:5px;align-items:center;min-height:34px}
+.production-support-control-line>span{min-width:16px;font-weight:800;color:#68778a}
+.production-support-control-line .production-note-input{min-width:150px}
+.production-support-combined-row>td{vertical-align:top}

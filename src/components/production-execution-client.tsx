@@ -230,6 +230,74 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
   </table></div>;
  }
 
+
+ type SupportJobStep={item:ProductionWorkItem;detail:ProductionJobDetail};
+ type CombinedSupportReportJob={
+  key:string;
+  baseItem:ProductionWorkItem;
+  baseDetail:ProductionJobDetail;
+  unmasking:SupportJobStep[];
+  masking:SupportJobStep[];
+ };
+
+ function combineSupportReportJobs(rows:ProductionWorkItem[]):CombinedSupportReportJob[]{
+  const map=new Map<string,CombinedSupportReportJob>();
+  for(const item of rows){
+   if(item.sourceType!=="MASKING"&&item.sourceType!=="UNMASKING")continue;
+   for(const detail of item.jobDetails){
+    const key=`${item.batchId}|${item.linkedMainOperation.toUpperCase()}|${detail.planningJobOperationId}|${detail.jobNum}`;
+    const entry=map.get(key)||{key,baseItem:item,baseDetail:detail,unmasking:[],masking:[]};
+    const step={item,detail};
+    if(item.sourceType==="UNMASKING")entry.unmasking.push(step);else entry.masking.push(step);
+    // Prefer the earlier Unmasking row as the display anchor when it exists.
+    if(item.sourceType==="UNMASKING"){entry.baseItem=item;entry.baseDetail=detail;}
+    map.set(key,entry);
+   }
+  }
+  return [...map.values()].sort((a,b)=>{
+   const at=a.baseItem.targetTime?new Date(a.baseItem.targetTime).getTime():Number.MAX_SAFE_INTEGER;
+   const bt=b.baseItem.targetTime?new Date(b.baseItem.targetTime).getTime():Number.MAX_SAFE_INTEGER;
+   return a.baseItem.sequence-b.baseItem.sequence||at-bt||a.baseDetail.jobNum.localeCompare(b.baseDetail.jobNum);
+  });
+ }
+
+ function SupportStepLabel({step,index}:{step:SupportJobStep;index:number}){
+  const label=step.item.sourceType==="UNMASKING"?"Unmasking":"Masking";
+  const operations=step.detail.supportOperations.length?step.detail.supportOperations:step.item.supportOperations;
+  return <div className={`production-support-step production-support-step-${step.item.sourceType.toLowerCase()}`}>
+   <b><span className="support-step-order">{index+1}</span> {label}</b>
+   <span className="mono">{operations.join(" / ")||step.item.operation||label}</span>
+  </div>;
+ }
+
+ function SupportWorkTable({rows}:{rows:ProductionWorkItem[]}){
+  const jobs=combineSupportReportJobs(rows);
+  if(!jobs.length)return <div className="production-empty"><b>{text("No production work matches the current filter.","Không có công việc sản xuất phù hợp bộ lọc hiện tại.")}</b></div>;
+  return <div className="table-wrap production-table-wrap"><table className="erp-table production-table production-support-combined-table">
+   <thead><tr>
+    <th>Job</th><th>{text("Part Description","Mô tả Part")}</th><th>{text("Current Good WIP Qty","SL WIP tốt hiện tại")}</th><th>{text("Total Surface","Tổng diện tích")}</th><th>{text("Priority","Ưu tiên")}</th><th>Batch No.</th><th>Main</th><th>{text("Preparation Operations","Công đoạn chuẩn bị")}</th><th>{text("Target","Mốc kế hoạch")}</th><th>{text("Actual","Thực tế")}</th><th>{text("Note","Ghi chú")}</th><th>{text("Report","Báo cáo")}</th>
+   </tr></thead>
+   <tbody>{jobs.map(job=>{
+    const steps=[...job.unmasking,...job.masking];
+    const base=job.baseItem,detail=job.baseDetail;
+    return <tr key={job.key} className="production-job-row production-support-combined-row">
+     <td className="mono"><b>{detail.jobNum||"—"}</b></td>
+     <td>{detail.partDescription||"—"}</td>
+     <td className="num">{detail.currentGoodWipQty==null?"—":fmt(detail.currentGoodWipQty,0)}</td>
+     <td className="num">{detail.totalSurface==null?"—":fmt(detail.totalSurface)}</td>
+     <td>{detail.priority||"—"}</td>
+     <td><b className="mono production-batch-no">{base.batchNo||`#${base.batchId}`}</b></td>
+     <td><b>{base.linkedMainOperation||"—"}</b></td>
+     <td><div className="production-support-step-stack">{steps.map((step,index)=><SupportStepLabel key={`${step.item.sourceType}-${step.item.sourceKey}-${index}`} step={step} index={index}/>)}</div></td>
+     <td><div className="production-support-step-stack">{steps.map((step,index)=><div key={`${step.item.sourceKey}-target-${index}`} className="production-support-step-value"><b>{index+1}. {targetDisplay(step.item.targetTime)}</b></div>)}</div></td>
+     <td><div className="production-support-step-stack">{steps.map((step,index)=><div key={`${step.item.sourceKey}-actual-${index}`} className="production-support-step-value"><b>{index+1}.</b> {dt(step.detail.actualStart)} → {dt(step.detail.actualEnd)}</div>)}</div></td>
+     <td className="production-note-cell"><div className="production-support-step-stack">{steps.map((step,index)=>{const noteKey=`NOTE|JOB|${step.item.sourceType}|${step.item.sourceKey}|${step.detail.planningJobOperationId}`;const noteBusy=busy===noteKey;return <div key={`${step.item.sourceKey}-note-${index}`} className="production-support-control-line"><span>{index+1}.</span><input className="input production-note-input" maxLength={500} value={step.detail.remark||""} disabled={noteBusy} placeholder={text("Production note...","Ghi chú sản xuất...")} onChange={e=>{const value=e.target.value;setItems(prev=>prev.map(x=>x.sourceType===step.item.sourceType&&x.sourceKey===step.item.sourceKey?{...x,jobDetails:x.jobDetails.map(j=>j.planningJobOperationId===step.detail.planningJobOperationId?{...j,remark:value}:j)}:x));}} onBlur={e=>saveJobRemark(step.item,step.detail,e.currentTarget.value)} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}/>{noteBusy?<small>{text("Saving...","Đang lưu...")}</small>:null}</div>})}</div></td>
+     <td className="production-report-cell"><div className="production-support-step-stack">{steps.map((step,index)=>{const k=`JOB|${step.item.sourceType}|${step.item.sourceKey}|${step.detail.planningJobOperationId}`;const isBusy=busy===k;return <div key={`${step.item.sourceKey}-report-${index}`} className="production-support-control-line"><span>{index+1}.</span><select className={`input production-status-select ${statusClass(step.detail.status)}`} disabled={isBusy} value={step.detail.status} onChange={e=>setJobExecution(step.item,step.detail,e.target.value as ProductionExecutionStatus)}><option value="WAITING">{statusLabel("WAITING")}</option><option value="ON-GOING">{statusLabel("ON-GOING")}</option><option value="DONE">{statusLabel("DONE")}</option></select>{isBusy?<small>{text("Saving...","Đang lưu...")}</small>:null}</div>})}</div></td>
+    </tr>;
+   })}</tbody>
+  </table></div>;
+ }
+
  function WorkTable({rows}:{rows:ProductionWorkItem[]}){
   if(!rows.length)return <div className="production-empty"><b>{text("No production work matches the current filter.","Không có công việc sản xuất phù hợp bộ lọc hiện tại.")}</b></div>;
   return <div className="table-wrap production-table-wrap"><table className="erp-table production-table">
@@ -295,10 +363,11 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
    const list=sortRows(entry.rows);
    const masking=list.filter(x=>x.sourceType==="MASKING").length;
    const unmasking=list.filter(x=>x.sourceType==="UNMASKING").length;
+   const preparationJobs=combineSupportReportJobs(list).length;
    result.push({
     key:`MASK_UNMASK|MAIN|${mainKey}`,
-    title:`${entry.label} (Unmasking & Masking)`,
-    subtitle:`${unmasking} Unmasking · ${masking} Masking`,
+    title:`${entry.label} (Preparation)`,
+    subtitle:`${preparationJobs} Job · ${unmasking} Unmasking · ${masking} Masking`,
     rows:list,tone:"mask-main",
     order:productionGroupOrder.MASK_UNMASK*100000+Math.min(...list.map(x=>x.sequence))
    });
@@ -358,7 +427,7 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
 
   <div className="production-area-stack">{grouped.map(group=><section className={`erp-table-panel production-area-panel area-tone-${group.tone}`} key={group.key}>
    <div className="erp-panel-head production-area-head"><div className="production-area-title"><b>{group.title||"—"}</b><small>{group.subtitle}</small></div></div>
-   <WorkTable rows={group.rows}/>
+   {group.key.startsWith("MASK_UNMASK|")?<SupportWorkTable rows={group.rows}/>:<WorkTable rows={group.rows}/>}
   </section>)}</div>
  </div>;
 }
