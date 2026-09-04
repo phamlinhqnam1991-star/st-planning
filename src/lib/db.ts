@@ -1,4 +1,4 @@
-import {Pool} from "pg";
+import {Pool,type QueryResult} from "pg";
 
 /*
  * V438 — provider-neutral PostgreSQL runtime.
@@ -112,9 +112,9 @@ export function getPool(){
     throw e;
    }
   },
-  query:async(text:string,values?:unknown[])=>{
+  query:async(text:string,values?:unknown[]):Promise<QueryResult<any>>=>{
    const p=await initPool();
-   try{return await withTimeout(p.query(text as any,values as any),CONNECT_TIMEOUT_MS,"query");}
+   try{return await withTimeout(p.query<any>(text,values as any),CONNECT_TIMEOUT_MS,"query");}
    catch(e){
     console.error("[db] query timeout — recycling pool",e instanceof Error?e.message:String(e));
     p.end().catch(()=>{});
