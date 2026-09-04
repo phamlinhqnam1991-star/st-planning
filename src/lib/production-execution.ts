@@ -351,6 +351,30 @@ export async function loadProductionExecution(
  `,[date]);
 
  const supportPlan=await loadMaskingUnmaskingPlan(c,{view:"scheduled",scheduleDate:date});
+ // V455: Masking/Unmasking report panels are owned by the PHYSICAL AREA of
+ // the linked Main Planning operation, not by the Main name itself. Support
+ // execution identity remains Batch + Main + support type; this lookup only
+ // changes report presentation/grouping.
+ const mainAreaQ=await c.query(`
+  select
+   upper(trim(om.standard_operation)) standard_operation_key,
+   coalesce(a.area_name,'Unmapped') area_name,
+   coalesce(a.sort_order,999999) area_sort
+  from public.md_operation_master om
+  left join public.md_area_operation_group ag
+    on ag.st_group=om.st_group and ag.is_active=true
+  left join public.md_area a
+    on a.id=ag.area_id and a.is_active=true
+  where om.is_active=true
+  order by coalesce(a.sort_order,999999),upper(trim(om.standard_operation))
+ `);
+ const mainAreaByOperation=new Map<string,{areaName:string;areaSort:number}>();
+ for(const row of mainAreaQ.rows as any[]){
+  const key=clean(row.standard_operation_key).toUpperCase();
+  if(key&&!mainAreaByOperation.has(key)){
+   mainAreaByOperation.set(key,{areaName:clean(row.area_name)||"Unmapped",areaSort:num(row.area_sort)||999999});
+  }
+ }
  const supportAggregates:[SupportType,ReturnType<typeof aggregateSupportRows>][]=[
   ["MASKING",aggregateSupportRows("MASKING",supportPlan.flatMap(g=>g.masking))],
   ["UNMASKING",aggregateSupportRows("UNMASKING",supportPlan.flatMap(g=>g.unmasking))],
@@ -416,10 +440,13 @@ export async function loadProductionExecution(
    const details=group.jobDetails.map(d=>jobExecution(d,sourceType,sourceKey,parent,jobExecutionState.map,jobExecutionState.sources));
    const summary=workExecutionSummary(sourceType,sourceKey,details,execution);
    const anchor=iso(type==="MASKING"?first.plannedStart:first.plannedEnd);
+   const linkedArea=mainAreaByOperation.get(clean(first.standardOperation).toUpperCase());
    work.push({
     sourceType,sourceKey,batchId,scheduleId:first.scheduleId,...summary,
     plannedStart:anchor,plannedEnd:null,targetTime:anchor,
-    area:type==="MASKING"?"Masking":"Unmasking",
+    // V455: physical area belongs to the linked Main Planning operation.
+    // The support type is still preserved by sourceType and supportOperations.
+    area:linkedArea?.areaName||"Unmapped",
     resource:clean(first.resourceCode),
     operation:group.supportOps.join(" / ")||(type==="MASKING"?"MASKING":"UNMASKING"),
     linkedMainOperation:clean(first.standardOperation),

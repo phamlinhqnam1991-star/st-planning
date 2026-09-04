@@ -351,24 +351,28 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
   addAreaGroups("CHEMICAL_LINE");
   addAreaGroups("SHOT_PEENING");
 
+  // V455: Masking/Unmasking is grouped by the linked Main's physical area.
+  // Individual combined Job rows still retain Main so PRIMER2/TOPCOAT1 etc.
+  // remain distinguishable inside one physical-area panel.
   const maskRows=filtered.filter(item=>item.reportGroup==="MASK_UNMASK");
-  const mainMap=new Map<string,{label:string;rows:ProductionWorkItem[]}>();
+  const areaMap=new Map<string,{label:string;rows:ProductionWorkItem[]}>();
   for(const item of maskRows){
-   const label=item.linkedMainOperation.trim()||text("Unmapped Main Planning","Chưa map Main Planning");
+   const label=item.area.trim()||text("Unmapped physical area","Chưa map khu vực vật lý");
    const key=label.toUpperCase();
-   const entry=mainMap.get(key)||{label,rows:[]};
-   entry.rows.push(item);mainMap.set(key,entry);
+   const entry=areaMap.get(key)||{label,rows:[]};
+   entry.rows.push(item);areaMap.set(key,entry);
   }
-  for(const [mainKey,entry] of mainMap){
+  for(const [areaKey,entry] of areaMap){
    const list=sortRows(entry.rows);
    const masking=list.filter(x=>x.sourceType==="MASKING").length;
    const unmasking=list.filter(x=>x.sourceType==="UNMASKING").length;
    const preparationJobs=combineSupportReportJobs(list).length;
+   const mains=[...new Set(list.map(x=>x.linkedMainOperation).filter(Boolean))];
    result.push({
-    key:`MASK_UNMASK|MAIN|${mainKey}`,
+    key:`MASK_UNMASK|AREA|${areaKey}`,
     title:`${entry.label} (Preparation)`,
-    subtitle:`${preparationJobs} Job · ${unmasking} Unmasking · ${masking} Masking`,
-    rows:list,tone:"mask-main",
+    subtitle:`${preparationJobs} Job · ${unmasking} Unmasking · ${masking} Masking${mains.length?` · ${mains.join(" / ")}`:""}`,
+    rows:list,tone:areaTone(entry.label),
     order:productionGroupOrder.MASK_UNMASK*100000+Math.min(...list.map(x=>x.sequence))
    });
   }

@@ -4192,8 +4192,8 @@
       "mode": "exact"
     },
     {
-      "en": "Masking and Unmasking are grouped by Batch/Main Operation so Production sees a practical worklist instead of one report row for every routing detail.",
-      "vi": "Masking và Unmasking được gom theo Batch/Main Operation để Production xem danh sách việc thực tế thay vì một dòng báo cáo cho từng routing detail.",
+      "en": "Masking and Unmasking preparation Jobs are grouped by the physical area of the linked Main Operation; each Job still shows its Main and ordered support steps.",
+      "vi": "Preparation Job Masking và Unmasking được gom theo khu vực vật lý của Main Operation liên kết; từng Job vẫn hiển thị Main và thứ tự support step.",
       "mode": "phrase"
     },
     {

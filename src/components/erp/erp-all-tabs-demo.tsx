@@ -26,7 +26,6 @@ type MainTab =
   | "job"
   | "jobs"
   | "planning"
-  | "masking"
   | "schedule"
   | "import"
   | "guide";
@@ -38,7 +37,6 @@ const MAIN_TABS: { key: MainTab; label: string; short: string }[] = [
   { key: "job", label: "Job Tracker", short: "JT" },
   { key: "jobs", label: "All Open Jobs", short: "OJ" },
   { key: "planning", label: "Planning Board", short: "PL" },
-  { key: "masking", label: "Masking / Unmasking", short: "MU" },
   { key: "schedule", label: "Board Điều Độ", short: "SC" },
   { key: "import", label: "Import Master", short: "IM" },
   { key: "guide", label: "Logic & Hướng dẫn", short: "LG" },
@@ -579,26 +577,6 @@ function BatchListDemo() {
   ]}/></>;
 }
 
-function MaskingDemo() {
-  const [view,setView]=useState<"masking"|"unmasking">("masking");
-  const rows = OPEN_JOBS.slice(0,4);
-  return <>
-    <ErpPageHeader eyebrow="Planning" title="Masking / Unmasking" description="Kế hoạch riêng cho công đoạn Masking và Unmasking theo Job / Batch." actions={<button className="erpkit-btn erpkit-btn-primary">Create {view === "masking" ? "Masking" : "Unmasking"} Batch</button>} />
-    <LocalTabs active={view} onChange={x=>setView(x as "masking"|"unmasking")} items={[["masking","Masking Queue",38],["unmasking","Unmasking Queue",22]] as const}/>
-    <div className="erpkit-kpi-grid"><ErpKpiCard label="Ready Jobs" value={view==="masking"?"38":"22"} tone="success"/><ErpKpiCard label="Selected" value="4" tone="info"/><ErpKpiCard label="Qty" value="144"/><ErpKpiCard label="Surface" value="7,210" helper="dm²"/></div>
-    <ErpToolbar search={<MockSearch placeholder={`Tìm ${view} Job...`}/>} filters={<><span className="erpkit-filter-chip">Previous Batch: <b>All</b></span><span className="erpkit-filter-chip">Program: <b>All</b></span></>} right={<button className="erpkit-btn">Columns</button>}/>
-    <ErpDataGrid rows={rows} getRowKey={r=>r.id} columns={[
-      {key:"pick",header:"",width:38,render:()=> <input type="checkbox" defaultChecked/>},
-      {key:"job",header:"Job",minWidth:130,render:r=><span className="erpkit-grid-code erpkit-grid-link">{r.job}</span>},
-      {key:"part",header:"Part / Rev",minWidth:160,render:r=><>{r.part} / <b>{r.rev}</b></>},
-      {key:"qty",header:"Qty",width:70,align:"right",render:r=>r.qty},
-      {key:"surface",header:"Surface dm²",width:105,align:"right",render:r=>r.surface.toLocaleString()},
-      {key:"prev",header:"Previous Batch",minWidth:145,render:r=><span className="erpkit-grid-code">{r.previousBatch}</span>},
-      {key:"status",header:"Status",width:105,render:()=> <ErpStatus status="READY"/>},
-    ]}/>
-  </>;
-}
-
 type ScheduleBlock = { start: number; width: number; label: string; sub: string; tone: string };
 const LANES: { lane: string; blocks: ScheduleBlock[] }[] = [
   { lane:"Manual DBL", blocks:[{start:4,width:16,label:"MDB_02SEP_001",sub:"06:30–09:00",tone:"blue"},{start:31,width:20,label:"MDB_02SEP_002",sub:"11:00–14:00",tone:"green"}] },
@@ -676,7 +654,6 @@ export function ErpAllTabsDemo() {
     job: <JobTrackerDemo />,
     jobs: <OpenJobsDemo />,
     planning: <PlanningDemo />,
-    masking: <MaskingDemo />,
     schedule: <ScheduleDemo />,
     import: <ImportDemo />,
     guide: <GuideDemo />,

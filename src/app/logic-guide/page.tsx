@@ -225,7 +225,7 @@ export default async function Page(){
     <a href="#jobtracker">Job Tracker</a>
     <a href="#openjobs">All Open Jobs</a>
     <a href="#planning">Planning Board</a>
-    <a href="#masking">Masking / Unmasking</a>
+    <a href="#masking">Masking / Unmasking trong Báo cáo sản xuất</a>
     <a href="#schedule">Board Điều Độ</a>
     <a href="#import">Import Master</a>
     <a href="#production">Production Execution</a>
@@ -242,8 +242,8 @@ export default async function Page(){
      {t:"B · Cấu hình",d:"Operation → Recipe → Time → Area",c:"teal"},
      {t:"C · Import All Open Job",d:"Snapshot NEW/CHANGED/CLOSED",c:"blue"},
      {t:"D · Planning Board",d:"READY → chọn Job → Batch",c:"blue"},
-     {t:"E · Masking / Unmasking",d:"Main Batch → support operation → Start",c:"teal"},
-     {t:"F · Board Điều Độ",d:"Unscheduled Batch → Resource/Time",c:"green"},
+     {t:"E · Board Điều Độ",d:"Unscheduled Batch → Resource/Time",c:"green"},
+     {t:"F · Báo cáo sản xuất",d:"Production + Unmasking → Masking theo Job",c:"teal"},
      {t:"G · Handoff",d:"Batch mở Main kế tiếp",c:"orange"},
      {t:"H · Dashboard",d:"KPI → Risk → AI Analysis",c:"green"},
     ]}/>
@@ -654,19 +654,18 @@ export default async function Page(){
     <p>Không cần rebuild chỉ vì tạo Batch hoặc đổi Operation Code Order. Nên rebuild sau thay đổi cấu trúc như ST Scope/Main Mapping/Bridge/Planning chain rule hoặc khi dữ liệu chain cũ được tạo trước logic mới. Rebuild là thao tác nặng và có thể tải lại Candidates.</p>
    </Section>
 
-   <Section id="masking" title="8 · Tab Masking / Unmasking — kế hoạch support theo ngày điều độ"
-    sub="Ngày điều độ → Main Planning Order → Main Operation → Masking / Unmasking → Job + Batch + Time">
+   <Section id="masking" title="8 · Masking / Unmasking — logic support dùng trong Báo cáo sản xuất"
+    sub="Không còn tab planning riêng · Resolver support vẫn chạy theo Main Operation và cấp dữ liệu cho Báo cáo sản xuất">
     <StepList items={[
-     <>Tab hiển thị <b>tất cả Main Planning Operation</b> theo đúng <code>md_operation_master.planning_sort_order</code>. Main <code>PRIMER</code> được hiển thị là <b>PRIMER1</b>; PRIMER2/PRIMER3/TOPCOAT1/TOPCOAT2 giữ tách riêng.</>,
-     <>Việc phân biệt <b>PRIMER1 / PRIMER2 / PRIMER3</b> và <b>TOPCOAT1 / TOPCOAT2</b> không hard-code theo một raw Operation Code. Tab dùng chính occurrence đã được Planning Chain chuẩn hóa từ <b>ST Group + thứ tự xuất hiện trong routing</b>. Vì vậy PPRSLVT rồi FULTKAPP vẫn có thể lần lượt là PRIMER1 rồi PRIMER2.</>,
+     <>Từ <b>V454</b>, tab Masking / Unmasking Planning riêng đã được remove khỏi UI/menu. Resolver support vẫn giữ nguyên để cấp đúng Masking/Unmasking cho <b>Báo cáo sản xuất</b>.</>,
+     <>Việc phân biệt <b>PRIMER1 / PRIMER2 / PRIMER3</b> và <b>TOPCOAT1 / TOPCOAT2</b> không hard-code theo một raw Operation Code. Resolver dùng chính occurrence đã được Planning Chain chuẩn hóa từ <b>ST Group + thứ tự xuất hiện trong routing</b>. Vì vậy PPRSLVT rồi FULTKAPP vẫn có thể lần lượt là PRIMER1 rồi PRIMER2.</>,
      <>Một support operation chỉ được xét khi nằm vật lý <b>sau Previous Main và trước Current Main</b> của đúng occurrence Job. Không so <code>planning_job_operation.source_seq</code> với Routing Detail vì AllOperation có thể bỏ intermediate như MSKG. Hệ thống dựng lại Main occurrence trực tiếp trên <code>md_routing_detailed</code> bằng cùng ST Operation Mapping + PRIMER/TOPCOAT occurrence, tạo cùng <code>operation_instance_key</code>, rồi lấy MSKG nằm giữa hai Main occurrence vật lý.</>,
      <>Chỉ raw routing operation có chữ <b>MSKG</b> mới được coi là Masking/Unmasking. <b>UNMSKG*</b> = Unmasking; các code MSKG còn lại = Masking. Main Planning có chữ MSKG như FMSKG-CM được loại bằng Operation Type, không bị nhận nhầm thành support.</>,
      <>Cột planner nhìn thấy sử dụng <b>md_routing_detailed.operation_detail_code</b> để phân biệt chi tiết như <code>MSKG-TC_BEFORE_PPRSLVT</code>, <code>UNMSKG_BEFORE_MRKG-IJ</code>... Raw operation_code vẫn được giữ để trace.</>,
-     <>View mặc định là <b>Theo ngày sản xuất</b>. Một ngày chuẩn là <b>06:00 ngày D → trước 06:00 ngày D+1</b>; mọi Batch có <code>planned_start</code> nằm trong cửa sổ này thuộc ngày D, kể cả Start 00:00–05:59 của ngày lịch kế tiếp. Masking/Unmasking dùng đúng cùng boundary với Board Điều Độ và Báo cáo sản xuất.</>,
-     <>View <b>Chưa điều độ</b> hiển thị Job đã nằm trong Batch Main nhưng Batch chưa có planning_schedule. Có Batch No. nhưng Start/End để “Chưa điều độ”.</>,
+     <>Một ngày chuẩn là <b>06:00 ngày D → trước 06:00 ngày D+1</b>; mọi Batch có <code>planned_start</code> nằm trong cửa sổ này thuộc ngày D, kể cả Start 00:00–05:59 của ngày lịch kế tiếp. Masking/Unmasking trong Báo cáo sản xuất dùng đúng cùng boundary với Board Điều Độ.</>,
      <>Batch No., Recipe, Process Time, Start, End và Resource đều lấy từ <b>chính Batch/Schedule của Main phía sau</b>. Tab không lưu một bản thời gian support riêng.</>,
-     <>Khi planner đổi ngày/giờ/resource trên Board Điều Độ, Job support tự chuyển ngày và cập nhật Start/End theo dữ liệu schedule mới ở lần mở/refresh tiếp theo.</>,
-     <>Tab này <b>không thay đổi READY/WAIT, Recipe Resolver, Batch Compatibility hay Scheduling Engine</b>. Đây là derived planning view dùng chung dữ liệu chuẩn hiện có.</>
+     <>Khi planner đổi ngày/giờ/resource trên Board Điều Độ, Job support trong Báo cáo sản xuất tự chuyển ngày và cập nhật Start/End theo dữ liệu schedule mới ở lần mở/refresh tiếp theo.</>,
+     <>Resolver support <b>không thay đổi READY/WAIT, Recipe Resolver, Batch Compatibility hay Scheduling Engine</b>. Đây là derived data dùng cho Báo cáo sản xuất, không còn workspace planning riêng.</>
     ]}/>
     <div className="table-wrap"><table className="erp-table"><thead><tr><th>Thông tin</th><th>Nguồn chuẩn</th><th>Logic</th></tr></thead><tbody>
      <tr><td>Main Planning / Planning Order</td><td><code>planning_job_operation</code> + <code>md_operation_master</code></td><td>Occurrence Main đã chuẩn hóa; PRIMER/TOPCOAT occurrence dùng cùng logic Planning Board.</td></tr>
@@ -679,7 +678,7 @@ export default async function Page(){
     </tbody></table></div>
     <Rule title="Ví dụ 1 · Main thường" tone="important"><code>BSAUNSLD → INSAND-B → MSKG-TC → PPRSLVT</code>. Nếu PPRSLVT là Current Main và Batch được điều độ 05/09 lúc 10:30, Job nằm tại <b>05/09 → PRIMER1 → Masking</b>, support detail của MSKG-TC, cùng Batch No. và Start 10:30.</Rule>
     <Rule title="Ví dụ 2 · Primer khác raw code" tone="important"><code>PPRSLVT → UNMSKG... → MSKG-TC → FULTKAPP</code>. Vì cả PPRSLVT và FULTKAPP thuộc ST Group PRIMER, occurrence đầu là <b>PRIMER1</b>, occurrence sau là <b>PRIMER2</b>. UNMSKG/MSKG nằm giữa hai occurrence được gắn vào <b>PRIMER2</b> và đi theo ngày điều độ của Batch PRIMER2.</Rule>
-         <Rule title="Masking / Unmasking theo Main Operation · V451" tone="important">Cấu hình mới cho phép chọn rõ <b>Masking trước Main</b> và <b>Unmasking trước Main</b> theo từng Main Operation. PRIMER occurrence 1/2/3 được chuẩn hóa thành PRIMER1/PRIMER2/PRIMER3; TOPCOAT occurrence 1/2+ thành TOPCOAT1/TOPCOAT2. Khi Main đã có bất kỳ cấu hình support nào, resolver chạy strict cho cả Masking và Unmasking: loại không chọn sẽ không hiện; chỉ Main hoàn toàn chưa cấu hình mới fallback routing. V453 gộp cùng Job thành một dòng Preparation và hiển thị các bước theo thứ tự Unmasking → Masking. Tab Báo cáo sản xuất dùng cùng cách gộp hiển thị nhưng vẫn lưu trạng thái thực hiện riêng cho từng support step. Không đổi READY / Batch / Recipe / Schedule / Auto Planning.</Rule>
+         <Rule title="Masking / Unmasking theo Main Operation · V451" tone="important">Cấu hình mới cho phép chọn rõ <b>Masking trước Main</b> và <b>Unmasking trước Main</b> theo từng Main Operation. PRIMER occurrence 1/2/3 được chuẩn hóa thành PRIMER1/PRIMER2/PRIMER3; TOPCOAT occurrence 1/2+ thành TOPCOAT1/TOPCOAT2. Khi Main đã có bất kỳ cấu hình support nào, resolver chạy strict cho cả Masking và Unmasking: loại không chọn sẽ không hiện; chỉ Main hoàn toàn chưa cấu hình mới fallback routing. V453 gộp cùng Job và hiển thị các bước theo thứ tự Unmasking → Masking. <b>V454 remove tab Masking / Unmasking Planning riêng</b>; Báo cáo sản xuất tiếp tục dùng resolver này và vẫn lưu trạng thái thực hiện riêng cho từng support step. Không đổi READY / Batch / Recipe / Schedule / Auto Planning.</Rule>
 <Rule title="Hiệu năng tải trang · V437">Resolver không quét/rebuild toàn bộ <code>md_routing_detailed</code> khi mở tab. Hệ thống lọc trước Batch/Job thuộc đúng view/ngày đang xem, lấy danh sách Part/Revision liên quan, rồi mới dựng Routing Main + Masking/Unmasking cho tập nhỏ đó. Đây là tối ưu query/index, không đổi boundary Previous Main → Current Main hay logic support.</Rule>
    </Section>
 
@@ -773,7 +772,7 @@ export default async function Page(){
      <Rule title="Mixed reporting granularity · V447" tone="important">Chemical Line và Painting báo cáo trực tiếp theo từng dòng kế hoạch/Batch trên bảng chính, không mở danh sách Job để nhập trạng thái. Các khu vực còn lại vẫn báo cáo từng Job độc lập WAITING → ON-GOING → DONE trong <code>production_execution_job</code>; dòng Batch/Main chỉ là summary tương thích.</Rule>
      <Rule title="Planned data remains live">Batch No., Recipe, Qty, Surface, Resource and Planned Time are read from the existing Planning/Scheduling sources. Mốc kế hoạch được hiển thị ngay trước Actual Start/End; mỗi Job có thêm Shift: Ca 1 06:00–14:00, Ca 2 14:00–22:00, Ca 3 22:00–05:59 ngày hôm sau.</Rule>
      <Rule title="Production sub-tabs + area color · V447">Báo cáo sản xuất có sub-tab: Chemical Line; Shot Peening (Auto + Manual); Masking &amp; Unmasking; Painting; Sirius Cleaning; Blasting (Manual + Auto); Plating (Plating + He-Bake); Passivation / Brightening. Tiêu đề từng bảng khu vực dùng màu nhận dạng riêng. Tất cả bảng tiếp tục không có inner vertical scroll; cuộn dọc dùng trang chính.</Rule>
-     <Rule title="Report panel grouping · V448" tone="important">UI bảng báo cáo được tăng khoảng cách, viền/màu tiêu đề và nền header để phân biệt rõ từng nhóm. Trong sub-tab <b>Masking &amp; Unmasking</b>, Masking và Unmasking không tách theo area nữa mà được gom theo <b>Main Planning</b> và sắp theo Main Planning sequence, ví dụ <code>BSAUNSLD (Unmasking &amp; Masking)</code>. Trong sub-tab <b>Painting</b>, dữ liệu được chia thành đúng 4 panel: <b>CAB1</b>, <b>CAB2</b>, <b>CAB3</b>, <b>Powercoating</b>; mỗi panel có màu riêng. Chemical Line/Painting vẫn báo cáo theo dòng, các khu vực còn lại vẫn báo cáo theo Job; không đổi dữ liệu hay trạng thái Planning/Schedule.</Rule>
+     <Rule title="Report panel grouping · V448 / V455" tone="important">UI bảng báo cáo được tăng khoảng cách, viền/màu tiêu đề và nền header để phân biệt rõ từng nhóm. Từ <b>V455</b>, trong sub-tab <b>Masking &amp; Unmasking</b>, các Preparation Job được gom theo <b>Khu vực vật lý của Main Planning liên kết</b>, không còn tạo panel riêng theo từng Main. Ví dụ PRIMER1/PRIMER2/TOPCOAT1/TOPCOAT2 cùng thuộc Painting sẽ nằm chung panel <code>Painting (Preparation)</code>; cột Main trong từng Job vẫn giữ rõ công đoạn đích. Mỗi Job vẫn gộp các bước theo thứ tự Unmasking → Masking và từng support step giữ trạng thái execution riêng. Trong sub-tab <b>Painting</b>, dữ liệu Main được chia thành đúng 4 panel: <b>CAB1</b>, <b>CAB2</b>, <b>CAB3</b>, <b>Powercoating</b>. Không đổi dữ liệu hay trạng thái Planning/Schedule.</Rule>
      <Rule title="Compact Batch blocks + Production Note · V450" tone="important">Báo cáo dài được tối giản để dễ quét theo Batch: bỏ cột <b>Công đoạn</b> ở dòng Batch và bỏ <b>Công đoạn trước / Công đoạn kế tiếp</b> ở Job detail, đồng thời tăng separator giữa các Batch. Thêm cột <b>Ghi chú</b>: Chemical Line/Painting lưu ghi chú theo dòng vào <code>production_execution.remark</code>; các khu vực báo cáo theo Job lưu ghi chú riêng từng Job vào <code>production_execution_job.remark</code>. Ghi chú là dữ liệu thực thi, không thay đổi Planning Chain, Batch, Recipe hay Schedule.</Rule>
      <Rule title="Hiệu năng tải trang · V437">Production Execution dùng cùng resolver Masking/Unmasking đã thu hẹp theo ngày/Batch/Part-Rev và không còn chạy thêm một vòng <code>array_agg</code> Job Number theo từng Batch; Job Number được tái sử dụng từ Batch Job detail đã tải. Business status WAITING/ON-GOING/DONE không đổi.</Rule>
     </div>
