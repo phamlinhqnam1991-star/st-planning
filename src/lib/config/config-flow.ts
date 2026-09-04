@@ -83,6 +83,7 @@ export const CONFIG_FLOW: {
       { key: "operationcodeorder", label: "ST Scope & Operation Code", href: "/operation-code-order", no: 2, statusKey: "scope_total" },
       { key: "operationmapping", label: "Source → Main Mapping", href: "/master/operationmapping", no: 3, statusKey: "mapping_missing" },
       { key: "operation", label: "Main Operation", href: "/master/operation", no: 4, statusKey: "master_total" },
+      { key: "mainsupport", label: "Masking / Unmasking by Main", href: "/main-support-operations", no: 5 },
     ],
   },
   {
@@ -90,10 +91,10 @@ export const CONFIG_FLOW: {
     tag: "ownership",
     hint: "Gắn Main Operation vào nhóm, khu vực vật lý, lane điều độ và Planner phụ trách.",
     items: [
-      { key: "stgroup", label: "ST Group", href: "/st-groups", no: 5, statusKey: "group_total" },
-      { key: "area", label: "Physical Area", href: "/area", no: 6, statusKey: "area_total" },
-      { key: "schedulearea", label: "Schedule Area", href: "/schedule-areas", no: 7, statusKey: "schedule_total" },
-      { key: "plannerassignment", label: "Planner Assignment", href: "/planner-work-assignment", no: 8, statusKey: "planner_assigned" },
+      { key: "stgroup", label: "ST Group", href: "/st-groups", no: 6, statusKey: "group_total" },
+      { key: "area", label: "Physical Area", href: "/area", no: 7, statusKey: "area_total" },
+      { key: "schedulearea", label: "Schedule Area", href: "/schedule-areas", no: 8, statusKey: "schedule_total" },
+      { key: "plannerassignment", label: "Planner Assignment", href: "/planner-work-assignment", no: 9, statusKey: "planner_assigned" },
     ],
   },
   {
@@ -101,9 +102,9 @@ export const CONFIG_FLOW: {
     tag: "batch rules",
     hint: "Cấu hình Recipe proposal, Batch Key, điều kiện tương thích và nguồn giá trị từ All Open Job.",
     items: [
-      { key: "recipeoperationmap", label: "Recipe & Batch Rules", href: "/recipe-operation-map", no: 9, statusKey: "recipe_op_total" },
-      { key: "processrequirementfilter", label: "Process Requirement Import Filter", href: "/process-requirement-filter", no: 10 },
-      { key: "openjobcolumnvalues", label: "Open Job Column Values", href: "/open-job-column-values", no: 11, statusKey: "colval_total" },
+      { key: "recipeoperationmap", label: "Recipe & Batch Rules", href: "/recipe-operation-map", no: 10, statusKey: "recipe_op_total" },
+      { key: "processrequirementfilter", label: "Process Requirement Import Filter", href: "/process-requirement-filter", no: 11 },
+      { key: "openjobcolumnvalues", label: "Open Job Column Values", href: "/open-job-column-values", no: 12, statusKey: "colval_total" },
     ],
   },
   {
@@ -111,8 +112,8 @@ export const CONFIG_FLOW: {
     tag: "duration",
     hint: "Định nghĩa thời gian chuẩn dùng khi tạo Batch và điều độ.",
     items: [
-      { key: "recipetimeloading", label: "Loading / Unloading Time", href: "/recipe-time-loading", no: 12, statusKey: "handling_total" },
-      { key: "recipetimeprocess", label: "Process Time", href: "/recipe-time-process", no: 13, statusKey: "time_total" },
+      { key: "recipetimeloading", label: "Loading / Unloading Time", href: "/recipe-time-loading", no: 13, statusKey: "handling_total" },
+      { key: "recipetimeprocess", label: "Process Time", href: "/recipe-time-process", no: 14, statusKey: "time_total" },
     ],
   },
   {
@@ -120,7 +121,7 @@ export const CONFIG_FLOW: {
     tag: "future ready",
     hint: "Quy tắc Auto Planning dùng chung data model với Planning thủ công.",
     items: [
-      { key: "autoplanning", label: "Auto Planning Rules", href: "/auto-planning-rules", no: 14 },
+      { key: "autoplanning", label: "Auto Planning Rules", href: "/auto-planning-rules", no: 15 },
     ],
   },
 ];

@@ -135,6 +135,12 @@ export async function POST(req:Request){
   `,[oldName,newName]);
 
   await c.query(`
+   update md_main_support_operation
+   set standard_operation=$2,updated_at=now()
+   where standard_operation=$1
+  `,[oldName,newName]);
+
+  await c.query(`
    update md_st_operation_scope
    set previous_main_operation=case when previous_main_operation=$1 then $2 else previous_main_operation end,
        next_main_operation=case when next_main_operation=$1 then $2 else next_main_operation end,

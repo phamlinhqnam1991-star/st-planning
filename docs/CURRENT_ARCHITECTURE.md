@@ -368,3 +368,8 @@ Báo cáo sản xuất và Masking/Unmasking scheduled view xác định ngày s
 - Each Batch block gets a stronger visual separator and compact Job detail panel; area/cabin color grouping from V448 remains unchanged.
 - New `Note / Ghi chú` UI reuses existing execution remark storage, so no database migration is required: Chemical Line/Painting use `production_execution.remark`; Job-level report areas use `production_execution_job.remark`.
 - Note edits do not mutate Planning Chain, Batch membership, Recipe, Schedule status, Previous Main lock or Chemical Line scheduler logic.
+
+
+## V451 · Main Operation Masking / Unmasking Configuration
+
+Masking/Unmasking derived planning now has an explicit configurable layer `md_main_support_operation` for support work that occurs BEFORE each normalized Main Planning Operation. PRIMER occurrence 1/2/3 maps to PRIMER1/PRIMER2/PRIMER3 (DB keeps PRIMER for occurrence 1); TOPCOAT occurrence 1/2+ maps to TOPCOAT1/TOPCOAT2. Configured support families such as `MSKG-TC` and `UNMSKG` also match their `_...` routing-detail variants. If a Main/support type has no explicit configuration, the existing routing-derived resolver remains the fallback. READY/WAIT, Batch, Recipe, Schedule, Auto Planning and Production status are unchanged.

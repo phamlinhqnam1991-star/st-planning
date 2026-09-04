@@ -24,6 +24,7 @@ const DEPENDENCIES:Dependency[]=[
  {key:"schedule_area",label:"Schedule Area",table:"md_schedule_area_operation",where:`upper(trim(standard_operation))=$1`},
  {key:"auto_plan",label:"Auto Planning Rule",table:"md_auto_planning_rule",where:`upper(trim(standard_operation))=$1`},
  {key:"batch_recipe_rule",label:"Batch Key / Recipe Rule",table:"md_batch_key_recipe_rule",where:`upper(trim(standard_operation))=$1`},
+ {key:"main_support",label:"Masking / Unmasking by Main",table:"md_main_support_operation",where:`upper(trim(standard_operation))=$1`},
  {key:"planning_job",label:"Planning Job Operation",table:"planning_job_operation",where:`upper(trim(standard_operation))=$1 or upper(trim(coalesce(previous_standard_operation_snapshot,'')))=$1`},
  {key:"planning_batch",label:"Planning Batch",table:"planning_batch",where:`upper(trim(standard_operation))=$1`},
  {key:"planning_batch_job",label:"Planning Batch Job",table:"planning_batch_job",where:`upper(trim(standard_operation))=$1`},
