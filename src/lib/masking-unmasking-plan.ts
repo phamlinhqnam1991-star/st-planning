@@ -423,13 +423,16 @@ export async function loadMaskingUnmaskingPlan(
         on pr.recipe_key=l.recipe_key
       where l.support_type is not null
         and (
+          -- Strict Main-level configuration:
+          -- once a Main has any explicit support config, both support types
+          -- are controlled only by config. Missing MASKING/UNMASKING = NONE.
+          -- Routing fallback is allowed only when this Main has no config at all.
           not exists(
             select 1
             from public.md_main_support_operation cfg0
             where cfg0.is_active=true
               and cfg0.relation='BEFORE_MAIN'
               and upper(trim(cfg0.standard_operation))=upper(trim(l.standard_operation))
-              and cfg0.support_type=l.support_type
           )
           or exists(
             select 1
@@ -438,6 +441,7 @@ export async function loadMaskingUnmaskingPlan(
               and cfg.relation='BEFORE_MAIN'
               and upper(trim(cfg.standard_operation))=upper(trim(l.standard_operation))
               and cfg.support_type=l.support_type
+              and upper(trim(cfg.support_operation_code))<>'__NONE__'
               and (
                 upper(trim(cfg.support_operation_code))=upper(trim(l.support_operation_code))
                 or left(upper(trim(l.support_operation_code)),length(upper(trim(cfg.support_operation_code)))+1)=upper(trim(cfg.support_operation_code))||'_'
