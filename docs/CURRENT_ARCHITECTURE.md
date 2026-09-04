@@ -339,3 +339,13 @@ Aiven remains the canonical operational PostgreSQL provider and Vercel keeps `DB
 - Job rows show Shift derived from planned target: Shift 1 `06:00-13:59`, Shift 2 `14:00-21:59`, Shift 3 `22:00-05:59` next day. Planned Target is positioned immediately before Job Actual Start/End.
 - Production tables no longer use inner vertical max-height scrolling; page-level vertical scrolling shows every row. Horizontal scrolling remains for wide tables.
 - Migration `074_production_execution_job_level.sql` creates only the Job execution table/indexes. Planning Chain, Batch, Recipe, Schedule, Previous Main lock, Chemical Line proposal/capacity and canonical production-day ownership are unchanged.
+
+
+## V447 — Production Execution area sub-tabs + mixed report granularity
+
+- `/production-execution` adds sub-tabs for Chemical Line; Shot Peening (Automatic + Manual); Masking & Unmasking; Painting; Sirius Cleaning; Blasting (Manual + Auto); Plating (Plating + He-Bake); and Passivation / Brightening. `All` remains a safe overview and `Other` appears only if a work item cannot be mapped to a configured production group.
+- Chemical Line and Painting use **LINE reporting**: one WAITING / ON-GOING / DONE control per scheduled Batch row. Their Job detail rows are not loaded for the report UI, reducing payload and matching shop-floor reporting granularity.
+- All other groups use **JOB reporting** in `production_execution_job` exactly as V446. Their parent `production_execution` record remains the aggregate compatibility summary.
+- The API validates LINE reporting server-side and permits it only for Chemical Line/Painting resources. Existing Job-level rows from prior testing are not deleted; they are simply ignored for LINE-mode ownership.
+- Each physical area panel gets its own header accent color for quick recognition. No inner vertical table scroll is reintroduced.
+- Canonical Production Day remains `06:00 D <= planned_start < 06:00 D+1`. Planning Chain, READY/WAIT, Batch membership, Recipe, Schedule status, Previous Main lock and Chemical Line proposal/capacity are unchanged.

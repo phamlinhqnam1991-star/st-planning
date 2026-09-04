@@ -5,6 +5,7 @@ import type {ProductionExecutionSource,ProductionExecutionStatus} from "@/lib/pr
 
 const SOURCES=new Set<ProductionExecutionSource>(["BATCH","MASKING","UNMASKING"]);
 const STATUSES=new Set<ProductionExecutionStatus>(["WAITING","ON-GOING","DONE"]);
+const REPORT_LEVELS=new Set(["JOB","LINE"]);
 const clean=(v:unknown)=>String(v??"").trim();
 
 export async function PATCH(req:Request){
@@ -14,28 +15,80 @@ export async function PATCH(req:Request){
  const sourceType=clean(body.sourceType).toUpperCase() as ProductionExecutionSource;
  const sourceKey=clean(body.sourceKey);
  const status=clean(body.status).toUpperCase() as ProductionExecutionStatus;
+ const reportLevel=clean(body.reportLevel||"JOB").toUpperCase();
  const batchId=Number(body.batchId);
  const scheduleId=body.scheduleId==null||body.scheduleId===""?null:Number(body.scheduleId);
  const planningJobOperationId=Number(body.planningJobOperationId);
  const jobNum=clean(body.jobNum);
  const expectedJobs=Math.max(1,Number(body.expectedJobs)||1);
  const remark=clean(body.remark)||null;
- if(!SOURCES.has(sourceType)||!sourceKey||!STATUSES.has(status)||!Number.isFinite(batchId)||batchId<=0)
+ if(!SOURCES.has(sourceType)||!sourceKey||!STATUSES.has(status)||!REPORT_LEVELS.has(reportLevel)||!Number.isFinite(batchId)||batchId<=0)
   return NextResponse.json({error:"Invalid production execution payload"},{status:400});
  if(scheduleId!=null&&(!Number.isFinite(scheduleId)||scheduleId<=0))
   return NextResponse.json({error:"Invalid schedule id"},{status:400});
- if(!Number.isFinite(planningJobOperationId)||planningJobOperationId<=0||!jobNum)
+ if(reportLevel==="JOB"&&(!Number.isFinite(planningJobOperationId)||planningJobOperationId<=0||!jobNum))
   return NextResponse.json({error:"Job-level production reporting requires planningJobOperationId and Job Number"},{status:400});
+ if(reportLevel==="LINE"&&sourceType!=="BATCH")
+  return NextResponse.json({error:"Line-level production reporting is only valid for scheduled production Batch rows"},{status:400});
 
  const c=await getPool().connect();
  try{
   await c.query("begin");
-  const b=await c.query(`select id from planning_batch where id=$1 and status<>'CANCELLED' for share`,[batchId]);
+  const b=await c.query(`select id,standard_operation from planning_batch where id=$1 and status<>'CANCELLED' for share`,[batchId]);
   if(!b.rowCount)throw new Error("Batch not found or cancelled");
   if(scheduleId!=null){
    const s=await c.query(`select id from planning_schedule where id=$1 and batch_id=$2 and status<>'CANCELLED' for share`,[scheduleId,batchId]);
    if(!s.rowCount)throw new Error("Schedule does not belong to this Batch");
   }
+
+  if(reportLevel==="LINE"){
+   const lineScope=await c.query(`
+    select
+     s.resource_code,
+     coalesce(sr.resource_group,'') resource_group,
+     coalesce(sr.area_name,'') area_name
+    from planning_schedule s
+    left join md_schedule_resource sr on sr.resource_code=s.resource_code
+    where s.batch_id=$1 and s.status<>'CANCELLED'
+    order by s.id desc
+    limit 1
+   `,[batchId]);
+   const scope=lineScope.rows[0]||{};
+   const resource=clean(scope.resource_code).toUpperCase();
+   const resourceGroup=clean(scope.resource_group).toUpperCase();
+   const area=clean(scope.area_name).toUpperCase();
+   const allowed=resource.startsWith("FB-")||resource.startsWith("CAB")||resource==="PAINT-POWDER"||resourceGroup==="CHEMICAL_LINE"||resourceGroup==="PAINTING"||resourceGroup==="PAINT_POWDER"||area.includes("CHEMICAL LINE")||area.includes("PAINT")||area.includes("POWDER COATING");
+   if(!allowed)throw new Error("Line-level reporting is limited to Chemical Line and Painting");
+
+   const pq=await c.query(`
+    insert into production_execution(
+     source_type,source_key,batch_id,schedule_id,execution_status,
+     actual_start,actual_end,remark,updated_at
+    ) values(
+     $1,$2,$3,$4,$5,
+     case when $5='WAITING' then null else now() end,
+     case when $5='DONE' then now() else null end,
+     $6,now()
+    )
+    on conflict(source_type,source_key) do update set
+     batch_id=excluded.batch_id,
+     schedule_id=excluded.schedule_id,
+     execution_status=excluded.execution_status,
+     actual_start=case
+       when excluded.execution_status='WAITING' then null
+       when excluded.execution_status in ('ON-GOING','DONE') then coalesce(production_execution.actual_start,now())
+       else production_execution.actual_start end,
+     actual_end=case
+       when excluded.execution_status='DONE' then coalesce(production_execution.actual_end,now())
+       else null end,
+     remark=coalesce(excluded.remark,production_execution.remark),
+     updated_at=now()
+    returning id,source_type,source_key,batch_id,schedule_id,execution_status,actual_start,actual_end,remark,updated_at
+   `,[sourceType,sourceKey,batchId,scheduleId,status,remark]);
+   await c.query("commit");
+   return NextResponse.json({ok:true,execution:pq.rows[0],reportLevel:"LINE"});
+  }
+
   const j=await c.query(`
    select bj.planning_job_operation_id,bj.job_num
    from planning_batch_job bj
@@ -94,7 +147,6 @@ export async function PATCH(req:Request){
   const missing=Math.max(0,expectedJobs-reported);
   const done=Number(a.done_jobs)||0;
   const ongoing=Number(a.ongoing_jobs)||0;
-  // Once Job-level reporting starts, unreported Jobs are WAITING by definition.
   const summaryStatus:ProductionExecutionStatus=missing===0&&done>=expectedJobs?"DONE":ongoing>0||done>0?"ON-GOING":"WAITING";
   const summaryStart=summaryStatus==="WAITING"?null:(a.actual_start||parentExisting.rows[0]?.actual_start||new Date());
   const summaryEnd=summaryStatus==="DONE"?(a.actual_end||parentExisting.rows[0]?.actual_end||new Date()):null;
@@ -116,7 +168,7 @@ export async function PATCH(req:Request){
   `,[sourceType,sourceKey,batchId,scheduleId,summaryStatus,summaryStart,summaryEnd,remark]);
 
   await c.query("commit");
-  return NextResponse.json({ok:true,jobExecution:jq.rows[0],execution:pq.rows[0]});
+  return NextResponse.json({ok:true,jobExecution:jq.rows[0],execution:pq.rows[0],reportLevel:"JOB"});
  }catch(e:any){
   await c.query("rollback");
   const missing=e?.code==="42P01"?"Job-level Production Execution is not installed. Run migration 074_production_execution_job_level.sql on Aiven.":null;

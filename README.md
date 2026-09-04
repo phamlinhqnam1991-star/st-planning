@@ -274,3 +274,7 @@ Operational day ownership is unified as `06:00 D <= planned_start < 06:00 D+1` (
 
 ## V446 · Production Execution Job-level reporting
 Production date stays `06:00 D <= planned_start < 06:00 D+1`. Previous/Next/Today reload immediately without F5. Every Area shows all Job detail rows with Shift (`06:00-14:00`, `14:00-22:00`, `22:00-05:59`) and Job-level WAITING/ON-GOING/DONE reporting. The parent work-item Status/Report control is removed, Target is positioned immediately before Actual Start/End, and area tables use page-level vertical scrolling instead of inner vertical scroll containers.
+
+
+## V447 · Production report sub-tabs and mixed reporting
+Production Execution is grouped into production sub-tabs: Chemical Line; Shot Peening; Masking & Unmasking; Painting; Sirius Cleaning; Blasting; Plating; and Passivation / Brightening. Chemical Line and Painting report status per scheduled row and do not render Job detail. All other groups keep Job-level WAITING / ON-GOING / DONE reporting. Area panel headers use distinct visual accents; Production Day remains 06:00 → 05:59 next day. No additional database migration is required beyond V446 migration 074.

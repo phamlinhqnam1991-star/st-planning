@@ -3,6 +3,8 @@ import {loadMaskingUnmaskingPlan,type SupportPlanJob,type SupportType} from "@/l
 
 export type ProductionExecutionStatus="WAITING"|"ON-GOING"|"DONE";
 export type ProductionExecutionSource="BATCH"|"MASKING"|"UNMASKING";
+export type ProductionReportGroup="CHEMICAL_LINE"|"SHOT_PEENING"|"MASK_UNMASK"|"PAINTING"|"SIRIUS_CLEANING"|"BLASTING"|"PLATING"|"PASS_BRTG"|"OTHER";
+export type ProductionReportMode="LINE"|"JOB";
 
 export type ProductionJobDetail={
  planningJobOperationId:number;
@@ -47,6 +49,8 @@ export type ProductionWorkItem={
  supportOperations:string[];
  sequence:number;
  scheduleStatus:string;
+ reportGroup:ProductionReportGroup;
+ reportMode:ProductionReportMode;
 };
 
 type ExecutionRow={
@@ -82,6 +86,36 @@ const num=(v:unknown)=>Number.isFinite(Number(v))?Number(v):0;
 const iso=(v:unknown)=>{if(!v)return null;const d=v instanceof Date?v:new Date(String(v));return Number.isNaN(d.getTime())?null:d.toISOString();};
 const keyForBatch=(batchId:number)=>`BATCH:${batchId}`;
 const keyForSupport=(type:SupportType,batchId:number,main:string)=>`${type}:${batchId}:${clean(main).toUpperCase()}`;
+
+function reportGroupFor(input:{sourceType:ProductionExecutionSource;area:string;resource:string;operation:string}):ProductionReportGroup{
+ if(input.sourceType==="MASKING"||input.sourceType==="UNMASKING")return "MASK_UNMASK";
+ const area=clean(input.area).toUpperCase();
+ const resource=clean(input.resource).toUpperCase();
+ const operation=clean(input.operation).toUpperCase();
+ const hay=`${area}|${resource}|${operation}`;
+ if(resource.startsWith("FB-")||area.includes("CHEMICAL LINE")||operation==="CHEMICAL_LINE")return "CHEMICAL_LINE";
+ if(resource==="AUTOSHP"||resource==="MANUALSP"||area.includes("SHOT PEEN")||operation==="V_A-SHPN"||operation==="MANUALSP")return "SHOT_PEENING";
+ if(resource.startsWith("CAB")||resource==="PAINT-POWDER"||area.includes("PAINT")||area.includes("POWDER COATING"))return "PAINTING";
+ if(resource==="SPX-CLEAN"||area.includes("SIRIUS"))return "SIRIUS_CLEANING";
+ if(resource==="MANUAL-DBL"||resource==="AUTO-DBL"||area.includes("BLAST")||hay.includes("DBL"))return "BLASTING";
+ if(resource==="PLATING"||resource==="HE-BAKE"||area.includes("PLATING")||area.includes("HE-BAKE")||area.includes("HE BAKE"))return "PLATING";
+ if(resource==="PASS-BRTG"||area.includes("PASSIVATION")||area.includes("BRIGHTEN"))return "PASS_BRTG";
+ return "OTHER";
+}
+
+function reportModeFor(group:ProductionReportGroup):ProductionReportMode{
+ return group==="CHEMICAL_LINE"||group==="PAINTING"?"LINE":"JOB";
+}
+
+function parentExecutionSummary(parent:ExecutionRow|undefined){
+ return {
+  status:(parent?.execution_status||"WAITING") as ProductionExecutionStatus,
+  actualStart:iso(parent?.actual_start),
+  actualEnd:iso(parent?.actual_end),
+  remark:clean(parent?.remark),
+ };
+}
+
 const makeRawJobDetail=(data:{planningJobOperationId:number;jobNum:string;partDescription:string;currentGoodWipQty:number|null;totalSurface:number|null;lastLaborOp:string;nextOperation:string;priority:string;}):RawJobDetail=>({
  planningJobOperationId:Number(data.planningJobOperationId)||0,
  jobNum:clean(data.jobNum),
@@ -131,6 +165,25 @@ async function loadJobExecutionRows(c:PoolClient,batchIds:number[]){
   if(e?.code==="42P01")return empty;
   throw e;
  }
+}
+
+async function loadBatchJobNumbers(c:PoolClient,batchIds:number[]){
+ const map=new Map<number,string[]>();
+ if(!batchIds.length)return map;
+ const q=await c.query(`
+  select batch_id,job_num
+  from public.planning_batch_job
+  where batch_id=any($1::bigint[])
+  order by batch_id,created_at,job_num
+ `,[batchIds]);
+ for(const row of q.rows as {batch_id:number;job_num:string}[]){
+  const batchId=Number(row.batch_id);
+  const list=map.get(batchId)||[];
+  const job=clean(row.job_num);
+  if(job&&!list.includes(job))list.push(job);
+  map.set(batchId,list);
+ }
+ return map;
 }
 
 async function loadBatchJobDetails(c:PoolClient,batchIds:number[]){
@@ -298,24 +351,35 @@ export async function loadProductionExecution(
   ["MASKING",aggregateSupportRows("MASKING",supportPlan.flatMap(g=>g.masking))],
   ["UNMASKING",aggregateSupportRows("UNMASKING",supportPlan.flatMap(g=>g.unmasking))],
  ];
+ const batchRows=(batchQ.rows as any[]).map(row=>{
+  const group=reportGroupFor({sourceType:"BATCH",area:clean(row.area_name),resource:clean(row.resource_code),operation:clean(row.standard_operation)});
+  return {row,group,mode:reportModeFor(group)};
+ });
  const batchIds=[...new Set<number>([
-  ...batchQ.rows.map((x:any)=>Number(x.batch_id)),
+  ...batchRows.map(x=>Number(x.row.batch_id)),
   ...supportAggregates.flatMap(([,groups])=>groups.map(g=>Number(g.first.batchId)))
  ].filter(Number.isFinite))];
- const [execution,jobExecutionState,batchJobDetails]=await Promise.all([
+ const detailBatchIds=[...new Set<number>([
+  ...batchRows.filter(x=>x.mode==="JOB").map(x=>Number(x.row.batch_id)),
+  ...supportAggregates.flatMap(([,groups])=>groups.map(g=>Number(g.first.batchId)))
+ ].filter(Number.isFinite))];
+ const lineBatchIds=batchRows.filter(x=>x.mode==="LINE").map(x=>Number(x.row.batch_id)).filter(Number.isFinite);
+ const [execution,jobExecutionState,batchJobDetails,lineJobNumbers]=await Promise.all([
   loadExecutionRows(c,batchIds),
-  loadJobExecutionRows(c,batchIds),
-  loadBatchJobDetails(c,batchIds),
+  loadJobExecutionRows(c,detailBatchIds),
+  loadBatchJobDetails(c,detailBatchIds),
+  loadBatchJobNumbers(c,lineBatchIds),
  ]);
 
  const work:ProductionWorkItem[]=[];
- for(const row of batchQ.rows){
+ for(const batchRow of batchRows){
+  const row=batchRow.row;
   const batchId=Number(row.batch_id);
   const sourceType:ProductionExecutionSource="BATCH";
   const sourceKey=keyForBatch(batchId);
   const parent=execution.get(`${sourceType}|${sourceKey}`);
-  const details=(batchJobDetails.get(batchId)||[]).map(d=>jobExecution(d,sourceType,sourceKey,parent,jobExecutionState.map,jobExecutionState.sources));
-  const summary=workExecutionSummary(sourceType,sourceKey,details,execution);
+  const details=batchRow.mode==="JOB"?(batchJobDetails.get(batchId)||[]).map(d=>jobExecution(d,sourceType,sourceKey,parent,jobExecutionState.map,jobExecutionState.sources)):[];
+  const summary=batchRow.mode==="LINE"?parentExecutionSummary(parent):workExecutionSummary(sourceType,sourceKey,details,execution);
   work.push({
    sourceType,sourceKey,batchId,
    scheduleId:Number(row.schedule_id)||null,
@@ -332,8 +396,9 @@ export async function loadProductionExecution(
    recipeNo:clean(row.recipe_no),
    recipeName:clean(row.recipe_name),
    jobs:num(row.total_jobs),qty:num(row.total_qty),surface:num(row.total_surface_dm2),
-   jobNumbers:details.map(x=>x.jobNum).filter(Boolean),jobDetails:details,supportOperations:[],
+   jobNumbers:batchRow.mode==="LINE"?(lineJobNumbers.get(batchId)||[]):details.map(x=>x.jobNum).filter(Boolean),jobDetails:details,supportOperations:[],
    sequence:num(row.planning_order),scheduleStatus:clean(row.schedule_status),
+   reportGroup:batchRow.group,reportMode:batchRow.mode,
   });
  }
 
@@ -358,6 +423,7 @@ export async function loadProductionExecution(
     jobs:group.jobs.length,qty:group.qty,surface:group.surface,
     jobNumbers:group.jobs,jobDetails:details,supportOperations:group.supportOps,
     sequence:(first.planningOrder??999999)+(type==="MASKING"?-0.2:0.2),scheduleStatus:clean(first.scheduleStatus),
+    reportGroup:"MASK_UNMASK",reportMode:"JOB",
    });
   }
  }

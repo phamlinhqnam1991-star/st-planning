@@ -2885,3 +2885,45 @@
 .erpkit-migrated-page .schedule-area-workload-metric.is-scheduled{background:#f1f5fc;color:#426aa3}
 .erpkit-migrated-page .schedule-area-workload-metric.is-hold{background:#fff3f1;color:#a84d45}
 .erpkit-migrated-page .schedule-area-workload-metric.is-total{background:#f4f6f8;color:#3f5368}
+
+/* ============================================================
+   V447 Production Execution sub-tabs + mixed report granularity
+   Chemical Line / Painting = line-level; remaining areas = Job-level.
+   ============================================================ */
+.erpkit-migrated-page .production-subtabs{
+ display:flex;align-items:stretch;gap:4px;overflow-x:auto;padding:2px 1px 4px;scrollbar-width:thin;
+}
+.erpkit-migrated-page .production-subtab{
+ --tab-accent:#8091a3;flex:0 0 auto;min-width:116px;min-height:38px;padding:6px 9px;border:1px solid #d9e1e8;border-top:3px solid var(--tab-accent);border-radius:5px;background:#fff;color:#53677a;display:flex;align-items:center;justify-content:space-between;gap:9px;font-size:7.5px;font-weight:850;cursor:pointer;white-space:nowrap;box-shadow:0 1px 2px rgba(16,24,40,.02)
+}
+.erpkit-migrated-page .production-subtab:hover{background:#f7fafc}.erpkit-migrated-page .production-subtab.active{box-shadow:inset 0 0 0 1px var(--tab-accent),0 1px 2px rgba(16,24,40,.04);background:#f8fbfd;color:#263f55}
+.erpkit-migrated-page .production-subtab b{min-width:22px;padding:2px 5px;border-radius:9px;background:#eef2f5;color:#53677a;text-align:center;font-size:7px;font-variant-numeric:tabular-nums}
+.erpkit-migrated-page .production-subtab.group-all{--tab-accent:#718096}
+.erpkit-migrated-page .production-subtab.group-chemical-line{--tab-accent:#2678b8}
+.erpkit-migrated-page .production-subtab.group-shot-peening{--tab-accent:#5b6fb1}
+.erpkit-migrated-page .production-subtab.group-mask-unmask{--tab-accent:#d18a25}
+.erpkit-migrated-page .production-subtab.group-painting{--tab-accent:#b55d83}
+.erpkit-migrated-page .production-subtab.group-sirius-cleaning{--tab-accent:#2f8d7b}
+.erpkit-migrated-page .production-subtab.group-blasting{--tab-accent:#8a6b4d}
+.erpkit-migrated-page .production-subtab.group-plating{--tab-accent:#7160a8}
+.erpkit-migrated-page .production-subtab.group-pass-brtg{--tab-accent:#418467}
+.erpkit-migrated-page .production-subtab.group-other{--tab-accent:#7b8793}
+
+.erpkit-migrated-page .production-table{min-width:1360px}
+.erpkit-migrated-page .production-job-level-note{display:inline-flex!important;align-items:center;min-height:24px;margin:0!important;padding:3px 7px;border-radius:4px;background:#f2f5f8;color:#687b8d!important;font-weight:800;white-space:nowrap}
+.erpkit-migrated-page .production-area-head{border-left:5px solid var(--area-accent,#718096)!important;background:var(--area-bg,#f7f9fb)!important}
+.erpkit-migrated-page .production-area-head b{color:var(--area-text,#344b60)!important}
+.erpkit-migrated-page .production-area-panel.area-tone-chemical{--area-accent:#2678b8;--area-bg:#eef7fd;--area-text:#185c8e}
+.erpkit-migrated-page .production-area-panel.area-tone-auto-sp{--area-accent:#397f9e;--area-bg:#eef8fa;--area-text:#2d667d}
+.erpkit-migrated-page .production-area-panel.area-tone-manual-sp{--area-accent:#665cab;--area-bg:#f2f0fb;--area-text:#51478e}
+.erpkit-migrated-page .production-area-panel.area-tone-masking{--area-accent:#d4932e;--area-bg:#fff8e9;--area-text:#8a6118}
+.erpkit-migrated-page .production-area-panel.area-tone-unmasking{--area-accent:#c46c37;--area-bg:#fff3eb;--area-text:#8f4c27}
+.erpkit-migrated-page .production-area-panel.area-tone-painting{--area-accent:#b55d83;--area-bg:#fbf1f5;--area-text:#85415f}
+.erpkit-migrated-page .production-area-panel.area-tone-sirius{--area-accent:#2f8d7b;--area-bg:#edf8f5;--area-text:#256f62}
+.erpkit-migrated-page .production-area-panel.area-tone-manual-blast{--area-accent:#9a714d;--area-bg:#faf5ef;--area-text:#75543a}
+.erpkit-migrated-page .production-area-panel.area-tone-auto-blast{--area-accent:#60758a;--area-bg:#f0f4f7;--area-text:#465b70}
+.erpkit-migrated-page .production-area-panel.area-tone-plating{--area-accent:#7160a8;--area-bg:#f3f0fa;--area-text:#58498b}
+.erpkit-migrated-page .production-area-panel.area-tone-he-bake{--area-accent:#bd654c;--area-bg:#fbf1ed;--area-text:#8c4937}
+.erpkit-migrated-page .production-area-panel.area-tone-pass-brtg{--area-accent:#418467;--area-bg:#eef7f2;--area-text:#31674f}
+.erpkit-migrated-page .production-area-panel.area-tone-other{--area-accent:#7b8793;--area-bg:#f4f6f8;--area-text:#53616e}
+@media(max-width:720px){.erpkit-migrated-page .production-subtab{min-width:105px}}
