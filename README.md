@@ -46,17 +46,18 @@ Copy `.env.example` to `.env.local` and set the required values. Never commit `.
 
 Required:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_SECRET_KEY`
-- `SUPABASE_DB_URL`
+- `DATABASE_URL` — canonical PostgreSQL runtime; V439 targets Aiven and the URI should include `sslmode=require`. Node runtime keeps TLS enabled with libpq-compatible `require` semantics.
+- `NEXT_PUBLIC_SUPABASE_URL` — retained temporarily for Storage/Auth only.
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — retained temporarily for Auth/browser client.
+- `SUPABASE_SECRET_KEY` — retained temporarily for import Storage server access.
 
 Optional:
 
-- `DB_CONNECTION_STRING`
-- `DB_POOL_MAX`
+- `DB_POOL_MAX` — default 1 on V438/V439 because Aiven Free has a small connection budget.
+- `DATABASE_CA_CERT` — optional Aiven CA PEM for strict TLS certificate verification; leave unset to use libpq-compatible `sslmode=require`.
 - `DB_CONNECT_TIMEOUT_MS`
 - `ADMIN_EMAILS`
+- `DB_BACKUP_URL` / `DB_RESTORE_URL`
 
 ## Commands
 
@@ -72,7 +73,7 @@ npm run dev
 
 ## Database
 
-Apply Supabase migrations in numeric order through migration 071. Do not delete or rewrite already-applied historical migrations.
+Historical Supabase SQL migrations remain the schema history through migration 072. V438 runtime is provider-neutral PostgreSQL; the initial Aiven cutover restores the full live public schema/data from the current database instead of replaying migrations into an empty target.
 
 See `docs/CURRENT_ARCHITECTURE.md` for the current architecture and `AUDIT_CLEANUP.md` for the latest cleanup audit.
 
@@ -248,3 +249,13 @@ Scheduling Board now synchronizes Batch scheduling state immediately after Save/
 - The resolver now filters candidate Batch/Job rows first, narrows to the affected Part/Revision set, then runs the unchanged Routing Main/occurrence/support-boundary logic only on that set.
 - Production Execution inherits the same optimization and removes duplicate per-Batch Job-number aggregation by reusing the already-loaded Batch Job detail data.
 - Migration `072_masking_production_load_indexes.sql` adds indexes only; no Planning/Batch/Schedule/Execution business rule changes.
+
+
+## V438 · Aiven PostgreSQL
+
+Operational DB is Aiven via `DATABASE_URL`. Supabase is no longer used as a database API; it remains temporarily for import Storage/Auth only. The first cutover copies the full current public schema/data before any database-size cleanup.
+
+
+## V439 · Aiven TLS compatibility
+
+Fixes Node `pg` connection failures such as `SELF_SIGNED_CERT_IN_CHAIN` against Aiven while keeping TLS enabled. Business logic is unchanged.

@@ -1,0 +1,11 @@
+import {mkdirSync,statSync} from 'node:fs';
+import {dirname} from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {human,mask,pgTool,resolvedDump,url} from './common.mjs';
+const source=url('SOURCE_DB_URL');const file=resolvedDump();mkdirSync(dirname(file),{recursive:true});
+const {cmd,version}=pgTool('pg_dump');
+console.log(`[dump] Source : ${mask(source)}`);console.log(`[dump] Tool   : ${version}`);console.log(`[dump] File   : ${file}`);
+console.log('[dump] Scope  : FULL public schema + FULL public data. No history/index cleanup in V438 migration.');
+const args=['--dbname',source,'--format=custom','--compress=6','--schema=public','--no-owner','--no-privileges','--verbose','--file',file];
+const r=spawnSync(cmd,args,{stdio:'inherit',windowsHide:true});if(r.error||r.status!==0)throw new Error(`pg_dump failed${r.error?`: ${r.error.message}`:` code ${r.status}`}`);
+console.log(`[dump] DONE ${human(statSync(file).size)}`);

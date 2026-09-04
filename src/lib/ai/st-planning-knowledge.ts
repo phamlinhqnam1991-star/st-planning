@@ -1,12 +1,17 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V437";
+export const ST_AI_KNOWLEDGE_VERSION="V439";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"canonical-flow",
   title:"Canonical ST Planning flow",
   content:`Import Master Data -> Import All Open Job snapshot -> ST Scope visibility -> ST Operation Mapping -> Main Operation -> Planning Chain -> Planning Board creates/updates Batch -> Scheduling Board assigns the existing Batch to Resource/Date/Start/Duration -> Production Execution reports WAITING/ON-GOING/DONE separately -> Dashboard/AI analyzes read-only operational data. Job Tracker and Part Tracker are read-only trace views.`
+ },
+ {
+  key:"database-provider",
+  title:"Database provider architecture · V439",
+  content:`Aiven PostgreSQL is the canonical operational database. Runtime database access uses standard PostgreSQL through DATABASE_URL and the pg driver; Supabase/Supavisor-specific DNS/pooler selection is removed. V439 maps Node pg sslmode=require to libpq-compatible encrypted TLS semantics so Aiven does not fail with SELF_SIGNED_CERT_IN_CHAIN; optional DATABASE_CA_CERT enables strict CA verification. Aiven Free has a small connection budget, so Vercel local DB_POOL_MAX defaults to 1. During the migration phase Supabase may remain only for Storage/Auth; no Planning/Master/Dashboard database reads or writes may use Supabase REST. The first migration copies the full current public schema and full public data without history/index cleanup; database reduction happens only after Aiven cutover is verified. Planning Chain, Recipe, Batch, Schedule, Chemical Line, Masking/Unmasking and Production business logic are unchanged by the provider move.`
  },
  {
   key:"next-operation-order",

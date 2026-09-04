@@ -931,7 +931,19 @@ export default async function Page(){
     </table></div>
    </Section>
 
-   <Section id="faq" title="15 · FAQ / Chẩn đoán nhanh">
+   <Section id="database-provider" title="15 · Database Provider · Aiven PostgreSQL (V438)"
+    sub="Provider hạ tầng thay đổi; business logic ST Planning giữ nguyên">
+    <StepList items={[
+     <>Database runtime chuẩn dùng <b>Aiven PostgreSQL</b> qua <code>DATABASE_URL</code> và driver <code>pg</code>. Không còn Supabase/Supavisor DNS fallback hoặc Transaction Pooler logic trong tầng database.</>,
+     <>Giai đoạn chuyển đổi đầu tiên copy <b>toàn bộ public schema + toàn bộ public data hiện hành</b> từ Supabase sang Aiven. Chưa xóa history, chưa giảm Routing Detail, chưa dọn index trước khi cutover.</>,
+     <>Vì Aiven Free có connection budget nhỏ, Vercel đặt <code>DB_POOL_MAX=1</code> mặc định. Chỉ tăng sau khi đo concurrency thực tế.</>,
+     <>Supabase có thể được giữ tạm cho <b>Storage/Auth</b> trong giai đoạn migration; Master/Planning/Open Job/Batch/Schedule/Dashboard database read/write phải đi Aiven.</>,
+     <>Chỉ đổi Vercel sang Aiven sau khi restore + row-count verify thành công. Sau cutover ổn định mới thực hiện phase giảm database/index/history.</>
+    ]}/>
+    <Rule title="Không đổi nghiệp vụ" tone="important">Provider move không thay Planning Chain READY/WAIT, Recipe Resolver, Batch Compatibility, Previous Main Schedule Lock, Chemical Line proposal/capacity, Masking/Unmasking resolver hay Production Execution.</Rule>
+   </Section>
+
+   <Section id="faq" title="16 · FAQ / Chẩn đoán nhanh">
     <Faq q="Vì sao Next Operation không sort theo chữ ABC?" a={<>Đó là chủ ý. Khi Sort Priority dùng <b>NextOperation</b>, Board resolve RAW NextOperation → Main và dùng <b>Main Planning Order</b>. Operation Code Order chỉ tie-break trong cùng Main. Kiểm tra Cấu hình → Main Operation và ST Scope.</>}/>
     <Faq q="Vì sao một Job READY nhưng click xong các READY khác bị mờ?" a={<>Bạn đang ở <b>Batch Selection Mode</b>. Main khác bị dim; cùng Main nhưng khác Recipe hoặc không thỏa các condition đang tích cũng bị dim/disable. Clear Selection để thoát mode.</>}/>
     <Faq q="Vì sao không thấy checkbox condition trong Batch Compatibility?" a={<>Checkbox lấy từ <b>Operation Code → Recipe → Điều kiện áp dụng cho Job</b> của đúng Recipe mapping. Process Time condition không tạo checkbox. Nếu mapping Recipe không có condition, panel sẽ báo chỉ khóa theo Recipe.</>}/>

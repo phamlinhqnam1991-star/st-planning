@@ -1,7 +1,6 @@
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import Link from "next/link";
 import {notFound} from "next/navigation";
-import {createAdminClient} from "@/lib/supabase/admin";
 import {getPool} from "@/lib/db";
 import {AppTabs,SubTabs} from "@/components/app-tabs";
 import {ConfigSidebar,ConfigPageHeader} from "@/components/config-nav";
@@ -93,25 +92,31 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
    if(db)db.release();
   }
  }else{
-  const admin=createAdminClient();
-  let query=admin.from(c.table).select("*",{count:"exact"}).eq("is_active",true).range(from,from+size-1);
-
-  // Large Part-related tables use indexed exact PartNum lookup.
-  // This avoids ILIKE '%...%' scans across 600k–2M+ rows.
-  if(q){
-    if(c.exactField){
-      const exactValue=c.uppercaseExact?q.toUpperCase():q;
-      query=query.eq(c.exactField,exactValue);
-    }else{
-      const safeQ=q.replaceAll(",","");
-      query=query.or(c.search.map(x=>`${x}.ilike.%${safeQ}%`).join(","));
+  let db:any=null;
+  try{
+    db=await getPool().connect();
+    const values:any[]=[];
+    let where=`where is_active=true`;
+    if(q){
+      if(c.exactField){
+        values.push(c.uppercaseExact?q.toUpperCase():q);
+        where+=` and ${c.exactField}=$${values.length}`;
+      }else{
+        values.push(`%${q.replaceAll(",","")}%`);
+        const p=`$${values.length}`;
+        where+=` and (${c.search.map(x=>`cast(${x} as text) ilike ${p}`).join(" or ")})`;
+      }
     }
-  }
-
-  const result=await query;
-  data=result.data;
-  error=result.error;
-  count=result.count;
+    const countQ=await db.query(`select count(*)::int count from ${c.table} ${where}`,values);
+    const dataValues=[...values,size,from];
+    const limitParam=`$${values.length+1}`;
+    const offsetParam=`$${values.length+2}`;
+    const dataQ=await db.query(`select * from ${c.table} ${where} limit ${limitParam} offset ${offsetParam}`,dataValues);
+    data=dataQ.rows;
+    count=Number(countQ.rows[0]?.count||0);
+  }catch(e){
+    error={message:e instanceof Error?e.message:String(e)};
+  }finally{if(db)db.release();}
  }
  if(error){
    return <main className="erp-shell erpkit-migrated-page">

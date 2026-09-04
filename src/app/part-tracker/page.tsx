@@ -1,43 +1,55 @@
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import Link from "next/link";
-import {createAdminClient} from "@/lib/supabase/admin";
+import {getPool} from "@/lib/db";
 import {AppTabs} from "@/components/app-tabs";
 export const dynamic="force-dynamic";
 
 function KV({label,value}:{label:string,value:unknown}){return <div className="kv"><span>{label}</span><b>{value===null||value===undefined||value===""?"—":String(value)}</b></div>}
 
 export default async function Page({searchParams}:{searchParams:Promise<{q?:string}>}){
- const sp=await searchParams,q=(sp.q||"").trim();const admin=createAdminClient();
+ const sp=await searchParams,q=(sp.q||"").trim();
  let matches:any[]=[];let part:any=null;let revisions:any[]=[],finish:any[]=[],requirements:any[]=[],routing:any[]=[],partRouting:any[]=[],stRouting:any[]=[],opMaster:any[]=[],areaMaps:any[]=[],areas:any[]=[];
  if(q){
-   const exact=await admin.from("md_part").select("*").eq("is_active",true).ilike("part_num",q).maybeSingle();
-   part=exact.data;
-   if(!part){
-     const m=await admin.from("md_part").select("part_num,part_description,program,part_cluster,surface_dm2").eq("is_active",true).or(`part_num.ilike.%${q.replaceAll(",","")}%,part_description.ilike.%${q.replaceAll(",","")}%`).order("part_num").limit(30);
-     matches=m.data||[];
-   }else{
-     const pn=part.part_num;
-     const [r1,r2,r3,r4,r5]=await Promise.all([
-       admin.from("md_part_revision").select("*").eq("part_num",pn).order("revision_num"),
-       admin.from("md_material_finish").select("*").eq("part_num",pn),
-       admin.from("md_process_requirement").select("*").eq("part_num",pn).order("revision_num").order("requirement_code"),
-       admin.from("md_routing_detailed").select("*").eq("part_num",pn).order("revision_num").order("source_seq"),
-       admin.from("md_part_routing").select("*").eq("part_num",pn).order("revision_num")
-     ]);
-     revisions=r1.data||[];finish=r2.data||[];requirements=r3.data||[];routing=r4.data||[];partRouting=r5.data||[];
-     const routingCodes=[...new Set(partRouting.filter(x=>x.is_active).map(x=>x.routing_code))];
-     if(routingCodes.length){
-       const sr=await admin.from("md_st_routing").select("*").in("routing_code",routingCodes).eq("is_active",true).order("routing_code").order("seq");
-       stRouting=sr.data||[];
-       const standards=[...new Set(stRouting.map(x=>x.standard_operation).filter(Boolean))];
-       const groups=[...new Set(stRouting.map(x=>x.planning_group).filter(Boolean))];
-       if(standards.length){const om=await admin.from("md_operation_master").select("*").in("standard_operation",standards);opMaster=om.data||[]}
-       if(groups.length){
-         const gm=await admin.from("md_area_operation_group").select("*").in("st_group",groups).eq("is_active",true);areaMaps=gm.data||[];
-         const ids=[...new Set(areaMaps.map(x=>x.area_id))]; if(ids.length){const ar=await admin.from("md_area").select("*").in("id",ids);areas=ar.data||[]}
+   const c=await getPool().connect();
+   try{
+     const exact=await c.query(`select * from md_part where is_active=true and part_num ilike $1 limit 1`,[q]);
+     part=exact.rows[0]||null;
+     if(!part){
+       const safe=`%${q.replaceAll(",","")}%`;
+       const m=await c.query(`
+         select part_num,part_description,program,part_cluster,surface_dm2
+         from md_part
+         where is_active=true
+           and (part_num ilike $1 or part_description ilike $1)
+         order by part_num
+         limit 30
+       `,[safe]);
+       matches=m.rows;
+     }else{
+       const pn=part.part_num;
+       const [r1,r2,r3,r4,r5]=await Promise.all([
+         c.query(`select * from md_part_revision where part_num=$1 order by revision_num`,[pn]),
+         c.query(`select * from md_material_finish where part_num=$1`,[pn]),
+         c.query(`select * from md_process_requirement where part_num=$1 order by revision_num,requirement_code`,[pn]),
+         c.query(`select * from md_routing_detailed where part_num=$1 order by revision_num,source_seq`,[pn]),
+         c.query(`select * from md_part_routing where part_num=$1 order by revision_num`,[pn])
+       ]);
+       revisions=r1.rows;finish=r2.rows;requirements=r3.rows;routing=r4.rows;partRouting=r5.rows;
+       const routingCodes=[...new Set(partRouting.filter(x=>x.is_active).map(x=>String(x.routing_code)))];
+       if(routingCodes.length){
+         const sr=await c.query(`select * from md_st_routing where routing_code=any($1::text[]) and is_active=true order by routing_code,seq`,[routingCodes]);
+         stRouting=sr.rows;
+         const standards=[...new Set(stRouting.map(x=>x.standard_operation).filter(Boolean).map(String))];
+         const groups=[...new Set(stRouting.map(x=>x.planning_group).filter(Boolean).map(String))];
+         if(standards.length){const om=await c.query(`select * from md_operation_master where standard_operation=any($1::text[])`,[standards]);opMaster=om.rows;}
+         if(groups.length){
+           const gm=await c.query(`select * from md_area_operation_group where st_group=any($1::text[]) and is_active=true`,[groups]);areaMaps=gm.rows;
+           const ids=[...new Set(areaMaps.map(x=>String(x.area_id)))];
+           if(ids.length){const ar=await c.query(`select * from md_area where id=any($1::uuid[])`,[ids]);areas=ar.rows;}
+         }
        }
      }
-   }
+   }finally{c.release();}
  }
  const areaByGroup=new Map(areaMaps.map(m=>[m.st_group,areas.find(a=>a.id===m.area_id)?.area_name||""]));
  const opByStd=new Map(opMaster.map(x=>[x.standard_operation,x]));

@@ -58,17 +58,9 @@ function resolvePgTool(name){
   fail(`${name} was not found. Install PostgreSQL client tools or set ${name==='pg_dump'?'PG_DUMP_PATH':'PG_RESTORE_PATH'} in .env.local.`);
 }
 function backupUrl(){
-  const raw=process.env.SUPABASE_DB_BACKUP_URL||process.env.DB_CONNECTION_STRING||process.env.SUPABASE_DB_URL;
-  if(!raw) fail('Missing SUPABASE_DB_BACKUP_URL / DB_CONNECTION_STRING / SUPABASE_DB_URL.');
-  let u;
-  try{u=new URL(raw);}catch{fail('Database connection URL is invalid.');}
-  // Runtime uses Supabase Transaction Pooler :6543. pg_dump is safer through
-  // Session Pooler :5432. Users can always override with SUPABASE_DB_BACKUP_URL.
-  if(!process.env.SUPABASE_DB_BACKUP_URL && u.hostname.endsWith('.pooler.supabase.com') && u.port==='6543'){
-    u.port='5432';
-    console.log('[db-backup] Runtime URL uses Transaction Pooler :6543 -> backup will use Session Pooler :5432.');
-  }
-  return u.toString();
+  const raw=process.env.DB_BACKUP_URL||process.env.DATABASE_URL;
+  if(!raw) fail('Missing DB_BACKUP_URL / DATABASE_URL.');
+  try{return new URL(raw).toString();}catch{fail('Database connection URL is invalid.');}
 }
 function sha256(path){
   const hash=createHash('sha256'); hash.update(readFileSync(path)); return hash.digest('hex');

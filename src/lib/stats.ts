@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { getPool } from "@/lib/db";
 import { errorMessage } from "@/lib/error-message";
 
 const tables=[
@@ -20,33 +20,37 @@ const tables=[
 ] as const;
 
 export async function getStats(){
-  const s=createAdminClient();
   const out:Record<string,number>={};
   const issues:string[]=[];
+  const c=await getPool().connect();
 
-  for(const table of tables){
-    const {count,error}=await s
-      .from(table)
-      .select("*",{count:"exact",head:true})
-      .eq("is_active",true);
-
-    if(error){
-      out[table]=0;
-      issues.push(`${table}: ${errorMessage(error)}`);
-      continue;
+  try{
+    for(const table of tables){
+      try{
+        const q=await c.query(`select count(*)::int count from ${table} where is_active=true`);
+        out[table]=Number(q.rows[0]?.count||0);
+      }catch(error){
+        out[table]=0;
+        issues.push(`${table}: ${errorMessage(error)}`);
+      }
     }
-    out[table]=count||0;
+
+    let imports:any[]=[];
+    try{
+      const q=await c.query(`
+        select id,file_name,status,source_rows,new_rows,changed_rows,unchanged_rows,
+               routing_rows,created_at,finished_at,error_message
+        from master_import_batch
+        order by created_at desc
+        limit 10
+      `);
+      imports=q.rows;
+    }catch(error){
+      issues.push(`master_import_batch: ${errorMessage(error)}`);
+    }
+
+    return {counts:out,imports,issues};
+  }finally{
+    c.release();
   }
-
-  const {data:imports,error:importError}=await s
-    .from("master_import_batch")
-    .select("id,file_name,status,source_rows,new_rows,changed_rows,unchanged_rows,routing_rows,created_at,finished_at,error_message")
-    .order("created_at",{ascending:false})
-    .limit(10);
-
-  if(importError){
-    issues.push(`master_import_batch: ${errorMessage(importError)}`);
-  }
-
-  return {counts:out,imports:imports||[],issues};
 }

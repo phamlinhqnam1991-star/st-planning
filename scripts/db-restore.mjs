@@ -32,11 +32,9 @@ function tool(){
   fail('pg_restore was not found. Install PostgreSQL client tools or set PG_RESTORE_PATH.');
 }
 function dbUrl(){
-  const raw=process.env.SUPABASE_DB_RESTORE_URL||process.env.SUPABASE_DB_BACKUP_URL||process.env.DB_CONNECTION_STRING||process.env.SUPABASE_DB_URL;
-  if(!raw)fail('Missing restore database URL. Prefer SUPABASE_DB_RESTORE_URL.');
-  const u=new URL(raw);
-  if(!process.env.SUPABASE_DB_RESTORE_URL&&!process.env.SUPABASE_DB_BACKUP_URL&&u.hostname.endsWith('.pooler.supabase.com')&&u.port==='6543')u.port='5432';
-  return u.toString();
+  const raw=process.env.DB_RESTORE_URL||process.env.DATABASE_URL;
+  if(!raw)fail('Missing restore database URL. Prefer DB_RESTORE_URL.');
+  try{return new URL(raw).toString();}catch{fail('Restore database URL is invalid.');}
 }
 function mask(raw){try{const u=new URL(raw);if(u.password)u.password='***';return u.toString();}catch{return '[invalid-url]';}}
 

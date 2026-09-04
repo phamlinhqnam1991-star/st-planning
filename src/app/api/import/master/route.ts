@@ -29,9 +29,13 @@ export async function POST(req:Request){
   if(!storagePath||!String(fileName).toLowerCase().endsWith(".xlsx"))return NextResponse.json({error:"Chỉ chấp nhận file .xlsx"},{status:400});
   const admin=createAdminClient();
   await ensureImportStorageBucket(admin);
-  const {data:b,error:bErr}=await admin.from("master_import_batch").insert({file_name:fileName,storage_path:storagePath,started_by:null,status:"RUNNING"}).select("id").single();
-  if(bErr)throw bErr;
-  batchId=b.id;
+  const batchQ=await getPool().query(`
+    insert into master_import_batch(file_name,storage_path,started_by,status)
+    values($1,$2,null,'RUNNING')
+    returning id
+  `,[fileName,storagePath]);
+  batchId=String(batchQ.rows[0]?.id||"");
+  if(!batchId)throw new Error("Không tạo được Master Import Batch.");
   const {data:blob,error:dErr}=await admin.storage.from(IMPORT_STORAGE_BUCKET).download(storagePath);
   if(dErr||!blob)throw dErr||new Error("Không tải được file từ Storage");
   temp=path.join(os.tmpdir(),`${batchId}.xlsx`);
@@ -62,11 +66,12 @@ export async function POST(req:Request){
    await syncPlanningChains(client);
    await client.query("commit");
 
-   await admin.from("master_import_batch").update({
-    status:"SUCCESS",source_rows:result.sourceRows,routing_rows:result.routingRows,
-    new_rows:result.newRows,changed_rows:result.changedRows,unchanged_rows:result.unchangedRows,
-    finished_at:new Date().toISOString()
-   }).eq("id",batchId);
+   await getPool().query(`
+    update master_import_batch
+    set status='SUCCESS',source_rows=$2,routing_rows=$3,new_rows=$4,changed_rows=$5,
+        unchanged_rows=$6,finished_at=now()
+    where id=$1
+   `,[batchId,result.sourceRows,result.routingRows,result.newRows,result.changedRows,result.unchangedRows]);
    invalidatePlanningStaticData();
    invalidateConfigHealth();
    // v341: refresh cache danh sách requirement code (MD:REQ:*) sau import master.
@@ -78,7 +83,7 @@ export async function POST(req:Request){
  }catch(e){
   const msg=e instanceof Error?e.message:String(e);
   if(batchId){
-   try{await createAdminClient().from("master_import_batch").update({status:"FAILED",error_message:msg,finished_at:new Date().toISOString()}).eq("id",batchId)}catch{}
+   try{await getPool().query(`update master_import_batch set status='FAILED',error_message=$2,finished_at=now() where id=$1`,[batchId,msg])}catch{}
   }
   return NextResponse.json({error:msg},{status:500});
  }finally{

@@ -292,3 +292,13 @@ This is deliberately stricter than Planning Chain READY: Sequential READY may op
 Scheduling Board no longer labels every Previous Main without a Batch as `UNSCHEDULED`. For each Job in an unscheduled Current Batch, Previous Main identity comes from the durable immediate predecessor snapshot, with the active Planning Chain only as fallback. The card status is now `DONE`, `SCHEDULED`, `UNSCHEDULED`, or `NOT_PLANNED`.
 
 `DONE` is used when the durable immediate Previous Main exists but that predecessor is no longer in the active physical Current/Future Planning Chain and there is no historical Batch for it. This represents a Main already passed by Job progress even though no Batch was created. The V432 add-only scheduling guard is therefore refined: `DONE + no Batch` satisfies the predecessor requirement; an existing Previous Main Batch that is still unscheduled does not. Scheduled predecessors still require `Current planned_start >= Previous planned_end`. Chemical proposal/capacity, Schedule PATCH/Edit, Trial Day Shift, Planning READY/WAIT, Dashboard and Batch membership are unchanged.
+
+
+## V438 — Aiven PostgreSQL canonical database
+
+ST Planning moves its operational PostgreSQL database from Supabase to Aiven. The first cutover intentionally copies the full current `public` schema and full current `public` data (~600 MB) before any cleanup. Runtime database access is provider-neutral through `DATABASE_URL` + `pg`; Supabase/Supavisor-specific DNS/port auto-selection is removed. Aiven Free has `max_connections=20` and no built-in pooling, so Vercel-local `DB_POOL_MAX` defaults to `1`. Supabase is retained only as a temporary Storage/Auth provider during migration; no Master/Open Job/Planning/Batch/Schedule/Dashboard database query should use Supabase REST after V438. Database reduction/history/index cleanup is a separate post-cutover phase and must not be mixed into the first migration. Business logic is unchanged.
+
+
+## V439 — Aiven TLS compatibility
+
+Aiven remains the canonical PostgreSQL provider from V438. V439 changes only the Node `pg` TLS connection adapter: when `DATABASE_URL` uses `sslmode=require`, TLS remains enabled but Node uses libpq-compatible `require` semantics to avoid `SELF_SIGNED_CERT_IN_CHAIN`. If `DATABASE_CA_CERT` is configured, strict CA verification is enabled. No Planning, Batch, Schedule, Chemical Line, Masking/Unmasking, Production or data-model logic changes.
