@@ -263,3 +263,7 @@ Fixes Node `pg` connection failures such as `SELF_SIGNED_CERT_IN_CHAIN` against 
 
 ### V441 runtime database check
 After deployment, open `/api/system/db-info` to verify the live Vercel instance is using the expected PostgreSQL provider. The endpoint is read-only and does not expose credentials.
+
+
+## V442 — Aiven Planning pool safety
+Planning Board/Candidate DB reads are safe with the Aiven Free default `DB_POOL_MAX=1`; nested second-client acquisition was removed from that flow without changing business logic.

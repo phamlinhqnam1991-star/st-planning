@@ -25,14 +25,16 @@ export default async function Page({searchParams}:{searchParams:Promise<{area?:s
  if(previousBatchNo)scopeParams.set("prevBatch",previousBatchNo);
  const scopeQuery=scopeParams.toString();
  const scoped=(base:string)=>scopeQuery?`${base}?${scopeQuery}`:base;
- const staticDataPromise=getPlanningStaticData();
+ // V442: resolve cached/static Planning data before reserving the single
+ // Aiven pooled connection. With DB_POOL_MAX=1, starting this cache load and
+ // then holding another client could create a circular wait on cold requests.
+ const staticData=await getPlanningStaticData();
  const c=await getPool().connect();
  try{
-  const [{initialView,serverViews},batchesQ,staticData,metadata]=await Promise.all([
+  const [{initialView,serverViews},batchesQ,metadata]=await Promise.all([
    resolvePlanningView(c,op,areaId),
    getRecentPlanningBatches(c,100),
-   staticDataPromise,
-   loadPlanningCandidateMetadata({op,recipeKey})
+   loadPlanningCandidateMetadata({op,recipeKey},c)
   ]);
   const today=new Date().toISOString().slice(0,10);
 

@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V441";
+export const ST_AI_KNOWLEDGE_VERSION="V442";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -12,6 +12,11 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
   key:"database-provider",
   title:"Database provider architecture · V439",
   content:`Aiven PostgreSQL is the canonical operational database. Runtime database access uses standard PostgreSQL through DATABASE_URL and the pg driver; Supabase/Supavisor-specific DNS/pooler selection is removed. V439 maps Node pg sslmode=require to libpq-compatible encrypted TLS semantics so Aiven does not fail with SELF_SIGNED_CERT_IN_CHAIN; optional DATABASE_CA_CERT enables strict CA verification. Aiven Free has a small connection budget, so Vercel local DB_POOL_MAX defaults to 1. During the migration phase Supabase may remain only for Storage/Auth; no Planning/Master/Dashboard database reads or writes may use Supabase REST. The first migration copies the full current public schema and full public data without history/index cleanup; database reduction happens only after Aiven cutover is verified. Planning Chain, Recipe, Batch, Schedule, Chemical Line, Masking/Unmasking and Production business logic are unchanged by the provider move.`
+ },
+ {
+  key:"aiven-planning-pool",
+  title:"Aiven Planning pool safety · V442",
+  content:`Aiven remains canonical PostgreSQL and DB_POOL_MAX defaults to 1 to protect the Free 20-connection budget. Planning Board server render and Candidate loading must not acquire a second client from the same one-slot pool while already holding the first client. V442 resolves Planning static data before reserving the live page client, reuses that client for initial metadata, and reuses the existing Candidate client for side reads whenever DB_POOL_MAX=1. If DB_POOL_MAX is explicitly raised above 1, the historical two-client parallel Candidate path remains available. This changes connection scheduling only; Planning Chain, Candidate population, Recipe, Batch, Schedule, Chemical Line, Masking/Unmasking, Production and Dashboard rules are unchanged.`
  },
  {
   key:"next-operation-order",

@@ -306,3 +306,7 @@ Aiven remains the canonical PostgreSQL provider from V438. V439 changes only the
 ## V441 — Runtime database identity endpoint
 
 Add read-only `GET /api/system/db-info` so deployment can confirm which PostgreSQL provider the running Vercel instance is actually using. The endpoint opens the canonical `DATABASE_URL` connection through `src/lib/db.ts` and returns provider, host, port, current database/user, PostgreSQL version, server address/port and latency. It never returns the connection URI or password and disables response caching. This is diagnostics only; no Planning/Batch/Schedule/Recipe/Chemical/Production logic changes.
+
+
+## V442 — Aiven single-connection Planning safety
+Aiven remains the canonical operational PostgreSQL provider and Vercel keeps `DB_POOL_MAX=1` by default to protect the Aiven Free 20-connection budget. Planning Board must therefore never reserve one pool client and then wait for a second client from the same pool. V442 makes initial Planning static data complete before the page acquires its live client, reuses that client for metadata, and makes Candidate side reads reuse the existing client when the configured pool max is one. If `DB_POOL_MAX>1` is explicitly configured later, the historical two-connection Candidate parallel path remains available. Business logic and data populations are unchanged.

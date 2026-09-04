@@ -66,19 +66,23 @@ export type PlanningCandidateMetadataQuery={
  * Planning Board dùng metadata load trực tiếp ở server để render filters trước
  * khi tải candidate rows nặng. Hai query metadata chạy song song.
  */
-export async function loadPlanningCandidateMetadata(input:PlanningCandidateMetadataQuery){
+export async function loadPlanningCandidateMetadata(input:PlanningCandidateMetadataQuery,existingClient?:any){
   const t0=Date.now();
   const {op,recipeKey}=input;
   let recipeOptions:any[]=[];
   let timeRules:any[]=[];
-  const sideClient=await getPool().connect();
+  // V442: Aiven Free runtime defaults DB_POOL_MAX=1. Reuse the caller's
+  // already-acquired client when available so Planning page cannot wait on a
+  // second connection while holding the only pooled connection.
+  const sideClient=existingClient||await getPool().connect();
+  const ownsClient=!existingClient;
   try{
     const jobs:Promise<void>[]=[];
-    if(op)jobs.push(sideClient.query(RECIPE_OPTIONS_SQL,[op]).then(r=>{recipeOptions=r.rows;}));
-    if(recipeKey)jobs.push(sideClient.query(TIME_RULES_SQL,[recipeKey]).then(r=>{timeRules=r.rows;}));
+    if(op)jobs.push(sideClient.query(RECIPE_OPTIONS_SQL,[op]).then((r:any)=>{recipeOptions=r.rows;}));
+    if(recipeKey)jobs.push(sideClient.query(TIME_RULES_SQL,[recipeKey]).then((r:any)=>{timeRules=r.rows;}));
     await Promise.all(jobs);
   }finally{
-    sideClient.release();
+    if(ownsClient)sideClient.release();
   }
   return {recipeOptions,timeRules,timing:{totalMs:Date.now()-t0}};
 }
@@ -268,14 +272,23 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
    let ctx:any=null;
    let recipeMetaRows:any[]=[];
    const sideStart=Date.now();
-   const sideClient=await getPool().connect();
+   // V442: candidate API historically opened a second pooled connection for
+   // parallel metadata/recipe reads. Aiven Free intentionally runs with
+   // DB_POOL_MAX=1, so that pattern deadlocks: the request holds `c` while it
+   // waits forever for another client from the same one-slot pool. When max=1
+   // reuse `c`; node-postgres queues these reads safely on that client. If the
+   // operator explicitly raises DB_POOL_MAX later, retain the existing
+   // two-connection parallel path.
+   const configuredPoolMax=Math.max(1,Number(process.env.DB_POOL_MAX||"1")||1);
+   const ownsSideClient=configuredPoolMax>1;
+   const sideClient=ownsSideClient?await getPool().connect():c;
    const sidePromise=(async()=>{
     const jobs:Promise<void>[]=[];
     if(op){
-     jobs.push(sideClient.query(RECIPE_OPTIONS_SQL,[op]).then(r=>{recipeOptions=r.rows;}));
+     jobs.push(sideClient.query(RECIPE_OPTIONS_SQL,[op]).then((r:any)=>{recipeOptions=r.rows;}));
     }
     if(recipeKey){
-     jobs.push(sideClient.query(TIME_RULES_SQL,[recipeKey]).then(r=>{timeRules=r.rows;}));
+     jobs.push(sideClient.query(TIME_RULES_SQL,[recipeKey]).then((r:any)=>{timeRules=r.rows;}));
     }
     jobs.push(getCachedLiveRecipeContext(sideClient).then(v=>{ctx=v;}));
     jobs.push(getCachedRecipeMeta(sideClient).then(r=>{recipeMetaRows=r;}));
@@ -581,7 +594,7 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
    try{
     await sidePromise;
    }finally{
-    sideClient.release();
+    if(ownsSideClient)sideClient.release();
    }
    const recipeMs=Date.now()-sideStart;
 
