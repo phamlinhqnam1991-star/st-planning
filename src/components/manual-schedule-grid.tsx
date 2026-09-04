@@ -69,15 +69,15 @@ type Draft={
 };
 
 type ScheduleWorkloadMetric={jobs:number;qty:number;surface:number};
-type ScheduleWorkloadStatus="WAIT"|"READY"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
+type ScheduleWorkloadStatus="WAIT"|"READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
 type ScheduleWorkloadRecipeRow={
  recipeKey:string;recipeNo:string;recipeName:string;
- WAIT:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
+ WAIT:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;READY_PREV_SCHEDULED:ScheduleWorkloadMetric;READY_PREV_UNSCHEDULED:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
  total:ScheduleWorkloadMetric;
 };
 type ScheduleWorkloadMainRow={
  areaId:number;areaName:string;areaSort:number;standardOperation:string;mainOrder:number;
- WAIT:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
+ WAIT:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;READY_PREV_SCHEDULED:ScheduleWorkloadMetric;READY_PREV_UNSCHEDULED:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
  total:ScheduleWorkloadMetric;recipes:ScheduleWorkloadRecipeRow[];
 };
 
@@ -940,6 +940,73 @@ export function ManualScheduleGrid({
   "FB-01":"fb-01","FB-02":"fb-02","FB-03":"fb-03","FB-04":"fb-04","FB-05":"fb-05","FB-06":"fb-06"
  };
  const fbClass=(code:string)=>FB_COLORS[String(code||"").toUpperCase()]||"";
+ const CHAIN_PAIR_CLASSES=["chain-pair-1","chain-pair-2","chain-pair-3","chain-pair-4","chain-pair-5","chain-pair-6"];
+ function chainPairClass(token:string|number|null|undefined){
+  const raw=String(token??"");
+  let h=0;for(const ch of raw)h=(h*31+ch.charCodeAt(0))>>>0;
+  return CHAIN_PAIR_CLASSES[h%CHAIN_PAIR_CLASSES.length];
+ }
+ function chainFromDraftUsed(a:ScheduleArea,sourceIndex:number,excludeChild?:number){
+  const cnt=rowCounts[a.schedule_area_code]||Math.max(1,Number(a.default_rows)||20);
+  for(let j=0;j<cnt;j++){
+   if(j===excludeChild)continue;
+   if(draft(a,j).chainFrom===sourceIndex)return j;
+  }
+  return null;
+ }
+ function chainFromExistingUsed(a:ScheduleArea,sourceLiveIndex:number,excludeChild?:number){
+  const cnt=rowCounts[a.schedule_area_code]||Math.max(1,Number(a.default_rows)||20);
+  for(let j=0;j<cnt;j++){
+   if(j===excludeChild)continue;
+   if(draft(a,j).chainFromExisting===sourceLiveIndex)return j;
+  }
+  return null;
+ }
+ function latestScheduledPrevious(batch:PlanningBatch|null|undefined){
+  let best:PreviousMainBatch|null=null;let bestTs=-1;
+  for(const prev of batch?.previous_main_batches||[]){
+   if(prev.schedule_status!=="SCHEDULED"||!prev.resource_code||!prev.planned_end)continue;
+   const ts=new Date(prev.planned_end).getTime();
+   if(Number.isFinite(ts)&&ts>bestTs){best=prev;bestTs=ts;}
+  }
+  return best;
+ }
+ function draftChainVisual(a:ScheduleArea,i:number){
+  const r=draft(a,i);
+  if(r.chainFrom!=null)return {cls:chainPairClass(`draft:${r.chainFrom}`),label:`Dòng ${r.chainFrom+1}`,sourceDraft:r.chainFrom,sourceLive:null as number|null};
+  if(r.chainFromExisting!=null){
+   const src=liveRows[r.chainFromExisting];
+   return {cls:chainPairClass(`schedule:${src?.id??r.chainFromExisting}`),label:src?`${src.resource_code} · ${src.batch_no}`:`Dòng đã lưu ${r.chainFromExisting+1}`,sourceDraft:null as number|null,sourceLive:r.chainFromExisting};
+  }
+  const batch=r.batchId?liveBatches.find(x=>x.id===r.batchId)||planningBatches.find(x=>x.id===r.batchId):null;
+  const prev=latestScheduledPrevious(batch);
+  if(prev?.batch_id){
+   // Một Previous/Preclean Batch chỉ được tự nối cho MỘT draft. Draft đứng trước thắng.
+   for(let j=0;j<i;j++){
+    const jr=draft(a,j);
+    if(jr.chainFrom!=null||jr.chainFromExisting!=null||!jr.batchId)continue;
+    const jb=liveBatches.find(x=>x.id===jr.batchId)||planningBatches.find(x=>x.id===jr.batchId);
+    if(latestScheduledPrevious(jb)?.batch_id===prev.batch_id)return null;
+   }
+   return {cls:chainPairClass(`batch:${prev.batch_id}`),label:`AUTO ${prev.resource_code} · ${prev.batch_no||"Previous"}`,sourceDraft:null as number|null,sourceLive:null as number|null};
+  }
+  return null;
+ }
+ function sourceDraftChainClass(a:ScheduleArea,i:number){
+  const child=chainFromDraftUsed(a,i);
+  return child==null?"":chainPairClass(`draft:${i}`);
+ }
+ function sourceActualChainClass(a:ScheduleArea,row:ScheduledRow){
+  const liveIndex=liveRows.findIndex(x=>Number(x.id)===Number(row.id));
+  if(liveIndex>=0&&chainFromExistingUsed(a,liveIndex)!=null)return chainPairClass(`schedule:${row.id}`);
+  const cnt=rowCounts[a.schedule_area_code]||Math.max(1,Number(a.default_rows)||20);
+  for(let j=0;j<cnt;j++){
+   const r=draft(a,j);if(r.chainFrom!=null||r.chainFromExisting!=null||!r.batchId)continue;
+   const b=liveBatches.find(x=>x.id===r.batchId)||planningBatches.find(x=>x.id===r.batchId);
+   if(latestScheduledPrevious(b)?.batch_id===row.batch_id)return chainPairClass(`batch:${row.batch_id}`);
+  }
+  return "";
+ }
 
  // v221.22: LƯU TẤT CẢ đề xuất 1 lần — lưu tuần tự, lô nguồn trước lô nối tiếp,
  // xóa các dòng đã lưu (index giảm dần) và refresh 1 lần; báo lỗi từng dòng.
@@ -1046,9 +1113,12 @@ export function ManualScheduleGrid({
   return set;
  }
 
- const workloadStatuses:ScheduleWorkloadStatus[]=["WAIT","READY","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"];
+ const workloadStatuses:ScheduleWorkloadStatus[]=["WAIT","READY_PREV_SCHEDULED","READY_PREV_UNSCHEDULED","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"];
  const workloadLabel:Record<ScheduleWorkloadStatus,string>={
-  WAIT:"WAIT",READY:"READY",PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",SCHEDULED:"SCHEDULED",HOLD:"HOLD"
+  WAIT:"WAIT",
+  READY_PREV_SCHEDULED:"READY · Previous Main đã Schedule",
+  READY_PREV_UNSCHEDULED:"READY · Previous Main chưa Schedule",
+  PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",SCHEDULED:"SCHEDULED",HOLD:"HOLD"
  };
  function workloadMetric(metric:ScheduleWorkloadMetric|undefined,status?:ScheduleWorkloadStatus){
   const m=metric||{jobs:0,qty:0,surface:0};
@@ -1086,7 +1156,7 @@ export function ManualScheduleGrid({
        </tr>);
        return [main,...recipes];
       })}
-      {!rows.length&&!stWorkloadLoading&&<tr><td colSpan={9} className="muted">Khu vực này chưa có workload trong canonical Dashboard ST population.</td></tr>}
+      {!rows.length&&!stWorkloadLoading&&<tr><td colSpan={10} className="muted">Khu vực này chưa có workload trong canonical Dashboard ST population.</td></tr>}
      </tbody>
     </table></div>}
   </section>;
@@ -1258,7 +1328,7 @@ export function ManualScheduleGrid({
 
          return <Fragment key={`actual-${x.id}`}>
          <tr
-          className={`schedule-area-existing ${editing?"is-editing":""}${x.resource_code?` fb-row ${fbClass(x.resource_code)}`:" schema-drop-target-hint"}`}
+          className={`schedule-area-existing ${editing?"is-editing":""}${x.resource_code?` fb-row ${fbClass(x.resource_code)}`:" schema-drop-target-hint"} ${chemical?sourceActualChainClass(a,x):""}`}
           onDragOver={(e)=>{const raw=String(e.dataTransfer.getData("text/plain")||"");if(raw.startsWith("row:")){e.preventDefault();}}}
           onDrop={(e)=>{
            const raw=String(e.dataTransfer.getData("text/plain")||"");
@@ -1267,8 +1337,12 @@ export function ManualScheduleGrid({
            // Kéo dòng MỚI (child) lên dòng ĐÃ LƯU (parent) → tạo liên kết nối tiếp
            const childDraft=Number(raw.slice(4));
            if(Number.isFinite(childDraft)&&childDraft>=0&&childDraft<Number(rowCounts[a.schedule_area_code]||0)){
-            patch(a,childDraft,{chainFrom:null,chainFromExisting:i});
-            setMessage(`Đã liên kết: Dòng ${liveRows.length+childDraft+1} nối tiếp Dòng ${i+1} (lô đã lưu, cùng FB, không loading). Bấm Đề xuất để hệ thống xếp giờ đúng: Loading Start = NDT End (hoặc Unloading End) dòng nguồn, có kiểm tra không cấn 3 FB Process.`);
+            const sourceLiveIndex=liveRows.findIndex(row=>Number(row.id)===Number(x.id));
+            if(sourceLiveIndex<0){setMessage("Không xác định được lô nguồn đã lưu.");return;}
+            const usedBy=chainFromExistingUsed(a,sourceLiveIndex,childDraft);
+            if(usedBy!=null){setMessage(`${x.resource_code} / ${x.batch_no} đã liên kết với Dòng ${usedBy+1}. Một FB Precleaning chỉ được liên kết với 1 FB nối tiếp.`);return;}
+            patch(a,childDraft,{chainFrom:null,chainFromExisting:sourceLiveIndex});
+            setMessage(`Đã liên kết 1-1: ${x.resource_code} / ${x.batch_no} → Dòng ${childDraft+1}. Hai dòng dùng cùng màu liên kết; một FB Precleaning không thể nối thêm dòng thứ hai.`);
            }
           }}
          >
@@ -1461,10 +1535,10 @@ export function ManualScheduleGrid({
          </tr>
         </Fragment>
         })}
-        {Array.from({length:count},(_,i)=>{const r=draft(a,i),k=key(a.schedule_area_code,i);const w=chemical?phaseWindow(a,i):null;const preclean=isPrecleanRecipe(recipes.find(x=>x.recipe_key===r.recipeKey)?.recipe_no);const currentRecipe=r.recipeKey&&!areaRecipes.some(x=>x.recipe_key===r.recipeKey)?recipes.find(x=>x.recipe_key===r.recipeKey):null;const rowRecipes=currentRecipe?[currentRecipe,...areaRecipes]:areaRecipes;return <Fragment key={k}>
+        {Array.from({length:count},(_,i)=>{const r=draft(a,i),k=key(a.schedule_area_code,i);const w=chemical?phaseWindow(a,i):null;const preclean=isPrecleanRecipe(recipes.find(x=>x.recipe_key===r.recipeKey)?.recipe_no);const currentRecipe=r.recipeKey&&!areaRecipes.some(x=>x.recipe_key===r.recipeKey)?recipes.find(x=>x.recipe_key===r.recipeKey):null;const rowRecipes=currentRecipe?[currentRecipe,...areaRecipes]:areaRecipes;const chainVisual=chemical?draftChainVisual(a,i):null;const sourceChainClass=chemical?sourceDraftChainClass(a,i):"";return <Fragment key={k}>
          <tr
           draggable
-          className={`schedule-area-empty-row${dropTarget===k?" drop-target":""}${r.keep?" keep-row":""}${r.resourceCode?` fb-row ${fbClass(r.resourceCode)}`:""}`}
+          className={`schedule-area-empty-row${dropTarget===k?" drop-target":""}${r.keep?" keep-row":""}${r.resourceCode?` fb-row ${fbClass(r.resourceCode)}`:""} ${chainVisual?.cls||sourceChainClass}`}
           onDragStart={(e)=>{e.dataTransfer.setData("text/plain",`row:${i}`);e.dataTransfer.effectAllowed="link";}}
           onDragOver={(e)=>{e.preventDefault();if(!r.batchId)setDropTarget(k);}}
           onDragLeave={()=>{if(dropTarget===k)setDropTarget(null);}}
@@ -1476,8 +1550,10 @@ export function ManualScheduleGrid({
             const src=Number(raw.slice(4));
             if(src===i){setMessage("Không liên kết với chính dòng đó.");return;}
             const srcIdx=Math.min(src,i),dstIdx=Math.max(src,i);
-            patch(a,dstIdx,{chainFrom:srcIdx});
-            setMessage(`Đã liên kết: Dòng ${dstIdx+1} nối tiếp Dòng ${srcIdx+1} (cùng FB, không loading). Bấm Đề xuất để hệ thống xếp giờ đúng: Loading Start = Unloading End dòng nguồn.`);
+            const usedBy=chainFromDraftUsed(a,srcIdx,dstIdx);
+            if(usedBy!=null){setMessage(`Dòng ${srcIdx+1} đã liên kết với Dòng ${usedBy+1}. Một FB Precleaning chỉ được liên kết với 1 FB nối tiếp.`);return;}
+            patch(a,dstIdx,{chainFrom:srcIdx,chainFromExisting:null});
+            setMessage(`Đã liên kết 1-1: Dòng ${srcIdx+1} → Dòng ${dstIdx+1}. Hai dòng dùng cùng màu để dễ nhận biết cặp FB.`);
             return;
            }
            const id=Number(raw);
@@ -1492,7 +1568,7 @@ export function ManualScheduleGrid({
          >
          <td>
           {actual.length+i+1}
-          {(r.chainFrom!=null||r.chainFromExisting!=null)&&<span className="row-chain-badge" title={`Liên kết nối tiếp từ Dòng ${(r.chainFromExisting??r.chainFrom??0)+1} (kéo-thả). Bấm để xóa liên kết.`} onClick={()=>patch(a,i,{chainFrom:null,chainFromExisting:null})}>↳{(r.chainFromExisting??r.chainFrom??0)+1}✕</span>}
+          {chainVisual&&<span className={`row-chain-badge ${chainVisual.cls}`} title={`Liên kết 1-1: ${chainVisual.label}. Bấm để xóa liên kết thủ công.`} onClick={()=>{if(r.chainFrom!=null||r.chainFromExisting!=null)patch(a,i,{chainFrom:null,chainFromExisting:null});}}>↳ {chainVisual.label}{(r.chainFrom!=null||r.chainFromExisting!=null)?" ✕":""}</span>}
 
          </td><td>{r.batchId?<b>{r.batchNo}</b>:<span className="muted">MỚI</span>}</td>
          <td>
@@ -1555,6 +1631,19 @@ export function ManualScheduleGrid({
     </div>
    }
 
+ const workloadMainOrderByOperation=new Map(
+  stWorkloadRows.map(row=>[String(row.standardOperation||"").trim().toUpperCase(),Number(row.mainOrder||999999)] as const)
+ );
+ const scheduleAreaMainOrder=(area:ScheduleArea)=>{
+  const own=(area.operations||[]).map(x=>workloadMainOrderByOperation.get(String(x.standard_operation||"").trim().toUpperCase())??999999);
+  const children=area.resource_group&&!area.resource_code?(childrenByGroup.get(area.resource_group)||[]):[];
+  const childOrders=children.flatMap(ch=>(ch.operations||[]).map(x=>workloadMainOrderByOperation.get(String(x.standard_operation||"").trim().toUpperCase())??999999));
+  return Math.min(...own,...childOrders,999999);
+ };
+ const orderedScheduleAreas=[...scheduleAreas].sort((a,b)=>
+  scheduleAreaMainOrder(a)-scheduleAreaMainOrder(b)||Number(a.display_order||999999)-Number(b.display_order||999999)||a.schedule_area_code.localeCompare(b.schedule_area_code)
+ );
+
  return <section className="erp-table-panel section schedule-area-direct-grid">
   <div className="erp-panel-head">
    <div><b>Điều độ trực tiếp · Planner {planner}</b>
@@ -1562,7 +1651,7 @@ export function ManualScheduleGrid({
    <span>{scheduleAreas.length} areas</span>
   </div>
   <div className="schedule-area-grid-stack">
-  {scheduleAreas.map(a=>{
+  {orderedScheduleAreas.map(a=>{
    const hub=hubByGroup.get(String(a.resource_group||""));
    if(a.resource_group&&!a.resource_code){
     const children=childrenByGroup.get(a.resource_group)||[];
@@ -1578,7 +1667,7 @@ export function ManualScheduleGrid({
       </div>
       {renderScheduleAreaWorkload(a.schedule_area_name,pool)}
       <div className="schedule-area-group-children">
-       {children.map(ch=>renderAreaBlock(ch,pool,false))}
+       {[...children].sort((x,y)=>scheduleAreaMainOrder(x)-scheduleAreaMainOrder(y)||Number(x.display_order)-Number(y.display_order)).map(ch=>renderAreaBlock(ch,pool,false))}
       </div>
      </div>;
     }

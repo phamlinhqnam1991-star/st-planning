@@ -3022,3 +3022,8 @@
 .erpkit-migrated-page .production-note-input:focus{border-color:#c7a75e!important;box-shadow:0 0 0 2px rgba(199,167,94,.12)!important;background:#fff!important}
 .erpkit-migrated-page .production-note-cell>small{display:block;margin-top:2px;color:#7b8793;font-size:6.5px}
 .erpkit-migrated-page .production-job-detail-table td:first-child{border-left:2px solid color-mix(in srgb,var(--area-accent,#718096) 30%,#dbe4ec)!important}
+
+/* V457 · Scheduling workload now exposes two READY columns. */
+.erpkit-migrated-page .schedule-area-st-workload-table{min-width:1360px}
+.erpkit-migrated-page .schedule-area-st-workload-table th:nth-child(5),
+.erpkit-migrated-page .schedule-area-st-workload-table th:nth-child(6){min-width:145px;white-space:normal;line-height:1.25}

@@ -534,11 +534,20 @@ export async function simulateChemicalDay(
  // Thứ tự xử lý ưu tiên chuỗi liên kết: dòng liên kết chạy NGAY SAU dòng nguồn
  // (tránh dòng khác chen vào FB giữa chừng làm gãy chuỗi).
  const chainChildren=new Map<number,number[]>();
+ const usedExistingChainSources=new Set<number>();
  runs.forEach((r,i)=>{
   if(r.chain_from_run!=null&&r.chain_from_run<i){
    const list=chainChildren.get(r.chain_from_run)||[];
+   if(list.length)throw new Error(`Dòng ${r.chain_from_run+1}: một FB Precleaning chỉ được liên kết với 1 FB nối tiếp.`);
    list.push(i);
    chainChildren.set(r.chain_from_run,list);
+  }
+  if(r.manual_chain&&r.chain_source_schedule_id!=null){
+   const sid=Number(r.chain_source_schedule_id);
+   if(Number.isFinite(sid)){
+    if(usedExistingChainSources.has(sid))throw new Error(`Schedule nguồn #${sid}: một FB Precleaning chỉ được liên kết với 1 FB nối tiếp.`);
+    usedExistingChainSources.add(sid);
+   }
   }
  });
  const order:number[]=[];const seen=new Array(runs.length).fill(false);
@@ -549,6 +558,7 @@ export async function simulateChemicalDay(
  };
  for(let i=0;i<runs.length;i++)visit(i);
 
+ const usedAutoPreviousBatches=new Set<number>();
  for(const idx of order){
   const recipeKey=String(runs[idx].recipe_key||"").trim();
   const meta=recipeMap.get(recipeKey);
@@ -592,7 +602,7 @@ export async function simulateChemicalDay(
   // trong lô Previous Main đã được điều độ đúng FB + đúng giờ kết thúc. Không phát hiện → không nối tiếp.
   if(preferredFb&&continuationFrom&&runs[idx].batch_id&&!runs[idx].manual_chain&&chainSrc==null){
    const vq=await client.query(`
-    select prevsch.resource_code,prevsch.planned_end
+    select prevhist.previous_batch_id,prevsch.resource_code,prevsch.planned_end
     from planning_batch_job cbj
     join planning_job_operation cur on cur.id=cbj.planning_job_operation_id
     join lateral (
@@ -619,8 +629,14 @@ export async function simulateChemicalDay(
     limit 1
    `,[runs[idx].batch_id]);
    const v=vq.rows[0];
+   const previousBatchId=Number(v?.previous_batch_id||0);
    if(!v||String(v.resource_code||"")!==preferredFb||Math.abs(new Date(String(v.planned_end)).getTime()-continuationFrom)>5*60000){
     preferredFb=null;continuationFrom=null; // không phát hiện được job chung → không nối tiếp
+   }else if(previousBatchId>0&&usedAutoPreviousBatches.has(previousBatchId)){
+    // Một FB/Previous Preclean Batch chỉ được cấp cho đúng một lô nối tiếp.
+    preferredFb=null;continuationFrom=null;
+   }else if(previousBatchId>0){
+    usedAutoPreviousBatches.add(previousBatchId);
    }
   }
 

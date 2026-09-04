@@ -23,6 +23,8 @@ export type StDashboardRecipeRow={
  recipeName:string;
  WAIT:StDashboardMetric;
  READY:StDashboardMetric;
+ READY_PREV_SCHEDULED:StDashboardMetric;
+ READY_PREV_UNSCHEDULED:StDashboardMetric;
  PLANNED_UNSCHEDULED:StDashboardMetric;
  SCHEDULED:StDashboardMetric;
  HOLD:StDashboardMetric;
@@ -38,6 +40,8 @@ export type StDashboardMainRow={
  mainOrder:number;
  WAIT:StDashboardMetric;
  READY:StDashboardMetric;
+ READY_PREV_SCHEDULED:StDashboardMetric;
+ READY_PREV_UNSCHEDULED:StDashboardMetric;
  PLANNED_UNSCHEDULED:StDashboardMetric;
  SCHEDULED:StDashboardMetric;
  HOLD:StDashboardMetric;
@@ -358,7 +362,13 @@ const DASHBOARD_CHAIN_WORKLOAD_SQL=`
     when p.status='ELIGIBLE' then 'READY'
     else 'WAIT'
    end dashboard_status,
-   active_batch.recipe_key batch_recipe_key
+   active_batch.recipe_key batch_recipe_key,
+   case
+    when p.status<>'ELIGIBLE' then null
+    when nullif(trim(coalesce(prev_ident.previous_operation,'')),'') is null then 'UNSCHEDULED'
+    when prev_schedule.schedule_id is not null then 'SCHEDULED'
+    else 'UNSCHEDULED'
+   end ready_previous_schedule
   from public.planning_job_operation p
   left join area_by_group abg on abg.st_group=p.st_group
   left join public.md_area a on a.id=abg.area_id and a.is_active=true
@@ -379,6 +389,51 @@ const DASHBOARD_CHAIN_WORKLOAD_SQL=`
    order by s.planned_start desc,s.id desc
    limit 1
   ) active_schedule on true
+  left join lateral (
+   select p2.standard_operation,p2.source_operation_code,p2.source_seq
+   from public.planning_job_operation p2
+   where p2.job_num=p.job_num
+     and p2.is_active=true
+     and upper(trim(p2.standard_operation))<>'PIONBL'
+     and (
+      (p.planning_seq is not null and p2.planning_seq<p.planning_seq)
+      or (p.planning_seq is null and p.source_seq is not null and p2.source_seq<p.source_seq)
+     )
+   order by p2.planning_seq desc nulls last,p2.source_seq desc nulls last,p2.id desc
+   limit 1
+  ) prev_live on true
+  left join lateral (
+   select
+    coalesce(nullif(trim(prev_live.standard_operation),''),nullif(trim(p.previous_standard_operation_snapshot),'')) previous_operation,
+    coalesce(prev_live.source_seq,p.previous_source_seq_snapshot) previous_source_seq,
+    coalesce(nullif(trim(prev_live.source_operation_code),''),nullif(trim(p.previous_source_operation_code_snapshot),'')) previous_source_operation
+  ) prev_ident on true
+  left join lateral (
+   select hb.id batch_id
+   from public.planning_batch_job hbj
+   join public.planning_batch hb on hb.id=hbj.batch_id and hb.status<>'CANCELLED'
+   left join public.planning_job_operation hp on hp.id=hbj.planning_job_operation_id
+   where hbj.job_num=p.job_num
+     and nullif(trim(coalesce(prev_ident.previous_operation,'')),'') is not null
+     and upper(trim(coalesce(nullif(hbj.standard_operation,''),hp.standard_operation,'')))=upper(trim(prev_ident.previous_operation))
+     and (
+      prev_ident.previous_source_seq is null
+      or coalesce(hbj.source_seq_snapshot,hp.source_seq)=prev_ident.previous_source_seq
+      or (
+       nullif(trim(coalesce(prev_ident.previous_source_operation,'')),'') is not null
+       and upper(trim(coalesce(nullif(hbj.source_operation_code,''),hp.source_operation_code,'')))=upper(trim(prev_ident.previous_source_operation))
+      )
+     )
+   order by hb.created_at desc,hbj.id desc
+   limit 1
+  ) prev_batch on true
+  left join lateral (
+   select ps.id schedule_id
+   from public.planning_schedule ps
+   where ps.batch_id=prev_batch.batch_id and ps.status<>'CANCELLED' and ps.planned_start is not null
+   order by ps.planned_start desc,ps.id desc
+   limit 1
+  ) prev_schedule on true
   where p.is_active=true
     and p.status in ('LOCKED','ELIGIBLE','PLANNED')
     and upper(trim(p.standard_operation))<>'PIONBL'
@@ -407,7 +462,7 @@ function emptyStatusRecord():Record<StDashboardStatus,StDashboardMetric>{
 function emptyMainRow(input:{areaId:number;areaName:string;areaSort:number;standardOperation:string;mainOrder:number}):StDashboardMainRow{
  return {
   ...input,
-  WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),
+  WAIT:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),
   total:zero(),recipes:[]
  };
 }
@@ -513,6 +568,10 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
    rows.set(mainKey,row);
   }
   addMetric(row[bucket],metric);
+  if(bucket==="READY"){
+   const readyKey=text(wr.ready_previous_schedule)==="SCHEDULED"?"READY_PREV_SCHEDULED":"READY_PREV_UNSCHEDULED";
+   addMetric(row[readyKey],metric);
+  }
 
   const batchRecipeKey=text(wr.batch_recipe_key);
   const liveMatch=batchRecipeKey?null:bestRecipeMatch(ctx,{
@@ -532,11 +591,15 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   if(!recipe){
    recipe={
     recipeKey:recipeGroupKey,recipeNo,recipeName,
-    WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()
+    WAIT:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()
    };
    row.recipes.push(recipe);
   }
   addMetric(recipe[bucket],metric);
+  if(bucket==="READY"){
+   const readyKey=text(wr.ready_previous_schedule)==="SCHEDULED"?"READY_PREV_SCHEDULED":"READY_PREV_UNSCHEDULED";
+   addMetric(recipe[readyKey],metric);
+  }
  }
 
  // ST_SCOPE_ONLY has no Planning Chain occurrence by design, so keep it as a standalone
@@ -562,7 +625,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   addMetric(row[bucket],metric);
   let recipe=row.recipes.find(x=>x.recipeKey==="__ST_SCOPE_ONLY__");
   if(!recipe){
-   recipe={recipeKey:"__ST_SCOPE_ONLY__",recipeNo:"",recipeName:"ST Scope Only",WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()};
+   recipe={recipeKey:"__ST_SCOPE_ONLY__",recipeNo:"",recipeName:"ST Scope Only",WAIT:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()};
    row.recipes.push(recipe);
   }
   addMetric(recipe[bucket],metric);

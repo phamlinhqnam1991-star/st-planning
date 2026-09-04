@@ -6194,3 +6194,18 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .production-support-control-line>span{min-width:16px;font-weight:800;color:#68778a}
 .production-support-control-line .production-note-input{min-width:150px}
 .production-support-combined-row>td{vertical-align:top}
+
+/* V457 · Chemical Flybar 1:1 continuation link visualization.
+   Same class is applied to the source Preclean FB and its single continuation row. */
+.schedule-area-entry-table tbody tr.chain-pair-1 > td{box-shadow:inset 3px 0 0 #2563eb}
+.schedule-area-entry-table tbody tr.chain-pair-2 > td{box-shadow:inset 3px 0 0 #16a34a}
+.schedule-area-entry-table tbody tr.chain-pair-3 > td{box-shadow:inset 3px 0 0 #9333ea}
+.schedule-area-entry-table tbody tr.chain-pair-4 > td{box-shadow:inset 3px 0 0 #ea580c}
+.schedule-area-entry-table tbody tr.chain-pair-5 > td{box-shadow:inset 3px 0 0 #0891b2}
+.schedule-area-entry-table tbody tr.chain-pair-6 > td{box-shadow:inset 3px 0 0 #be123c}
+.row-chain-badge.chain-pair-1{border-color:#2563eb!important;background:#eff6ff!important}
+.row-chain-badge.chain-pair-2{border-color:#16a34a!important;background:#f0fdf4!important}
+.row-chain-badge.chain-pair-3{border-color:#9333ea!important;background:#faf5ff!important}
+.row-chain-badge.chain-pair-4{border-color:#ea580c!important;background:#fff7ed!important}
+.row-chain-badge.chain-pair-5{border-color:#0891b2!important;background:#ecfeff!important}
+.row-chain-badge.chain-pair-6{border-color:#be123c!important;background:#fff1f2!important}

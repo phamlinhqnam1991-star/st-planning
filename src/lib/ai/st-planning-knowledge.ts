@@ -67,7 +67,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"chemical-line",
   title:"Chemical Line scheduling",
-  content:`Chemical Line uses six Flybar resources. Chemical scheduling includes Loading -> Process -> NDT when applicable -> Unloading phases. Preclean NDT applies to configured preclean recipes and has dedicated overlap/spacing rules. Resource capacity, launch spacing and handling/process time rules are deterministic scheduler constraints, not AI decisions.`
+  content:`Chemical Line uses six Flybar resources. Chemical scheduling includes Loading -> Process -> NDT when applicable -> Unloading phases. Preclean NDT applies to configured preclean recipes and has dedicated overlap/spacing rules. V457 enforces one-to-one continuation linking: one Previous/Preclean Flybar source may feed only one downstream Flybar row; duplicate manual links are blocked in the UI and revalidated by the chemical simulation engine. Source and downstream rows share a visual link color/badge. Resource capacity, launch spacing and handling/process time rules are deterministic scheduler constraints, not AI decisions.`
  },
  {
   key:"painting",
@@ -114,7 +114,7 @@ export function getStLogicReference(topic?:string){
 
 
 // V426
-export const V426_WORKLOAD_PRESENTATION = `Planning Board Workload Summary keeps the V425 Candidate/Route-Matrix population and splits READY into two read-only columns by the immediate Previous Main scheduling context: Previous Main Scheduled versus Previous Main Unscheduled / START. The two READY sub-buckets sum to the original READY total and do not change Sequential READY gating. Dashboard Surface+Qty combo chart uses the full panel width. Scheduling Board shows ST Workload Summary · By Area above each top-level schedule area by reusing the canonical Dashboard ST workload engine and filtering it by that Schedule Area's mapped Main Operation pool; no separate scheduling workload formula is allowed.`;
+export const V426_WORKLOAD_PRESENTATION = `Planning Board Workload Summary keeps the V425 Candidate/Route-Matrix population and splits READY into two read-only columns by the immediate Previous Main scheduling context: Previous Main Scheduled versus Previous Main Unscheduled / START. The two READY sub-buckets sum to the original READY total and do not change Sequential READY gating. Dashboard Surface+Qty combo chart uses the full panel width. V457 applies the same READY split to Scheduling Board ST Workload Summary · By Area, still reusing the canonical Dashboard ST workload engine and filtering by the Schedule Area's mapped Main Operation pool. Scheduling area blocks are ordered by the earliest Main Planning Order in their operation pool; display_order is a tie-breaker. No separate scheduling workload formula is allowed.`;
 
 
 // V430
