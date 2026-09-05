@@ -14,8 +14,8 @@ const STATUS_CLASS:Record<StDashboardStatus,string>={
  WAIT:"wait",READY:"ready",PLANNED_UNSCHEDULED:"unscheduled",SCHEDULED:"scheduled",HOLD:"hold",ST_ONLY:"st-only"
 };
 
-// V496: Dashboard detail follows the same status-column order used by the Planning Board workload table.
-const WORKLOAD_COLUMN_ORDER=["WAIT_NEXT_MAIN","WAIT_FUTURE_MAIN","READY_PREV_SCHEDULED","READY_PREV_UNSCHEDULED","PLANNED_UNSCHEDULED","SCHEDULED","HOLD","ST_ONLY"] as const;
+// V500: Dashboard ST Workload Summary follows the planner-requested READY-first display order.
+const WORKLOAD_COLUMN_ORDER=["READY_PREV_SCHEDULED","READY_PREV_UNSCHEDULED","WAIT_NEXT_MAIN","WAIT_FUTURE_MAIN","PLANNED_UNSCHEDULED","SCHEDULED","HOLD","ST_ONLY"] as const;
 type DashboardWorkloadColumn=(typeof WORKLOAD_COLUMN_ORDER)[number];
 const WORKLOAD_COLUMN_LABEL:Record<DashboardWorkloadColumn,string>={
  WAIT_NEXT_MAIN:"WAIT · Next Main",

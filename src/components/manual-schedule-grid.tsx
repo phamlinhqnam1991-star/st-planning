@@ -1324,7 +1324,7 @@ export function ManualScheduleGrid({
   const rows=stWorkloadRows
    .filter(row=>allowed.has(String(row.standardOperation||"").trim().toUpperCase()))
    .sort((a,b)=>Number(a.mainOrder||999999)-Number(b.mainOrder||999999)||String(a.standardOperation).localeCompare(String(b.standardOperation)));
-  const visibleGroups=compactRecipesOnly?rows.reduce((n,row)=>n+(row.recipes?.length||0),0):rows.length;
+  const visibleGroups=rows.reduce((n,row)=>n+(row.recipes?.length||0),0);
   const statusCell=(
    metric:ScheduleWorkloadMetric|undefined,
    status:ScheduleWorkloadStatus,
@@ -1349,7 +1349,7 @@ export function ManualScheduleGrid({
       {rows.flatMap(row=>{
        const rowKey=`${areaName}-${row.standardOperation}`;
        const recipes=(row.recipes||[]).map((recipe,index)=><tr key={`${rowKey}-${recipe.recipeKey}-${index}`} className="schedule-area-st-workload-recipe">
-        <td>{compactRecipesOnly?<b>{row.standardOperation}</b>:<span className="schedule-area-st-workload-indent">↳</span>}</td>
+        <td><b>{row.standardOperation}</b></td>
         <td><b className="mono">{recipe.recipeNo||"—"}</b></td>
         <td>{recipe.recipeName||"No Recipe"}</td>
         {workloadStatuses.map(status=><td key={status}>{statusCell(
@@ -1362,17 +1362,7 @@ export function ManualScheduleGrid({
          }
         )}</td>)}
        </tr>);
-       if(compactRecipesOnly)return recipes;
-       const main=<tr key={`${rowKey}-main`} className="schedule-area-st-workload-main">
-        <td><b>{row.standardOperation}</b></td><td>—</td><td><b>MAIN TOTAL</b><small>{row.recipes?.length||0} Recipe groups</small></td>
-        {workloadStatuses.map(status=><td key={status}>{statusCell(
-         row[status],
-         status,
-         {areaName,standardOperation:row.standardOperation,recipeKey:"",recipeNo:"",recipeName:""},
-         {waitNext:row.waitNextBreakdown,showReadyRecipeBreakdown:false}
-        )}</td>)}
-       </tr>;
-       return [main,...recipes];
+       return recipes;
       })}
       {!rows.length&&!stWorkloadLoading&&<tr><td colSpan={3+workloadStatuses.length} className="muted">Khu vực này chưa có workload trong canonical Dashboard ST population.</td></tr>}
      </tbody>
