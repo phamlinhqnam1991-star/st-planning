@@ -6224,3 +6224,9 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .training-checklist li{display:flex;gap:8px;align-items:flex-start;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;background:#fff;font-size:12px;line-height:1.55}
 .training-check{display:inline-flex;align-items:center;justify-content:center;flex:0 0 20px;height:20px;border-radius:50%;background:#dcfce7;color:#15803d;font-weight:800}
 @media (max-width:720px){.training-checklist{grid-template-columns:1fr}}
+
+/* V474 · Training backed by live database */
+.training-live-search{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;margin:4px 0 12px}
+.training-live-search label{display:grid;gap:5px;min-width:min(420px,100%);font-size:12px}
+.training-live-search input{min-height:38px;border:1px solid #cbd5e1;border-radius:7px;padding:7px 10px;background:#fff;color:#0f172a;font:inherit}
+.training-live-search input:focus{outline:2px solid color-mix(in srgb,var(--erp-accent,#2563eb) 35%,transparent);outline-offset:1px;border-color:var(--erp-accent,#2563eb)}

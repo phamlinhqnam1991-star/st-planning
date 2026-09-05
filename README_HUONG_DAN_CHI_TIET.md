@@ -380,3 +380,6 @@ Tab Training được mở rộng từ khái niệm chung nhất đến chi ti�
 - Production Report > Masking & Unmasking tách riêng panel theo **Area + Main**: PRIMER, PRIMER2, PRIMER3, TOPCOAT1, TOPCOAT2, ANTI-ABRASION.
 - READY split dùng cùng logic trên Planning Board/Dashboard/Scheduling: Previous Main đã **Scheduled hoặc DONE by physical progress** (kể cả không có Batch) thuộc `READY_PREV_SCHEDULED`; plan-ahead chưa handoff/Main đầu tiên thuộc `READY_PREV_UNSCHEDULED`.
 - Logic & Hướng dẫn và Training được cập nhật song song.
+
+## V474 — Training bằng dữ liệu thật
+Tab Training đọc live database để minh họa Operation Code → ST Group → Main → Area/Planner → Recipe → Batch Rules → Process Time → Batch → Schedule trên dữ liệu đang dùng. Có ô nhập Job Number để trace một Job thật. Training và Logic & Hướng dẫn phải được cập nhật song song khi có logic mới.

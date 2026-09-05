@@ -1,171 +1,239 @@
 import Link from "next/link";
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
+import {getPool} from "@/lib/db";
 
 export const dynamic="force-dynamic";
 
-type Step={title:string;detail:string;href?:string;action?:string};
+const clean=(v:unknown)=>String(v??"").trim();
+const nfmt=(v:unknown,max=2)=>{const n=Number(v??0);return Number.isFinite(n)?new Intl.NumberFormat("vi-VN",{maximumFractionDigits:max}).format(n):"—";};
+const hhmm=(minutes:unknown)=>{if(minutes==null||minutes==="")return "—";const n=Math.max(0,Math.round(Number(minutes)||0));return `${String(Math.floor(n/60)).padStart(2,"0")}:${String(n%60).padStart(2,"0")}`;};
+const hours=(v:unknown)=>{if(v==null||v==="")return "—";const n=Number(v);if(!Number.isFinite(n))return "—";return hhmm(n*60);};
+const yn=(v:unknown)=>v===true?"Có":"Không";
+const val=(v:unknown)=>v===null||v===undefined||v===""?"—":String(v);
+
+type Step={title:string;detail:React.ReactNode;href?:string;action?:string};
 function Card({title,children,tone="normal"}:{title:string;children:React.ReactNode;tone?:"normal"|"important"|"warning"}){return <section className={`guide-rule guide-rule-${tone}`}><b>{title}</b><div>{children}</div></section>}
 function Module({no,title,goal,steps}:{no:string;title:string;goal:string;steps:Step[]}){return <section className="erp-table-panel guide-section training-module"><div className="erp-panel-head"><div><b>{no} · {title}</b><small className="planning-sub">{goal}</small></div></div><div className="lg-body"><ol className="lg-steps training-steps">{steps.map((s,i)=><li key={`${no}-${i}`}><b>{s.title}</b> — {s.detail}{s.href?<div className="training-action"><Link className="btn small" href={s.href}>Mở màn hình</Link>{s.action?<span>{s.action}</span>:null}</div>:null}</li>)}</ol></div></section>}
 function Check({children}:{children:React.ReactNode}){return <li><span className="training-check" aria-hidden="true">✓</span>{children}</li>}
+function Badge({children}:{children:React.ReactNode}){return <span className="badge b-ready">{children}</span>}
 
-export default function Page(){return <main className="erp-shell erpkit-migrated-page">
- <ErpAppHeader module="TRAINING"/><AppTabs active="training"/>
- <section className="erp-content erp-content-full guide-page training-page">
-  <div className="erp-page-head guide-head"><div><div className="erp-object-eyebrow">ONBOARDING · ST PLANNING · V473</div><h2>Training người mới — từ lý thuyết đến vận hành</h2><p>Học từ khái niệm chung nhất → cấu hình Operation Code → Mapping/Main/Area/Planner → Recipe & Time Rules → Planning → Batch → Scheduling → Production → xử lý ngoại lệ.</p></div><div className="erp-command-actions"><Link className="btn" href="/logic-guide">Logic & Hướng dẫn</Link><Link className="btn primary" href="/job-tracker">Mở Job Tracker</Link></div></div>
+export default async function Page({searchParams}:{searchParams:Promise<{job?:string}>}){
+ const sp=await searchParams;const requestedJob=clean(sp.job);const db=await getPool().connect();
+ let sampleJob:any=null,chain:any[]=[],mappings:any[]=[],mainOps:any[]=[],recipeSizes:any[]=[],recipes:any[]=[],timeRules:any[]=[],areas:any[]=[],scheduleAreas:any[]=[],batchRows:any[]=[];
+ const errors:Record<string,string>={};
+ const read=async(key:string,sql:string,args:any[]=[]):Promise<any[]>=>{try{return (await db.query(sql,args)).rows;}catch(e){errors[key]=e instanceof Error?e.message:String(e);return [];}};
+ try{
+  const sampleRows=await read("sampleJob",requestedJob?`
+    select j.job_num,j.part_num,j.revision_num,j.part_description,j.next_operation,j.last_operation,
+           j.prod_qty,j.current_good_wip_qty,j.total_surface,j.priority_type,j.is_open
+    from open_job_current j where upper(trim(j.job_num))=upper(trim($1)) limit 1
+   `:`
+    select j.job_num,j.part_num,j.revision_num,j.part_description,j.next_operation,j.last_operation,
+           j.prod_qty,j.current_good_wip_qty,j.total_surface,j.priority_type,j.is_open
+    from open_job_current j
+    where j.is_open=true
+    order by case when exists(select 1 from planning_job_operation po where po.job_num=j.job_num and po.is_active=true) then 0 else 1 end,
+             coalesce(j.current_good_wip_qty,j.prod_qty,0) desc,j.job_num
+    limit 1
+   `,requestedJob?[requestedJob]:[]);
+  sampleJob=sampleRows[0]||null;
+  const jobNum=clean(sampleJob?.job_num);
 
-  <div className="guide-jump"><a href="#map">Bản đồ hệ thống</a><a href="#theory">Lý thuyết nền</a><a href="#config">Từ Operation Code đến điều độ</a><a href="#recipe">Recipe</a><a href="#time">Time Rules</a><a href="#example">Ví dụ 1 Job</a><a href="#normal-flow">Flow thao tác</a><a href="#scenarios">Tình huống</a><a href="#practice">Thực hành</a><a href="#checklist">Kiểm tra đạt</a></div>
+  [mappings,mainOps,recipeSizes,recipes,timeRules,areas,scheduleAreas]=await Promise.all([
+   read("mappings",`select source_operation_code,st_group,standard_operation_rule,sort_order,mapping_rule
+     from md_st_operation_mapping where is_active=true order by st_group,sort_order,source_operation_code limit 250`),
+   read("mainOps",`select standard_operation,st_group,planning_sort_order,batch_prefix,batch_sequence_start,batch_sequence_padding,
+            batch_size_qty,batch_auto_split
+     from md_operation_master where is_active=true order by planning_sort_order nulls last,standard_operation`),
+   read("recipeSizes",`select s.standard_operation,s.recipe_key,s.batch_size_qty,r.recipe_no,r.recipe_name
+     from md_operation_recipe_batch_size s left join md_process_recipe r on r.recipe_key=s.recipe_key
+     where s.is_active=true order by s.standard_operation,r.recipe_no nulls last,r.recipe_name`),
+   read("recipes",`select r.recipe_key,r.process_family,r.recipe_group,r.recipe_no,r.recipe_name,r.batch_key,
+       coalesce(string_agg(distinct m.standard_operation,', ' order by m.standard_operation) filter(where m.standard_operation is not null),'—') main_operations
+     from md_process_recipe r
+     left join md_main_operation_recipe m on m.recipe_key=r.recipe_key and m.is_active=true
+     where r.is_active=true group by r.recipe_key order by r.process_family,r.recipe_no nulls last,r.recipe_name limit 500`),
+   read("timeRules",`select t.id,t.recipe_key,t.calc_type,t.priority,t.qty_min,t.qty_max,t.surface_min_dm2,t.surface_max_dm2,
+            t.fixed_hours,t.standard_hours,t.note,r.recipe_no,r.recipe_name,r.process_family
+     from md_recipe_time_rule t join md_process_recipe r on r.recipe_key=t.recipe_key
+     where t.is_active=true and r.is_active=true
+     order by r.process_family,r.recipe_no nulls last,t.priority,t.id limit 800`),
+   read("areas",`select a.area_code,a.area_name,a.sort_order,
+       coalesce(string_agg(g.st_group,', ' order by g.st_group) filter(where g.st_group is not null),'—') st_groups
+     from md_area a left join md_area_operation_group g on g.area_id=a.id and g.is_active=true
+     where a.is_active=true group by a.id order by a.sort_order,a.area_code`),
+   read("scheduleAreas",`select s.schedule_area_code,s.schedule_area_name,s.display_order,
+       coalesce(pwa.planner_owner,s.planner_owner,'UNASSIGNED') planner_owner,
+       coalesce(string_agg(distinct sao.standard_operation,', ' order by sao.standard_operation) filter(where sao.standard_operation is not null),'—') operations
+     from md_schedule_area s
+     left join md_planner_work_assignment pwa on pwa.schedule_area_code=s.schedule_area_code and pwa.is_active=true
+     left join md_schedule_area_operation sao on sao.schedule_area_code=s.schedule_area_code and sao.is_active=true
+     where s.is_active=true
+     group by s.schedule_area_code,s.schedule_area_name,s.display_order,pwa.planner_owner,s.planner_owner
+     order by s.display_order,s.schedule_area_code`)
+  ]);
 
-  <section id="map" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>0 · Bức tranh lớn — phải hiểu trước khi bấm bất kỳ nút nào</b><small className="planning-sub">Trainer phải giải thích được sơ đồ này trước khi cho học viên vào Planning Board.</small></div></div><div className="lg-body">
-   <div className="lg-key lg-key-2">
-    <Card title="Dữ liệu kỹ thuật" tone="important"><b>Part/Revision + Routing + RAW Operation Code</b> cho biết Job phải đi qua những bước kỹ thuật nào. App không được tự đoán thứ tự bằng tên công đoạn.</Card>
-    <Card title="Lớp cấu hình Planning"><b>Operation Code → ST Scope → ST Group → Main Operation → Main Planning Order → Area → Planner</b>. Lớp này biến routing kỹ thuật thành chuỗi công đoạn cần lập kế hoạch.</Card>
-    <Card title="Lớp công nghệ"><b>Recipe + Batch Compatibility + Batch Size + Process Time Rules</b> quyết định Job nào có thể gom cùng lô và lô cần bao nhiêu thời gian.</Card>
-    <Card title="Lớp vận hành"><b>Job → Batch → Resource → Schedule → Production Execution</b>. Câu nhớ: <b>Planning nhìn theo Job; Production vận hành theo Batch.</b></Card>
-   </div>
-   <p><b>Chuỗi nguồn chuẩn:</b> RAW NextOperation → ST Operation Mapping → Main Operation → Main Planning Order. Operation Code Order chỉ dùng tie-break bên trong cùng Main; không được hard-code “tên A luôn trước tên B”.</p>
-  </div></section>
+  if(jobNum){
+   chain=await read("chain",`
+    select po.id,po.source_seq,po.planning_seq,po.source_operation_code,po.standard_operation,po.st_group,po.recipe_key,
+           po.status,po.is_hold,po.hold_reason,
+           om.planning_sort_order,om.batch_prefix,om.batch_sequence_start,om.batch_sequence_padding,om.batch_size_qty,om.batch_auto_split,
+           pr.recipe_no,pr.recipe_name,pr.process_family,
+           a.area_name,
+           lane.schedule_area_code,lane.schedule_area_name,lane.planner_owner,
+           b.id batch_id,b.batch_no,b.total_qty,b.total_surface_dm2,b.process_minutes,b.status batch_status,
+           ps.resource_code,ps.planned_start,ps.planned_end,ps.duration_minutes,ps.status schedule_status
+    from planning_job_operation po
+    left join md_operation_master om on upper(trim(om.standard_operation))=upper(trim(po.standard_operation)) and om.is_active=true
+    left join md_process_recipe pr on pr.recipe_key=po.recipe_key
+    left join lateral (
+      select ar.area_name from md_area_operation_group g join md_area ar on ar.id=g.area_id and ar.is_active=true
+      where g.is_active=true and upper(trim(g.st_group))=upper(trim(po.st_group)) order by ar.sort_order,ar.area_code limit 1
+    ) a on true
+    left join lateral (
+      select sa.schedule_area_code,sa.schedule_area_name,coalesce(pwa.planner_owner,sa.planner_owner,'UNASSIGNED') planner_owner
+      from md_schedule_area_operation sao join md_schedule_area sa on sa.schedule_area_code=sao.schedule_area_code and sa.is_active=true
+      left join md_planner_work_assignment pwa on pwa.schedule_area_code=sa.schedule_area_code and pwa.is_active=true
+      where sao.is_active=true and upper(trim(sao.standard_operation))=upper(trim(po.standard_operation))
+      order by sa.display_order,sa.schedule_area_code limit 1
+    ) lane on true
+    left join lateral (
+      select pb.* from planning_batch_job bj join planning_batch pb on pb.id=bj.batch_id and pb.status<>'CANCELLED'
+      where bj.planning_job_operation_id=po.id order by pb.created_at desc,pb.id desc limit 1
+    ) b on true
+    left join lateral (
+      select s.* from planning_schedule s where s.batch_id=b.id and s.status<>'CANCELLED'
+      order by s.planned_start desc nulls last,s.id desc limit 1
+    ) ps on true
+    where po.job_num=$1 and po.is_active=true
+    order by po.planning_seq,po.source_seq,po.id`,[jobNum]);
+   batchRows=await read("batchRows",`select b.batch_no,b.standard_operation,b.recipe_key,b.total_jobs,b.total_qty,b.total_surface_dm2,b.process_minutes,b.status,
+        bj.qty job_qty,bj.surface_dm2 job_surface
+      from planning_batch_job bj join planning_batch b on b.id=bj.batch_id
+      where bj.job_num=$1 and b.status<>'CANCELLED' order by b.created_at,b.id`,[jobNum]);
+  }
+ }finally{db.release();}
 
-  <section id="theory" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>1 · Lý thuyết nền — từ chung nhất đến chi tiết nhất</b></div></div><div className="lg-body"><div className="table-wrap"><table className="erp-table"><thead><tr><th>Khái niệm</th><th>Hiểu đơn giản</th><th>Nguồn / vai trò</th><th>Sai lầm thường gặp</th></tr></thead><tbody>
-   <tr><td><b>Job</b></td><td>Một nhu cầu sản xuất cụ thể của Part/Revision với Qty/WIP.</td><td>All Open Jobs là nguồn công việc hiện hành.</td><td>Nhầm Job với Batch.</td></tr>
-   <tr><td><b>Operation Code</b></td><td>Mã bước kỹ thuật thật trong routing.</td><td>Được mapping vào ST Scope/ST Group/Main.</td><td>Tự sắp xếp bằng tên code thay vì mapping/order.</td></tr>
-   <tr><td><b>ST Scope</b></td><td>Xác định operation có thuộc phạm vi ST hay không.</td><td>ST_SCOPE_ONLY có thể hiện theo NextOperation nhưng không tham gia Planning Chain/Batch/Board.</td><td>Đưa ST_SCOPE_ONLY vào Batch.</td></tr>
-   <tr><td><b>ST Group</b></td><td>Nhóm logic các Operation Code tương đồng.</td><td>Cầu nối kỹ thuật giữa code và Main/Area.</td><td>Nhầm ST Group với Physical Area.</td></tr>
-   <tr><td><b>Main Operation</b></td><td>Đơn vị mà planner thực sự lập kế hoạch.</td><td>Ví dụ V_A-SHPN, BSAUNSLD, PRIMER, TOPCOAT1.</td><td>Lập kế hoạch trực tiếp cho mọi raw code.</td></tr>
-   <tr><td><b>Main Planning Order</b></td><td>Thứ tự Main trong chain planning.</td><td>Dùng để xác định Previous/Next Main của Job.</td><td>Hard-code Shot Peening → BSA cho mọi Job.</td></tr>
-   <tr><td><b>Physical Area</b></td><td>Khu vực vật lý thực hiện.</td><td>Mapping qua Area/Operation Group.</td><td>Nhầm Area với Resource.</td></tr>
-   <tr><td><b>Schedule Area</b></td><td>Nhóm hiển thị/điều độ.</td><td>Giúp board gom đúng khu vực vận hành.</td><td>Dùng Schedule Area thay cho Main chain.</td></tr>
-   <tr><td><b>Planner Owner</b></td><td>Người chịu trách nhiệm planning Main/khu vực.</td><td>Không được làm đứt dependency xuyên planner.</td><td>Planner 1 đổi lịch mà bỏ qua Main của Planner 2.</td></tr>
-   <tr><td><b>Recipe</b></td><td>Công thức/quy trình công nghệ áp dụng cho Main.</td><td>Resolve từ Recipe Master/Rule và dữ liệu Job.</td><td>Đổi Recipe của Batch để ép Job mismatch vào.</td></tr>
-   <tr><td><b>Batch Key</b></td><td>Khóa gom Job theo các cột cấu hình.</td><td>Có thể dùng nhiều cột từ All Open Job.</td><td>Coi Batch Key là Batch No.</td></tr>
-   <tr><td><b>Batch</b></td><td>Đơn vị vận hành gồm một hoặc nhiều allocation Job.</td><td>Batch No = Prefix + sequence; có thể auto split theo size.</td><td>Tạo lại Batch ở Scheduling.</td></tr>
-   <tr><td><b>Resource</b></td><td>Máy/Cabin/Flybar/lane thực hiện Batch.</td><td>Được gán ở Scheduling.</td><td>Cho 2 Batch overlap resource không cho phép.</td></tr>
-   <tr><td><b>Schedule</b></td><td>Resource + Start + Duration/End của Batch.</td><td>Phải thỏa resource và dependency Main.</td><td>Nghĩ Schedule là điều kiện duy nhất mở READY.</td></tr>
-   <tr><td><b>Production Execution</b></td><td>Thực tế sản xuất của Batch.</td><td>Actual Start/End, status, note, Job phát sinh.</td><td>Sửa ngược Planning âm thầm mà không audit.</td></tr>
-  </tbody></table></div></div></section>
+ const mapBySource=new Map(mappings.map((x:any)=>[clean(x.source_operation_code).toUpperCase(),x]));
+ const opByMain=new Map(mainOps.map((x:any)=>[clean(x.standard_operation).toUpperCase(),x]));
+ const recipeByKey=new Map(recipes.map((x:any)=>[clean(x.recipe_key),x]));
+ const sizeByMain=new Map<string,any[]>();for(const x of recipeSizes){const k=clean(x.standard_operation).toUpperCase();sizeByMain.set(k,[...(sizeByMain.get(k)||[]),x]);}
+ const timeByRecipe=new Map<string,any[]>();for(const x of timeRules){const k=clean(x.recipe_key);timeByRecipe.set(k,[...(timeByRecipe.get(k)||[]),x]);}
+ const exampleSource=clean(chain[0]?.source_operation_code||mappings[0]?.source_operation_code);
+ const exampleMap=mapBySource.get(exampleSource.toUpperCase())||null;
+ const exampleMain=clean(chain[0]?.standard_operation||exampleMap?.standard_operation_rule||mainOps[0]?.standard_operation);
+ const exampleOp=opByMain.get(exampleMain.toUpperCase())||null;
+ const exampleRecipeKey=clean(chain.find((x:any)=>x.recipe_key)?.recipe_key||recipes.find((x:any)=>clean(x.main_operations).toUpperCase().includes(exampleMain.toUpperCase()))?.recipe_key);
+ const exampleRecipe=recipeByKey.get(exampleRecipeKey)||null;
+ const exampleTimeRules=timeByRecipe.get(exampleRecipeKey)||[];
+ const exampleSizes=sizeByMain.get(exampleMain.toUpperCase())||[];
+ const liveOk=Object.keys(errors).length===0;
 
-  <section id="config" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>2 · Một Operation Code đi vào hệ thống như thế nào?</b><small className="planning-sub">Đây là phần trainer phải dạy trước Planning Board.</small></div></div><div className="lg-body"><ol className="lg-steps">
-   <li><b>Bước A — Tạo/nhận Operation Code:</b> Operation Code là mã kỹ thuật từ routing. Ví dụ minh họa <b>V_A-SHPN</b>. Không tạo Main chỉ vì muốn có một dòng trên board.</li>
-   <li><b>Bước B — Xác định ST Scope:</b> nếu operation thuộc phạm vi lập kế hoạch ST thì mapping đúng scope. Nếu chỉ là ST_SCOPE_ONLY thì nó có thể được theo dõi nhưng không tham gia Batch/Planning Chain.</li>
-   <li><b>Bước C — Gán ST Group:</b> đưa code vào nhóm phù hợp. Ví dụ nhóm Shot Peening. Một group có thể chứa nhiều Operation Code chi tiết.</li>
-   <li><b>Bước D — Gán Main Operation:</b> Main là cấp planner làm việc. Operation Code kế thừa Main Planning Order của Main; Operation Code Order chỉ giải quyết thứ tự chi tiết trong cùng Main.</li>
-   <li><b>Bước E — Gán Area:</b> Main/ST Group được mapping tới Physical Area và Schedule Area để board biết hiển thị ở đâu.</li>
-   <li><b>Bước F — Gán Planner Owner:</b> xác định trách nhiệm. Nhưng dependency vẫn chạy xuyên planner.</li>
-   <li><b>Bước G — Cấu hình Batch:</b> Prefix, sequence, padding, Common Batch Size, Auto Split và nếu cần Batch Size theo Recipe.</li>
-   <li><b>Bước H — Cấu hình Recipe/Batch Key:</b> chọn nguồn cột thật từ All Open Job, rule resolve recipe và điều kiện Job được gom cùng Batch.</li>
-   <li><b>Bước I — Cấu hình Time Rules:</b> Fixed hoặc rule theo Qty/Surface; Scheduling dùng duration đã resolve và vẫn cho override theo flow hiện hành.</li>
-   <li><b>Bước J — Kiểm tra bằng Job Tracker:</b> trước khi plan thật, phải nhìn một Job có code đó và xác nhận Main chain, Recipe, Area, Planner, Previous/Next Main đúng.</li>
-  </ol><Card title="Quy tắc an toàn cấu hình" tone="warning">Không sửa Master/Mapping chỉ để làm cho một Job riêng lẻ “READY”. Nếu một Job sai, mở Job Tracker để xác định nguồn sai trước: raw routing, mapping, Main, recipe rule hay trạng thái handoff.</Card></div></section>
+ return <main className="erp-shell erpkit-migrated-page">
+  <ErpAppHeader module="TRAINING"/><AppTabs active="training"/>
+  <section className="erp-content erp-content-full guide-page training-page">
+   <div className="erp-page-head guide-head"><div><div className="erp-object-eyebrow">ONBOARDING · LIVE DATABASE · ST PLANNING · V474</div><h2>Training người mới — học bằng dữ liệu thật đang chạy</h2><p>Lý thuyết trước, sau đó đối chiếu ngay Operation Code, Main, Area, Planner, Recipe, Batch Rules, Process Time và một Job thật từ database.</p></div><div className="erp-command-actions"><Link className="btn" href="/logic-guide">Logic & Hướng dẫn</Link><Link className="btn primary" href="/job-tracker">Mở Job Tracker</Link></div></div>
 
-  <section id="recipe" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>3 · Recipe, Batch Key và Batch Size — hiểu đúng trước khi gom lô</b></div></div><div className="lg-body">
-   <p><b>Recipe</b> trả lời “Batch này chạy công nghệ nào?”. <b>Batch Key/Compatibility</b> trả lời “Job nào được phép đi chung?”. <b>Batch Size</b> trả lời “một Batch chứa tối đa/chuẩn bao nhiêu Qty theo cấu hình?”. Ba khái niệm này liên quan nhưng không phải một.</p>
-   <div className="lg-key lg-key-2"><Card title="Recipe resolve">Chemical Line có thể resolve theo Operation Code. Paint dùng Process Recipe Master và occurrence PRIMER/PRIMER2/PRIMER3, TOPCOAT1/TOPCOAT2… theo logic hiện hành. Main khác có thể dùng các cột All Open Job được cấu hình.</Card><Card title="Recipe-specific Batch Size">Ưu tiên: <b>Main + Recipe override</b> → Common Batch Size → nếu cả hai trống thì không split. Auto Split OFF thì không split dù có size.</Card></div>
-   <p>Ví dụ Job Qty 24, Batch Size 12 → tạo 2 Batch thật, mỗi Batch 12. Planning Board vẫn một Job row và cell Main có thể hiện <b>ASP_00001 &amp; ASP_00002</b>; Scheduling/Production vận hành riêng từng Batch.</p>
-  </div></section>
+   <div className="guide-jump"><a href="#theory">1. Lý thuyết</a><a href="#live-config">2. Config thật</a><a href="#op-example">3. Operation Code thật</a><a href="#batch-rules">4. Batch Rules thật</a><a href="#time-rules">5. Process Time thật</a><a href="#job-live">6. Job thật</a><a href="#flow">7. Đi xuyên flow</a><a href="#scenarios">8. Tình huống</a><a href="#practice">9. Bài thực hành</a></div>
 
-  <section id="time" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>4 · Time Rules — từ Process Time đến lịch điều độ</b></div></div><div className="lg-body"><div className="table-wrap"><table className="erp-table"><thead><tr><th>Loại</th><th>Cách hiểu</th><th>Ví dụ</th><th>Khi điều độ</th></tr></thead><tbody>
-   <tr><td>Fixed</td><td>Thời gian cố định theo operation/process.</td><td>Ví dụ một bước được cấu hình 05:00.</td><td>Start + Fixed Duration = End, trừ override hợp lệ.</td></tr>
-   <tr><td>Qty/Surface Rule</td><td>Chọn rule theo tổng Qty và Surface của Batch.</td><td>Paint có thể có các ngưỡng Qty/dm² khác nhau.</td><td>Mỗi Batch split phải tính lại bằng Qty/Surface allocation của chính Batch.</td></tr>
-   <tr><td>Chemical Line stages</td><td>Không chỉ một duration tổng.</td><td>Loading → Process → NDT → Unloading.</td><td>Giữ Flybar occupancy; NDT recipe áp dụng và spacing 01:30 theo rule hiện hành.</td></tr>
-   <tr><td>Dependency time</td><td>Main sau không được chạy trước khi Main trước thực sự khả thi.</td><td>Shot Peening End đổi 07:00 → 09:00.</td><td>BSAUNSLD Start 07:30 trở thành conflict và phải được review/reschedule.</td></tr>
-  </tbody></table></div><p><b>Phân biệt:</b> Planning READY là handoff logic; Scheduling feasibility là khả thi thời gian/resource. Một Main có thể đã được mở cho planning nhưng lịch cuối cùng vẫn phải tôn trọng Effective End của Previous Main.</p></div></section>
+   <section className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>Trạng thái dữ liệu Training</b><small className="planning-sub">Trang này đọc database mỗi lần mở/reload; không dùng ví dụ hard-code làm nguồn chuẩn.</small></div><span className={`badge ${liveOk?"b-ready":"b-wait"}`}>{liveOk?"LIVE DATA OK":"LIVE DATA PARTIAL"}</span></div><div className="lg-body">
+    <form method="get" className="training-live-search"><label><b>Chọn Job thật để học</b><input name="job" defaultValue={requestedJob} placeholder={sampleJob?`Ví dụ: ${sampleJob.job_num}`:"Nhập Job Number"}/></label><button className="btn primary" type="submit">Load Job</button>{requestedJob?<Link className="btn" href="/training">Job mẫu tự động</Link>:null}</form>
+    {sampleJob?<p>Job đang dùng làm bài mẫu: <Badge>{sampleJob.job_num}</Badge> · Part <b>{sampleJob.part_num}</b> · Rev <b>{val(sampleJob.revision_num)}</b> · NextOperation <b>{val(sampleJob.next_operation)}</b>. Bạn có thể nhập Job khác ở trên để trainer dạy theo đúng dữ liệu của Job đó.</p>:<Card title="Chưa lấy được Job mẫu" tone="warning">Database chưa trả về Open Job phù hợp. Các bảng config thật bên dưới vẫn dùng được để training.</Card>}
+    {Object.keys(errors).length?<details className="erp-details"><summary>Chi tiết nguồn live chưa đọc được ({Object.keys(errors).length})</summary><div className="table-wrap"><table className="erp-table"><tbody>{Object.entries(errors).map(([k,v])=><tr key={k}><td><b>{k}</b></td><td>{v}</td></tr>)}</tbody></table></div></details>:null}
+   </div></section>
 
-  <section id="example" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>5 · Ví dụ đào tạo hoàn chỉnh — một Job đi từ Operation Code đến Production</b><small className="planning-sub">Ví dụ mô phỏng để học flow; trainer có thể thay bằng Job thật trong Job Tracker.</small></div></div><div className="lg-body">
-   <Card title="Job mẫu"><b>Job J-TRAIN-001</b> · Part P-TRAIN-100 · Rev A · Qty 24. Routing ST minh họa: <b>V_A-SHPN → BSAUNSLD → PRIMER → TOPCOAT1</b>.</Card>
-   <ol className="lg-steps">
-    <li><b>V_A-SHPN xuất hiện trong routing.</b> Mapping cho biết nó thuộc ST, thuộc group Shot Peening, Main Planning = V_A-SHPN, có Area/Planner tương ứng và Main Planning Order đứng trước BSAUNSLD.</li>
-    <li><b>BSAUNSLD</b> được mapping thành Main Chemical Line tương ứng. Nó là Next Main của Job theo route/order thật, không phải vì code được hard-code sau Shot Peening.</li>
-    <li><b>PRIMER</b> resolve Recipe từ dữ liệu paint/Process Recipe Master. Giả sử Recipe 001 và Batch Size theo Recipe = 12 pcs.</li>
-    <li><b>Planning V_A-SHPN:</b> Job READY → planner chọn Job → tạo Batch. Nếu Batch Size của V_A-SHPN là 12 và Auto Split ON, Qty 24 có thể thành ASP_00001 + ASP_00002.</li>
-    <li><b>Planning handoff:</b> sau khi previous Main có handoff planning hợp lệ, Next Main có thể được mở theo Sequential READY. Không cần giả vờ rằng previous operation đã sản xuất xong để mở Planning.</li>
-    <li><b>Planning BSAUNSLD:</b> tạo lô BSA phù hợp recipe/key. Nếu các Job từ ASP đi chung BSA, batch relationship/history giúp downstream theo dõi.</li>
-    <li><b>Planning PRIMER:</b> Recipe 001, Batch Size 12. Qty 24 có thể tạo PRI00001 và PRI00002 tùy selection/allocation thực tế.</li>
-    <li><b>Scheduling:</b> đưa từng Batch UNSCHEDULED vào đúng Resource. ASP có resource Shot Peening; BSA vào Chemical Line/Flybar; PRI vào Painting Cabin. Không tạo Batch mới ở bước này.</li>
-    <li><b>Time:</b> giả sử ASP dự kiến End 07:00 và BSA Start 07:30. Nếu Production ASP thực tế/carry-over làm Effective End thành 09:00 thì lịch BSA 07:30 không còn khả thi.</li>
-    <li><b>Production:</b> report Actual Start/End/status theo Batch. Nếu Production thêm J-EXTRA-008 vào BSA ngoài kế hoạch, Job được lookup/validate rồi thêm trực tiếp nếu hợp lệ; audit được ghi lại.</li>
-    <li><b>Next Main Attention:</b> hệ thống tìm route của J-EXTRA-008, thấy Next Main PRIMER, rồi tìm Batch PRIMER downstream phù hợp dựa trên Main/quan hệ/Job overlap. Production PRIMER thấy Attention “cần thêm Job này”.</li>
-    <li><b>Đầu ngày:</b> ngày sản xuất là 06:00 → 05:59. Batch chưa hoàn thành tạo Carry Over review. Planner xem toàn bộ Cross-Main + Resource impact rồi mới duyệt chỉnh lịch.</li>
-   </ol>
-  </div></section>
+   <section id="theory" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>1 · Lý thuyết nền — đi từ chung nhất đến chi tiết nhất</b><small className="planning-sub">Người mới phải hiểu quan hệ này trước khi tạo Batch.</small></div></div><div className="lg-body">
+    <div className="lg-key lg-key-2">
+     <Card title="A. Routing kỹ thuật" tone="important"><b>Job → RAW Operation Code</b>. Operation Code là bước kỹ thuật thật. Nó chưa phải đơn vị planner điều độ.</Card>
+     <Card title="B. Planning Mapping"><b>Operation Code → ST Scope → ST Group → Main Operation → Main Planning Order</b>. Đây là cách app biến routing kỹ thuật thành planning chain.</Card>
+     <Card title="C. Công nghệ"><b>Main → Recipe → Batch Key → Batch Size → Process Time Rule</b>. Recipe nói chạy gì; Batch Key nói Job nào được đi chung; Size nói lô chứa bao nhiêu; Time Rule nói cần bao lâu.</Card>
+     <Card title="D. Vận hành"><b>Job → Batch → Resource → Schedule → Production</b>. Planning nhìn theo Job; Production vận hành theo Batch.</Card>
+    </div>
+    <p><b>Điểm phải nhớ:</b> Main Planning Order quyết định Previous/Next Main. Không hard-code bằng tên. Planner Owner chỉ là trách nhiệm; dependency vẫn chạy xuyên planner. READY/WAIT là logic planning-chain; Resource/Start/End là feasibility của scheduling.</p>
+   </div></section>
 
-  <section id="normal-flow" className="training-path">
-   <Module no="06" title="Flow thao tác chuẩn hằng ngày" goal="Biết màn hình nào dùng để xem, màn hình nào được phép thay đổi dữ liệu" steps={[
-    {title:"All Open Jobs",detail:"Kiểm tra nguồn Job, RAW NextOperation, Qty/Surface và priority.",href:"/all-open-jobs"},
-    {title:"Job Tracker",detail:"Chẩn đoán route/Main/Recipe/Batch/Schedule trước khi sửa bất kỳ cấu hình nào.",href:"/job-tracker"},
-    {title:"Planning Board",detail:"Chọn READY, đúng Main/Recipe/compatibility; tạo Batch hoặc Auto Split.",href:"/planning"},
-    {title:"Board Điều Độ",detail:"Chọn Batch UNSCHEDULED, gán Resource/Start/Duration; kiểm tra constraint.",href:"/schedule"},
-    {title:"Production Execution",detail:"Report thực tế; thêm Job ngoài lô trực tiếp nếu validation hợp lệ.",href:"/production-execution"},
-    {title:"Điều chỉnh đầu ngày",detail:"Review Carry Over và preview dependency/resource cascade trước khi duyệt.",href:"/daily-production-adjustment"},
-    {title:"Cảnh báo thay đổi SX",detail:"Read-only audit để planner biết Production đã thay đổi gì và downstream nào bị ảnh hưởng.",href:"/production-change-alerts"},
-   ]}/>
+   <section id="live-config" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>2 · Nhìn dữ liệu cấu hình thật trước</b><small className="planning-sub">Trainer mở các bảng này và chỉ cho học viên biết app đang thật sự dùng gì, không học bằng danh sách tưởng tượng.</small></div></div><div className="lg-body">
+    <div className="lg-key lg-key-2"><Card title="Main Operation đang active">Database hiện có <b>{mainOps.length}</b> Main Operation active.</Card><Card title="Operation Mapping đang active">Đang đọc <b>{mappings.length}</b> mapping Operation Code → ST Group/Main.</Card><Card title="Recipe đang active">Đang đọc <b>{recipes.length}</b> Process Recipe.</Card><Card title="Process Time Rule đang active">Đang đọc <b>{timeRules.length}</b> rule thời gian.</Card></div>
+    <details className="erp-details" open><summary>Main Operation + Batch Config thật ({mainOps.length})</summary><div className="table-wrap"><table className="erp-table"><thead><tr><th>Order</th><th>Main</th><th>ST Group</th><th>Prefix</th><th>Seq Start</th><th>Digits</th><th>Common Size</th><th>Auto Split</th></tr></thead><tbody>{mainOps.map((x:any)=><tr key={x.standard_operation}><td>{val(x.planning_sort_order)}</td><td><b>{x.standard_operation}</b></td><td>{val(x.st_group)}</td><td>{val(x.batch_prefix)}</td><td>{val(x.batch_sequence_start)}</td><td>{val(x.batch_sequence_padding)}</td><td>{val(x.batch_size_qty)}</td><td>{yn(x.batch_auto_split)}</td></tr>)}</tbody></table></div></details>
+    <details className="erp-details"><summary>Physical Area thật ({areas.length})</summary><div className="table-wrap"><table className="erp-table"><thead><tr><th>Display Order</th><th>Area</th><th>ST Group</th></tr></thead><tbody>{areas.map((x:any)=><tr key={x.area_code}><td>{x.sort_order}</td><td><b>{x.area_name}</b><div className="muted">{x.area_code}</div></td><td>{x.st_groups}</td></tr>)}</tbody></table></div></details>
+    <details className="erp-details"><summary>Schedule Area + Planner thật ({scheduleAreas.length})</summary><div className="table-wrap"><table className="erp-table"><thead><tr><th>Order</th><th>Schedule Area</th><th>Planner</th><th>Main Operations</th></tr></thead><tbody>{scheduleAreas.map((x:any)=><tr key={x.schedule_area_code}><td>{x.display_order}</td><td><b>{x.schedule_area_name}</b><div className="muted">{x.schedule_area_code}</div></td><td>{x.planner_owner}</td><td>{x.operations}</td></tr>)}</tbody></table></div></details>
+   </div></section>
+
+   <section id="op-example" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>3 · Operation Code thật → Main thật: đọc một dòng như thế nào?</b><small className="planning-sub">Ví dụ tự lấy từ Job mẫu; nếu Job chưa có chain thì lấy mapping active đầu tiên.</small></div></div><div className="lg-body">
+    {exampleSource?<><div className="notice"><b>Operation Code mẫu live:</b> {exampleSource} → ST Group <b>{val(exampleMap?.st_group||chain[0]?.st_group)}</b> → Main <b>{val(exampleMain)}</b> → Main Planning Order <b>{val(exampleOp?.planning_sort_order||chain[0]?.planning_sort_order)}</b>.</div>
+    <ol className="lg-steps"><li><b>Operation Code = {exampleSource}</b>: đây là code kỹ thuật xuất phát từ route/job.</li><li><b>ST Group = {val(exampleMap?.st_group||chain[0]?.st_group)}</b>: nhóm logic của code.</li><li><b>Main = {val(exampleMain)}</b>: đơn vị mà Planning Board tạo Batch.</li><li><b>Planning Order = {val(exampleOp?.planning_sort_order||chain[0]?.planning_sort_order)}</b>: dùng để xếp chain Previous/Current/Next Main.</li><li><b>Batch Prefix = {val(exampleOp?.batch_prefix||chain[0]?.batch_prefix)}</b>: Batch No dùng prefix này + sequence, không chèn ngày.</li></ol></>:<Card title="Chưa có Operation Code mẫu" tone="warning">Không lấy được mapping live. Kiểm tra ST Operation Mapping.</Card>}
+    <details className="erp-details"><summary>Operation Mapping thật ({mappings.length} dòng đã load)</summary><div className="table-wrap"><table className="erp-table"><thead><tr><th>Operation Code</th><th>ST Group</th><th>Main Rule</th><th>Order trong mapping</th><th>Rule</th></tr></thead><tbody>{mappings.slice(0,100).map((x:any,i)=><tr key={`${x.source_operation_code}-${i}`}><td><b>{x.source_operation_code}</b></td><td>{x.st_group}</td><td>{val(x.standard_operation_rule)}</td><td>{x.sort_order}</td><td>{val(x.mapping_rule)}</td></tr>)}</tbody></table></div></details>
+   </div></section>
+
+   <section id="batch-rules" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>4 · Batch Rules thật — đọc từ Main Operation</b><small className="planning-sub">Người mới phải nhìn config thật để hiểu tại sao Batch No/Size/Split ra kết quả hiện tại.</small></div></div><div className="lg-body">
+    {exampleOp?<><div className="lg-key lg-key-2"><Card title={`${exampleMain} · Batch Number`}><b>Prefix {val(exampleOp.batch_prefix)}</b> · Sequence Start {val(exampleOp.batch_sequence_start)} · Padding {val(exampleOp.batch_sequence_padding)}. Ví dụ số kế tiếp được cấp theo sequence toàn cục của prefix.</Card><Card title={`${exampleMain} · Batch Size`}><b>Common Size: {val(exampleOp.batch_size_qty)}</b> · Auto Split: <b>{yn(exampleOp.batch_auto_split)}</b>. Recipe-specific size nếu có sẽ ưu tiên hơn Common Size.</Card></div>
+    {exampleSizes.length?<div className="table-wrap"><table className="erp-table"><thead><tr><th>Main</th><th>Recipe</th><th>Recipe Name</th><th>Recipe Batch Size</th><th>Ưu tiên</th></tr></thead><tbody>{exampleSizes.map((x:any)=><tr key={`${x.standard_operation}-${x.recipe_key}`}><td>{x.standard_operation}</td><td>{x.recipe_no||x.recipe_key}</td><td>{val(x.recipe_name)}</td><td><b>{x.batch_size_qty}</b></td><td>Recipe-specific → thắng Common</td></tr>)}</tbody></table></div>:<p className="muted">Main {exampleMain} hiện không có Recipe-specific Batch Size; nếu Common Size có giá trị thì dùng Common, nếu cả hai trống thì không auto split theo size.</p>}</>:null}
+    <details className="erp-details"><summary>Tất cả Recipe-specific Batch Size đang active ({recipeSizes.length})</summary><div className="table-wrap"><table className="erp-table"><thead><tr><th>Main</th><th>Recipe</th><th>Tên</th><th>Batch Size</th></tr></thead><tbody>{recipeSizes.map((x:any)=><tr key={`${x.standard_operation}-${x.recipe_key}`}><td><b>{x.standard_operation}</b></td><td>{x.recipe_no||x.recipe_key}</td><td>{val(x.recipe_name)}</td><td>{x.batch_size_qty}</td></tr>)}</tbody></table></div></details>
+   </div></section>
+
+   <section id="time-rules" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>5 · Recipe + Process Time Rule thật</b><small className="planning-sub">Giải thích từ Recipe đang resolve đến rule thời gian; Fixed khác Qty/Surface.</small></div></div><div className="lg-body">
+    {exampleRecipe?<><div className="notice"><b>Recipe mẫu live:</b> {val(exampleRecipe.recipe_no)} · {val(exampleRecipe.recipe_name)} · Family {val(exampleRecipe.process_family)} · Main {val(exampleRecipe.main_operations)}.</div>
+    {exampleTimeRules.length?<div className="table-wrap"><table className="erp-table"><thead><tr><th>Priority</th><th>Calc Type</th><th>Qty Min→Max</th><th>Surface Min→Max</th><th>Fixed</th><th>Standard</th><th>Note</th></tr></thead><tbody>{exampleTimeRules.map((x:any)=><tr key={x.id}><td>{x.priority}</td><td><b>{x.calc_type}</b></td><td>{val(x.qty_min)} → {val(x.qty_max)}</td><td>{val(x.surface_min_dm2)} → {val(x.surface_max_dm2)}</td><td>{hours(x.fixed_hours)}</td><td>{hours(x.standard_hours)}</td><td>{val(x.note)}</td></tr>)}</tbody></table></div>:<Card title="Recipe chưa có Process Time Rule" tone="warning">Recipe {val(exampleRecipe.recipe_no||exampleRecipe.recipe_key)} đang không trả về rule active trong bảng md_recipe_time_rule.</Card>}</>:<p className="muted">Job/Main mẫu chưa resolve được Recipe; mở Recipe Mapping để kiểm tra.</p>}
+    <Module no="5A" title="Cách đọc Time Rule" goal="Không học thuộc số giờ; học cách engine chọn rule." steps={[
+      {title:"Recipe trước",detail:"Engine phải biết Recipe của Batch trước khi chọn Process Time Rule."},
+      {title:"Priority",detail:"Trong cùng Recipe, rule được xét theo Priority/điều kiện hiện hành."},
+      {title:"Qty + Surface",detail:"Qty và tổng Surface của chính Batch được so với Min/Max. Min/Max trống nghĩa là không giới hạn phía đó."},
+      {title:"Fixed vs Standard",detail:"Fixed dùng thời gian cố định; rule theo Qty/Surface dùng mức cấu hình tương ứng. Khi Job được thêm/bớt hoặc Recipe đổi, Process Time Batch phải được tính lại."},
+      {title:"Scheduling Override",detail:"Planner có thể chỉnh duration ở lịch theo flow hiện hành; override đó không sửa Master Time Rule."}
+    ]}/>
+   </div></section>
+
+   <section id="job-live" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>6 · Một Job thật đi qua hệ thống</b><small className="planning-sub">Đây là phần trainer nên dùng nhiều nhất: học viên nhìn cùng một Job từ raw state đến Main/Batch/Schedule.</small></div></div><div className="lg-body">
+    {sampleJob?<><div className="part-summary-grid compact"><div className="kv"><span>Job</span><b>{sampleJob.job_num}</b></div><div className="kv"><span>Part / Rev</span><b>{sampleJob.part_num} / {val(sampleJob.revision_num)}</b></div><div className="kv"><span>NextOperation</span><b>{val(sampleJob.next_operation)}</b></div><div className="kv"><span>LastOperation</span><b>{val(sampleJob.last_operation)}</b></div><div className="kv"><span>Good WIP / Prod Qty</span><b>{nfmt(sampleJob.current_good_wip_qty)} / {nfmt(sampleJob.prod_qty)}</b></div><div className="kv"><span>Total Surface</span><b>{nfmt(sampleJob.total_surface)} dm²</b></div></div>
+    {chain.length?<div className="table-wrap"><table className="erp-table"><thead><tr><th>#</th><th>RAW Operation</th><th>Main</th><th>ST Group</th><th>Area / Planner</th><th>Recipe</th><th>Batch Rule</th><th>Batch/Schedule hiện tại</th></tr></thead><tbody>{chain.map((x:any,i)=>{const sizes=sizeByMain.get(clean(x.standard_operation).toUpperCase())||[];return <tr key={x.id}><td>{i+1}<div className="muted">PSeq {val(x.planning_seq)}</div></td><td><b>{x.source_operation_code}</b><div className="muted">Source Seq {val(x.source_seq)}</div></td><td><b>{x.standard_operation}</b><div className="muted">Order {val(x.planning_sort_order)}</div></td><td>{val(x.st_group)}</td><td>{val(x.area_name)}<div className="muted">{val(x.schedule_area_name)} · {val(x.planner_owner)}</div></td><td>{x.recipe_no||"—"}<div className="muted">{val(x.recipe_name)}</div></td><td>{val(x.batch_prefix)} · Common {val(x.batch_size_qty)} · Split {yn(x.batch_auto_split)}{sizes.length?<div className="muted">{sizes.length} recipe override</div>:null}</td><td>{x.batch_no?<><b>{x.batch_no}</b><div className="muted">{val(x.resource_code)} · {val(x.schedule_status||x.batch_status)}</div></>:<span className="badge b-wait">Chưa có Batch</span>}</td></tr>})}</tbody></table></div>:<Card title="Job chưa có Planning Chain" tone="warning">Job {sampleJob.job_num} hiện chưa có planning_job_operation active. Đây cũng là tình huống training: kiểm tra raw NextOperation → Mapping → sync planning chain.</Card>}
+    <div className="training-action"><Link className="btn primary" href={`/job-tracker?q=${encodeURIComponent(sampleJob.job_num)}`}>Mở chính Job này trong Job Tracker</Link></div></>:<div className="erp-empty">Không có Job live để hiển thị.</div>}
+   </div></section>
+
+   <section id="flow" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>7 · Trainer dẫn học viên đi xuyên flow — từng câu hỏi phải trả lời</b></div></div><div className="lg-body"><ol className="lg-steps">
+    <li><b>All Open Jobs:</b> Job hiện có NextOperation gì? Qty/Surface/Priority là bao nhiêu? Đây là dữ liệu nguồn, chưa phải quyết định Batch.</li>
+    <li><b>Operation Mapping:</b> Next/route Operation Code map vào ST Group và Main nào? Nếu không map được, dừng tại đây và sửa cấu hình nguồn đúng chỗ.</li>
+    <li><b>Main Chain:</b> Main hiện tại đứng thứ mấy? Previous Main/Next Main là gì theo Planning Order thật của Job?</li>
+    <li><b>Recipe:</b> Main này resolve Recipe nào? Recipe lấy theo rule/cột dữ liệu nào? Có mismatch với Batch định gom không?</li>
+    <li><b>Batch Rules:</b> Prefix gì? Common Size bao nhiêu? Có Recipe-specific Size không? Auto Split bật không? Nếu Job 24 pcs và size 12 thì vì sao tạo 2 batch?</li>
+    <li><b>Process Time:</b> Recipe hiện có rule nào match Qty/Surface của từng Batch? Tại sao split làm thời gian phải tính riêng từng lô?</li>
+    <li><b>Planning Board:</b> Job READY hay WAIT? Tạo Batch ở Main đúng, không tạo ở Scheduling. Nếu cùng Job/Main nhiều batch thì Planning Board hiển thị nối bằng &.</li>
+    <li><b>Scheduling:</b> Chọn Resource/Start/Duration. Start Current Main phải phù hợp Effective End Previous Main và resource constraints.</li>
+    <li><b>Production:</b> Báo actual. Job ngoài lô được Production add trực tiếp sẽ được audit và tạo Next Main Attention theo route thật.</li>
+    <li><b>Đầu ngày:</b> trước 05:59 nếu còn Batch chưa hoàn tất, Carry Over được preview; chỉ khi duyệt mới cascade lịch xuyên resource và planner.</li>
+   </ol></div></section>
+
+   <section id="scenarios" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>8 · Tất cả tình huống trainer phải đưa ra</b><small className="planning-sub">Không chỉ học happy path; phải biết vì sao sai và kiểm tra ở đâu.</small></div></div><div className="lg-body"><div className="table-wrap"><table className="erp-table"><thead><tr><th>Tình huống</th><th>Người mới phải hiểu</th><th>Cách xử lý đúng</th></tr></thead><tbody>
+    <tr><td>Operation Code chưa map</td><td>Không thể suy Main bằng tên.</td><td>Kiểm tra ST Scope + ST Operation Mapping.</td></tr>
+    <tr><td>ST_SCOPE_ONLY</td><td>Theo dõi được nhưng không tham gia Planning Chain/Batch/Board.</td><td>Không ép đưa vào Batch.</td></tr>
+    <tr><td>Job WAIT</td><td>Previous Main chưa đủ điều kiện handoff.</td><td>Đọc Job Tracker, không sửa Master để ép READY.</td></tr>
+    <tr><td>Previous Main DONE nhưng dữ liệu cũ không có Batch</td><td>Physical progress vẫn có thể đủ handoff.</td><td>READY · chính trước Scheduled / Done.</td></tr>
+    <tr><td>Recipe mismatch</td><td>Batch và Job khác công nghệ.</td><td>Không đổi Recipe Batch chỉ để nhét Job vào.</td></tr>
+    <tr><td>Common Batch Size trống</td><td>Có thể vẫn split nếu Recipe-specific Size tồn tại.</td><td>Recipe override thắng Common.</td></tr>
+    <tr><td>Cả Common và Recipe Size trống</td><td>Không có size rule.</td><td>Không auto split theo size.</td></tr>
+    <tr><td>Job 24, size 12</td><td>Một Job Operation có thể allocation sang nhiều Batch.</td><td>12 + 12; Planning vẫn một Job row.</td></tr>
+    <tr><td>Process Time sau split</td><td>Không dùng thời gian của tổng 24 cho từng lô.</td><td>Tính riêng theo Qty/Surface từng Batch.</td></tr>
+    <tr><td>Resource overlap</td><td>Planning READY không có nghĩa lịch khả thi.</td><td>Scheduling engine/resource constraint quyết định.</td></tr>
+    <tr><td>Chemical Line</td><td>Loading → Process → NDT → Unloading; Flybar/NDT có rule riêng.</td><td>Không cộng duration tổng đơn giản khi có constraint đặc thù.</td></tr>
+    <tr><td>Production add Job ngoài Batch</td><td>Thực tế đã thay đổi membership.</td><td>Add trực tiếp + audit; không cần Daily Adjustment approve.</td></tr>
+    <tr><td>Production-added Job reload</td><td>Membership phải persist từ planning_batch_job.</td><td>Job vẫn hiện sau reload/đổi tab/tạo Batch mới.</td></tr>
+    <tr><td>Production add ở Main trước</td><td>Next Main phải lấy route thật.</td><td>Tạo Next Main Attention; không hard-code BSA→PRIMER.</td></tr>
+    <tr><td>Next Main chưa có Batch</td><td>Không có batch đích để nhận Job.</td><td>Alert cho planner tạo/plan đúng flow.</td></tr>
+    <tr><td>Shot Peening End 07:00→09:00</td><td>Main sau của planner khác không thể giữ Start 07:30.</td><td>Cross-Main Dependency + Resource Cascade trong preview đầu ngày.</td></tr>
+    <tr><td>Masking/Unmasking</td><td>Support config theo Main là strict khi đã cấu hình.</td><td>Preparation report tách PRIMER/PRIMER2/PRIMER3/TOPCOAT1/TOPCOAT2/ANTI-ABRASION.</td></tr>
+   </tbody></table></div></div></section>
+
+   <section id="practice" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>9 · Bài thực hành bắt buộc trước khi dùng app thật</b></div></div><div className="lg-body"><ol className="lg-steps">
+    <li><b>Trace Job live:</b> dùng Job đang hiển thị phía trên, tự nói thành lời: RAW code → ST Group → Main → Area/Planner → Recipe → Batch Rule → Time Rule → Previous/Next Main.</li>
+    <li><b>So sánh 2 Main:</b> chọn một Main có Common Batch Size và một Main có Recipe-specific Size; giải thích precedence.</li>
+    <li><b>Tính tay Process Time:</b> chọn một Recipe có rule Qty/Surface, lấy Qty/Surface của Batch thật và chỉ ra rule nào match.</li>
+    <li><b>Plan thử:</b> tạo Batch đúng Recipe, giải thích Batch No và Auto Split trước khi bấm Save.</li>
+    <li><b>Schedule thử:</b> chứng minh Start không vi phạm Previous Main Effective End và resource.</li>
+    <li><b>Production exception:</b> thêm một Job test ngoài lô, kiểm tra persistence, Production Change Alert và Next Main Attention.</li>
+    <li><b>Carry Over:</b> giả lập End previous Main từ 07:00 → 09:00 và liệt kê tất cả schedule bị ảnh hưởng trước khi duyệt.</li>
+   </ol><ul className="training-checklist"><Check>Giải thích được dữ liệu live, không chỉ đọc thuộc tài liệu.</Check><Check>Biết tìm nguồn sai trước khi sửa.</Check><Check>Phân biệt Recipe / Batch Key / Batch Size / Time Rule.</Check><Check>Hiểu Planning Chain khác Scheduling feasibility.</Check><Check>Hiểu Production thay đổi downstream như thế nào.</Check></ul></div></section>
+
+   {batchRows.length?<section className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>Phụ lục · Batch thật của Job mẫu</b><small className="planning-sub">Dùng để giải thích allocation thực tế của cùng Job qua các Main/Batch.</small></div></div><div className="lg-body"><div className="table-wrap"><table className="erp-table"><thead><tr><th>Batch</th><th>Main</th><th>Job Qty</th><th>Job Surface</th><th>Batch Jobs</th><th>Batch Qty</th><th>Batch Surface</th><th>Process</th><th>Status</th></tr></thead><tbody>{batchRows.map((x:any,i)=><tr key={`${x.batch_no}-${i}`}><td><b>{x.batch_no}</b></td><td>{x.standard_operation}</td><td>{nfmt(x.job_qty)}</td><td>{nfmt(x.job_surface)}</td><td>{x.total_jobs}</td><td>{nfmt(x.total_qty)}</td><td>{nfmt(x.total_surface_dm2)}</td><td>{hhmm(x.process_minutes)}</td><td>{x.status}</td></tr>)}</tbody></table></div></div></section>:null}
   </section>
-
-  <section id="scenarios" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>7 · Thư viện tình huống — người mới phải biết trước khi thao tác độc lập</b><small className="planning-sub">Không cố “sửa cho chạy”; phải nhận diện đúng lớp dữ liệu đang có vấn đề.</small></div></div><div className="lg-body"><div className="table-wrap"><table className="erp-table"><thead><tr><th>Tình huống</th><th>Hệ thống/ý nghĩa</th><th>Người dùng phải làm</th></tr></thead><tbody>
-   <tr><td>Job không xuất hiện</td><td>Có thể do nguồn All Open Job/routing/ST scope.</td><td>Tìm All Open Jobs → Job Tracker → Part Tracker; không sửa Main bừa.</td></tr>
-   <tr><td>RAW NextOperation có nhưng Main sai</td><td>Khả năng mapping Operation Code/Main sai.</td><td>Kiểm tra ST Operation Mapping và Main Planning Order.</td></tr>
-   <tr><td>ST_SCOPE_ONLY</td><td>Được theo dõi nhưng không tham gia Planning Chain/Batch/Board.</td><td>Không cố tạo Batch.</td></tr>
-   <tr><td>Job WAIT</td><td>Previous Main chưa có handoff planning hợp lệ hoặc chain có gap.</td><td>Xem Route Matrix/Job Tracker và previous Main.</td></tr>
-   <tr><td>Job READY nhưng chưa Schedule</td><td>Planning và Scheduling là hai lớp khác nhau.</td><td>Có thể tạo Batch; sau đó điều độ để biến thành lịch khả thi.</td></tr>
-   <tr><td>Recipe không resolve</td><td>Thiếu/mismatch Recipe Rule hoặc dữ liệu nguồn.</td><td>Kiểm tra Recipe Master/Rule và cột nguồn; không nhập recipe giả.</td></tr>
-   <tr><td>Recipe mismatch khi Add Job</td><td>Job không tương thích công nghệ với Batch.</td><td>Không đổi Recipe Batch để cho qua; chọn Batch đúng hoặc xử lý exception có kiểm soát.</td></tr>
-   <tr><td>Batch Key mismatch</td><td>Job không thỏa điều kiện gom lô.</td><td>Đọc condition nào fail; không bypass âm thầm.</td></tr>
-   <tr><td>Batch Size trống</td><td>Nếu không có Recipe override/Common size thì không split.</td><td>Batch giữ selection thành một lô.</td></tr>
-   <tr><td>Recipe Batch Size có giá trị</td><td>Override size chung cho đúng Main+Recipe.</td><td>Hiểu size nguồn RECIPE trước khi thắc mắc vì sao split.</td></tr>
-   <tr><td>Auto Split OFF</td><td>Không split dù có size.</td><td>Không kỳ vọng hệ thống tự tách.</td></tr>
-   <tr><td>Job Qty 30, size 12</td><td>Có thể tạo 12 + 12 + 6.</td><td>Kiểm tra Qty/Surface/Process Time riêng từng Batch.</td></tr>
-   <tr><td>Một Job ở nhiều Batch cùng Main</td><td>Hợp lệ với split allocation.</td><td>Planning Board hiện A &amp; B; Scheduling/Production vẫn tách Batch.</td></tr>
-   <tr><td>Job đã ở Batch active khác</td><td>Nguy cơ duplicate allocation.</td><td>Không add tiếp; kiểm tra/move/remove theo flow đúng.</td></tr>
-   <tr><td>Resource overlap</td><td>Hai lịch tranh cùng năng lực.</td><td>Dời Start/Resource hoặc dùng engine/rule của khu vực.</td></tr>
-   <tr><td>Chemical Flybar conflict</td><td>Phải xét Loading/Process/NDT/Unloading và occupancy.</td><td>Không chỉ kéo End bằng tay.</td></tr>
-   <tr><td>NDT preclean</td><td>Các recipe preclean hiện hành có NDT fixed và spacing.</td><td>Giữ rule NDT 01:30 giữa NDT Start khi áp dụng.</td></tr>
-   <tr><td>Previous Main End trễ</td><td>Current Main có thể thành dependency conflict.</td><td>Review Cross-Main; Start current ≥ Effective End previous (+ buffer nếu cấu hình).</td></tr>
-   <tr><td>Planner khác bị ảnh hưởng</td><td>Planner Owner không cắt dependency.</td><td>Change-set phải hiển thị impact xuyên planner.</td></tr>
-   <tr><td>Batch chưa xong trước 05:59</td><td>Carry Over pending sang ngày sản xuất mới.</td><td>Không tạo Batch No mới chỉ vì qua ngày; review đầu ngày.</td></tr>
-   <tr><td>Carry Over chiếm đầu ngày</td><td>Có thể đẩy các Batch sau cùng resource và Main downstream.</td><td>Xem preview rồi mới Duyệt chỉnh lịch.</td></tr>
-   <tr><td>Job planned trong Batch nhưng Not Started</td><td>Có thể là missing production item.</td><td>Đầu ngày xem đề xuất remove/carry theo trạng thái thực tế; giữ audit.</td></tr>
-   <tr><td>Job đã bắt đầu nhưng chưa xong</td><td>Không nên remove như chưa từng chạy.</td><td>Carry remaining Qty/Duration.</td></tr>
-   <tr><td>Production thêm Job ngoài lô</td><td>Thay đổi thực tế đã xảy ra.</td><td>Nhập Job No.; hệ thống lookup/validate; hợp lệ thì add trực tiếp, không chờ approve.</td></tr>
-   <tr><td>Production-added Job reload trang</td><td>Membership phải lấy từ DB.</td><td>Job vẫn phải hiện dưới Batch sau reload/đổi tab/tạo Batch mới.</td></tr>
-   <tr><td>Production add ở BSA</td><td>Next Main của Job có thể là PRIMER hoặc Main khác theo route thật.</td><td>Kiểm tra Next Main Attention, không hard-code BSA→PRIMER.</td></tr>
-   <tr><td>Downstream Batch tìm được</td><td>Attention gắn vào Batch Main kế tiếp phù hợp.</td><td>Production downstream đọc alert và “Thêm Job này” khi hợp lệ.</td></tr>
-   <tr><td>Chưa có downstream Batch</td><td>Không có nơi để auto/attention add trực tiếp.</td><td>Alert phải nói rõ chưa có lô Main sau; planner tạo/plan đúng flow.</td></tr>
-   <tr><td>Downstream Batch đã chạy</td><td>Late upstream addition có rủi ro thực tế.</td><td>Không âm thầm coi Job đã sản xuất; người vận hành phải xử lý theo trạng thái thực tế.</td></tr>
-   <tr><td>Preparation Masking/Unmasking</td><td>Support operation được config theo Main; explicit config là strict.</td><td>Không tự thêm support ngoài config; Production giữ execution độc lập.</td></tr>
-   <tr><td>Job nghi sai dữ liệu</td><td>Có thể sai ở nhiều lớp.</td><td>Thứ tự kiểm tra: Job Tracker → raw route → mapping → Main → recipe → batch → schedule → production audit.</td></tr>
-  </tbody></table></div></div></section>
-
-  <section id="practice" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>8 · Chương trình thực hành do trainer giao</b></div></div><div className="lg-body"><ol className="lg-steps">
-   <li><b>Lý thuyết miệng:</b> học viên tự vẽ lại chuỗi Operation Code → ST Group → Main → Area/Planner → Recipe/Time → Batch → Schedule → Production.</li>
-   <li><b>Trace 1 Job:</b> trainer đưa Job thật; học viên không được tạo Batch, chỉ giải thích route, Current Main, Next Main, Recipe, Time source và vì sao READY/WAIT.</li>
-   <li><b>Plan 1 Job:</b> tạo Batch đúng Main/Recipe; giải thích Batch No, size, split và tác động lên Next Main.</li>
-   <li><b>Schedule 1 Batch:</b> chọn resource/time hợp lệ và giải thích dependency với previous Main.</li>
-   <li><b>Production:</b> report Batch, thêm một Job test ngoài lô, kiểm tra persistence + Production Change Alert + Next Main Attention.</li>
-   <li><b>Carry Over simulation:</b> đổi End previous Main 07:00 → 09:00; học viên phải chỉ ra tất cả Main/resource/planner có thể bị ảnh hưởng trước khi duyệt.</li>
-   <li><b>Troubleshooting:</b> trainer tạo 5 lỗi: WAIT, recipe mismatch, duplicate batch membership, resource overlap, downstream attention chưa có batch; học viên phải tìm đúng nguồn.</li>
-  </ol></div></section>
-
-  <section id="checklist" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>9 · Điều kiện đạt trước khi dùng app thật</b></div></div><div className="lg-body"><ul className="training-checklist">
-   <Check>Giải thích được Operation Code, ST Group, Main Operation, Area, Resource khác nhau.</Check>
-   <Check>Giải thích được RAW NextOperation → Mapping → Main → Main Planning Order.</Check>
-   <Check>Biết Recipe, Batch Key, Batch Size và Time Rule là bốn lớp khác nhau.</Check>
-   <Check>Biết READY/WAIT là Planning Chain; Scheduling feasibility là lớp thời gian/resource.</Check>
-   <Check>Trace được một Job từ All Open Jobs đến Job Tracker và xác định Previous/Current/Next Main.</Check>
-   <Check>Tạo Batch đúng Recipe, hiểu Auto Split và nhiều Batch trên cùng Job/Main.</Check>
-   <Check>Điều độ mà không tạo lại Batch và không phá dependency/resource constraint.</Check>
-   <Check>Biết Production add Job ngoài lô, audit, persistence và Next Main Attention.</Check>
-   <Check>Biết Carry Over 06:00–05:59 và chỉ duyệt sau khi đọc Cross-Main/Resource impact.</Check>
-   <Check>Khi có lỗi, biết chẩn đoán từ nguồn thay vì sửa Master để ép kết quả.</Check>
-  </ul></div></section>
-
-  <section className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>Bổ sung V473 — thứ tự Area, Preparation split và READY handoff</b></div></div><div className="lg-body">
-   <ul>
-    <li><b>Area Display Order:</b> người mới phải hiểu <code>Physical Area</code> khác <code>Schedule Area</code>. Tab Configuration → Area Display Order chỉ đổi thứ tự hiển thị bằng <code>md_area.sort_order</code>, không đổi nơi Job được điều độ.</li>
-    <li><b>Masking/Unmasking Preparation:</b> báo cáo Production tách riêng theo Main đích. PRIMER, PRIMER2, PRIMER3, TOPCOAT1, TOPCOAT2 và ANTI-ABRASION là các bảng Preparation riêng; không được nhìn một bảng Painting tổng rồi nhầm Main.</li>
-    <li><b>READY handoff:</b> cột <b>READY · chính trước Scheduled / Done</b> gồm cả Previous Main đã Schedule và Previous Main đã DONE theo physical progress dù dữ liệu cũ không có Batch. Cột <b>READY · chính trước chưa Scheduled / START</b> là plan-ahead chưa handoff hoặc Main đầu tiên.</li>
-   </ul>
-   <div className="notice"><b>Bài kiểm tra:</b> Cho Job J-TRAIN-001 có Previous Main A-SHPN đã DONE ngoài hệ thống cũ, không có Batch, Current Main BSAUNSLD đang ELIGIBLE. Học viên phải trả lời đúng: Job nằm ở READY · chính trước Scheduled / Done, không phải READY · chính trước chưa Scheduled.</div>
-  </div></section>
- </section>
- 
-
-</main>}
+ </main>
+}

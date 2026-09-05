@@ -5,7 +5,7 @@ import {getPool} from "@/lib/db";
 export const dynamic="force-dynamic";
 
 // =====================================================================
-// LOGIC & HƯỚNG DẪN v470
+// LOGIC & HƯỚNG DẪN v474
 // Tài liệu vận hành nằm ngay trong app. Nội dung mô tả SOURCE OF TRUTH,
 // trình tự thao tác, dependency và impact của từng tab theo code hiện tại.
 // Phần "Mapping đang chạy" đọc trực tiếp database để đối chiếu cấu hình thật.
@@ -1004,8 +1004,12 @@ export default async function Page(){
    </Section>
 
    <section className="erp-table-panel guide-section">
-    <div className="erp-panel-head"><div><b>Training người mới · V473</b><small className="planning-sub">Tài liệu onboarding tách riêng để người mới học theo tình huống thực tế thay vì đọc toàn bộ cấu hình.</small></div></div>
-    <div className="lg-body"><p>Tab <b>Training người mới</b> nay đào tạo theo kiểu theory-first: bắt đầu từ Job/Operation Code/ST Scope/ST Group/Main Operation/Main Planning Order/Area/Planner, sau đó Recipe/Batch Key/Batch Size/Time Rules, rồi mới đi vào Planning → Batch → Scheduling → Production. Có ví dụ một Job xuyên suốt, thư viện tình huống ngoại lệ, bài thực hành và checklist đạt trước khi thao tác độc lập.</p><a className="btn primary" href="/training">Mở Training người mới</a></div>
+    <div className="erp-panel-head"><div><b>Training người mới · V474 · Live Database</b><small className="planning-sub">Training và Logic & Hướng dẫn được cập nhật song song.</small></div></div>
+    <div className="lg-body">
+     <p>Tab <b>Training người mới</b> vẫn đào tạo theory-first, nhưng từ V474 phần minh họa đọc <b>trực tiếp database đang chạy</b>: Operation Mapping, Main Operation, Area/Planner, Process Recipe, Batch Prefix/Sequence/Common Size/Auto Split, Recipe-specific Batch Size, Process Time Rules và một Open Job thật cùng Planning Chain/Batch/Schedule hiện có.</p>
+     <p>Trainer có thể nhập <b>Job Number</b> ngay trong Training để học viên trace đúng Job cần đào tạo. Training không tạo logic mới; dữ liệu live chỉ giúp giải thích Source of Truth hiện hành dễ hiểu hơn.</p>
+     <a className="btn primary" href="/training">Mở Training Live Database</a>
+    </div>
    </section>
 
   </section>
