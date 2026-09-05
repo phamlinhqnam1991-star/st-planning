@@ -38,10 +38,10 @@ const MAIN_TABS: { key: MainTab; label: string; short: string }[] = [
   { key: "job", label: "Job Tracker", short: "JT" },
   { key: "jobs", label: "All Open Jobs", short: "OJ" },
   { key: "planning", label: "Planning Board", short: "PL" },
-  { key: "schedule", label: "Board Điều Độ", short: "SC" },
+  { key: "schedule", label: "Scheduling Board", short: "SC" },
   { key: "import", label: "Import Master", short: "IM" },
   { key: "guide", label: "Logic & Hướng dẫn", short: "LG" },
-  { key: "training", label: "Training người mới", short: "TRN" },
+  { key: "training", label: "New User Training", short: "TRN" },
 ];
 
 const MASTER_TABS = [
@@ -66,9 +66,9 @@ const CONFIG_TABS = [
   ["area", "Khu vực vật lý", "06"],
   ["schedulearea", "Khu vực điều độ", "07"],
   ["planner", "Phân chia Planner", "08"],
-  ["recipe", "Công thức & Rule", "09"],
+  ["recipe", "Rules & Formula", "09"],
   ["loading", "Loading / Unloading", "10"],
-  ["process", "Thời gian Process", "11"],
+  ["process", "Process Time", "11"],
   ["columns", "Cột All Open Job", "12"],
 ] as const;
 
@@ -233,7 +233,7 @@ function ConfigDetail({ sub }: { sub: string }) {
     operation: "Quản lý danh mục Main Operation và Main Planning Order.",
     group: "Nhóm các Main Operation theo nhóm ST.",
     area: "Gán Main Operation vào khu vực vật lý.",
-    schedulearea: "Xác định lane/resource group dùng trên Board Điều Độ.",
+    schedulearea: "Xác định lane/resource group dùng trên Scheduling Board.",
     planner: "Phân chia trách nhiệm planner theo Schedule Area / Operation.",
     recipe: "Xác định Recipe, Batch Key và điều kiện đề xuất cho từng Main Operation.",
     loading: "Cấu hình thời gian Loading và Unloading theo Qty / Surface.",
@@ -591,7 +591,7 @@ const LANES: { lane: string; blocks: ScheduleBlock[] }[] = [
 
 function ScheduleDemo() {
   return <>
-    <ErpPageHeader eyebrow="Scheduling" title="Board Điều Độ" description="Gán Resource / Date / Start / Duration cho các Batch UNSCHEDULED." actions={<><button className="erpkit-btn">Today</button><button className="erpkit-btn erpkit-btn-primary">Save Schedule</button></>} />
+    <ErpPageHeader eyebrow="Scheduling" title="Scheduling Board" description="Gán Resource / Date / Start / Duration cho các Batch UNSCHEDULED." actions={<><button className="erpkit-btn">Today</button><button className="erpkit-btn erpkit-btn-primary">Save Schedule</button></>} />
     <div className="erpkit-kpi-grid"><ErpKpiCard label="Unscheduled" value="18" tone="warning"/><ErpKpiCard label="Scheduled" value="31" tone="info"/><ErpKpiCard label="Running" value="6" tone="success"/><ErpKpiCard label="Resources" value="17" helper="Visible lanes"/></div>
     <div className="erpkit-schedule-toolbar"><div><button className="erpkit-btn">←</button><button className="erpkit-btn"><b>02 Sep 2026</b></button><button className="erpkit-btn">→</button></div><div><span className="erpkit-status erpkit-status-warning"><span className="erpkit-status-dot"/>Unscheduled 18</span><button className="erpkit-btn">Resource filter</button></div></div>
     <ErpSection title="Production Timeline · 06:00 → 06:00" description="Demo lane timeline compact; kéo/thả sẽ được áp khi migrate thật." flush>
@@ -626,12 +626,12 @@ function ImportDemo() {
 
 function GuideDemo() {
   const [section,setSection]=useState("flow");
-  const items = [["flow","Luồng tổng thể"],["candidate","Candidate Jobs"],["batch","Batch & Recipe"],["schedule","Board Điều Độ"],["config","Mapping cấu hình"],["impact","Ảnh hưởng thay đổi"]] as const;
+  const items = [["flow","Luồng tổng thể"],["candidate","Candidate Jobs"],["batch","Batch & Recipe"],["schedule","Scheduling Board"],["config","Mapping cấu hình"],["impact","Ảnh hưởng thay đổi"]] as const;
   const content:Record<string,{title:string;desc:string;steps:string[]}>={
     flow:{title:"Luồng tổng thể ST Planning",desc:"Từ dữ liệu nguồn đến kế hoạch và điều độ.",steps:["Import Master & All Open Job","Xác định RAW NextOperation","Mapping sang Main Operation","Candidate READY / WAIT","Tạo Batch theo Recipe / Batch Key","Điều độ Resource / Start / Duration"]},
     candidate:{title:"Candidate Jobs",desc:"Candidate đi theo chuỗi Main Operation thay vì hard-code RAW Operation.",steps:["Đọc RAW NextOperation","ST Operation Mapping","Main Operation","Main Planning Order","Priority Job","Job No."]},
     batch:{title:"Batch & Recipe",desc:"Manual và Auto dùng chung Batch data model.",steps:["Chọn Candidate","Kiểm tra Compatibility","Đề xuất Recipe","Sinh / nhập Batch Key","Create Batch","Đưa vào UNSCHEDULED"]},
-    schedule:{title:"Board Điều Độ",desc:"Batch đã tạo mới được gán tài nguyên và thời gian.",steps:["Chọn UNSCHEDULED Batch","Chọn Resource","Nhập Start","Tính Duration","Kiểm tra overlap","Lưu Schedule"]},
+    schedule:{title:"Scheduling Board",desc:"Batch đã tạo mới được gán tài nguyên và thời gian.",steps:["Chọn UNSCHEDULED Batch","Chọn Resource","Nhập Start","Tính Duration","Kiểm tra overlap","Lưu Schedule"]},
     config:{title:"Mapping cấu hình",desc:"Chuỗi cấu hình quyết định dữ liệu phía sau.",steps:["Operation Code","Main Operation","ST Group","Physical Area","Schedule Area","Planner"]},
     impact:{title:"Ảnh hưởng khi thay đổi",desc:"Mỗi thay đổi cần biết downstream nào sẽ bị tác động.",steps:["Mapping → Candidate Main Operation","Recipe Rule → Batch proposal","Process Time → Schedule duration","Area Mapping → Schedule lane","Planner Assignment → Ownership","Master Import → Affected routing"]},
   };
@@ -639,7 +639,7 @@ function GuideDemo() {
   return <div className="erpkit-demo-workspace"><DemoSidebar title="LOGIC & GUIDE" items={items} active={section} onChange={setSection}/><div className="erpkit-demo-screen">
     <ErpPageHeader eyebrow="Documentation" title={c.title} description={c.desc}/>
     <ErpSection title="Flow"><div className="erpkit-guide-flow">{c.steps.map((s,i)=><div key={s}><span>{String(i+1).padStart(2,"0")}</span><b>{s}</b>{i<c.steps.length-1?<i>↓</i>:null}</div>)}</div></ErpSection>
-    <div className="erpkit-demo-split"><ErpSection title="Nguyên tắc"><ul className="erpkit-guide-list"><li>Không hard-code công đoạn trong Planning Board.</li><li>Mapping/config là nguồn chuẩn duy nhất.</li><li>Batch chỉ tạo một lần; Board Điều Độ không tạo lại Batch.</li><li>Manual và Auto dùng chung data model.</li></ul></ErpSection><ErpSection title="Khi thay đổi"><div className="erpkit-notice-box"><b>Impact first</b><span>Hiển thị rõ chức năng downstream bị ảnh hưởng trước khi Save cấu hình.</span></div></ErpSection></div>
+    <div className="erpkit-demo-split"><ErpSection title="Nguyên tắc"><ul className="erpkit-guide-list"><li>Không hard-code công đoạn trong Planning Board.</li><li>Mapping/config là nguồn chuẩn duy nhất.</li><li>Batch chỉ tạo một lần; Scheduling Board không tạo lại Batch.</li><li>Manual và Auto dùng chung data model.</li></ul></ErpSection><ErpSection title="Khi thay đổi"><div className="erpkit-notice-box"><b>Impact first</b><span>Hiển thị rõ chức năng downstream bị ảnh hưởng trước khi Save cấu hình.</span></div></ErpSection></div>
   </div></div>;
 }
 
@@ -651,11 +651,11 @@ function TrainingDemo() {
     "Tạo Batch tại Planning Board",
     "Điều độ Resource / Start / Duration",
     "Theo dõi Production Execution và Job phát sinh ngoài lô",
-    "Kiểm tra Attention / Cảnh báo thay đổi SX và downstream",
-    "Cuối ngày xử lý Carry Over / Điều chỉnh đầu ngày khi có phát sinh",
+    "Kiểm tra Attention / Production Change Alerts và downstream",
+    "Cuối ngày xử lý Carry Over / Daily Production Adjustment khi có phát sinh",
   ];
   return <>
-    <ErpPageHeader eyebrow="New User Training" title="Training người mới" description="Học theo một Job thật từ dữ liệu nguồn đến Planning, Scheduling và Production." />
+    <ErpPageHeader eyebrow="New User Training" title="New User Training" description="Học theo một Job thật từ dữ liệu nguồn đến Planning, Scheduling và Production." />
     <ErpSection title="Lộ trình thực hành">
       <div className="erpkit-guide-flow">{steps.map((s,i)=><div key={s}><span>{String(i+1).padStart(2,"0")}</span><b>{s}</b>{i<steps.length-1?<i>↓</i>:null}</div>)}</div>
     </ErpSection>

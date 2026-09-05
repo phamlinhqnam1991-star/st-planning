@@ -20,7 +20,7 @@ export default async function Page(){
       title="Thời gian Loading / Unloading"
       subtitle="Chemical Line: thời gian nạp (Loading) và dỡ (Unloading) lô theo Số lượng + Diện tích."
       purpose="Định nghĩa thời gian Loading/Unloading cho 1 lô Chemical: hệ thống chọn rule theo Priority, Qty và Surface dm² của lô (Min/Max để trống = không giới hạn)."
-      impact="Thời gian này là đầu và cuối chuỗi thời gian mỗi lô trên Board Điều Độ. Sai rule → lô bị tính sai giờ, trạm Loading bị chồng chéo hoặc bỏ trống."
+      impact="Thời gian này là đầu và cuối chuỗi thời gian mỗi lô trên Scheduling Board. Sai rule → lô bị tính sai giờ, trạm Loading bị chồng chéo hoặc bỏ trống."
       prev={{label:"Open Job Column Values",href:"/open-job-column-values"}}
       next={{label:"Thời gian xử lý (Process)",href:"/recipe-time-process"}}
      />

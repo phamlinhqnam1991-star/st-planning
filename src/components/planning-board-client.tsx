@@ -3998,7 +3998,7 @@ const currentPriorityMonth=useMemo(()=>{
        <button className="btn small" type="button" onClick={()=>setColumnPickerOpen(x=>!x)}>Cột ({configurableActiveColumns.length}/{configurableColumns.length})</button>
        <button className="btn small" type="button" onClick={()=>setOperationPickerOpen(x=>!x)} title="Chọn NextOperation được hiển thị">Công đoạn ({effectiveStView.size}/{allNextOps.length})</button>
        <button className="btn small" type="button" onClick={()=>setFullView(x=>!x)} title="ESC để thoát Full View">{fullView?"Thoát toàn màn hình":"Toàn màn hình"}</button>
-       <button className="btn small" type="button" onClick={runRecipeCompare} disabled={recipeCompareLoading} title="So sánh cấu hình Recipe (Công thức & Rule) với nhu cầu thực tế trên board — tìm mapping thiếu / mapping không được dùng">{recipeCompareLoading?"Đang so sánh…":"⇄ So sánh Recipe"}</button>
+       <button className="btn small" type="button" onClick={runRecipeCompare} disabled={recipeCompareLoading} title="So sánh cấu hình Recipe (Rules & Formula) với nhu cầu thực tế trên board — tìm mapping thiếu / mapping không được dùng">{recipeCompareLoading?"Đang so sánh…":"⇄ So sánh Recipe"}</button>
        <button className="btn small" type="button" title="Ghim dòng tiêu đề và các cột bên trái." onClick={()=>{if(freezeMenuOpen){setFreezeMenuOpen(false);return;}if(freezePick){setFreezePick(false);setFreezeDraft(null);return;}if(freeze.mode==="off"){setFreezePick(true);return;}setFreezeMenuOpen(true);}}>{freezePick?"Chọn cột…":freeze.mode==="off"?"Ghim cột":freezeLabel}</button>
        <button className="btn small" disabled={busy} onClick={rebuild}>Rebuild Chain</button>
       </div>
@@ -4652,9 +4652,9 @@ const currentPriorityMonth=useMemo(()=>{
            :erpMode?"Chưa có Recipe theo cấu hình":"✕ Chưa có Recipe theo cấu hình"}</b>
          <span>
           {suggestionSummary.mixedRecipes
-           ? "Kiểm tra lại 'Cấu hình → Công thức & Rule' hoặc chọn Job cùng Recipe."
+           ? "Kiểm tra lại 'Cấu hình → Rules & Formula' hoặc chọn Job cùng Recipe."
            : <>{suggestionSummary.unmatchedCount} Job chưa có Recipe — cấu hình tại{" "}
-               <a href="/recipe-operation-map">Công thức & Rule</a>.</>}
+               <a href="/recipe-operation-map">Rules & Formula</a>.</>}
          </span>
          {!suggestionSummary.mixedRecipes&&firstUnmatchedTarget&&
           <button
@@ -4737,7 +4737,7 @@ const currentPriorityMonth=useMemo(()=>{
          </div>
          <div className="recipe-diagnosis-action">
           <b>Cách xử lý:</b> {recipeDiag.action}{" "}
-          <a href={recipeDiag.actionHref} className="btn small primary">Mở Công thức & Rule →</a>
+          <a href={recipeDiag.actionHref} className="btn small primary">Mở Rules & Formula →</a>
          </div>
         </>
        )}

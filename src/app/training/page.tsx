@@ -1,3 +1,4 @@
+// V483 full VI/EN audit: Training follows the same canonical terminology and bilingual catalog as Logic & Guide.
 import Link from "next/link";
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
@@ -134,7 +135,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{job?:st
  return <main className="erp-shell erpkit-migrated-page">
   <ErpAppHeader module="TRAINING"/><AppTabs active="training"/>
   <section className="erp-content erp-content-full guide-page training-page">
-   <div className="erp-page-head guide-head"><div><div className="erp-object-eyebrow">ONBOARDING · LIVE DATABASE · ST PLANNING · V478</div><h2>Training người mới — học bằng dữ liệu thật đang chạy</h2><p>Lý thuyết trước, sau đó đối chiếu ngay Operation Code, Main, Area, Planner, Recipe, Batch Rules, Process Time và một Job thật từ database.</p></div><div className="erp-command-actions"><Link className="btn" href="/logic-guide">Logic & Hướng dẫn</Link><Link className="btn primary" href="/job-tracker">Mở Job Tracker</Link></div></div>
+   <div className="erp-page-head guide-head"><div><div className="erp-object-eyebrow">ONBOARDING · LIVE DATABASE · ST PLANNING · V483</div><h2>New User Training — học bằng dữ liệu thật đang chạy</h2><p>Lý thuyết trước, sau đó đối chiếu ngay Operation Code, Main, Area, Planner, Recipe, Batch Rules, Process Time và một Job thật từ database. V483 dùng cùng bộ thuật ngữ VI/EN chuẩn với Logic & Guide.</p></div><div className="erp-command-actions"><Link className="btn" href="/logic-guide">Logic & Hướng dẫn</Link><Link className="btn primary" href="/job-tracker">Mở Job Tracker</Link></div></div>
 
    <div className="guide-jump"><a href="#theory">1. Lý thuyết</a><a href="#live-config">2. Config thật</a><a href="#op-example">3. Operation Code thật</a><a href="#batch-rules">4. Batch Rules thật</a><a href="#time-rules">5. Process Time thật</a><a href="#job-live">6. Job thật</a><a href="#flow">7. Đi xuyên flow</a><a href="#scenarios">8. Tình huống</a><a href="#security">9. Phân quyền</a><a href="#practice">10. Bài thực hành</a></div>
 

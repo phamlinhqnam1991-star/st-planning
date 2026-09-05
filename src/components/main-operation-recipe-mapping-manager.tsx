@@ -532,7 +532,7 @@ export function MainOperationRecipeMappingManager({
              <th>Số Recipe</th>
              <th>Tên Recipe</th>
              <th>Nhóm recipe</th>
-             <th>Thời gian Process</th>
+             <th>Process Time</th>
              <th>Ưu tiên</th>
              <th>Mặc định</th>
              <th>✓ Tự chọn</th>

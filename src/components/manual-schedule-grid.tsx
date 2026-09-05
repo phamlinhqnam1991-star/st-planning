@@ -543,7 +543,7 @@ export function ManualScheduleGrid({
  async function unscheduleBatch(row:ScheduledRow){
   const ok=await confirmErp({
    title:"Bỏ điều độ",
-   message:`Bỏ ${row.batch_no} khỏi Board Điều Độ?`,
+   message:`Bỏ ${row.batch_no} khỏi Scheduling Board?`,
    detail:"Batch và Job trong Batch được giữ nguyên. Chỉ hủy Schedule hiện tại; Batch sẽ quay lại danh sách Unscheduled Batches.",
    tone:"warning",
    confirmLabel:"Bỏ điều độ"

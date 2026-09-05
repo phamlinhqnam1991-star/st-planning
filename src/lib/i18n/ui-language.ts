@@ -44,7 +44,8 @@ const PROTECTED_UI_TERMS=[
  "NextOperation","LastOperation","LastLaborOp","AllOperation","Process Time","Loading","Unloading","NDT",
  "READY","WAIT","DONE","PLANNED","UNSCHEDULED","SCHEDULED","RUNNING","HOLD","NO CHAIN",
  "ST_SCOPE_ONLY","PLANNING_OPERATION","INTERMEDIATE","AUTO","MANUAL","API","DB","JSON","Excel","Supabase",
- "PRIMER1","PRIMER2","PRIMER3","TOPCOAT1","TOPCOAT2"
+ "PRIMER1","PRIMER2","PRIMER3","TOPCOAT1","TOPCOAT2",
+ "Aiven","Aiven PostgreSQL","RBAC","ADMIN","PLANNER","PRODUCTION_OPERATOR","SHIFT_SUPERVISOR"
 ].sort((a,b)=>b.length-a.length);
 
 function protectDomainTerms(value:string){

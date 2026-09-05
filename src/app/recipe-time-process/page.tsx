@@ -79,9 +79,9 @@ export default async function Page(){
     <section className="erp-content">
      <ConfigPageHeader
       title="Thời gian xử lý (Process)"
-      subtitle="Main Operation → Recipe → Process Time — nguồn thời gian chuẩn dùng cho Planning và Board Điều Độ."
+      subtitle="Main Operation → Recipe → Process Time — nguồn thời gian chuẩn dùng cho Planning và Scheduling Board."
       purpose="Định nghĩa thời gian xử lý của từng Recipe: Cố định hoặc theo khoảng Số lượng + Diện tích; mỗi rule có thể thêm nhiều điều kiện từ các cột All Open Job. Thời gian nhập theo HH:MM."
-      impact="Khi tạo/thêm/bớt Job hoặc đổi Recipe, Process Time của Batch được tính lại. Duration trên Board Điều Độ vẫn có thể được planner chỉnh riêng mà không sửa rule chuẩn."
+      impact="Khi tạo/thêm/bớt Job hoặc đổi Recipe, Process Time của Batch được tính lại. Duration trên Scheduling Board vẫn có thể được planner chỉnh riêng mà không sửa rule chuẩn."
       prev={{label:"Thời gian Loading / Unloading",href:"/recipe-time-loading"}}
       next={{label:"Auto Planning Rules",href:"/auto-planning-rules"}}
      />

@@ -148,7 +148,7 @@ export default async function Page({
      <OpenJobImporter/>
 
      <div className="notice section">
-      Trang này chỉ hiển thị Job có <code>NextOperation</code> thuộc phạm vi ST. <code>ST_SCOPE_ONLY</code> vẫn được hiển thị nhưng không tham gia Planning Chain, Batch hoặc Board Điều Độ.
+      Trang này chỉ hiển thị Job có <code>NextOperation</code> thuộc phạm vi ST. <code>ST_SCOPE_ONLY</code> vẫn được hiển thị nhưng không tham gia Planning Chain, Batch hoặc Scheduling Board.
      </div>
 
      <div className="open-job-status-tabs section">

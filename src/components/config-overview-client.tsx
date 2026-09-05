@@ -43,7 +43,7 @@ export function ConfigOverviewClient(){
   const issues:{severity:"critical"|"warning";title:string;detail:string;href:string}[]=[];
   if(n(s.missing_jobs)>0)issues.push({severity:"critical",title:`${n(s.missing_jobs)} Job chưa đủ cấu hình ST`,detail:"Các Job này chưa thể đi vào Planning Board đúng flow.",href:"/st-operation-flow"});
   if(n(s.mapping_missing)>0)issues.push({severity:"critical",title:`${n(s.mapping_missing)} Operation chưa có Main Mapping`,detail:"Source Operation chưa map đầy đủ vào Main Operation.",href:"/master/operationmapping"});
-  if(n(s.schedule_total)>0&&n(s.planner_assigned)===0)issues.push({severity:"warning",title:"Schedule Area chưa có Planner",detail:"Board Điều Độ chưa xác định ownership theo khu vực.",href:"/planner-work-assignment"});
+  if(n(s.schedule_total)>0&&n(s.planner_assigned)===0)issues.push({severity:"warning",title:"Schedule Area chưa có Planner",detail:"Scheduling Board chưa xác định ownership theo khu vực.",href:"/planner-work-assignment"});
   if(n(s.recipe_total)===0||n(s.recipe_op_total)===0)issues.push({severity:"critical",title:"Recipe / Batch Rule chưa hoàn chỉnh",detail:"Job có thể không đề xuất được Recipe hoặc không tạo Batch đúng rule.",href:"/recipe-operation-map"});
   if(n(s.handling_total)===0)issues.push({severity:"warning",title:"Thiếu Loading / Unloading Time",detail:"Chemical Line có thể thiếu thời gian handling chuẩn.",href:"/recipe-time-loading"});
   if(n(s.time_total)===0)issues.push({severity:"warning",title:"Thiếu Process Time Rule",detail:"Batch chưa có nguồn thời gian xử lý chuẩn.",href:"/recipe-time-process"});

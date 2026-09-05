@@ -441,7 +441,7 @@ export default async function Page({
          ? `/schedule${sp.date?`?date=${encodeURIComponent(sp.date)}`:""}`
          : "/planning/batches"}
        >
-        ← {sp.returnTo==="schedule"?"Board Điều Độ":"Batch gần đây"}
+        ← {sp.returnTo==="schedule"?"Scheduling Board":"Batch gần đây"}
        </Link>
       </div>}
      />

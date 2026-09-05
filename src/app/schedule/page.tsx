@@ -536,7 +536,7 @@ export default async function Page({
    <AppTabs active="schedule"/>
    <section className="erp-content erp-content-full">
     <div className="erp-page-head">
-     <div><h2>Board Điều Độ</h2><p>Điều độ Batch theo Resource, ngày sản xuất và thời gian xử lý.</p></div>
+     <div><h2>Scheduling Board</h2><p>Điều độ Batch theo Resource, ngày sản xuất và thời gian xử lý.</p></div>
      <div className="schedule-page-date-actions">
       <form>
        <input type="hidden" name="planner" value={planner}/>

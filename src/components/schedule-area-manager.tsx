@@ -60,7 +60,7 @@ export function ScheduleAreaManager(){
  const chosen=areas.find(x=>x.schedule_area_code===selected);
  return <div className="erp-config-editor-stack">
   <section className="erp-form-panel erp-editor-panel">
-   <div className="erp-panel-head"><div><b>Thêm khu vực điều độ</b><span>Định nghĩa lane/resource dùng trên Board Điều Độ.</span></div><span className="erp-record-count">{areas.filter(x=>x.is_active).length} active</span></div>
+   <div className="erp-panel-head"><div><b>Thêm khu vực điều độ</b><span>Định nghĩa lane/resource dùng trên Scheduling Board.</span></div><span className="erp-record-count">{areas.filter(x=>x.is_active).length} active</span></div>
    <div className="area-form schedule-area-form erp-field-grid">
     <label>Mã lane<input className="input mono" placeholder="Ví dụ CHEM-L1" value={form.schedule_area_code} onChange={e=>setForm({...form,schedule_area_code:e.target.value.toUpperCase()})}/></label>
     <label>Tên hiển thị<input className="input" value={form.schedule_area_name} onChange={e=>setForm({...form,schedule_area_name:e.target.value})}/></label>
@@ -93,7 +93,7 @@ export function ScheduleAreaManager(){
 
   {chosen&&<section className="erp-form-panel erp-inline-editor-panel">
    <div className="erp-panel-head"><div><b>ST Group / Main Operation</b><span>{chosen.schedule_area_name}</span></div><button className="btn small" onClick={()=>setSelected("")}>Đóng</button></div>
-   <div className="erp-context-note">ST Group lấy động từ Area Master. Chọn một Group sẽ đánh dấu toàn bộ Main Operation hiện thuộc Group đó; dữ liệu lưu vẫn là Main Operation để không thay logic Board Điều Độ / Auto Plan.</div>
+   <div className="erp-context-note">ST Group lấy động từ Area Master. Chọn một Group sẽ đánh dấu toàn bộ Main Operation hiện thuộc Group đó; dữ liệu lưu vẫn là Main Operation để không thay logic Scheduling Board / Auto Plan.</div>
    <div className="erp-subsection-head"><b>ST Group</b><span>{stGroups.length} nhóm</span></div>
    <div className="group-grid erp-selection-grid">{stGroups.map(g=>{const related=ops.filter(x=>x.st_group===g.st_group);const codes=operationCodes.filter(x=>x.st_group===g.st_group);const allChecked=related.length>0&&related.every(op=>chosen.operations?.some(x=>x.standard_operation===op.standard_operation));return <label className="check-card" key={g.st_group}><input type="checkbox" disabled={!related.length} defaultChecked={allChecked} onChange={e=>toggleStGroup(g.st_group,e.target.checked)}/><span><b>{g.st_group}</b><small>{g.area_name} · {codes.length} Operation Code · {related.length} Main Operation</small>{codes.length>0&&<small className="mono">{codes.map(x=>x.source_operation_code).join(", ")}</small>}</span></label>})}</div>
    <div className="erp-subsection-head"><b>Main Operation</b><span>{ops.length} công đoạn</span></div>

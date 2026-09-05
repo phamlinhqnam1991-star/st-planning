@@ -12,7 +12,7 @@ export default function Page(){return <main className="erp-shell erpkit-migrated
    <ConfigPageHeader
     title="Phân chia công việc Planner"
     subtitle="Thêm/bớt hoặc chuyển Schedule Area giữa Planner 1 và Planner 2."
-    purpose="Xác định người phụ trách điều độ từng khu vực (Planner 1 / Planner 2) — ai thấy việc gì trên Board Điều Độ."
+    purpose="Xác định người phụ trách điều độ từng khu vực (Planner 1 / Planner 2) — ai thấy việc gì trên Scheduling Board."
     impact="Việc chuyển chỉ đổi người phụ trách điều độ, không đổi Standard Operation, Routing, Batch hoặc logic công đoạn."
     prev={{label:"Schedule Area Mapping",href:"/schedule-areas"}}
     next={{label:"Recipe & Batch Rules",href:"/recipe-operation-map"}}

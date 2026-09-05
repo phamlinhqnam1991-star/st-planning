@@ -37,18 +37,18 @@ export const ST_ERP_MODULE_GROUPS:StErpModuleGroup[]=[
   items:[]
  },
  {
-  key:"operations",label:"Vận hành",href:"/all-open-jobs",shortLabel:"OP",
+  key:"operations",label:"Operations",href:"/all-open-jobs",shortLabel:"OP",
   items:[
    {key:"jobs",label:"All Open Jobs",href:"/all-open-jobs",shortLabel:"OJ"},
    {key:"planning",label:"Planning Board",href:"/planning",shortLabel:"PL"},
-   {key:"schedule",label:"Board Điều Độ",href:"/schedule",shortLabel:"SC"},
+   {key:"schedule",label:"Scheduling Board",href:"/schedule",shortLabel:"SC"},
    {key:"production",label:"Production Execution",href:"/production-execution",shortLabel:"PX"},
-   {key:"adjustment",label:"Điều chỉnh đầu ngày",href:"/daily-production-adjustment",shortLabel:"DA"},
-   {key:"productionalerts",label:"Cảnh báo thay đổi SX",href:"/production-change-alerts",shortLabel:"PA"},
+   {key:"adjustment",label:"Daily Production Adjustment",href:"/daily-production-adjustment",shortLabel:"DA"},
+   {key:"productionalerts",label:"Production Change Alerts",href:"/production-change-alerts",shortLabel:"PA"},
   ]
  },
  {
-  key:"tracking",label:"Theo dõi",href:"/job-tracker",shortLabel:"TR",
+  key:"tracking",label:"Tracking",href:"/job-tracker",shortLabel:"TR",
   items:[
    {key:"jobtracker",label:"Job Tracker",href:"/job-tracker",shortLabel:"JT"},
    {key:"tracker",label:"Part Tracker",href:"/part-tracker",shortLabel:"PT"},
@@ -62,11 +62,11 @@ export const ST_ERP_MODULE_GROUPS:StErpModuleGroup[]=[
   ]
  },
  {
-  key:"administration",label:"Quản trị",href:"/settings",shortLabel:"AD",
+  key:"administration",label:"Administration",href:"/settings",shortLabel:"AD",
   items:[
-   {key:"config",label:"Cấu hình",href:"/settings",shortLabel:"CF"},
-   {key:"guide",label:"Logic & Hướng dẫn",href:"/logic-guide",shortLabel:"LG"},
-   {key:"training",label:"Training người mới",href:"/training",shortLabel:"TRN"},
+   {key:"config",label:"Configuration",href:"/settings",shortLabel:"CF"},
+   {key:"guide",label:"Logic & Guide",href:"/logic-guide",shortLabel:"LG"},
+   {key:"training",label:"New User Training",href:"/training",shortLabel:"TRN"},
    {key:"security",label:"Users & Permissions",href:"/users-permissions",shortLabel:"USR"},
   ]
  },

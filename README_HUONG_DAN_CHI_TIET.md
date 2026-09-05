@@ -413,3 +413,9 @@ Production được tách quyền: Operator có `production.report`; Shift Super
 7. Deploy, đăng nhập bằng email bootstrap Admin + mật khẩu bootstrap, sau đó vào **Users & Permissions** để tạo account thật và gán quyền/scope. Login/RBAC không cần `SUPABASE_SECRET_KEY`.
 
 Mỗi migration V478 có tối đa 4 câu SQL. Chi tiết kiến trúc xem `V478_FIX.md`, tab **Logic & Hướng dẫn**, và chương phân quyền trong **Training người mới**.
+
+## V483 — Audit VI/EN triệt để
+
+V483 chuẩn hóa toàn bộ catalog song ngữ và thêm quality gate cho các thay đổi UI sau này. Nguồn UI ưu tiên EN, catalog chịu trách nhiệm render VI. Các thuật ngữ nghiệp vụ chuẩn như Job, Batch, Recipe, Main Operation, Operation Code, ST Group, Planning Board, Resource, Planner, READY/WAIT/DONE vẫn được giữ để người vận hành đối chiếu đúng với hệ thống. Các từ tiếng Anh thông thường trong câu tiếng Việt như compatibility, rule, condition, dependency, flow, issue, runtime, handoff, reload, database, Duration/Start Time đã được chuẩn hóa khi phù hợp.
+
+Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu không có conflict EN→VI, không có conflict VI→EN và không cho các grammar fragment nguy hiểm chạy ở phrase-mode.

@@ -741,7 +741,7 @@ export function BatchDetailManager({
       {selectedRecipeSuggestion.kind==="none"&&(
        <>
         <b>{erpMode?"Chưa có Recipe":"✕ Job chưa có Recipe theo cấu hình:"}</b>
-        <span>{erpMode?<>Mở <a href="/recipe-operation-map">Công thức & Rule</a> để bổ sung cấu hình.</>:<>Cấu hình <a href="/recipe-operation-map">Công thức & Rule</a>.</>}</span>
+        <span>{erpMode?<>Mở <a href="/recipe-operation-map">Rules & Formula</a> để bổ sung cấu hình.</>:<>Cấu hình <a href="/recipe-operation-map">Rules & Formula</a>.</>}</span>
        </>
       )}
      </div>}

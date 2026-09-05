@@ -118,7 +118,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{part?:s
     <ConfigSidebar active="recipeoperationmap"/>
     <section className="erp-content">
      <ConfigPageHeader
-      title="Công thức & Rule"
+      title="Rules & Formula"
       subtitle="Quản lý Danh mục Recipe và quy tắc Operation Code → Recipe dùng trên Planning Board."
       purpose="Xác định Operation Code dùng Recipe nào, điều kiện áp dụng, độ ưu tiên, Mã lô mẫu và Prefix số lô."
       impact="Job chưa xác định được Recipe sẽ không tạo lô được. Thay đổi ở đây ảnh hưởng ngay tới Recipe đề xuất trên Planning Board."
