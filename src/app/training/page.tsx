@@ -201,7 +201,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{job?:st
     <li><b>Process Time:</b> Recipe hiện có rule nào match Qty/Surface của từng Batch? Tại sao split làm thời gian phải tính riêng từng lô?</li>
     <li><b>Planning Board:</b> Job READY hay WAIT? Tạo Batch ở Main đúng, không tạo ở Scheduling. Nếu cùng Job/Main nhiều batch thì Planning Board hiển thị nối bằng &.</li>
     <li><b>Scheduling:</b> Chọn Resource/Start/Duration. Start Current Main phải phù hợp Effective End Previous Main và resource constraints.</li>
-    <li><b>Production:</b> Báo actual. Job ngoài lô được Production add trực tiếp sẽ được audit và tạo Next Main Attention theo route thật.</li>
+    <li><b>Production:</b> Báo actual. Khi cần thêm Job ngoài lô, bấm <b>Add Job</b> cạnh Batch No., nhập Job Number rồi Save. Job được audit và hệ thống tạo Attention cho <b>tất cả Main Planning phía sau</b> theo route thật; mỗi Attention phải đọc được Recipe của Main đích.</li>
     <li><b>Đầu ngày:</b> trước 05:59 nếu còn Batch chưa hoàn tất, Carry Over được preview; chỉ khi duyệt mới cascade lịch xuyên resource và planner.</li>
    </ol></div></section>
 
@@ -220,8 +220,8 @@ export default async function Page({searchParams}:{searchParams:Promise<{job?:st
     <tr><td>Chemical Line</td><td>Loading → Process → NDT → Unloading; Flybar/NDT có rule riêng.</td><td>Không cộng duration tổng đơn giản khi có constraint đặc thù.</td></tr>
     <tr><td>Production add Job ngoài Batch</td><td>Thực tế đã thay đổi membership.</td><td>Add trực tiếp + audit; không cần Daily Adjustment approve.</td></tr>
     <tr><td>Production-added Job reload</td><td>Membership phải persist từ planning_batch_job.</td><td>Job vẫn hiện sau reload/đổi tab/tạo Batch mới.</td></tr>
-    <tr><td>Production add ở Main trước</td><td>Next Main phải lấy route thật.</td><td>Tạo Next Main Attention; không hard-code BSA→PRIMER.</td></tr>
-    <tr><td>Next Main chưa có Batch</td><td>Không có batch đích để nhận Job.</td><td>Alert cho planner tạo/plan đúng flow.</td></tr>
+    <tr><td>Production add ở Main trước</td><td>Tất cả Main phía sau phải lấy từ route thật, không dừng ở một hop.</td><td>Tạo Attention cho toàn bộ downstream Main; mỗi dòng hiển thị Main đích + Recipe No./Name. Không hard-code BSA→PRIMER.</td></tr>
+    <tr><td>Một downstream Main chưa có Batch</td><td>Route vẫn có Main đó nhưng chưa có Batch đích để nhận Job.</td><td>Giữ event ở trạng thái chờ Batch; các downstream Main khác đã có Batch vẫn nhận Attention bình thường.</td></tr>
     <tr><td>Shot Peening End 07:00→09:00</td><td>Main sau của planner khác không thể giữ Start 07:30.</td><td>Cross-Main Dependency + Resource Cascade trong preview đầu ngày.</td></tr>
     <tr><td>Masking/Unmasking</td><td>Support config theo Main là strict khi đã cấu hình.</td><td>Preparation report tách PRIMER/PRIMER2/PRIMER3/TOPCOAT1/TOPCOAT2/ANTI-ABRASION.</td></tr>
    </tbody></table></div></div></section>

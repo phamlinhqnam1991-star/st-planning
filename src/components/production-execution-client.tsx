@@ -20,6 +20,7 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
  const [reportGroup,setReportGroup]=useState<GroupFilter>("ALL");
  const [busy,setBusy]=useState("");
  const [extraJobByBatch,setExtraJobByBatch]=useState<Record<number,string>>({});
+ const [addJobOpenByBatch,setAddJobOpenByBatch]=useState<Record<number,boolean>>({});
 
  const fmt=(v:number,max=2)=>new Intl.NumberFormat(locale==="vi"?"vi-VN":"en-US",{maximumFractionDigits:max}).format(Number(v||0));
  const dt=(v:string|null)=>{
@@ -135,17 +136,34 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
    })});
    const d=await safeJson(r);if(!r.ok)throw new Error(d?.error||text("Unable to add Job to Batch.","Không thêm được Job vào lô."));
    const added=d?.addedJob as ProductionJobDetail|undefined;
-   setItems(prev=>prev.map(x=>x.batchId===item.batchId&&x.sourceType==="BATCH"?{
-    ...x,
-    jobs:added&&!x.jobNumbers.includes(added.jobNum)?x.jobs+1:x.jobs,
-    qty:Number(d?.batchTotals?.qty??x.qty),surface:Number(d?.batchTotals?.surface??x.surface),
-    jobNumbers:added&&!x.jobNumbers.includes(added.jobNum)?[...x.jobNumbers,added.jobNum]:x.jobNumbers,
-    jobDetails:added&&!x.jobDetails.some(j=>j.planningJobOperationId===added.planningJobOperationId)?[...x.jobDetails,added]:x.jobDetails,
-    nextMainAttentions:x.nextMainAttentions.filter(a=>a.jobNum!==job)
-   }:x));
+   const downstream=Array.isArray(d?.nextMainAttentions)?d.nextMainAttentions:[];
+   setItems(prev=>prev.map(x=>{
+    let next=x;
+    if(x.batchId===item.batchId&&x.sourceType==="BATCH")next={
+     ...x,
+     jobs:added&&!x.jobNumbers.includes(added.jobNum)?x.jobs+1:x.jobs,
+     qty:Number(d?.batchTotals?.qty??x.qty),surface:Number(d?.batchTotals?.surface??x.surface),
+     jobNumbers:added&&!x.jobNumbers.includes(added.jobNum)?[...x.jobNumbers,added.jobNum]:x.jobNumbers,
+     jobDetails:added&&!x.jobDetails.some(j=>j.planningJobOperationId===added.planningJobOperationId)?[...x.jobDetails,added]:x.jobDetails,
+     nextMainAttentions:x.nextMainAttentions.filter(a=>a.jobNum!==job)
+    };
+    const incoming=downstream.filter((a:any)=>Number(a?.targetBatchId||0)===x.batchId&&a?.eventId&&!a?.alreadyInNextBatch);
+    if(incoming.length){
+     const existingIds=new Set(next.nextMainAttentions.map(a=>a.eventId));
+     const mapped=incoming.filter((a:any)=>!existingIds.has(Number(a.eventId))).map((a:any)=>({
+      eventId:Number(a.eventId),jobNum:job,sourceBatchId:item.batchId,sourceBatchNo:item.batchNo,sourceOperation:item.operation,
+      nextOperation:String(a.nextOperation||""),recipeKey:String(a.recipeKey||""),recipeNo:String(a.recipeNo||""),recipeName:String(a.recipeName||""),createdAt:new Date().toISOString()
+     }));
+     if(mapped.length)next={...next,nextMainAttentions:[...next.nextMainAttentions,...mapped]};
+    }
+    return next;
+   }));
    setExtraJobByBatch(prev=>({...prev,[item.batchId]:""}));
-   const next=d?.nextMainAttention;
-   const suffix=next?.targetBatchNo?text(` Next Main attention sent to ${next.targetBatchNo}.`,` Đã gửi chú ý sang lô Next Main ${next.targetBatchNo}.`):next?.nextOperation?text(` Next Main ${next.nextOperation} has no matching Batch yet.`,` Next Main ${next.nextOperation} chưa có lô tương ứng.`):"";
+   setAddJobOpenByBatch(prev=>({...prev,[item.batchId]:false}));
+   const actionable=downstream.filter((a:any)=>!a?.alreadyInNextBatch);
+   const targeted=actionable.filter((a:any)=>a?.targetBatchNo);
+   const waiting=actionable.filter((a:any)=>!a?.targetBatchNo);
+   const suffix=actionable.length?text(` Created ${actionable.length} downstream Main attention(s): ${targeted.length} linked to Batch, ${waiting.length} waiting for Batch.`,` Đã tạo ${actionable.length} chú ý cho các Main phía sau: ${targeted.length} đã xác định lô, ${waiting.length} đang chờ tạo lô.`):"";
    pushAppToast(text(`Added ${job} directly to ${item.batchNo}.`,`Đã thêm trực tiếp ${job} vào ${item.batchNo}.`)+suffix);
   }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
   finally{setBusy("");}
@@ -160,16 +178,29 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
    })});
    const d=await safeJson(r);if(!r.ok)throw new Error(d?.error||text("Unable to add the upstream Job.","Không thêm được Job từ Main trước."));
    const added=d?.addedJob as ProductionJobDetail|undefined;
-   setItems(prev=>prev.map(x=>x.batchId===item.batchId&&x.sourceType==="BATCH"?{
-    ...x,
-    jobs:added&&!x.jobNumbers.includes(added.jobNum)?x.jobs+1:x.jobs,
-    qty:Number(d?.batchTotals?.qty??x.qty),surface:Number(d?.batchTotals?.surface??x.surface),
-    jobNumbers:added&&!x.jobNumbers.includes(added.jobNum)?[...x.jobNumbers,added.jobNum]:x.jobNumbers,
-    jobDetails:added&&!x.jobDetails.some(j=>j.planningJobOperationId===added.planningJobOperationId)?[...x.jobDetails,added]:x.jobDetails,
-    nextMainAttentions:x.nextMainAttentions.filter(a=>a.eventId!==attention.eventId)
-   }:x));
-   const next=d?.nextMainAttention;
-   const suffix=next?.targetBatchNo?` · ${text("next attention","chú ý tiếp")} ${next.targetBatchNo}`:"";
+   const downstream=Array.isArray(d?.nextMainAttentions)?d.nextMainAttentions:[];
+   setItems(prev=>prev.map(x=>{
+    let next=x;
+    if(x.batchId===item.batchId&&x.sourceType==="BATCH")next={
+     ...x,
+     jobs:added&&!x.jobNumbers.includes(added.jobNum)?x.jobs+1:x.jobs,
+     qty:Number(d?.batchTotals?.qty??x.qty),surface:Number(d?.batchTotals?.surface??x.surface),
+     jobNumbers:added&&!x.jobNumbers.includes(added.jobNum)?[...x.jobNumbers,added.jobNum]:x.jobNumbers,
+     jobDetails:added&&!x.jobDetails.some(j=>j.planningJobOperationId===added.planningJobOperationId)?[...x.jobDetails,added]:x.jobDetails,
+     nextMainAttentions:x.nextMainAttentions.filter(a=>a.eventId!==attention.eventId)
+    };
+    const incoming=downstream.filter((a:any)=>Number(a?.targetBatchId||0)===x.batchId&&a?.eventId&&!a?.alreadyInNextBatch);
+    if(incoming.length){
+     const existingIds=new Set(next.nextMainAttentions.map(a=>a.eventId));
+     const mapped=incoming.filter((a:any)=>!existingIds.has(Number(a.eventId))).map((a:any)=>({
+      eventId:Number(a.eventId),jobNum:attention.jobNum,sourceBatchId:item.batchId,sourceBatchNo:item.batchNo,sourceOperation:item.operation,
+      nextOperation:String(a.nextOperation||""),recipeKey:String(a.recipeKey||""),recipeNo:String(a.recipeNo||""),recipeName:String(a.recipeName||""),createdAt:new Date().toISOString()
+     }));
+     if(mapped.length)next={...next,nextMainAttentions:[...next.nextMainAttentions,...mapped]};
+    }
+    return next;
+   }));
+   const suffix=downstream.some((a:any)=>!a?.alreadyInNextBatch)?` · ${text("downstream Main attentions updated","đã cập nhật chú ý các Main phía sau")}`:"";
    pushAppToast(text(`Added ${attention.jobNum} to ${item.batchNo} as WAITING.`,`Đã thêm ${attention.jobNum} vào ${item.batchNo} ở trạng thái Chờ thực hiện.`)+suffix);
   }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
   finally{setBusy("");}
@@ -364,7 +395,17 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
     const mainRow=<tr key={k} className={`production-row production-batch-row ${rowIndex>0?"production-batch-start":""} production-batch-${rowIndex%2?"odd":"even"} production-row-${statusClass(item.status)}`}>
      <td><span className={`production-source source-${item.sourceType.toLowerCase()}`}>{sourceLabel(item.sourceType)}</span>{item.sourceType!=="BATCH"?<small className="planning-sub">{item.linkedMainOperation}</small>:null}</td>
      <td>{item.area||"—"}</td><td className="mono">{item.resource||"—"}</td>
-     <td><b className="mono production-batch-no">{item.batchNo||`#${item.batchId}`}</b>{item.sourceType==="BATCH"&&canAddJob?<div className="production-extra-job" style={{display:"flex",gap:6,marginTop:6,minWidth:230}}><input className="input" style={{minWidth:150}} value={extraJobByBatch[item.batchId]||""} autoComplete="off" onChange={e=>setExtraJobByBatch(v=>({...v,[item.batchId]:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();reportExtraJob(item);}}} placeholder={text("Enter Job No.","Nhập Job No.")}/><button type="button" className="btn small" disabled={busy===`EXTRA|${item.batchId}`} onClick={()=>reportExtraJob(item)}>{busy===`EXTRA|${item.batchId}`?"…":text("Add","Thêm")}</button></div>:null}</td>
+     <td>
+      <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+       <b className="mono production-batch-no">{item.batchNo||`#${item.batchId}`}</b>
+       {item.sourceType==="BATCH"&&canAddJob?<button type="button" className="btn small" onClick={()=>setAddJobOpenByBatch(v=>({...v,[item.batchId]:!v[item.batchId]}))}>{text("Add Job","Thêm Job")}</button>:null}
+      </div>
+      {item.sourceType==="BATCH"&&canAddJob&&addJobOpenByBatch[item.batchId]?<div className="production-extra-job" style={{display:"flex",gap:6,marginTop:6,minWidth:250,alignItems:"center"}}>
+       <input className="input" style={{minWidth:150}} value={extraJobByBatch[item.batchId]||""} autoComplete="off" autoFocus onChange={e=>setExtraJobByBatch(v=>({...v,[item.batchId]:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();reportExtraJob(item);}if(e.key==="Escape")setAddJobOpenByBatch(v=>({...v,[item.batchId]:false}));}} placeholder={text("Enter Job No.","Nhập Job No.")}/>
+       <button type="button" className="btn small primary" disabled={busy===`EXTRA|${item.batchId}`} onClick={()=>reportExtraJob(item)}>{busy===`EXTRA|${item.batchId}`?"…":text("Save","Lưu")}</button>
+       <button type="button" className="btn small" disabled={busy===`EXTRA|${item.batchId}`} onClick={()=>setAddJobOpenByBatch(v=>({...v,[item.batchId]:false}))}>{text("Cancel","Hủy")}</button>
+      </div>:null}
+     </td>
      <td><span title={recipe}>{recipe}</span></td>
      <td className="num"><b>{item.jobs}</b></td>
      <td className="num">{fmt(item.qty,0)}</td><td className="num">{fmt(item.surface)}</td>
@@ -381,7 +422,7 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
      <div className="notice warning" style={{margin:0,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
       <b>{text("Attention from previous Main:","Chú ý từ Main trước:")}</b>
       {item.nextMainAttentions.map(a=><span key={a.eventId} style={{display:"inline-flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-       <span className="mono"><b>{a.jobNum}</b> · {a.sourceBatchNo} · {a.sourceOperation} → {a.nextOperation}</span>
+       <span className="mono"><b>{a.jobNum}</b> · {a.sourceBatchNo} · {a.sourceOperation} → {a.nextOperation}{[a.recipeNo,a.recipeName].filter(Boolean).length?<> · <b>Recipe</b> {[a.recipeNo,a.recipeName].filter(Boolean).join(" · ")}</>:a.recipeKey?<> · <b>Recipe</b> {a.recipeKey}</>:null}</span>
        {canAddJob?<button type="button" className="btn small primary" disabled={busy===`EXTRA|${item.batchId}`} onClick={()=>acceptNextMainAttention(item,a)}>{text("Add this Job","Thêm Job này")}</button>:<small>{text("Shift Supervisor approval required","Cần Shift Supervisor thêm Job")}</small>}
       </span>)}
      </div>

@@ -419,3 +419,14 @@ Mỗi migration V478 có tối đa 4 câu SQL. Chi tiết kiến trúc xem `V478
 V483 chuẩn hóa toàn bộ catalog song ngữ và thêm quality gate cho các thay đổi UI sau này. Nguồn UI ưu tiên EN, catalog chịu trách nhiệm render VI. Các thuật ngữ nghiệp vụ chuẩn như Job, Batch, Recipe, Main Operation, Operation Code, ST Group, Planning Board, Resource, Planner, READY/WAIT/DONE vẫn được giữ để người vận hành đối chiếu đúng với hệ thống. Các từ tiếng Anh thông thường trong câu tiếng Việt như compatibility, rule, condition, dependency, flow, issue, runtime, handoff, reload, database, Duration/Start Time đã được chuẩn hóa khi phù hợp.
 
 Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu không có conflict EN→VI, không có conflict VI→EN và không cho các grammar fragment nguy hiểm chạy ở phrase-mode.
+
+
+## V484 · Production Add Job gọn + Attention toàn bộ downstream Main
+
+- Nút **Add Job** đặt cạnh **Batch No.** trên Production Execution. Chỉ khi bấm mới mở ô nhập Job No.; **Save** để thêm, **Cancel** để đóng.
+- Production Add Job vẫn thêm trực tiếp vào Batch nếu validation hợp lệ và không cần Daily Production Adjustment approve.
+- Sau khi thêm, hệ thống đọc **Planning Chain thật của Job** và tạo `PRODUCTION_ADD` handover event cho **tất cả Main Planning có planning_seq lớn hơn Main hiện tại**, không chỉ Main kế tiếp đầu tiên.
+- Với mỗi downstream Main, hệ thống dùng overlap các Job của Batch nguồn để suy Batch đích phù hợp. Nếu chưa có Batch đích, event vẫn tồn tại để planner theo dõi.
+- Production Attention hiển thị rõ **Job · Source Batch · Source Main → Downstream Main · Recipe No. · Recipe Name**. Ví dụ: `F0200884 · CHM00001 · CPBILP → BSAUNSLD · Recipe 002 · Anodizing BSA Unsealed`.
+- Khi nhận Job từ Attention, Job downstream ở trạng thái **WAITING**; không tự DONE. Duplicate NEW attention được chặn theo Source Batch + Job + Downstream Main + Target Batch.
+- Không thay đổi Recipe rule, Batch Size, Planning READY/WAIT, Scheduling dependency hay Production status logic khác.

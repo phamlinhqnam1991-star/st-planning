@@ -30,6 +30,9 @@ export type ProductionNextMainAttention={
  sourceBatchNo:string;
  sourceOperation:string;
  nextOperation:string;
+ recipeKey:string;
+ recipeNo:string;
+ recipeName:string;
  createdAt:string;
 };
 
@@ -190,8 +193,22 @@ async function loadNextMainAttentions(c:PoolClient,batchIds:number[]){
  if(!batchIds.length)return map;
  try{
   const q=await c.query(`
-   select e.id,e.affected_batch_id,e.job_num,e.source_batch_id,e.source_batch_no,e.source_standard_operation,e.next_standard_operation,e.created_at
+   select e.id,e.affected_batch_id,e.job_num,e.source_batch_id,e.source_batch_no,e.source_standard_operation,e.next_standard_operation,e.created_at,
+          coalesce(ab.recipe_key,np.recipe_key,'') recipe_key,
+          coalesce(abr.recipe_no,npr.recipe_no,'') recipe_no,
+          coalesce(abr.recipe_name,npr.recipe_name,'') recipe_name
    from planning_handover_change_event e
+   left join planning_batch ab on ab.id=e.affected_batch_id
+   left join md_process_recipe abr on abr.recipe_key=ab.recipe_key
+   left join lateral(
+    select p.recipe_key
+    from planning_job_operation p
+    where p.job_num=e.job_num and p.is_active=true
+      and upper(trim(p.standard_operation))=upper(trim(e.next_standard_operation))
+    order by p.planning_seq
+    limit 1
+   ) np on true
+   left join md_process_recipe npr on npr.recipe_key=np.recipe_key
    where e.affected_batch_id=any($1::bigint[])
      and e.change_type='ADD_JOB' and e.status='NEW'
      and e.note like 'PRODUCTION_ADD:%'
@@ -204,7 +221,7 @@ async function loadNextMainAttentions(c:PoolClient,batchIds:number[]){
   for(const row of q.rows as any[]){
    const batchId=Number(row.affected_batch_id);
    const list=map.get(batchId)||[];
-   list.push({eventId:Number(row.id),jobNum:clean(row.job_num),sourceBatchId:Number(row.source_batch_id),sourceBatchNo:clean(row.source_batch_no),sourceOperation:clean(row.source_standard_operation),nextOperation:clean(row.next_standard_operation),createdAt:iso(row.created_at)||new Date().toISOString()});
+   list.push({eventId:Number(row.id),jobNum:clean(row.job_num),sourceBatchId:Number(row.source_batch_id),sourceBatchNo:clean(row.source_batch_no),sourceOperation:clean(row.source_standard_operation),nextOperation:clean(row.next_standard_operation),recipeKey:clean(row.recipe_key),recipeNo:clean(row.recipe_no),recipeName:clean(row.recipe_name),createdAt:iso(row.created_at)||new Date().toISOString()});
    map.set(batchId,list);
   }
   return map;

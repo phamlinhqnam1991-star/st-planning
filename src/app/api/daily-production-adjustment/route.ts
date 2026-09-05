@@ -27,71 +27,101 @@ async function plannerForOperation(c:any,operation:unknown):Promise<"1"|"2"|null
  return owner==="1"||owner==="2"?owner:null;
 }
 
-async function createProductionNextMainAttention(c:any,args:{
+async function createProductionNextMainAttentions(c:any,args:{
  sourceBatchId:number;sourceBatchNo:string;sourceOperation:string;jobNum:string;planningSeq:number;
  qtyBefore:number;qtyAfter:number;surfaceBefore:number;surfaceAfter:number;jobQty:number;jobSurface:number;
 }){
  const nextQ=await c.query(`
-  select id,standard_operation,planning_seq
-  from planning_job_operation
-  where job_num=$1 and is_active=true and planning_seq>$2
-  order by planning_seq
-  limit 1
+  select p.id,p.standard_operation,p.planning_seq,p.recipe_key,pr.recipe_no,pr.recipe_name
+  from planning_job_operation p
+  left join md_process_recipe pr on pr.recipe_key=p.recipe_key
+  where p.job_num=$1 and p.is_active=true and p.planning_seq>$2
+  order by p.planning_seq
  `,[args.jobNum,args.planningSeq]);
- const next=nextQ.rows[0];
- if(!next?.standard_operation)return null;
+ if(!nextQ.rowCount)return [];
 
- // Target Batch is inferred from the real handover pattern: the downstream Batch
- // that already contains the most Jobs from this source Batch at the next Main.
- const targetQ=await c.query(`
-  with source_jobs as (
-   select distinct job_num
-   from planning_batch_job
-   where batch_id=$1 and job_num<>$2
-  )
-  select b.id affected_batch_id,b.batch_no affected_batch_no,
-         s.id affected_schedule_id,s.resource_code affected_resource_code,s.planned_start affected_planned_start,
-         count(distinct bj.job_num)::int overlap_jobs
-  from planning_batch b
-  join planning_batch_job bj on bj.batch_id=b.id
-  join source_jobs sj on sj.job_num=bj.job_num
-  left join lateral(
-   select ps.id,ps.resource_code,ps.planned_start
-   from planning_schedule ps
-   where ps.batch_id=b.id and ps.status<>'CANCELLED'
-   order by ps.planned_start desc,ps.id desc limit 1
-  ) s on true
-  where b.status<>'CANCELLED'
-    and upper(trim(b.standard_operation))=upper(trim($3))
-  group by b.id,b.batch_no,s.id,s.resource_code,s.planned_start,b.created_at
-  order by count(distinct bj.job_num) desc,case when s.id is not null then 0 else 1 end,b.created_at desc,b.id desc
-  limit 1
- `,[args.sourceBatchId,args.jobNum,next.standard_operation]);
- const target=targetQ.rows[0]||{};
  const sourcePlanner=await plannerForOperation(c,args.sourceOperation);
- const affectedPlanner=await plannerForOperation(c,next.standard_operation);
- const plannedStart=target.affected_planned_start?new Date(target.affected_planned_start):null;
- const impactLevel=!target.affected_batch_id?"WARNING":plannedStart&&plannedStart.getTime()<=Date.now()+60*60000?"CRITICAL":target.affected_schedule_id?"IMPACTED":"WARNING";
+ const results:any[]=[];
+ for(const next of nextQ.rows){
+  // For every downstream Main, infer the Batch that already contains the most
+  // Jobs from the source Batch. This keeps the Production exception attached
+  // to the actual downstream flow without hard-coding operation names.
+  const targetQ=await c.query(`
+   with source_jobs as (
+    select distinct job_num
+    from planning_batch_job
+    where batch_id=$1 and job_num<>$2
+   )
+   select b.id affected_batch_id,b.batch_no affected_batch_no,b.recipe_key affected_recipe_key,
+          br.recipe_no affected_recipe_no,br.recipe_name affected_recipe_name,
+          s.id affected_schedule_id,s.resource_code affected_resource_code,s.planned_start affected_planned_start,
+          count(distinct bj.job_num)::int overlap_jobs
+   from planning_batch b
+   join planning_batch_job bj on bj.batch_id=b.id
+   join source_jobs sj on sj.job_num=bj.job_num
+   left join md_process_recipe br on br.recipe_key=b.recipe_key
+   left join lateral(
+    select ps.id,ps.resource_code,ps.planned_start
+    from planning_schedule ps
+    where ps.batch_id=b.id and ps.status<>'CANCELLED'
+    order by ps.planned_start desc,ps.id desc limit 1
+   ) s on true
+   where b.status<>'CANCELLED'
+     and upper(trim(b.standard_operation))=upper(trim($3))
+   group by b.id,b.batch_no,b.recipe_key,br.recipe_no,br.recipe_name,s.id,s.resource_code,s.planned_start,b.created_at
+   order by count(distinct bj.job_num) desc,case when s.id is not null then 0 else 1 end,b.created_at desc,b.id desc
+   limit 1
+  `,[args.sourceBatchId,args.jobNum,next.standard_operation]);
+  const target=targetQ.rows[0]||{};
+  const affectedPlanner=await plannerForOperation(c,next.standard_operation);
+  const plannedStart=target.affected_planned_start?new Date(target.affected_planned_start):null;
+  const impactLevel=!target.affected_batch_id?"WARNING":plannedStart&&plannedStart.getTime()<=Date.now()+60*60000?"CRITICAL":target.affected_schedule_id?"IMPACTED":"WARNING";
+  const recipeKey=clean(target.affected_recipe_key||next.recipe_key);
+  const recipeNo=clean(target.affected_recipe_no||next.recipe_no);
+  const recipeName=clean(target.affected_recipe_name||next.recipe_name);
 
- // If the Job is already in the inferred next Batch there is nothing to alert.
- if(target.affected_batch_id){
-  const existsQ=await c.query(`select 1 from planning_batch_job where batch_id=$1 and job_num=$2 limit 1`,[target.affected_batch_id,args.jobNum]);
-  if(existsQ.rowCount)return {alreadyInNextBatch:true,targetBatchId:Number(target.affected_batch_id),nextOperation:next.standard_operation};
+  // If the Job is already in the inferred downstream Batch, no action is needed
+  // for that Main, but return it so the caller can explain the complete route.
+  if(target.affected_batch_id){
+   const existsQ=await c.query(`select 1 from planning_batch_job where batch_id=$1 and job_num=$2 limit 1`,[target.affected_batch_id,args.jobNum]);
+   if(existsQ.rowCount){
+    results.push({alreadyInNextBatch:true,targetBatchId:Number(target.affected_batch_id),targetBatchNo:target.affected_batch_no||null,nextOperation:next.standard_operation,recipeKey,recipeNo,recipeName});
+    continue;
+   }
+  }
+
+  // Do not create duplicate NEW alerts when the same Production-added Job is
+  // reconciled again or when a downstream attention is accepted later.
+  const existingQ=await c.query(`
+   select id
+   from planning_handover_change_event
+   where job_num=$1 and change_type='ADD_JOB' and status='NEW'
+     and upper(trim(coalesce(next_standard_operation,'')))=upper(trim($2))
+     and affected_batch_id is not distinct from $3::bigint
+     and note like 'PRODUCTION_ADD:%'
+   order by id desc limit 1
+  `,[args.jobNum,next.standard_operation,target.affected_batch_id||null]);
+  if(existingQ.rowCount){
+   results.push({eventId:Number(existingQ.rows[0].id),targetBatchId:target.affected_batch_id?Number(target.affected_batch_id):null,targetBatchNo:target.affected_batch_no||null,nextOperation:next.standard_operation,recipeKey,recipeNo,recipeName});
+   continue;
+  }
+
+  const recipeText=[recipeNo,recipeName].filter(Boolean).join(' · ');
+  const ins=await c.query(`
+   insert into planning_handover_change_event(
+    source_batch_id,source_batch_no,source_standard_operation,source_planner,job_num,change_type,
+    next_standard_operation,affected_planner,affected_batch_id,affected_batch_no,affected_schedule_id,affected_resource_code,affected_planned_start,
+    source_batch_qty_before,source_batch_qty_after,source_batch_surface_before,source_batch_surface_after,changed_job_qty,changed_job_surface,
+    impact_level,status,note
+   ) values($1,$2,$3,$4,$5,'ADD_JOB',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,'NEW',$20)
+   returning id
+  `,[args.sourceBatchId,args.sourceBatchNo,args.sourceOperation,sourcePlanner,args.jobNum,next.standard_operation,affectedPlanner,
+      target.affected_batch_id||null,target.affected_batch_no||null,target.affected_schedule_id||null,target.affected_resource_code||null,target.affected_planned_start||null,
+      args.qtyBefore,args.qtyAfter,args.surfaceBefore,args.surfaceAfter,args.jobQty,args.jobSurface,impactLevel,
+      `PRODUCTION_ADD: ${args.jobNum} · ${args.sourceOperation} → ${next.standard_operation}${recipeText?` · Recipe ${recipeText}`:""}${target.affected_batch_no?` · attention ${target.affected_batch_no}`:" · downstream Batch chưa tạo"}`]);
+  results.push({eventId:Number(ins.rows[0]?.id||0),targetBatchId:target.affected_batch_id?Number(target.affected_batch_id):null,targetBatchNo:target.affected_batch_no||null,nextOperation:next.standard_operation,recipeKey,recipeNo,recipeName});
  }
-
- const ins=await c.query(`
-  insert into planning_handover_change_event(
-   source_batch_id,source_batch_no,source_standard_operation,source_planner,job_num,change_type,
-   next_standard_operation,affected_planner,affected_batch_id,affected_batch_no,affected_schedule_id,affected_resource_code,affected_planned_start,
-   source_batch_qty_before,source_batch_qty_after,source_batch_surface_before,source_batch_surface_after,changed_job_qty,changed_job_surface,
-   impact_level,status,note
-  ) values($1,$2,$3,$4,$5,'ADD_JOB',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,'NEW',$20)
-  returning id
- `,[args.sourceBatchId,args.sourceBatchNo,args.sourceOperation,sourcePlanner,args.jobNum,next.standard_operation,affectedPlanner,
-     target.affected_batch_id||null,target.affected_batch_no||null,target.affected_schedule_id||null,target.affected_resource_code||null,target.affected_planned_start||null,
-     args.qtyBefore,args.qtyAfter,args.surfaceBefore,args.surfaceAfter,args.jobQty,args.jobSurface,impactLevel,
-     `PRODUCTION_ADD: ${args.jobNum} · ${args.sourceOperation} → ${next.standard_operation}${target.affected_batch_no?` · attention ${target.affected_batch_no}`:" · downstream Batch chưa tạo"}`]);
- return {eventId:Number(ins.rows[0]?.id||0),targetBatchId:target.affected_batch_id?Number(target.affected_batch_id):null,targetBatchNo:target.affected_batch_no||null,nextOperation:next.standard_operation};
+ return results;
 }
 
 async function findJobForBatch(c:any,batchId:number,jobNum:string){
@@ -260,7 +290,7 @@ export async function POST(req:NextRequest){
    const proposal={reportedFrom:"NEXT_MAIN_ATTENTION",sourceEventId:eventId,sourceBatchNo:eventQ.rows[0].source_batch_no,partNum:row.part_num,revisionNum:row.revision_num,partDescription:row.part_description,qty:Number(row.plan_qty||0),surface:Number(row.plan_surface||0)};
    await addJob(c,{batch_id:batchId,job_num:row.job_num,proposal_json:proposal},false,"WAITING","Added from Previous Main Production attention");
    await c.query(`update planning_handover_change_event set status='ACKNOWLEDGED',acknowledged_at=now(),acknowledged_by='Production',note=concat_ws(E'\n',note,'Accepted into downstream Batch') where id=$1`,[eventId]);
-   const nextMainAttention=await createProductionNextMainAttention(c,{
+   const nextMainAttentions=await createProductionNextMainAttentions(c,{
     sourceBatchId:batchId,sourceBatchNo:row.batch_no,sourceOperation:row.batch_standard_operation,jobNum:row.job_num,planningSeq:Number(row.planning_seq||0),
     qtyBefore:Number(row.total_qty||0),qtyAfter:projectedQty,surfaceBefore:Number(row.total_surface_dm2||0),surfaceAfter:Number(row.total_surface_dm2||0)+Number(row.plan_surface||0),
     jobQty:Number(row.plan_qty||0),jobSurface:Number(row.plan_surface||0)
@@ -277,7 +307,7 @@ export async function POST(req:NextRequest){
    return NextResponse.json({ok:true,added:true,addedJob:{
     planningJobOperationId:Number(row.planning_job_operation_id),jobNum:row.job_num,partDescription:row.part_description||"",currentGoodWipQty:Number(row.plan_qty||0),totalSurface:Number(row.plan_surface||0),
     lastLaborOp:row.last_operation||"",nextOperation:row.next_operation||"",priority:row.priority_type||"",supportOperations:[],isAddedJob:true,status:"WAITING",actualStart:null,actualEnd:null,remark:"Added from Previous Main attention"
-   },batchTotals:{qty:projectedQty,surface:Number(row.total_surface_dm2||0)+Number(row.plan_surface||0)},nextMainAttention});
+   },batchTotals:{qty:projectedQty,surface:Number(row.total_surface_dm2||0)+Number(row.plan_surface||0)},nextMainAttentions,nextMainAttention:nextMainAttentions.find((x:any)=>!x.alreadyInNextBatch)||nextMainAttentions[0]||null});
   }
   if(action==="REPORT_EXTRA_JOB"){
    if(!validDate(date))throw new Error("Ngày sản xuất không hợp lệ.");
@@ -301,7 +331,7 @@ export async function POST(req:NextRequest){
 
    const proposal={actualStart:b.actual_start||null,actualEnd:b.actual_end||null,reportedFrom:"PRODUCTION_EXECUTION",partNum:row.part_num,revisionNum:row.revision_num,partDescription:row.part_description,qty:Number(row.plan_qty||0),surface:Number(row.plan_surface||0)};
    await addJob(c,{batch_id:batchId,job_num:row.job_num,proposal_json:proposal},false);
-   const nextMainAttention=await createProductionNextMainAttention(c,{
+   const nextMainAttentions=await createProductionNextMainAttentions(c,{
     sourceBatchId:batchId,sourceBatchNo:row.batch_no,sourceOperation:row.batch_standard_operation,jobNum:row.job_num,planningSeq:Number(row.planning_seq||0),
     qtyBefore:Number(row.total_qty||0),qtyAfter:projectedQty,surfaceBefore:Number(row.total_surface_dm2||0),
     surfaceAfter:Number(row.total_surface_dm2||0)+Number(row.plan_surface||0),jobQty:Number(row.plan_qty||0),jobSurface:Number(row.plan_surface||0)
@@ -329,7 +359,7 @@ export async function POST(req:NextRequest){
     currentGoodWipQty:Number(row.plan_qty||0),totalSurface:Number(row.plan_surface||0),lastLaborOp:row.last_operation||"",
     nextOperation:row.next_operation||"",priority:row.priority_type||"",supportOperations:[],isAddedJob:true,status:"DONE",
     actualStart:b.actual_start||new Date().toISOString(),actualEnd:b.actual_end||new Date().toISOString(),remark:"Added from Production Report"
-   },batchTotals:{qty:projectedQty,surface:Number(row.total_surface_dm2||0)+Number(row.plan_surface||0)},nextMainAttention});
+   },batchTotals:{qty:projectedQty,surface:Number(row.total_surface_dm2||0)+Number(row.plan_surface||0)},nextMainAttentions,nextMainAttention:nextMainAttentions.find((x:any)=>!x.alreadyInNextBatch)||nextMainAttentions[0]||null});
   }
   const itemId=Number(b.item_id);if(!itemId)throw new Error("Adjustment item không hợp lệ.");
   const itemQ=await c.query(`select i.*,s.production_date from production_adjustment_item i join production_adjustment_set s on s.id=i.adjustment_set_id where i.id=$1 for update of i`,[itemId]);
