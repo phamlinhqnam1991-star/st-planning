@@ -22,6 +22,8 @@ export type StDashboardRecipeRow={
  recipeNo:string;
  recipeName:string;
  WAIT:StDashboardMetric;
+ WAIT_NEXT_MAIN:StDashboardMetric;
+ WAIT_FUTURE_MAIN:StDashboardMetric;
  READY:StDashboardMetric;
  READY_PREV_SCHEDULED:StDashboardMetric;
  READY_PREV_UNSCHEDULED:StDashboardMetric;
@@ -39,6 +41,8 @@ export type StDashboardMainRow={
  standardOperation:string;
  mainOrder:number;
  WAIT:StDashboardMetric;
+ WAIT_NEXT_MAIN:StDashboardMetric;
+ WAIT_FUTURE_MAIN:StDashboardMetric;
  READY:StDashboardMetric;
  READY_PREV_SCHEDULED:StDashboardMetric;
  READY_PREV_UNSCHEDULED:StDashboardMetric;
@@ -364,6 +368,19 @@ const DASHBOARD_CHAIN_WORKLOAD_SQL=`
     when p.status='ELIGIBLE' then 'READY'
     else 'WAIT'
    end dashboard_status,
+   case
+    when p.status='LOCKED' then case when not exists (
+     select 1
+     from public.planning_job_operation pw
+     where pw.job_num=p.job_num
+       and pw.is_active=true
+       and (pw.status='LOCKED' or coalesce(pw.is_hold,false)=true)
+       and upper(trim(pw.standard_operation))<>'PIONBL'
+       and (coalesce(pw.planning_seq,2147483647),coalesce(pw.source_seq,2147483647),pw.id)
+           < (coalesce(p.planning_seq,2147483647),coalesce(p.source_seq,2147483647),p.id)
+    ) then 'NEXT_MAIN' else 'FUTURE_MAIN' end
+    else null
+   end wait_level,
    active_batch.recipe_key batch_recipe_key,
    case
     when p.status<>'ELIGIBLE' then null
@@ -469,7 +486,7 @@ function emptyStatusRecord():Record<StDashboardStatus,StDashboardMetric>{
 function emptyMainRow(input:{areaId:number;areaName:string;areaSort:number;standardOperation:string;mainOrder:number}):StDashboardMainRow{
  return {
   ...input,
-  WAIT:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),
+  WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),
   total:zero(),recipes:[]
  };
 }
@@ -576,6 +593,10 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
    rows.set(mainKey,row);
   }
   addMetric(row[bucket],metric);
+  if(bucket==="WAIT"){
+   const waitKey:"WAIT_NEXT_MAIN"|"WAIT_FUTURE_MAIN"=text(wr.wait_level)==="NEXT_MAIN"?"WAIT_NEXT_MAIN":"WAIT_FUTURE_MAIN";
+   addMetric(row[waitKey],metric);
+  }
   if(bucket==="READY"){
    const readyKey=text(wr.ready_previous_schedule)==="SCHEDULED"?"READY_PREV_SCHEDULED":"READY_PREV_UNSCHEDULED";
    addMetric(row[readyKey],metric);
@@ -599,11 +620,15 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   if(!recipe){
    recipe={
     recipeKey:recipeGroupKey,recipeNo,recipeName,
-    WAIT:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()
+    WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()
    };
    row.recipes.push(recipe);
   }
   addMetric(recipe[bucket],metric);
+  if(bucket==="WAIT"){
+   const waitKey:"WAIT_NEXT_MAIN"|"WAIT_FUTURE_MAIN"=text(wr.wait_level)==="NEXT_MAIN"?"WAIT_NEXT_MAIN":"WAIT_FUTURE_MAIN";
+   addMetric(recipe[waitKey],metric);
+  }
   if(bucket==="READY"){
    const readyKey=text(wr.ready_previous_schedule)==="SCHEDULED"?"READY_PREV_SCHEDULED":"READY_PREV_UNSCHEDULED";
    addMetric(recipe[readyKey],metric);
@@ -633,7 +658,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   addMetric(row[bucket],metric);
   let recipe=row.recipes.find(x=>x.recipeKey==="__ST_SCOPE_ONLY__");
   if(!recipe){
-   recipe={recipeKey:"__ST_SCOPE_ONLY__",recipeNo:"",recipeName:"ST Scope Only",WAIT:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()};
+   recipe={recipeKey:"__ST_SCOPE_ONLY__",recipeNo:"",recipeName:"ST Scope Only",WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()};
    row.recipes.push(recipe);
   }
   addMetric(recipe[bucket],metric);

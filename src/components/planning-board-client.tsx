@@ -465,15 +465,19 @@ type WorkloadSummaryRow={
  readyPrevScheduled:WorkloadMetric;
  readyPrevUnscheduled:WorkloadMetric;
  wait:WorkloadMetric;
+ waitNextMain:WorkloadMetric;
+ waitFutureMain:WorkloadMetric;
  hold:WorkloadMetric;
  total:WorkloadMetric;
 };
-type WorkloadBucket="READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED"|"WAIT"|"HOLD";
+type WorkloadBucket="READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED"|"WAIT_NEXT_MAIN"|"WAIT_FUTURE_MAIN"|"HOLD";
 type WorkloadTotals={
  READY:WorkloadMetric;
  READY_PREV_SCHEDULED:WorkloadMetric;
  READY_PREV_UNSCHEDULED:WorkloadMetric;
  WAIT:WorkloadMetric;
+ WAIT_NEXT_MAIN:WorkloadMetric;
+ WAIT_FUTURE_MAIN:WorkloadMetric;
  HOLD:WorkloadMetric;
 };
 const EMPTY_WORKLOAD_TOTALS:WorkloadTotals={
@@ -481,6 +485,8 @@ const EMPTY_WORKLOAD_TOTALS:WorkloadTotals={
  READY_PREV_SCHEDULED:{jobs:0,qty:0,surface:0},
  READY_PREV_UNSCHEDULED:{jobs:0,qty:0,surface:0},
  WAIT:{jobs:0,qty:0,surface:0},
+ WAIT_NEXT_MAIN:{jobs:0,qty:0,surface:0},
+ WAIT_FUTURE_MAIN:{jobs:0,qty:0,surface:0},
  HOLD:{jobs:0,qty:0,surface:0}
 };
 
@@ -728,6 +734,8 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
     READY_PREV_SCHEDULED:{jobs:Number(d?.totals?.READY_PREV_SCHEDULED?.jobs||0),qty:Number(d?.totals?.READY_PREV_SCHEDULED?.qty||0),surface:Number(d?.totals?.READY_PREV_SCHEDULED?.surface||0)},
     READY_PREV_UNSCHEDULED:{jobs:Number(d?.totals?.READY_PREV_UNSCHEDULED?.jobs||0),qty:Number(d?.totals?.READY_PREV_UNSCHEDULED?.qty||0),surface:Number(d?.totals?.READY_PREV_UNSCHEDULED?.surface||0)},
     WAIT:{jobs:Number(d?.totals?.WAIT?.jobs||0),qty:Number(d?.totals?.WAIT?.qty||0),surface:Number(d?.totals?.WAIT?.surface||0)},
+    WAIT_NEXT_MAIN:{jobs:Number(d?.totals?.WAIT_NEXT_MAIN?.jobs||0),qty:Number(d?.totals?.WAIT_NEXT_MAIN?.qty||0),surface:Number(d?.totals?.WAIT_NEXT_MAIN?.surface||0)},
+    WAIT_FUTURE_MAIN:{jobs:Number(d?.totals?.WAIT_FUTURE_MAIN?.jobs||0),qty:Number(d?.totals?.WAIT_FUTURE_MAIN?.qty||0),surface:Number(d?.totals?.WAIT_FUTURE_MAIN?.surface||0)},
     HOLD:{jobs:Number(d?.totals?.HOLD?.jobs||0),qty:Number(d?.totals?.HOLD?.qty||0),surface:Number(d?.totals?.HOLD?.surface||0)}
    });
   }catch(e){
@@ -1861,11 +1869,23 @@ const currentPriorityMonth=useMemo(()=>{
   return "UNSCHEDULED";
  };
 
- const workloadReadyPreviousFilterPass=(x:Candidate)=>{
+ const workloadStatusSplitFilterPass=(x:Candidate)=>{
   if(!workloadDrill)return true;
-  if(workloadDrill.bucket!=="READY_PREV_SCHEDULED"&&workloadDrill.bucket!=="READY_PREV_UNSCHEDULED")return true;
-  const state=readyPreviousScheduleState(x,workloadDrill.main);
-  return workloadDrill.bucket==="READY_PREV_SCHEDULED"?state==="SCHEDULED":state==="UNSCHEDULED";
+  if(workloadDrill.bucket==="READY_PREV_SCHEDULED"||workloadDrill.bucket==="READY_PREV_UNSCHEDULED"){
+   const state=readyPreviousScheduleState(x,workloadDrill.main);
+   return workloadDrill.bucket==="READY_PREV_SCHEDULED"?state==="SCHEDULED":state==="UNSCHEDULED";
+  }
+  if(workloadDrill.bucket==="WAIT_NEXT_MAIN"||workloadDrill.bucket==="WAIT_FUTURE_MAIN"){
+   const main=normalized(workloadDrill.main);
+   const route=(Array.isArray(x.route_status)?x.route_status:[])
+    .filter(r=>r.standard_operation&&normalized(r.standard_operation)!=="PIONBL")
+    .sort((a,b)=>Number(a.source_seq||0)-Number(b.source_seq||0));
+   const target=route.find(r=>normalized(r.standard_operation)===main&&normalized(r.route_status)==="WAITING");
+   if(!target)return false;
+   const kind=waitingDisplayFor(x,target).kind;
+   return workloadDrill.bucket==="WAIT_NEXT_MAIN"?kind==="route-status-wait-prev":kind==="route-status-wait-future";
+  }
+  return true;
  };
 
  // v339: giá trị hiển thị của 1 dòng theo cột (để lọc Excel-style).
@@ -1993,7 +2013,7 @@ const currentPriorityMonth=useMemo(()=>{
      (!filterPrimer3 || normalized(x.part_master_primer3)===normalized(filterPrimer3)) &&
      routeOpMatch(x) &&
      routeStatusFilterPass(x) &&
-     workloadReadyPreviousFilterPass(x) &&
+     workloadStatusSplitFilterPass(x) &&
      colFilterPass(x) &&
      (statusFilter===""
        || (statusFilter==="NO_CHAIN"&&x.has_planning_chain===false)
@@ -2596,7 +2616,8 @@ const currentPriorityMonth=useMemo(()=>{
   const metric=
    bucket==="READY_PREV_SCHEDULED"?row.readyPrevScheduled:
    bucket==="READY_PREV_UNSCHEDULED"?row.readyPrevUnscheduled:
-   bucket==="WAIT"?row.wait:row.hold;
+   bucket==="WAIT_NEXT_MAIN"?row.waitNextMain:
+   bucket==="WAIT_FUTURE_MAIN"?row.waitFutureMain:row.hold;
   if(!metric.jobs)return;
   if(batchSelectionModeActive){
    setMessage("Bỏ chọn các Job đang gom Batch trước khi lọc Workload Summary.");
@@ -2604,7 +2625,7 @@ const currentPriorityMonth=useMemo(()=>{
   }
   const main=String(row.standardOperation||"");
   const opKey=normalized(main);
-  const filterValue=bucket==="WAIT"?"WAITING":bucket.startsWith("READY_PREV_")?"READY":bucket;
+  const filterValue=bucket.startsWith("WAIT_")?"WAITING":bucket.startsWith("READY_PREV_")?"READY":bucket;
   const loadingKey=`${opKey}|${bucket}`;
   setWorkloadDrillLoading(loadingKey);
   setMessage("");
@@ -3411,22 +3432,29 @@ const currentPriorityMonth=useMemo(()=>{
     .filter(r=>r.standard_operation&&normalized(r.standard_operation)!=="PIONBL")
     .sort((a,b)=>Number(a.source_seq||0)-Number(b.source_seq||0));
 
-   const waitingFuture=route.filter(r=>normalized(r.route_status)==="WAITING");
-   const immediate=waitingFuture.length
-    ?Math.min(...waitingFuture.map(r=>Number(r.source_seq||Number.POSITIVE_INFINITY)))
+   // V489: classify by the first internal LOCKED blocker, not merely the first
+   // visible WAITING cell. A HOLD on the nearer Main still keeps later WAITs in
+   // the Future bucket, matching the canonical workload SQL classifier.
+   const lockedBlockers=route.filter(r=>
+    normalized(r.planning_job_status)==="LOCKED" ||
+    normalized(r.route_status)==="WAITING" ||
+    normalized(r.route_status)==="HOLD"
+   );
+   const immediate=lockedBlockers.length
+    ?Math.min(...lockedBlockers.map(r=>Number(r.source_seq||Number.POSITIVE_INFINITY)))
     :Number.POSITIVE_INFINITY;
 
    if(Number(item.source_seq)===immediate){
     return {
-     label:erpMode?"W":"WAIT",
-     reason:erpMode?"Main Operation trước chưa hoàn tất hoặc chưa được lập lịch.":"Previous Main Planning chưa DONE / SCHEDULED / UNSCHEDULED.",
+     label:erpMode?"W1":"WAIT · Next Main",
+     reason:erpMode?"Main kế tiếp đang chờ handoff từ Main trước.":"Immediate Next Main is waiting for handoff from the previous Main.",
      kind:"route-status-wait-prev"
     };
    }
 
    return {
-    label:erpMode?"W":"WAIT",
-    reason:erpMode?"Chưa tới lượt Main Operation này. Chỉ công đoạn kế tiếp trong chuỗi mới được READY.":"Next Main Planning chưa tới lượt. Chỉ Main ngay sau handoff mới được READY.",
+    label:erpMode?"W2":"WAIT · Future Mains",
+    reason:erpMode?"Đây là Main phía sau; chưa tới lượt vì còn Main chờ gần hơn trong chuỗi.":"This is a later future Main; an earlier waiting Main is still ahead in the chain.",
     kind:"route-status-wait-future"
    };
  }
@@ -3562,7 +3590,7 @@ const currentPriorityMonth=useMemo(()=>{
      return <td
       key={key}
       className={`route-status-cell ${routeStatusClass(status)} ${normalized(status)==="WAITING"?fallbackWaiting.kind:""} route-status-current ${currentMainFocus?"route-context-current-cell":""} ${routeCellSelected(fallbackItem)?"route-status-selected":""} ${status==="READY"&&!mainDimmed&&!fallbackCompatLocked?"route-status-clickable":""} ${fallbackCompatLocked?"batch-compatibility-cell-locked":""} ${mainDimClass}`}
-      title={`${mainOperation} · ${erpMode?(normalized(status)==="WAITING"?"WAIT":routeStatusLongLabel(status)):fallbackDisplay}${fallbackRecipe?` · Recipe: ${fallbackRecipe}`:""}${x.batch_no?` · ${x.batch_no}`:""}${fallbackCompatLocked?` · ${compatibilityReasonForId(Number(x.id),mainOperation)||"Khác Recipe / điều kiện Batch"}`:""}${mainDimReason?` · ${mainDimReason}`:""}`}
+      title={`${mainOperation} · ${normalized(status)==="WAITING"?fallbackWaiting.label:(erpMode?routeStatusLongLabel(status):fallbackDisplay)}${fallbackRecipe?` · Recipe: ${fallbackRecipe}`:""}${x.batch_no?` · ${x.batch_no}`:""}${fallbackCompatLocked?` · ${compatibilityReasonForId(Number(x.id),mainOperation)||"Khác Recipe / điều kiện Batch"}`:""}${mainDimReason?` · ${mainDimReason}`:""}`}
       onClick={()=>{
        if(mainDimmed){setMessage(mainDimReason);return;}
        toggleRouteCell(x,fallbackItem);
@@ -3690,7 +3718,7 @@ const currentPriorityMonth=useMemo(()=>{
    const tooltip=items.map((item,index)=>[
     items.length>1?(erpMode?`${mainOperation} · lần ${index+1}`:`${mainOperation} occurrence ${index+1}`):mainOperation,
     `${erpMode?"Operation Code":"Source"}: ${item.source_operation}`,
-    `${erpMode?"Trạng thái":"Status"}: ${erpMode?(normalized(item.route_status)==="WAITING"?"WAIT":routeStatusLongLabel(item.route_status)):(normalized(item.route_status)==="WAITING"?waitingDisplayFor(x,item).label:routeStatusLabel(item.route_status))}`,
+    `${erpMode?"Trạng thái":"Status"}: ${normalized(item.route_status)==="WAITING"?waitingDisplayFor(x,item).label:(erpMode?routeStatusLongLabel(item.route_status):routeStatusLabel(item.route_status))}`,
     normalized(item.route_status)==="WAITING"?waitingDisplayFor(x,item).reason:"",
     item.batch_no?`Batch: ${item.batch_no}`:"",
     item.resource_code?`${erpMode?"Resource":"Resource"}: ${item.resource_code}`:"",
@@ -4012,7 +4040,7 @@ const currentPriorityMonth=useMemo(()=>{
       </div>
       <div className="erpkit-workload-summary-kpis">
        <div className="erpkit-workload-summary-kpi is-ready"><b>{formatNumber(workloadTotals.READY.surface)} dm²</b><span>{formatNumber(workloadTotals.READY.qty)} pcs · {formatNumber(workloadTotals.READY.jobs,0)} Job</span><small>READY · Prev S/Done {formatNumber(workloadTotals.READY_PREV_SCHEDULED.jobs,0)} · Prev U/Start {formatNumber(workloadTotals.READY_PREV_UNSCHEDULED.jobs,0)}</small></div>
-       <div className="erpkit-workload-summary-kpi is-wait"><b>{formatNumber(workloadTotals.WAIT.surface)} dm²</b><span>{formatNumber(workloadTotals.WAIT.qty)} pcs · {formatNumber(workloadTotals.WAIT.jobs,0)} Job</span><small>WAIT</small></div>
+       <div className="erpkit-workload-summary-kpi is-wait"><b>{formatNumber(workloadTotals.WAIT.surface)} dm²</b><span>{formatNumber(workloadTotals.WAIT.qty)} pcs · {formatNumber(workloadTotals.WAIT.jobs,0)} Job</span><small>WAIT · Next {formatNumber(workloadTotals.WAIT_NEXT_MAIN.jobs,0)} · Future {formatNumber(workloadTotals.WAIT_FUTURE_MAIN.jobs,0)}</small></div>
        <div className="erpkit-workload-summary-kpi is-hold"><b>{formatNumber(workloadTotals.HOLD.surface)} dm²</b><span>{formatNumber(workloadTotals.HOLD.qty)} pcs · {formatNumber(workloadTotals.HOLD.jobs,0)} Job</span><small>HOLD</small></div>
        <div className="erpkit-workload-summary-kpi is-total"><b>{formatNumber(workloadGrandTotal.surface)} dm²</b><span>{formatNumber(workloadGrandTotal.qty)} pcs · {formatNumber(workloadGrandTotal.jobs,0)} Job</span><small>TỔNG R+W+H</small></div>
       </div>
@@ -4025,15 +4053,15 @@ const currentPriorityMonth=useMemo(()=>{
      {workloadError&&<div className="erpkit-workload-summary-error">Không đọc được Workload Summary: {workloadError}</div>}
      {workloadOpen&&!workloadError&&<div className="erpkit-workload-summary-table-wrap">
       <table className="erpkit-workload-summary-table">
-       <thead><tr><th>Khu vực</th><th>Main Operation</th><th>READY · Previous Main Scheduled</th><th>READY · Previous Main Unscheduled / START</th><th>WAIT</th><th>HOLD</th><th>Tổng tải</th></tr></thead>
+       <thead><tr><th>Khu vực</th><th>Main Operation</th><th>READY · Previous Main Scheduled</th><th>READY · Previous Main Unscheduled / START</th><th>WAIT · Next Main</th><th>WAIT · Future Mains</th><th>HOLD</th><th>Tổng tải</th></tr></thead>
        <tbody>
         {workloadRows.map(row=>{
          const key=`${row.areaId}|${row.standardOperation}`;
          const metricButton=(bucket:WorkloadBucket,metric:WorkloadMetric)=>{
           const active=Boolean(workloadDrill&&normalized(workloadDrill.main)===normalized(row.standardOperation)&&workloadDrill.bucket===bucket);
           const busyKey=`${normalized(row.standardOperation)}|${bucket}`;
-          const tone=bucket.startsWith("READY_PREV_")?"ready":bucket.toLowerCase();
-          const label=bucket==="READY_PREV_SCHEDULED"?"READY · Previous Main Scheduled / Done by progress":bucket==="READY_PREV_UNSCHEDULED"?"READY · Previous Main Unscheduled / START":bucket;
+          const tone=bucket.startsWith("READY_PREV_")?"ready":bucket.startsWith("WAIT_")?"wait":bucket.toLowerCase();
+          const label=bucket==="READY_PREV_SCHEDULED"?"READY · Previous Main Scheduled / Done by progress":bucket==="READY_PREV_UNSCHEDULED"?"READY · Previous Main Unscheduled / START":bucket==="WAIT_NEXT_MAIN"?"WAIT · Next Main":bucket==="WAIT_FUTURE_MAIN"?"WAIT · Future Mains":bucket;
           return <button
            type="button"
            className={`erpkit-workload-metric is-${tone} ${active?"is-active":""}`}
@@ -4050,12 +4078,13 @@ const currentPriorityMonth=useMemo(()=>{
           <td><b className="mono">{row.standardOperation}</b></td>
           <td>{metricButton("READY_PREV_SCHEDULED",row.readyPrevScheduled)}</td>
           <td>{metricButton("READY_PREV_UNSCHEDULED",row.readyPrevUnscheduled)}</td>
-          <td>{metricButton("WAIT",row.wait)}</td>
+          <td>{metricButton("WAIT_NEXT_MAIN",row.waitNextMain)}</td>
+          <td>{metricButton("WAIT_FUTURE_MAIN",row.waitFutureMain)}</td>
           <td>{metricButton("HOLD",row.hold)}</td>
           <td><div className="erpkit-workload-total"><b>{formatNumber(row.total.surface)} dm²</b><span>{formatNumber(row.total.qty)} pcs · {formatNumber(row.total.jobs,0)} Job</span></div></td>
          </tr>;
         })}
-        {!workloadRows.length&&!workloadLoading&&<tr><td colSpan={7} className="muted">Không có READY / WAIT / HOLD trong phạm vi này.</td></tr>}
+        {!workloadRows.length&&!workloadLoading&&<tr><td colSpan={8} className="muted">Không có READY / WAIT / HOLD trong phạm vi này.</td></tr>}
        </tbody>
       </table>
      </div>}

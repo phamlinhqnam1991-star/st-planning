@@ -22,7 +22,7 @@ export async function GET(req:Request){
   if(ctx.scopes.PLANNING_MAIN.size){
    result.rows=result.rows.filter((r:any)=>ctx.scopes.PLANNING_MAIN.has(String(r.standard_operation||"").toUpperCase()));
    const zero=()=>({jobs:0,qty:0,surface:0});
-   const totals:any={READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),WAIT:zero(),HOLD:zero()};
+   const totals:any={READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),HOLD:zero()};
    const add=(target:any,metric:any)=>{
     target.jobs+=Number(metric?.jobs||0);
     target.qty+=Number(metric?.qty||0);
@@ -33,6 +33,8 @@ export async function GET(req:Request){
     add(totals.READY_PREV_SCHEDULED,r.readyPrevScheduled);
     add(totals.READY_PREV_UNSCHEDULED,r.readyPrevUnscheduled);
     add(totals.WAIT,r.wait);
+    add(totals.WAIT_NEXT_MAIN,r.waitNextMain);
+    add(totals.WAIT_FUTURE_MAIN,r.waitFutureMain);
     add(totals.HOLD,r.hold);
    }
    result.totals=totals;

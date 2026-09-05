@@ -1,4 +1,4 @@
-// V488 Production-added Job persistence: all added Jobs remain visible together per Batch after subsequent adds/refreshes.
+// V489 WAIT split: distinguish immediate next blocked Main from later future blocked Mains without changing LOCKED storage/sequential gating.
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
 import {getPool} from "@/lib/db";
@@ -213,7 +213,7 @@ export default async function Page(){
    <div className="erp-page-head guide-head">
     <div>
      <h2>Logic & Hướng dẫn vận hành</h2>
-     <p>Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau theo logic hiện tại đến V483.</p>
+     <p>Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau theo logic hiện tại đến V489.</p>
     </div>
    </div>
 
@@ -552,7 +552,7 @@ export default async function Page(){
     <div className="lg-subtitle">7.1 · Route Matrix và trạng thái READY / WAIT / PLANNED / DONE</div>
     <div className="lg-key lg-key-2">
      <Rule title="Sequential READY" tone="important">
-      Trong suffix Main hiện tại: Main chưa có Batch đầu tiên = <b>READY</b>; mọi Main chưa plan phía sau = <b>WAIT</b>. Khi Main READY được đưa vào Batch, chỉ Main kế tiếp được mở READY.
+      Trong suffix Main hiện tại: Main chưa có Batch đầu tiên = <b>READY</b>; các Main chưa plan phía sau vẫn lưu trạng thái nội bộ <b>LOCKED</b>. Từ <b>V489</b>, phần hiển thị/workload tách LOCKED thành <b>WAIT · Next Main</b> cho Main LOCKED gần nhất và <b>WAIT · Future Mains</b> cho các Main LOCKED còn lại. Khi Main READY được đưa vào Batch, chỉ Main kế tiếp được mở READY.
      </Rule>
      <Rule title="Handoff hợp lệ">
       Previous Main ở trạng thái đã qua vật lý (<b>DONE</b>) hoặc đã có Batch không cancelled (<b>PLANNED-UNSCHEDULED / SCHEDULED</b>) được xem là handoff. Không cần chờ Schedule để mở Main kế tiếp.
@@ -562,7 +562,8 @@ export default async function Page(){
      <thead><tr><th>Trạng thái trên Matrix</th><th>Ý nghĩa</th><th>Có chọn vào Batch?</th></tr></thead>
      <tbody>
       <tr><td>{badge("READY","green")}</td><td>Main hiện tại được phép plan.</td><td><b>Có</b></td></tr>
-      <tr><td>{badge("WAIT","warning")}</td><td>Previous Main liên tục chưa handoff.</td><td>Không</td></tr>
+      <tr><td>{badge("WAIT · Next Main","warning")}</td><td>Main LOCKED gần nhất ngay sau frontier hiện tại; đang chờ handoff.</td><td>Không</td></tr>
+      <tr><td>{badge("WAIT · Future Mains","gray")}</td><td>Các Main LOCKED phía sau WAIT · Next Main; chưa tới lượt mở READY.</td><td>Không</td></tr>
       <tr><td>{badge("PLANNED-UNSCHEDULED","blue")}</td><td>Đã có Batch nhưng chưa xếp lịch.</td><td>Không tạo lặp; đây đã là handoff.</td></tr>
       <tr><td>{badge("SCHEDULED","blue")}</td><td>Batch đã có schedule.</td><td>Không</td></tr>
       <tr><td>{badge("DONE","gray")}</td><td>Physical progress đã đi qua occurrence này.</td><td>Không</td></tr>
@@ -572,19 +573,22 @@ export default async function Page(){
 
     <div className="lg-subtitle">7.1.1 · Workload Summary — READY / WAIT / HOLD theo Main</div>
     <Rule title="Workload Summary phải mirror đúng Candidate / Route Matrix" tone="important">
-     Workload Summary không được quét toàn bộ <code>planning_job_operation</code> trong database. Population Job phải giống chính Planning Board: <b>Open Job + live Current Main + RAW NextOperation nằm trong ST View đang resolve cho Board</b> (Planning Operation hoặc active Bridge Intermediate; <b>ST_SCOPE_ONLY</b> không vào Candidate). Chỉ sau khi có đúng tập Candidate Job này mới mở các active <code>planning_job_operation</code> của chính các Job đó để cộng <b>Area → Main Operation → READY / WAIT / HOLD</b>. Vì vậy click <b>CMSA · READY</b> lọc Route Matrix ra 10 Job thì tổng hai cột READY của CMSA cũng phải là 10 Job, không được cộng thêm các Job ngoài Candidate population.
+     Workload Summary không được quét toàn bộ <code>planning_job_operation</code> trong database. Population Job phải giống chính Planning Board: <b>Open Job + live Current Main + RAW NextOperation nằm trong ST View đang resolve cho Board</b> (Planning Operation hoặc active Bridge Intermediate; <b>ST_SCOPE_ONLY</b> không vào Candidate). Chỉ sau khi có đúng tập Candidate Job này mới mở các active <code>planning_job_operation</code> của chính các Job đó để cộng <b>Area → Main Operation → READY / WAIT / HOLD</b>. WAIT tổng vẫn là toàn bộ LOCKED, nhưng V489 tách đọc thành <b>WAIT · Next Main</b> + <b>WAIT · Future Mains</b>. Vì vậy click <b>CMSA · READY</b> lọc Route Matrix ra 10 Job thì tổng hai cột READY của CMSA cũng phải là 10 Job, không được cộng thêm các Job ngoài Candidate population.
     </Rule>
     <Rule title="READY tách theo trạng thái điều độ của Previous Main">
      Cùng một Main đang <code>ELIGIBLE / READY</code> được tách thành hai cột đọc-only. Từ <b>V473</b>, <b>READY · Previous Main Scheduled / Done</b> gồm cả hai trường hợp: immediate Previous Main có Schedule hợp lệ <u>hoặc</u> Previous Main đã đi qua theo physical progress/DONE dù lịch sử cũ không có Batch. <b>READY · Previous Main Unscheduled / START</b> chỉ giữ các READY plan-ahead mà Previous Main chưa Schedule/chưa DONE. Từ <b>V476</b>, <b>Main Planning đầu tiên trong chuỗi</b> không còn nằm ở cột này; vì không có predecessor để chờ, nó được xếp vào <b>READY · Previous Main Scheduled / Done</b>. Hai cột cộng lại đúng READY tổng và không thay đổi Sequential READY rule.
     </Rule>
+    <Rule title="WAIT tách theo vị trí trong active Planning Chain · V489" tone="important">
+     Không đổi dữ liệu nguồn: <code>planning_job_operation.status</code> vẫn dùng <code>LOCKED</code>. Với mỗi Job, occurrence LOCKED sớm nhất theo <b>Main Planning Order / planning_seq → source_seq</b> được phân loại <b>WAIT · Next Main</b>; mọi occurrence LOCKED phía sau là <b>WAIT · Future Mains</b>. Nếu Main gần nhất đang HOLD thì nó không được tính là WAIT; các Main sau vẫn là future vì vẫn còn một blocker gần hơn trong chuỗi. Hai cột WAIT cộng lại đúng WAIT tổng. Classifier này được dùng đồng bộ ở Route Matrix, Planning Workload Summary, Dashboard Workload Summary và Scheduling Workload Summary.
+    </Rule>
     <Rule title="Dashboard: một population Job chuẩn, workload vẫn giữ đầy đủ READY / WAIT" tone="important">
-     Dashboard dùng một population Job chuẩn: <b>(1)</b> lấy <b>Current Main</b> từ live Planning Chain đã được resolver <b>LastOperation + RAW NextOperation</b> định vị; <b>(2)</b> trên kết quả đã resolve mới lọc RAW NextOperation theo Dashboard ST Scope; <code>PLANNING_OPERATION → MAIN</code>, <code>INTERMEDIATE → IMMEDIATE</code>, <code>ST_SCOPE_ONLY → ST ONLY</code>. Sau khi xác định Job thuộc Dashboard ST, các <b>Workload KPI / Surface Workload / Area-Main-Recipe</b> mở rộng <u>chỉ các Job này</u> theo toàn bộ active Planning Chain occurrence để giữ đúng trạng thái: <code>ELIGIBLE → READY</code>, <code>LOCKED → WAIT</code>, planned chưa điều độ → <code>PLANNED-UNSCHEDULED</code>, có schedule → <code>SCHEDULED</code>, Hold → <code>HOLD</code>. Vì vậy Main tương lai không bị mất WAIT. Riêng chart <b>Main / Immediate / ST Only</b> và CAT3/CAT5 vẫn dùng một dòng cho current open Job. <b>CAT3/CAT5 sắp trực tiếp theo NextOperation Order</b>: RAW Operation Code Order (<code>md_operation.planning_sort_order</code>) → Main Planning Order chỉ làm fallback khi RAW operation chưa có order → RAW NextOperation → Job. Nhãn INTERMEDIATE vẫn <b>chỉ dành cho Dashboard</b>; không thay đổi Planning Chain/Candidate/Batch/Schedule. Từ <b>V486</b>, bảng <b>ST Workload Summary · By Area</b> trên Dashboard không còn gộp READY thành một cột: READY được tách đúng cùng classifier của Planning Board thành <b>READY · Previous Main Scheduled</b> và <b>READY · Previous Main Unscheduled / START</b>. Previous Main DONE theo physical progress và Main đầu tiên của chain đều thuộc cột Scheduled; hai cột cộng lại đúng READY tổng.
+     Dashboard dùng một population Job chuẩn: <b>(1)</b> lấy <b>Current Main</b> từ live Planning Chain đã được resolver <b>LastOperation + RAW NextOperation</b> định vị; <b>(2)</b> trên kết quả đã resolve mới lọc RAW NextOperation theo Dashboard ST Scope; <code>PLANNING_OPERATION → MAIN</code>, <code>INTERMEDIATE → IMMEDIATE</code>, <code>ST_SCOPE_ONLY → ST ONLY</code>. Sau khi xác định Job thuộc Dashboard ST, các <b>Workload KPI / Surface Workload / Area-Main-Recipe</b> mở rộng <u>chỉ các Job này</u> theo toàn bộ active Planning Chain occurrence để giữ đúng trạng thái: <code>ELIGIBLE → READY</code>, <code>LOCKED → WAIT</code>, planned chưa điều độ → <code>PLANNED-UNSCHEDULED</code>, có schedule → <code>SCHEDULED</code>, Hold → <code>HOLD</code>. Vì vậy Main tương lai không bị mất WAIT. Riêng chart <b>Main / Immediate / ST Only</b> và CAT3/CAT5 vẫn dùng một dòng cho current open Job. <b>CAT3/CAT5 sắp trực tiếp theo NextOperation Order</b>: RAW Operation Code Order (<code>md_operation.planning_sort_order</code>) → Main Planning Order chỉ làm fallback khi RAW operation chưa có order → RAW NextOperation → Job. Nhãn INTERMEDIATE vẫn <b>chỉ dành cho Dashboard</b>; không thay đổi Planning Chain/Candidate/Batch/Schedule. Từ <b>V486</b>, bảng <b>ST Workload Summary · By Area</b> trên Dashboard không còn gộp READY thành một cột: READY được tách đúng cùng classifier của Planning Board thành <b>READY · Previous Main Scheduled</b> và <b>READY · Previous Main Unscheduled / START</b>. Previous Main DONE theo physical progress và Main đầu tiên của chain đều thuộc cột Scheduled; hai cột cộng lại đúng READY tổng. Từ <b>V489</b>, WAIT cũng được tách thành <b>WAIT · Next Main</b> và <b>WAIT · Future Mains</b>; hai cột cộng lại đúng WAIT tổng.
     </Rule>
     <ul className="lg-list">
      <li><b>Qty:</b> dùng CurrentGoodWIPQty nếu &gt; 0, nếu không dùng ProdQty — cùng quy tắc Candidate.</li>
      <li><b>Surface:</b> dùng TotalSurface; nếu thiếu thì Qty × SurfacePerPart.</li>
      <li><b>Repeated occurrence:</b> cùng Job + cùng Main + cùng status bucket chỉ tính một lần để không nhân đôi pcs/dm².</li>
-     <li><b>Drill-down:</b> click một trong hai cột READY, WAIT hoặc HOLD để lọc Candidate Matrix theo đúng Main + route status; hai cột READY còn lọc thêm theo Previous Main Scheduled / Unscheduled. Nếu Route Matrix của Job chưa tải, Board hydrate trước rồi mới áp dụng filter. <b>V475:</b> classifier drill-down phải giống hệt Workload Summary: Current READY Main có Previous Main đã đi qua theo physical progress/DONE vẫn thuộc <code>READY · Previous Main Scheduled / Done</code> dù Previous Main không có Batch/Schedule lịch sử, nên KPI có Job thì danh sách phía dưới phải hiện đúng các Job đó.</li>
+     <li><b>Drill-down:</b> click một trong hai cột READY, một trong hai cột WAIT hoặc HOLD để lọc Candidate Matrix theo đúng Main + route status; READY lọc thêm theo Previous Main Scheduled / Unscheduled, WAIT lọc thêm theo vị trí Next Main / Future Mains. Nếu Route Matrix của Job chưa tải, Board hydrate trước rồi mới áp dụng filter. <b>V475:</b> classifier drill-down phải giống hệt Workload Summary: Current READY Main có Previous Main đã đi qua theo physical progress/DONE vẫn thuộc <code>READY · Previous Main Scheduled / Done</code> dù Previous Main không có Batch/Schedule lịch sử, nên KPI có Job thì danh sách phía dưới phải hiện đúng các Job đó.</li>
      <li><b>Refresh:</b> tự cập nhật sau Create/Add Batch, Hold/Unhold, Rebuild Planning Chain và khi đổi Area/Main scope; có nút Làm mới thủ công.</li>
     </ul>
 
@@ -1036,7 +1040,7 @@ export default async function Page(){
    </Section>
 
    <section className="erp-table-panel guide-section">
-    <div className="erp-panel-head"><div><b>New User Training · V483 · Live Database</b><small className="planning-sub">Training và Logic & Hướng dẫn được cập nhật song song. V483 đồng bộ lại toàn bộ VI/EN và giữ nguyên thuật ngữ nghiệp vụ chuẩn.</small></div></div>
+    <div className="erp-panel-head"><div><b>New User Training · V489 · Live Database</b><small className="planning-sub">Training và Logic & Hướng dẫn được cập nhật song song. V489 bổ sung WAIT · Next Main / WAIT · Future Mains trên cùng nền thuật ngữ VI/EN chuẩn từ V483.</small></div></div>
     <div className="lg-body">
      <p>Tab <b>New User Training</b> vẫn đào tạo theory-first, nhưng từ V474 phần minh họa đọc <b>trực tiếp database đang chạy</b>: Operation Mapping, Main Operation, Area/Planner, Process Recipe, Batch Prefix/Sequence/Common Size/Auto Split, Recipe-specific Batch Size, Process Time Rules và một Open Job thật cùng Planning Chain/Batch/Schedule hiện có.</p>
      <p>Trainer có thể nhập <b>Job Number</b> ngay trong Training để học viên trace đúng Job cần đào tạo. Training không tạo logic mới; dữ liệu live chỉ giúp giải thích Source of Truth hiện hành dễ hiểu hơn.</p>

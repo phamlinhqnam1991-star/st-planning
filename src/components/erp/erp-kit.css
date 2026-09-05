@@ -2880,7 +2880,9 @@
 .erpkit-migrated-page .schedule-area-workload-metric>b{grid-row:1/3;font-size:7.8px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .erpkit-migrated-page .schedule-area-workload-metric>span{font-size:6.2px;color:#6f7e8f;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .erpkit-migrated-page .schedule-area-workload-metric.is-ready{background:#f1f8ff;color:#155f9c}
-.erpkit-migrated-page .schedule-area-workload-metric.is-wait{background:#fff9ed;color:#8e610f}
+.erpkit-migrated-page .schedule-area-workload-metric.is-wait,
+.erpkit-migrated-page .schedule-area-workload-metric.is-wait-next-main,
+.erpkit-migrated-page .schedule-area-workload-metric.is-wait-future-main{background:#fff9ed;color:#8e610f}
 .erpkit-migrated-page .schedule-area-workload-metric.is-planned-unscheduled{background:#f5f7fa;color:#596b7e}
 .erpkit-migrated-page .schedule-area-workload-metric.is-scheduled{background:#f1f5fc;color:#426aa3}
 .erpkit-migrated-page .schedule-area-workload-metric.is-hold{background:#fff3f1;color:#a84d45}

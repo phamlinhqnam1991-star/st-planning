@@ -8120,6 +8120,16 @@
       "en": "Account deleted.",
       "vi": "Đã xóa tài khoản.",
       "mode": "exact"
+    },
+    {
+      "en": "WAIT · Next Main",
+      "vi": "WAIT · Main kế tiếp",
+      "mode": "phrase"
+    },
+    {
+      "en": "WAIT · Future Mains",
+      "vi": "WAIT · Các Main phía sau",
+      "mode": "phrase"
     }
   ]
 }

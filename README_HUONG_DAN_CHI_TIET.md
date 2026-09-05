@@ -464,3 +464,15 @@ Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu khô
 - Cờ Production-added đọc audit `ADD_JOB APPROVED` theo Batch + Job để không phụ thuộc vào occurrence id có thể thay đổi khi Future ST được reconciliation.
 - Refresh sau Add Job vẫn phải giữ đủ các Job Production-added đang thuộc Batch.
 - Logic & Guide và Training đã cập nhật đồng bộ. Không có SQL migration mới.
+
+
+## V489 — Tách WAIT thành Next Main và Future Mains
+
+- Không đổi schema và không đổi trạng thái nội bộ: các Main chưa tới lượt vẫn lưu `planning_job_operation.status = LOCKED`.
+- `WAIT · Next Main` = occurrence LOCKED gần nhất của Job theo Planning Chain hiện tại.
+- `WAIT · Future Mains` = toàn bộ occurrence LOCKED còn lại phía sau.
+- Hai nhóm cộng lại đúng `WAIT` tổng; khi frontier dịch chuyển sau handoff/Create Batch, classifier tự tính lại.
+- Route Matrix hiển thị compact `W1` cho Next Main và `W2` cho Future Mains.
+- Planning Board Workload Summary, Dashboard `ST Workload Summary · By Area` và Scheduling Workload Summary dùng cùng phân loại.
+- READY split V486 giữ nguyên; Batch, Recipe, Scheduling dependency và Production logic không đổi.
+- Logic & Guide và Training được cập nhật đồng bộ. Không có SQL migration mới.

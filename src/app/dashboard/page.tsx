@@ -14,10 +14,11 @@ const STATUS_CLASS:Record<StDashboardStatus,string>={
  WAIT:"wait",READY:"ready",PLANNED_UNSCHEDULED:"unscheduled",SCHEDULED:"scheduled",HOLD:"hold",ST_ONLY:"st-only"
 };
 
-const WORKLOAD_COLUMN_ORDER=["WAIT","READY_PREV_SCHEDULED","READY_PREV_UNSCHEDULED","PLANNED_UNSCHEDULED","SCHEDULED","HOLD","ST_ONLY"] as const;
+const WORKLOAD_COLUMN_ORDER=["WAIT_NEXT_MAIN","WAIT_FUTURE_MAIN","READY_PREV_SCHEDULED","READY_PREV_UNSCHEDULED","PLANNED_UNSCHEDULED","SCHEDULED","HOLD","ST_ONLY"] as const;
 type DashboardWorkloadColumn=(typeof WORKLOAD_COLUMN_ORDER)[number];
 const WORKLOAD_COLUMN_LABEL:Record<DashboardWorkloadColumn,string>={
- WAIT:"WAIT",
+ WAIT_NEXT_MAIN:"WAIT · Next Main",
+ WAIT_FUTURE_MAIN:"WAIT · Future Mains",
  READY_PREV_SCHEDULED:"READY · Previous Main Scheduled",
  READY_PREV_UNSCHEDULED:"READY · Previous Main Unscheduled / START",
  PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",
@@ -26,7 +27,7 @@ const WORKLOAD_COLUMN_LABEL:Record<DashboardWorkloadColumn,string>={
  ST_ONLY:"ST ONLY"
 };
 const WORKLOAD_COLUMN_CLASS:Record<DashboardWorkloadColumn,string>={
- WAIT:"wait",READY_PREV_SCHEDULED:"ready",READY_PREV_UNSCHEDULED:"ready",PLANNED_UNSCHEDULED:"unscheduled",SCHEDULED:"scheduled",HOLD:"hold",ST_ONLY:"st-only"
+ WAIT_NEXT_MAIN:"wait",WAIT_FUTURE_MAIN:"wait",READY_PREV_SCHEDULED:"ready",READY_PREV_UNSCHEDULED:"ready",PLANNED_UNSCHEDULED:"unscheduled",SCHEDULED:"scheduled",HOLD:"hold",ST_ONLY:"st-only"
 };
 
 function fmt(v:number,max=1){return new Intl.NumberFormat("en-US",{maximumFractionDigits:max}).format(Number(v||0));}
@@ -158,7 +159,7 @@ function SurfaceQtyComboChart({rows,total}:{rows:StDashboardImmediateRow[];total
 
 function AreaWorkloadTable({area}:{area:StDashboardAreaRow}){
  return <section className="erp-table-panel st-dashboard-panel st-dashboard-area-panel">
-  <div className="erp-panel-head st-dashboard-area-head"><div><b>{area.areaName}</b><small>Canonical ST Job scope; Planning workload expands active chain occurrences so future LOCKED operations remain WAIT.</small></div><span>{fmt(area.mainRows.length,0)} Workload Groups</span></div>
+  <div className="erp-panel-head st-dashboard-area-head"><div><b>{area.areaName}</b><small>Canonical ST Job scope; Planning workload expands active chain occurrences and splits LOCKED into WAIT · Next Main and WAIT · Future Mains.</small></div><span>{fmt(area.mainRows.length,0)} Workload Groups</span></div>
   <section className="st-dashboard-kpis st-dashboard-area-kpis">
    <article className="st-dashboard-kpi total"><small>{area.areaName.toUpperCase()} · SURFACE WORKLOAD</small>{metricLines(area.total)}</article>
    {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(area.statuses[status])}</article>)}
@@ -219,7 +220,7 @@ export default async function DashboardPage(){
   <AppTabs active="dashboard"/>
   <section className="erp-content erp-content-full st-dashboard-page">
    <div className="erp-page-head st-dashboard-head">
-    <div><div className="erp-object-eyebrow">ST · PLANNING WORKLOAD</div><h2>ST Planning Dashboard</h2><p>One canonical ST Job population: resolve Current Main → filter RAW NextOperation by Dashboard ST Scope. Workload cards keep full active Planning Chain statuses, including future WAIT.</p></div>
+    <div><div className="erp-object-eyebrow">ST · PLANNING WORKLOAD</div><h2>ST Planning Dashboard</h2><p>One canonical ST Job population: resolve Current Main → filter RAW NextOperation by Dashboard ST Scope. Workload cards keep full active Planning Chain statuses; WAIT is split by immediate next Main versus later future Mains in workload detail.</p></div>
     <div className="st-dashboard-head-actions"><span>{data?`Updated ${generated(data.generatedAt)}`:""}</span><Link className="btn" href="/dashboard">Refresh</Link></div>
    </div>
 
@@ -257,7 +258,7 @@ export default async function DashboardPage(){
     <div className="st-dashboard-note">V423 giữ một <b>canonical Dashboard ST Job population</b>: <b>1) resolve Current Main từ LastOperation + RAW NextOperation</b>; <b>2) lọc RAW NextOperation theo Dashboard ST Scope</b>. Sau đó <b>Workload cards / Surface Workload / Area-Main-Recipe</b> mở rộng đúng các Job này theo active Planning Chain để giữ đầy đủ <b>READY / WAIT / PLANNED-UNSCHEDULED / SCHEDULED / HOLD</b>. Vì vậy future <code>LOCKED</code> quay lại bucket <b>WAIT</b>. Chart Current Main / Immediate / ST Only và CAT3/CAT5 vẫn một dòng cho current open Job. INTERMEDIATE vẫn chỉ là nhãn Dashboard, không thay đổi Planning Chain, Candidate, Batch hoặc Schedule.</div>
 
     <section className="st-dashboard-area-workloads">
-     <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>ST Workload Summary · By Area</b><small>Canonical ST Job population expanded to active Planning Chain occurrences for READY/WAIT/HOLD workload. ST Only remains standalone.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Workload Groups</span></div>
+     <div className="erp-panel-head st-dashboard-area-summary-head"><div><b>ST Workload Summary · By Area</b><small>Canonical ST Job population expanded to active Planning Chain occurrences. WAIT is split into the immediate next blocked Main and later future Mains; ST Only remains standalone.</small></div><span>{fmt(data.areas.length,0)} Areas · {fmt(data.mainRows.length,0)} Workload Groups</span></div>
      {data.areas.map(area=><AreaWorkloadTable key={`${area.areaId}-${area.areaName}`} area={area}/>)}
     </section>
 

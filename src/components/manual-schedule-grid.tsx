@@ -69,15 +69,15 @@ type Draft={
 };
 
 type ScheduleWorkloadMetric={jobs:number;qty:number;surface:number};
-type ScheduleWorkloadStatus="WAIT"|"READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
+type ScheduleWorkloadStatus="WAIT_NEXT_MAIN"|"WAIT_FUTURE_MAIN"|"READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
 type ScheduleWorkloadRecipeRow={
  recipeKey:string;recipeNo:string;recipeName:string;
- WAIT:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;READY_PREV_SCHEDULED:ScheduleWorkloadMetric;READY_PREV_UNSCHEDULED:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
+ WAIT:ScheduleWorkloadMetric;WAIT_NEXT_MAIN:ScheduleWorkloadMetric;WAIT_FUTURE_MAIN:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;READY_PREV_SCHEDULED:ScheduleWorkloadMetric;READY_PREV_UNSCHEDULED:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
  total:ScheduleWorkloadMetric;
 };
 type ScheduleWorkloadMainRow={
  areaId:number;areaName:string;areaSort:number;standardOperation:string;mainOrder:number;
- WAIT:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;READY_PREV_SCHEDULED:ScheduleWorkloadMetric;READY_PREV_UNSCHEDULED:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
+ WAIT:ScheduleWorkloadMetric;WAIT_NEXT_MAIN:ScheduleWorkloadMetric;WAIT_FUTURE_MAIN:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;READY_PREV_SCHEDULED:ScheduleWorkloadMetric;READY_PREV_UNSCHEDULED:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
  total:ScheduleWorkloadMetric;recipes:ScheduleWorkloadRecipeRow[];
 };
 
@@ -1113,9 +1113,10 @@ export function ManualScheduleGrid({
   return set;
  }
 
- const workloadStatuses:ScheduleWorkloadStatus[]=["WAIT","READY_PREV_SCHEDULED","READY_PREV_UNSCHEDULED","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"];
+ const workloadStatuses:ScheduleWorkloadStatus[]=["WAIT_NEXT_MAIN","WAIT_FUTURE_MAIN","READY_PREV_SCHEDULED","READY_PREV_UNSCHEDULED","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"];
  const workloadLabel:Record<ScheduleWorkloadStatus,string>={
-  WAIT:"WAIT",
+  WAIT_NEXT_MAIN:"WAIT · Next Main",
+  WAIT_FUTURE_MAIN:"WAIT · Future Mains",
   READY_PREV_SCHEDULED:"READY · chính trước Scheduled / Done",
   READY_PREV_UNSCHEDULED:"READY · Previous Main chưa Schedule",
   PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",SCHEDULED:"SCHEDULED",HOLD:"HOLD"
@@ -1156,7 +1157,7 @@ export function ManualScheduleGrid({
        </tr>);
        return [main,...recipes];
       })}
-      {!rows.length&&!stWorkloadLoading&&<tr><td colSpan={10} className="muted">Khu vực này chưa có workload trong canonical Dashboard ST population.</td></tr>}
+      {!rows.length&&!stWorkloadLoading&&<tr><td colSpan={11} className="muted">Khu vực này chưa có workload trong canonical Dashboard ST population.</td></tr>}
      </tbody>
     </table></div>}
   </section>;

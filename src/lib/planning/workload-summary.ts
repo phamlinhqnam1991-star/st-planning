@@ -12,6 +12,8 @@ export type PlanningWorkloadSummaryRow={
  readyPrevScheduled:PlanningWorkloadMetric;
  readyPrevUnscheduled:PlanningWorkloadMetric;
  wait:PlanningWorkloadMetric;
+ waitNextMain:PlanningWorkloadMetric;
+ waitFutureMain:PlanningWorkloadMetric;
  hold:PlanningWorkloadMetric;
  total:PlanningWorkloadMetric;
 };
@@ -20,6 +22,8 @@ export type PlanningWorkloadTotals={
  READY_PREV_SCHEDULED:PlanningWorkloadMetric;
  READY_PREV_UNSCHEDULED:PlanningWorkloadMetric;
  WAIT:PlanningWorkloadMetric;
+ WAIT_NEXT_MAIN:PlanningWorkloadMetric;
+ WAIT_FUTURE_MAIN:PlanningWorkloadMetric;
  HOLD:PlanningWorkloadMetric;
 };
 export type PlanningWorkloadSummaryResult={
@@ -58,7 +62,7 @@ export async function loadPlanningWorkloadSummary(
    rows:[],
    totals:{
     READY:zeroMetric(),READY_PREV_SCHEDULED:zeroMetric(),READY_PREV_UNSCHEDULED:zeroMetric(),
-    WAIT:zeroMetric(),HOLD:zeroMetric()
+    WAIT:zeroMetric(),WAIT_NEXT_MAIN:zeroMetric(),WAIT_FUTURE_MAIN:zeroMetric(),HOLD:zeroMetric()
    },
    scope:{areaId,op:op||null,rowOperations:rowOperations.length?rowOperations:null}
   };
@@ -135,6 +139,22 @@ export async function loadPlanningWorkloadSummary(
      when p.status='LOCKED' then 'WAIT'
      else null
     end bucket,
+    case
+     when p.status='LOCKED' then 1 + (
+      select count(*)::int
+      from public.planning_job_operation pw
+      where pw.job_num=p.job_num
+        and pw.is_active=true
+        and (pw.status='LOCKED' or coalesce(pw.is_hold,false)=true)
+        and upper(trim(pw.standard_operation))<>'PIONBL'
+        and (
+         coalesce(pw.planning_seq,2147483647),coalesce(pw.source_seq,2147483647),pw.id
+        ) < (
+         coalesce(p.planning_seq,2147483647),coalesce(p.source_seq,2147483647),p.id
+        )
+     )
+     else null
+    end wait_rank,
     case
      when p.status<>'ELIGIBLE' then null
      when nullif(trim(coalesce(prev_ident.previous_operation,'')),'') is null then 'SCHEDULED'
@@ -233,6 +253,7 @@ export async function loadPlanningWorkloadSummary(
    select
     job_num,standard_operation,area_id,area_name,area_sort,main_order,bucket,
     max(ready_previous_schedule) ready_previous_schedule,
+    min(wait_rank) wait_rank,
     max(qty) qty,max(surface) surface
    from base
    where bucket is not null
@@ -240,6 +261,7 @@ export async function loadPlanningWorkloadSummary(
   )
   select
    area_id,area_name,area_sort,standard_operation,main_order,bucket,ready_previous_schedule,
+   case when bucket='WAIT' then case when min(wait_rank)=1 then 'NEXT_MAIN' else 'FUTURE_MAIN' end else null end wait_level,
    count(*)::int jobs,
    coalesce(sum(qty),0)::float8 qty,
    coalesce(sum(surface),0)::float8 surface
@@ -251,7 +273,7 @@ export async function loadPlanningWorkloadSummary(
  const byKey=new Map<string,PlanningWorkloadSummaryRow>();
  const totals:PlanningWorkloadTotals={
   READY:zeroMetric(),READY_PREV_SCHEDULED:zeroMetric(),READY_PREV_UNSCHEDULED:zeroMetric(),
-  WAIT:zeroMetric(),HOLD:zeroMetric()
+  WAIT:zeroMetric(),WAIT_NEXT_MAIN:zeroMetric(),WAIT_FUTURE_MAIN:zeroMetric(),HOLD:zeroMetric()
  };
 
  for(const raw of q.rows as any[]){
@@ -261,7 +283,7 @@ export async function loadPlanningWorkloadSummary(
    row={
     areaId:Number(raw.area_id||0),areaName:String(raw.area_name||"Unmapped"),areaSort:Number(raw.area_sort||999999),
     standardOperation:String(raw.standard_operation||""),mainOrder:Number(raw.main_order||999999),
-    ready:zeroMetric(),readyPrevScheduled:zeroMetric(),readyPrevUnscheduled:zeroMetric(),wait:zeroMetric(),hold:zeroMetric(),total:zeroMetric()
+    ready:zeroMetric(),readyPrevScheduled:zeroMetric(),readyPrevUnscheduled:zeroMetric(),wait:zeroMetric(),waitNextMain:zeroMetric(),waitFutureMain:zeroMetric(),hold:zeroMetric(),total:zeroMetric()
    };
    byKey.set(key,row);
   }
@@ -281,6 +303,13 @@ export async function loadPlanningWorkloadSummary(
   }else if(bucket==="WAIT"){
    addMetric(row.wait,metric);
    addMetric(totals.WAIT,metric);
+   if(String(raw.wait_level||"").toUpperCase()==="NEXT_MAIN"){
+    addMetric(row.waitNextMain,metric);
+    addMetric(totals.WAIT_NEXT_MAIN,metric);
+   }else{
+    addMetric(row.waitFutureMain,metric);
+    addMetric(totals.WAIT_FUTURE_MAIN,metric);
+   }
   }else if(bucket==="HOLD"){
    addMetric(row.hold,metric);
    addMetric(totals.HOLD,metric);
