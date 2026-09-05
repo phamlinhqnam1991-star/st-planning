@@ -356,3 +356,6 @@ Mục tiêu Phase 2: giảm ~600 MB xuống vùng an toàn hơn mà **không là
 - Khi bấm, Job vào Batch đích với Production status **WAITING**, không tự hoàn thành.
 - Nếu còn Main tiếp theo, attention được truyền tiếp theo cùng cơ chế.
 - Không cần migration SQL mới; dùng `planning_handover_change_event` hiện hữu.
+
+## V468 · Cảnh báo thay đổi bởi Sản xuất
+Tab `Cảnh báo thay đổi SX` là màn hình read-only dành cho planner để theo dõi tất cả Job được Production thêm ngoài lô. Mỗi alert hiển thị Job/Part/Qty/Surface, Batch/Main/Recipe/Resource/Schedule bị thay đổi, Batch Qty trước/sau, Next Main, Planner/Batch/Resource đích, trạng thái Attention và audit lý do. Job được truyền tiếp từ Previous Main cũng xuất hiện để nhìn xuyên chuỗi. Không approve hoặc chỉnh Batch/Schedule tại tab này.

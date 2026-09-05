@@ -11,6 +11,7 @@ export type StErpLeafKey=
  |"schedule"
  |"production"
  |"adjustment"
+ |"productionalerts"
  |"import"
  |"guide";
 
@@ -39,6 +40,7 @@ export const ST_ERP_MODULE_GROUPS:StErpModuleGroup[]=[
    {key:"schedule",label:"Board Điều Độ",href:"/schedule",shortLabel:"SC"},
    {key:"production",label:"Production Execution",href:"/production-execution",shortLabel:"PX"},
    {key:"adjustment",label:"Điều chỉnh đầu ngày",href:"/daily-production-adjustment",shortLabel:"DA"},
+   {key:"productionalerts",label:"Cảnh báo thay đổi SX",href:"/production-change-alerts",shortLabel:"PA"},
   ]
  },
  {

@@ -978,5 +978,10 @@ export default async function Page(){
    </Section>
 
   </section>
- </main>;
+ 
+   <Section id="production-change-alerts" title="17 · Cảnh báo thay đổi bởi Sản xuất (V468)"
+    sub="Một tab read-only gom toàn bộ Job Production thêm ngoài lô và ảnh hưởng xuyên Main/Planner/Batch/Resource">
+    <>Tab <b>Cảnh báo thay đổi SX</b> đọc audit từ Production Adjustment + Handover Event. Planner thấy ngay Job/Part/Qty/Surface nào được thêm, Batch/Main/Recipe/Resource nào bị thay đổi, Qty Batch trước/sau, Next Main nào phải nhận, Planner/Batch/Resource downstream, Planned Start và trạng thái Attention. Tab này <b>không sửa dữ liệu</b>; thao tác Production/Điều độ vẫn thực hiện ở màn hình nghiệp vụ tương ứng.</>
+   </Section>
+</main>;
 }
