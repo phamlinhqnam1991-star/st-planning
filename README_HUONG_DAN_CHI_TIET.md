@@ -437,3 +437,10 @@ Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu khô
 - Carry Over / Remove Job còn `PENDING` nhưng Batch/Job đã `DONE` (hoặc không còn thỏa điều kiện) sẽ tự biến mất sau lần quét tiếp theo.
 - `APPROVED` / `REJECTED` và audit `ADD_JOB` không bị xóa.
 - Không thay đổi Batch, Recipe, Scheduling cascade hay Production reporting.
+
+
+## V486 — Dashboard READY split giống Planning Board
+
+- `ST Workload Summary · By Area` trên Dashboard tách `READY` thành hai cột: `READY · Previous Main Scheduled` và `READY · Previous Main Unscheduled / START`.
+- Classifier dùng cùng logic Planning Board: Previous Main có Schedule hoặc đã DONE theo physical progress → Scheduled; Main đầu tiên của chain cũng → Scheduled; plan-ahead chưa handoff → Unscheduled / START.
+- Hai cột READY cộng lại đúng READY tổng. WAIT / PLANNED-UNSCHEDULED / SCHEDULED / HOLD / ST ONLY không đổi.

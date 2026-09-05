@@ -14,6 +14,21 @@ const STATUS_CLASS:Record<StDashboardStatus,string>={
  WAIT:"wait",READY:"ready",PLANNED_UNSCHEDULED:"unscheduled",SCHEDULED:"scheduled",HOLD:"hold",ST_ONLY:"st-only"
 };
 
+const WORKLOAD_COLUMN_ORDER=["WAIT","READY_PREV_SCHEDULED","READY_PREV_UNSCHEDULED","PLANNED_UNSCHEDULED","SCHEDULED","HOLD","ST_ONLY"] as const;
+type DashboardWorkloadColumn=(typeof WORKLOAD_COLUMN_ORDER)[number];
+const WORKLOAD_COLUMN_LABEL:Record<DashboardWorkloadColumn,string>={
+ WAIT:"WAIT",
+ READY_PREV_SCHEDULED:"READY · Previous Main Scheduled",
+ READY_PREV_UNSCHEDULED:"READY · Previous Main Unscheduled / START",
+ PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",
+ SCHEDULED:"SCHEDULED",
+ HOLD:"HOLD",
+ ST_ONLY:"ST ONLY"
+};
+const WORKLOAD_COLUMN_CLASS:Record<DashboardWorkloadColumn,string>={
+ WAIT:"wait",READY_PREV_SCHEDULED:"ready",READY_PREV_UNSCHEDULED:"ready",PLANNED_UNSCHEDULED:"unscheduled",SCHEDULED:"scheduled",HOLD:"hold",ST_ONLY:"st-only"
+};
+
 function fmt(v:number,max=1){return new Intl.NumberFormat("en-US",{maximumFractionDigits:max}).format(Number(v||0));}
 function metricLines(m:StDashboardMetric){return <><b>{fmt(m.surface)} dm²</b><span>{fmt(m.qty,0)} pcs</span><span>{fmt(m.jobs,0)} Job</span></>;}
 function chartTypeTag(type:StDashboardImmediateRow["operationType"]){return type==="INTERMEDIATE"?"IMMEDIATE":type==="ST_SCOPE_ONLY"?"ST ONLY":"MAIN";}
@@ -149,19 +164,19 @@ function AreaWorkloadTable({area}:{area:StDashboardAreaRow}){
    {STATUS_ORDER.map(status=><article key={status} className={`st-dashboard-kpi ${STATUS_CLASS[status]}`}><small>{STATUS_LABEL[status]}</small>{metricLines(area.statuses[status])}</article>)}
   </section>
   <div className="table-wrap st-dashboard-main-wrap"><table className="erp-table st-dashboard-main-table st-dashboard-area-main-table">
-   <thead><tr><th>Current Main / ST Only</th><th>Recipe No</th><th>Recipe Name</th>{STATUS_ORDER.map(s=><th key={s}>{STATUS_LABEL[s]}</th>)}<th>Total</th></tr></thead>
+   <thead><tr><th>Current Main / ST Only</th><th>Recipe No</th><th>Recipe Name</th>{WORKLOAD_COLUMN_ORDER.map(s=><th key={s}>{WORKLOAD_COLUMN_LABEL[s]}</th>)}<th>Total</th></tr></thead>
    <tbody>{area.mainRows.flatMap(row=>{
     const key=`${row.areaId}-${row.standardOperation}`;
     const main=<tr key={`${key}-total`} className="st-dashboard-main-total-row">
      <td><b>{row.standardOperation}</b></td><td>—</td><td><b>MAIN TOTAL</b><small>{fmt(row.recipes.length,0)} Recipe groups</small></td>
-     {STATUS_ORDER.map(s=><td key={s}><div className={`st-dashboard-metric-cell ${STATUS_CLASS[s]}`}>{metricLines(row[s])}</div></td>)}
+     {WORKLOAD_COLUMN_ORDER.map(s=><td key={s}><div className={`st-dashboard-metric-cell ${WORKLOAD_COLUMN_CLASS[s]}`}>{metricLines(row[s])}</div></td>)}
      <td><div className="st-dashboard-metric-cell total">{metricLines(row.total)}</div></td>
     </tr>;
     const recipes=row.recipes.map((recipe,index)=><tr key={`${key}-${recipe.recipeKey}-${index}`} className="st-dashboard-recipe-row">
      <td><span className="st-dashboard-recipe-indent">↳</span></td>
      <td><b className="mono">{recipe.recipeNo||"—"}</b></td>
      <td>{recipe.recipeName||"No Recipe"}</td>
-     {STATUS_ORDER.map(s=><td key={s}><div className={`st-dashboard-metric-cell ${STATUS_CLASS[s]}`}>{metricLines(recipe[s])}</div></td>)}
+     {WORKLOAD_COLUMN_ORDER.map(s=><td key={s}><div className={`st-dashboard-metric-cell ${WORKLOAD_COLUMN_CLASS[s]}`}>{metricLines(recipe[s])}</div></td>)}
      <td><div className="st-dashboard-metric-cell total">{metricLines(recipe.total)}</div></td>
     </tr>);
     return [main,...recipes];
