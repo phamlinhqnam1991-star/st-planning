@@ -250,6 +250,11 @@ async function loadBatchJobNumbers(c:PoolClient,batchIds:number[]){
  return map;
 }
 
+// V488: Production-added membership is a durable Batch + Job fact.
+// Do not key the display flag only by planning_job_operation_id because a
+// future-ST materialization/reconciliation can replace the occurrence id while
+// the Job remains the same member of the same Batch. Matching approved ADD_JOB
+// audit rows by Batch + Job keeps every Production-added Job visible together.
 async function loadBatchJobDetails(c:PoolClient,batchIds:number[]){
  if(!batchIds.length)return new Map<number,RawJobDetail[]>();
  const q=await c.query(`
@@ -266,9 +271,12 @@ async function loadBatchJobDetails(c:PoolClient,batchIds:number[]){
    exists(
     select 1 from public.production_adjustment_item pai
     where pai.batch_id=bj.batch_id
-      and pai.planning_job_operation_id=bj.planning_job_operation_id
       and pai.item_type='ADD_JOB'
       and pai.status='APPROVED'
+      and (
+       upper(trim(coalesce(pai.job_num,'')))=upper(trim(bj.job_num))
+       or (coalesce(trim(pai.job_num),'')='' and pai.planning_job_operation_id=bj.planning_job_operation_id)
+      )
    ) is_added_job
   from public.planning_batch_job bj
   join public.planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'

@@ -455,3 +455,12 @@ Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu khô
 - Có hay không có Masking/Unmasking không ảnh hưởng propagation: hệ thống vẫn tạo Attention cho tất cả Main Planning phía sau theo route thật.
 - Production page refresh server state sau Add/Accept để Preparation mới xuất hiện ngay.
 - Không có SQL migration mới.
+
+
+## V488 — Production Add Job giữ danh sách cộng dồn
+
+- `Jobs added during production` là danh sách cộng dồn theo **Batch + Job**, không phải chỉ Job thêm gần nhất.
+- Thêm Job B/C không được làm mất Job A đã thêm trước nếu A vẫn còn membership trong Batch.
+- Cờ Production-added đọc audit `ADD_JOB APPROVED` theo Batch + Job để không phụ thuộc vào occurrence id có thể thay đổi khi Future ST được reconciliation.
+- Refresh sau Add Job vẫn phải giữ đủ các Job Production-added đang thuộc Batch.
+- Logic & Guide và Training đã cập nhật đồng bộ. Không có SQL migration mới.

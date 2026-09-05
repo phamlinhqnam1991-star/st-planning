@@ -1,4 +1,4 @@
-// V483 full VI/EN audit: bidirectional conflicts removed, risky phrase fragments guarded, canonical EN-first labels normalized.
+// V488 Production-added Job persistence: all added Jobs remain visible together per Batch after subsequent adds/refreshes.
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
 import {getPool} from "@/lib/db";
@@ -6,7 +6,7 @@ import {getPool} from "@/lib/db";
 export const dynamic="force-dynamic";
 
 // =====================================================================
-// LOGIC & HƯỚNG DẪN v474
+// LOGIC & HƯỚNG DẪN v488
 // Tài liệu vận hành nằm ngay trong app. Nội dung mô tả SOURCE OF TRUTH,
 // trình tự thao tác, dependency và impact của từng tab theo code hiện tại.
 // Phần "Mapping đang chạy" đọc trực tiếp database để đối chiếu cấu hình thật.
@@ -784,6 +784,7 @@ export default async function Page(){
      <Rule title="Production Add Job trực tiếp · V465/V466/V484" tone="important">Ở mọi khu vực, nút <b>Add Job</b> nằm ngay cạnh Batch No. và chỉ khi bấm mới mở ô nhập Job Number + nút Save. Hệ thống lookup thông tin Job và validate; nếu hợp lệ thì thêm trực tiếp vào <code>planning_batch_job</code>, <b>không cần approve</b> ở Daily Production Adjustment. Input đóng lại sau khi Save thành công.</Rule>
      <Rule title="All downstream Main Attention · V484" tone="important">Sau khi Production thêm Job ngoài lô ở Main hiện tại, hệ thống dùng <b>route thật của Job</b> và tạo Attention cho <b>tất cả Main Planning phía sau</b>, không chỉ Main kế tiếp đầu tiên. Mỗi downstream Main dùng overlap Job của Batch nguồn để tìm Batch đích phù hợp; nếu chưa có Batch thì event vẫn được ghi ở trạng thái chờ Batch. Trên Production Report, Attention hiển thị <b>Job · Source Batch · Source Main → Downstream Main · Recipe No. · Recipe Name</b>. Nếu Batch đích nhận Job, Job được thêm ở trạng thái WAITING, không tự DONE. Không hard-code BSA → PRIMER.</Rule>
      <Rule title="Future ST Job + Preparation tự động · V487" tone="important">Job có thể đang ở bộ phận khác nên <b>RAW NextOperation chưa tới ST</b>, nhưng nếu Main của Batch tồn tại trong <b>current/future ST routing thật của Job</b> thì Shift Supervisor vẫn được Add Job. Server tự rebuild <b>riêng Job đó</b> từ AllOperation để materialize Planning Chain; không hard-code CPBILP hay bất kỳ Main nào. Nếu Production xác nhận Job vào một Main phía sau và còn các Main ST trước đó chưa có Batch, các Main chưa thực hiện này được đưa ra khỏi live chain và Production entry được giữ đến khi RAW position bắt kịp. RAW NextOperation trong All Open Job không bị sửa. Sau khi Add/Accept thành công, nếu Target Main có Masking/Unmasking theo resolver strict hiện tại, Job được đưa <b>ngay</b> vào các dòng Preparation của Báo cáo sản xuất ở trạng thái <b>WAITING</b>; trạng thái DONE cũ của các Job khác không được kế thừa cho Job mới. Đồng thời Attention vẫn được tạo cho <b>tất cả downstream Main</b> bất kể Current/Downstream Main có Masking/Unmasking hay không.</Rule>
+     <Rule title="Giữ đầy đủ lịch sử Job thêm trong Production · V488" tone="important">Mỗi Job được Production Add vào một Batch là một fact độc lập theo <b>Batch + Job</b>. Khi thêm Job thứ 2, thứ 3... danh sách <b>Jobs added during production</b> phải cộng dồn và giữ toàn bộ Job đã thêm trước đó; không được thay thế bằng Job mới nhất. Cờ hiển thị Production-added đọc từ audit <code>ADD_JOB APPROVED</code> theo Batch + Job, không phụ thuộc duy nhất vào <code>planning_job_operation_id</code>, vì Future ST reconciliation có thể thay occurrence id. Router refresh chỉ làm mới dữ liệu; nếu Job vẫn còn membership trong cùng Batch thì nhãn Production-added của Job đó phải được giữ.</Rule>
      <Rule title="Production-added Job phải tồn tại sau reload · V469" tone="important">Painting/Chemical Line vẫn báo cáo theo Batch, nhưng Job membership của mọi Batch đều được load từ <code>planning_batch_job</code>. Vì vậy Job Production-added vẫn hiển thị đúng dưới Batch sau khi đổi tab, tạo thêm Batch khác hoặc reload trang; không còn phụ thuộc state tạm của UI.</Rule>
      <Rule title="Hiệu năng tải trang · V437">Production Execution dùng cùng resolver Masking/Unmasking đã thu hẹp theo ngày/Batch/Part-Rev và không còn chạy thêm một vòng <code>array_agg</code> Job Number theo từng Batch; Job Number được tái sử dụng từ Batch Job detail đã tải. Business status WAITING/ON-GOING/DONE không đổi.</Rule>
     </div>

@@ -17,7 +17,15 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
  const {locale,text}=useUiLanguage();
  const router=useRouter();
  const [items,setItems]=useState(initialItems);
- useEffect(()=>setItems(initialItems),[initialItems]);
+ // V488: router.refresh() after Add Job must not make an already-added Job lose
+ // its Production-added badge while the refreshed server payload is reconciling
+ // a future-ST planning occurrence. Only preserve the flag for a Job that is
+ // still present in the same Batch/source row; membership itself always comes
+ // from the server payload.
+ useEffect(()=>setItems(prev=>{
+  const added=new Set(prev.flatMap(item=>item.jobDetails.filter(j=>j.isAddedJob).map(j=>`${item.sourceType}|${item.batchId}|${j.jobNum.trim().toUpperCase()}`)));
+  return initialItems.map(item=>({...item,jobDetails:item.jobDetails.map(j=>added.has(`${item.sourceType}|${item.batchId}|${j.jobNum.trim().toUpperCase()}`)?{...j,isAddedJob:true}:j)}));
+ }),[initialItems]);
  const [search,setSearch]=useState("");
  const [status,setStatus]=useState<"ALL"|ProductionExecutionStatus>("ALL");
  const [reportGroup,setReportGroup]=useState<GroupFilter>("ALL");
@@ -425,7 +433,7 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
     </tr>;
     const addedJobs=item.jobDetails.filter(d=>d.isAddedJob);
     const addedRow=addedJobs.length?<tr key={`${k}__added`} className="production-detail-row production-added-job-row"><td colSpan={13}>
-     <div className="notice" style={{margin:0}}><b>{text("Jobs added during production","Job thêm mới trong sản xuất")}:</b> {addedJobs.map(d=>`${d.jobNum}${d.partDescription?` · ${d.partDescription}`:""} · Qty ${d.currentGoodWipQty??"—"}`).join("  |  ")}</div>
+     <div className="notice" style={{margin:0}}><b>{text("Jobs added during production","Job thêm mới trong sản xuất")} ({addedJobs.length}):</b> {addedJobs.map(d=>`${d.jobNum}${d.partDescription?` · ${d.partDescription}`:""} · Qty ${d.currentGoodWipQty??"—"}`).join("  |  ")}</div>
     </td></tr>:null;
     const attentionRow=item.sourceType==="BATCH"&&item.nextMainAttentions.length?<tr key={`${k}__next_attention`} className="production-detail-row production-next-main-attention-row"><td colSpan={13}>
      <div className="notice warning" style={{margin:0,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
