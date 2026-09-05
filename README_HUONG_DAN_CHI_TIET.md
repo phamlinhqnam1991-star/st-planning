@@ -359,3 +359,6 @@ Mục tiêu Phase 2: giảm ~600 MB xuống vùng an toàn hơn mà **không là
 
 ## V468 · Cảnh báo thay đổi bởi Sản xuất
 Tab `Cảnh báo thay đổi SX` là màn hình read-only dành cho planner để theo dõi tất cả Job được Production thêm ngoài lô. Mỗi alert hiển thị Job/Part/Qty/Surface, Batch/Main/Recipe/Resource/Schedule bị thay đổi, Batch Qty trước/sau, Next Main, Planner/Batch/Resource đích, trạng thái Attention và audit lý do. Job được truyền tiếp từ Previous Main cũng xuất hiện để nhìn xuyên chuỗi. Không approve hoặc chỉnh Batch/Schedule tại tab này.
+
+## V469 — Job thêm bởi Production không mất sau khi reload
+Ở Painting/Chemical Line vẫn báo cáo theo dòng Batch. Tuy nhiên hệ thống luôn tải membership Job của Batch để các Job được Production thêm ngoài kế hoạch tiếp tục hiện bên dưới dòng Batch sau khi đổi tab, tạo thêm Batch khác hoặc reload trang. Đây chỉ là dữ liệu hiển thị/audit; không đổi sang báo cáo trạng thái theo từng Job ở các khu vực LINE.

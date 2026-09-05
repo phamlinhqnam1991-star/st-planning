@@ -439,8 +439,12 @@ export async function loadProductionExecution(
   ...batchRows.map(x=>Number(x.row.batch_id)),
   ...supportAggregates.flatMap(([,groups])=>groups.map(g=>Number(g.first.batchId)))
  ].filter(Number.isFinite))];
+ // V469: load Batch Job details for EVERY scheduled Batch, including LINE-report
+ // areas (Painting/Chemical Line). Production-added Jobs are rendered from
+ // jobDetails. Previously LINE batches were excluded here, so the added Job
+ // appeared only in local client state and disappeared after any server reload.
  const detailBatchIds=[...new Set<number>([
-  ...batchRows.filter(x=>x.mode==="JOB").map(x=>Number(x.row.batch_id)),
+  ...batchRows.map(x=>Number(x.row.batch_id)),
   ...supportAggregates.flatMap(([,groups])=>groups.map(g=>Number(g.first.batchId)))
  ].filter(Number.isFinite))];
  const lineBatchIds=batchRows.filter(x=>x.mode==="LINE").map(x=>Number(x.row.batch_id)).filter(Number.isFinite);
@@ -459,7 +463,11 @@ export async function loadProductionExecution(
   const sourceType:ProductionExecutionSource="BATCH";
   const sourceKey=keyForBatch(batchId);
   const parent=execution.get(`${sourceType}|${sourceKey}`);
-  const details=batchRow.mode==="JOB"?(batchJobDetails.get(batchId)||[]).map(d=>jobExecution(d,sourceType,sourceKey,parent,jobExecutionState.map,jobExecutionState.sources)):[];
+  // V469: keep Job membership details even for LINE-report batches so
+  // Production-added Jobs survive navigation/reload and remain visible under
+  // the Batch row. Reporting granularity is still LINE for Painting/Chemical
+  // Line; this does NOT enable per-Job status reporting there.
+  const details=(batchJobDetails.get(batchId)||[]).map(d=>jobExecution(d,sourceType,sourceKey,parent,jobExecutionState.map,jobExecutionState.sources));
   const summary=batchRow.mode==="LINE"?parentExecutionSummary(parent):workExecutionSummary(sourceType,sourceKey,details,execution);
   work.push({
    sourceType,sourceKey,batchId,
