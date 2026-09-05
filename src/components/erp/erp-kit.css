@@ -3129,7 +3129,12 @@
 .erpkit-migrated-page .st-dashboard-workload-head.is-st-only{background:#f7faf6!important;color:#587356!important}
 .erpkit-migrated-page .st-dashboard-workload-head.is-total{background:#f4f6f8!important;color:#3f5368!important}
 .erpkit-migrated-page .schedule-area-ready-breakdown{display:grid;gap:2px;margin-top:3px;min-width:220px}
-.erpkit-migrated-page .schedule-area-ready-breakdown>span{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 4px;border:1px solid #cfe3d6;border-radius:3px;background:#f8fcf9;color:#315e42;font-size:6.1px;line-height:1.2}
-.erpkit-migrated-page .schedule-area-ready-breakdown.is-unscheduled>span{border-color:#ddebe1;background:#fbfdfb;color:#607a68}
+.erpkit-migrated-page .schedule-area-ready-breakdown>button{appearance:none;width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 4px;border:1px solid #cfe3d6;border-radius:3px;background:#f8fcf9;color:#315e42;font-size:6.1px;line-height:1.2;text-align:left;cursor:pointer}
+.erpkit-migrated-page .schedule-area-ready-breakdown.is-unscheduled>button{border-color:#ddebe1;background:#fbfdfb;color:#607a68}
+.erpkit-migrated-page .schedule-area-ready-breakdown>button:hover{filter:brightness(.985);border-color:#aebfd0}
+.erpkit-migrated-page .schedule-area-ready-breakdown>button:focus-visible{outline:2px solid #5f86ad;outline-offset:1px}
 .erpkit-migrated-page .schedule-area-ready-breakdown b{font-size:6.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:132px}
 .erpkit-migrated-page .schedule-area-ready-breakdown em{font-style:normal;color:inherit;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* V499 · Recipe selection stays on existing detail lines, not MAIN TOTAL.
+   READY detail lines are clickable like WAIT · Next Main breakdown lines. */

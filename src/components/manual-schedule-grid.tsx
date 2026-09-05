@@ -1295,6 +1295,7 @@ export function ManualScheduleGrid({
   </div>;
  }
 
+
  function workloadReadyMainRecipeBreakdown(
   metric:ScheduleWorkloadMetric|undefined,
   status:"READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED",
@@ -1307,9 +1308,10 @@ export function ManualScheduleGrid({
   const recipeLabel=filter.recipeNo||"—";
   const recipeName=filter.recipeName||"No Recipe";
   return <div className={`schedule-area-ready-breakdown${unscheduled?" is-unscheduled":""}`} aria-label={`${workloadLabel[status]} breakdown by READY Main Recipe`}>
-   <span title={`${readyMain} · ${recipeLabel} · ${recipeName} · ${fmt(m.surface)} dm² · ${fmt(m.qty,0)} pcs · ${fmt(m.jobs,0)} Job`}>
+   <button type="button" title={`Mở ${readyMain} · Recipe ${recipeLabel} · ${recipeName} · ${fmt(m.surface)} dm² · ${fmt(m.qty,0)} pcs · ${fmt(m.jobs,0)} Job`}
+    onClick={(e)=>{e.stopPropagation();openWorkloadQuickView({...filter,status,previousMain:""});}}>
     <b>→ {readyMain} · {recipeLabel}</b><em>{fmt(m.jobs,0)} Job · {fmt(m.qty,0)} pcs · {fmt(m.surface)} dm²</em>
-   </span>
+   </button>
   </div>;
  }
  function renderScheduleAreaWorkload(
