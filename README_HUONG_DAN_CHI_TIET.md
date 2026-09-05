@@ -506,3 +506,10 @@ Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu khô
 - Tạo/thêm Batch gọi lại canonical `/api/planning/batch`, vì vậy recipe compatibility, batch size/auto split, permission/scope và rule mở đúng một Next Main vẫn giữ nguyên.
 - Sau mutation, popup và Scheduling Workload refresh lại từ server.
 - Logic & Guide và Training được cập nhật song song. Không có SQL migration mới.
+
+
+## V493 · Planning Board Quick View column filters
+- Scheduling Board → ST Workload Summary → Planning Board Quick View có nút filter trên từng cột dữ liệu.
+- Hỗ trợ lọc đồng thời nhiều cột: Job, Part/Rev, Description, Qty, dm², Priority, Previous Main, Main, Recipe No/Name, Next Main, Next Recipe No/Name, Batch.
+- Check-all chỉ chọn các dòng đang hiển thị sau lọc; selection thủ công và canonical Batch API giữ nguyên.
+- Clear filters trả popup về toàn bộ Job của card. Không đổi READY/WAIT/HOLD hay Batch/Scheduling logic.

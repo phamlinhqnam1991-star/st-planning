@@ -8195,6 +8195,21 @@
       "en": "Job in card",
       "vi": "Job trong card",
       "mode": "exact"
+    },
+    {
+      "en": "Clear filters",
+      "vi": "Xóa bộ lọc",
+      "mode": "exact"
+    },
+    {
+      "en": "Filter...",
+      "vi": "Lọc...",
+      "mode": "exact"
+    },
+    {
+      "en": "No Job matches the active column filters.",
+      "vi": "Không có Job nào khớp với các bộ lọc cột đang áp dụng.",
+      "mode": "exact"
     }
   ]
 }

@@ -3112,3 +3112,21 @@
 .erpkit-migrated-page .schedule-workload-quick-table{min-width:1780px;font-size:10px}.erpkit-migrated-page .schedule-workload-quick-table th{position:sticky;top:0;z-index:2;background:#f4f7fa;white-space:nowrap}.erpkit-migrated-page .schedule-workload-quick-table td{vertical-align:top}.erpkit-migrated-page .schedule-workload-quick-table .quick-pick{width:34px;text-align:center}.erpkit-migrated-page .schedule-workload-quick-table input[type="checkbox"]{width:14px;height:14px}
 .erpkit-migrated-page .schedule-workload-quick-actions{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;border-top:1px solid #e3e8ef;padding-top:8px}.erpkit-migrated-page .schedule-workload-quick-target{display:flex;align-items:flex-end;gap:8px;min-width:0;flex:1}.erpkit-migrated-page .schedule-workload-quick-target label{display:grid;gap:3px;min-width:280px;max-width:700px;flex:1;font-size:10px;font-weight:700;color:#475467}.erpkit-migrated-page .schedule-workload-quick-target .input{width:100%}
 @media(max-width:760px){.erpkit-migrated-page .schedule-workload-quick-backdrop{padding:8px;align-items:flex-end}.erpkit-migrated-page .schedule-workload-quick-modal{width:100%;max-height:92vh;border-radius:8px 8px 0 0}.erpkit-migrated-page .schedule-workload-quick-actions,.erpkit-migrated-page .schedule-workload-quick-target{align-items:stretch;flex-direction:column}.erpkit-migrated-page .schedule-workload-quick-target label{min-width:0;max-width:none;width:100%}.erpkit-migrated-page .schedule-workload-quick-actions .btn{width:100%}}
+
+/* V493 · Planning Board Quick View column filters.
+   Each data column has an explicit filter button. Opening a filter expands only
+   that header cell; multiple filter values can stay active at the same time. */
+.erpkit-migrated-page .schedule-workload-quick-filter-head{display:grid;gap:4px;min-width:72px}
+.erpkit-migrated-page .schedule-workload-quick-filter-label{display:flex;align-items:center;justify-content:space-between;gap:5px;min-width:0}
+.erpkit-migrated-page .schedule-workload-quick-filter-label>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.erpkit-migrated-page .schedule-workload-quick-filter-btn{
+ width:19px;height:19px;min-width:19px;padding:0;border:1px solid #c9d4e0;border-radius:3px;background:#fff;color:#52667b;
+ display:inline-flex;align-items:center;justify-content:center;font:700 11px/1 Arial,sans-serif;cursor:pointer;
+}
+.erpkit-migrated-page .schedule-workload-quick-filter-btn:hover{background:#eef4fa;border-color:#9fb5cb;color:#234d74}
+.erpkit-migrated-page .schedule-workload-quick-filter-btn:focus-visible{outline:2px solid #2f6eb6;outline-offset:1px}
+.erpkit-migrated-page .schedule-workload-quick-filter-head.has-filter .schedule-workload-quick-filter-btn{background:#dfeefb;border-color:#6f9bc7;color:#164f7e}
+.erpkit-migrated-page .schedule-workload-quick-filter-input{display:flex;align-items:center;gap:3px;min-width:118px}
+.erpkit-migrated-page .schedule-workload-quick-filter-input .input{height:26px;min-width:105px;padding:3px 6px;font-size:10px;font-weight:400;background:#fff}
+.erpkit-migrated-page .schedule-workload-quick-filter-input .btn{height:26px;min-width:26px;padding:0 5px}
+.erpkit-migrated-page .schedule-workload-quick-summary .btn{margin-left:auto}
