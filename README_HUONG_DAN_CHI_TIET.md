@@ -332,14 +332,16 @@ Mục tiêu Phase 2: giảm ~600 MB xuống vùng an toàn hơn mà **không là
 - Planning Board vẫn gộp nhiều Batch No trong cùng ô bằng dấu `&`; Scheduling/Preparation/Production vẫn tách từng Batch.
 
 
-## V464 — Daily Production Adjustment + Universal Add Job
+## V465 — Direct Production Add Job + Added-Job Audit
 - Thêm tab **Điều chỉnh đầu ngày** trong nhóm Vận hành.
 - Production day giữ chuẩn 06:00 → 05:59 hôm sau. Production Report không tự sửa Planning/Schedule.
-- Quét báo cáo để tạo đề xuất: **CARRY_OVER**, **REMOVE_JOB**, **ADD_JOB**.
+- Quét báo cáo để tạo đề xuất **CARRY_OVER** và **REMOVE_JOB**; **ADD_JOB từ Production được thêm trực tiếp**, không chờ approve.
 - Carry Over mặc định sang đầu ngày kế tiếp và bắt buộc Preview trước khi duyệt.
 - Preview chạy hai chiều ảnh hưởng cần thiết: **Cross-Main Dependency** (kể cả planner khác) + **Resource Cascade**.
 - Chỉ khi planner bấm Duyệt mới commit; schedule cũ được giữ dạng CANCELLED để audit và tạo schedule active mới.
-- Production Execution có ô **Extra Job** ngay trên từng Batch để báo Job hoàn thành ngoài lô; hệ thống tạo đề xuất Add Job, không thêm thẳng.
+- Production Execution có ô **Extra Job** ngay trên từng Batch; chỉ nhập Job Number rồi bấm Thêm/Enter. Job hợp lệ được thêm trực tiếp vào Batch và hiện ngay dưới dòng Batch với nhãn Job thêm mới.
 - Batch Detail có **Add Job nhanh** dùng chung tất cả khu vực: chỉ nhập Job Number, tự lookup Part/Rev/Qty/Surface/Main/Operation/Recipe/Status và validate.
-- ADD_JOB từ thực tế sản xuất hỗ trợ **Duyệt ngoại lệ** khi có mismatch cần audit; thao tác Add Job thông thường vẫn giữ validation chặt hiện tại.
+- Tab **Điều chỉnh đầu ngày** không duyệt ADD_JOB nữa; chỉ hiển thị thông báo/audit Batch + Job đã được Production thêm. Validation vẫn chặn Recipe mismatch, Job đang ở Batch active khác hoặc vượt Batch Size cấu hình.
 - Migration mới: `078_daily_production_adjustment.sql`, tối đa 4 SQL statements theo giới hạn executor.
+
+- V465 sửa lỗi ô nhập Extra Job mất focus: gõ liên tục không cần click lại sau từng ký tự.

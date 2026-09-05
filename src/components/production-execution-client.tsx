@@ -133,9 +133,17 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
     action:"REPORT_EXTRA_JOB",production_date:productionDate,batch_id:item.batchId,job_num:job,
     actual_start:item.actualStart,actual_end:item.actualEnd
    })});
-   const d=await safeJson(r);if(!r.ok)throw new Error(d?.error||text("Unable to create Add Job proposal.","Không tạo được đề xuất Add Job."));
+   const d=await safeJson(r);if(!r.ok)throw new Error(d?.error||text("Unable to add Job to Batch.","Không thêm được Job vào lô."));
+   const added=d?.addedJob as ProductionJobDetail|undefined;
+   setItems(prev=>prev.map(x=>x.batchId===item.batchId&&x.sourceType==="BATCH"?{
+    ...x,
+    jobs:added&&!x.jobNumbers.includes(added.jobNum)?x.jobs+1:x.jobs,
+    qty:Number(d?.batchTotals?.qty??x.qty),surface:Number(d?.batchTotals?.surface??x.surface),
+    jobNumbers:added&&!x.jobNumbers.includes(added.jobNum)?[...x.jobNumbers,added.jobNum]:x.jobNumbers,
+    jobDetails:added&&!x.jobDetails.some(j=>j.planningJobOperationId===added.planningJobOperationId)?[...x.jobDetails,added]:x.jobDetails
+   }:x));
    setExtraJobByBatch(prev=>({...prev,[item.batchId]:""}));
-   pushAppToast(text(`Proposal created: add ${job} to ${item.batchNo}.`,`Đã tạo đề xuất thêm ${job} vào ${item.batchNo}.`));
+   pushAppToast(text(`Added ${job} directly to ${item.batchNo}.`,`Đã thêm trực tiếp ${job} vào ${item.batchNo}.`));
   }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
   finally{setBusy("");}
  }
@@ -329,7 +337,7 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
     const mainRow=<tr key={k} className={`production-row production-batch-row ${rowIndex>0?"production-batch-start":""} production-batch-${rowIndex%2?"odd":"even"} production-row-${statusClass(item.status)}`}>
      <td><span className={`production-source source-${item.sourceType.toLowerCase()}`}>{sourceLabel(item.sourceType)}</span>{item.sourceType!=="BATCH"?<small className="planning-sub">{item.linkedMainOperation}</small>:null}</td>
      <td>{item.area||"—"}</td><td className="mono">{item.resource||"—"}</td>
-     <td><b className="mono production-batch-no">{item.batchNo||`#${item.batchId}`}</b>{item.sourceType==="BATCH"?<div className="production-extra-job" style={{display:"flex",gap:4,marginTop:6,minWidth:170}}><input className="input" style={{minWidth:100}} value={extraJobByBatch[item.batchId]||""} onChange={e=>setExtraJobByBatch(v=>({...v,[item.batchId]:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")reportExtraJob(item);}} placeholder={text("Extra Job","Job ngoài lô")}/><button type="button" className="btn small" disabled={busy===`EXTRA|${item.batchId}`} onClick={()=>reportExtraJob(item)}>+</button></div>:null}</td>
+     <td><b className="mono production-batch-no">{item.batchNo||`#${item.batchId}`}</b>{item.sourceType==="BATCH"?<div className="production-extra-job" style={{display:"flex",gap:6,marginTop:6,minWidth:230}}><input className="input" style={{minWidth:150}} value={extraJobByBatch[item.batchId]||""} autoComplete="off" onChange={e=>setExtraJobByBatch(v=>({...v,[item.batchId]:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();reportExtraJob(item);}}} placeholder={text("Enter Job No.","Nhập Job No.")}/><button type="button" className="btn small" disabled={busy===`EXTRA|${item.batchId}`} onClick={()=>reportExtraJob(item)}>{busy===`EXTRA|${item.batchId}`?"…":text("Add","Thêm")}</button></div>:null}</td>
      <td><span title={recipe}>{recipe}</span></td>
      <td className="num"><b>{item.jobs}</b></td>
      <td className="num">{fmt(item.qty,0)}</td><td className="num">{fmt(item.surface)}</td>
@@ -338,9 +346,13 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
      <td className="production-note-cell">{item.reportMode==="LINE"?<><input className="input production-note-input" maxLength={500} value={item.remark||""} disabled={busy===noteKey} placeholder={text("Production note...","Ghi chú sản xuất...")} onChange={e=>{const value=e.target.value;setItems(prev=>prev.map(x=>x.sourceType===item.sourceType&&x.sourceKey===item.sourceKey?{...x,remark:value}:x));}} onBlur={e=>saveLineRemark(item,e.currentTarget.value)} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}} aria-label={text(`Note for Batch ${item.batchNo}`,`Ghi chú cho Batch ${item.batchNo}`)}/>{busy===noteKey?<small>{text("Saving...","Đang lưu...")}</small>:null}</>:<small className="production-job-level-note">{text("Notes are entered by Job","Ghi chú theo từng Job")}</small>}</td>
      <td className="production-report-cell">{item.reportMode==="LINE"?<><select className={`input production-status-select ${statusClass(item.status)}`} disabled={busy===lineKey} value={item.status} onChange={e=>setLineExecution(item,e.target.value as ProductionExecutionStatus)} aria-label={text(`Production status for Batch ${item.batchNo}`,`Trạng thái sản xuất Batch ${item.batchNo}`)}>{statusOrder.map(s=><option key={s} value={s}>{statusLabel(s)}</option>)}</select>{busy===lineKey?<small>{text("Saving...","Đang lưu...")}</small>:null}</>:<small className="production-job-level-note">{text("Report by Job","Báo cáo theo Job")}</small>}</td>
     </tr>;
-    if(item.reportMode!=="JOB"||!item.jobDetails.length)return [mainRow];
-    const detailRow=<tr key={`${k}__detail`} className="production-detail-row"><td colSpan={13}><DetailTable item={item}/></td></tr>;
-    return [mainRow,detailRow];
+    const addedJobs=item.jobDetails.filter(d=>d.isAddedJob);
+    const addedRow=addedJobs.length?<tr key={`${k}__added`} className="production-detail-row production-added-job-row"><td colSpan={13}>
+     <div className="notice" style={{margin:0}}><b>{text("Jobs added during production","Job thêm mới trong sản xuất")}:</b> {addedJobs.map(d=>`${d.jobNum}${d.partDescription?` · ${d.partDescription}`:""} · Qty ${d.currentGoodWipQty??"—"}`).join("  |  ")}</div>
+    </td></tr>:null;
+    if(item.reportMode!=="JOB"||!item.jobDetails.length)return addedRow?[mainRow,addedRow]:[mainRow];
+    const detailRow=<tr key={`${k}__detail`} className="production-detail-row"><td colSpan={13}>{DetailTable({item})}</td></tr>;
+    return addedRow?[mainRow,addedRow,detailRow]:[mainRow,detailRow];
    })}</tbody>
   </table></div>;
  }
@@ -448,7 +460,7 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
 
   <div className="production-area-stack">{grouped.map(group=><section className={`erp-table-panel production-area-panel area-tone-${group.tone}`} key={group.key}>
    <div className="erp-panel-head production-area-head"><div className="production-area-title"><b>{group.title||"—"}</b><small>{group.subtitle}</small></div></div>
-   {group.key.startsWith("MASK_UNMASK|")?<SupportWorkTable rows={group.rows}/>:<WorkTable rows={group.rows}/>}
+   {group.key.startsWith("MASK_UNMASK|")?SupportWorkTable({rows:group.rows}):WorkTable({rows:group.rows})}
   </section>)}</div>
  </div>;
 }

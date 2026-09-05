@@ -148,28 +148,37 @@ export async function POST(req:NextRequest){
    if(!batchId||!jobNum)throw new Error("Cần Batch No. và Job Number.");
    const set=await ensureAdjustmentSet(c,date);const row=await findJobForBatch(c,batchId,jobNum);
    if(!row)throw new Error(`Không tìm thấy Job ${jobNum}.`);
-   const issues:string[]=[];let validation="OK";
-   if(!row.planning_job_operation_id){issues.push(`Job không có Main ${row.batch_standard_operation||"của Batch"}.`);validation="BLOCKED";}
-   if(row.in_this_batch){issues.push("Job đã nằm trong Batch; không phải Extra Job.");validation="BLOCKED";}
-   if(row.other_batch_no){issues.push(`Job đang thuộc Batch ${row.other_batch_no}.`);validation="WARNING";}
-   if(row.planning_job_operation_id&&row.batch_recipe_key){
+   if(!row.planning_job_operation_id)throw new Error(`Job không có Main ${row.batch_standard_operation||"của Batch"}.`);
+   if(row.in_this_batch)throw new Error("Job đã nằm trong Batch.");
+   if(row.other_batch_no)throw new Error(`Job đang thuộc Batch active khác: ${row.other_batch_no}.`);
+   if(row.batch_recipe_key){
     const allowed=await recipeAllowedForJob(c,{source_operation_code:row.source_operation_code,standard_operation:row.job_standard_operation||row.batch_standard_operation,part_num:row.part_num,revision_num:row.revision_num},row.batch_recipe_key);
-    if(!allowed){issues.push("Recipe mismatch với Batch.");validation="BLOCKED";}
+    if(!allowed)throw new Error("Recipe của Batch không hợp lệ cho Job.");
    }
    const sizeCfg=await loadBatchNumberConfig(c,row.batch_standard_operation,row.batch_recipe_key||null);
    const projectedQty=Number(row.total_qty||0)+Number(row.plan_qty||0);
-   if(sizeCfg.autoSplit&&sizeCfg.batchSizeQty&&projectedQty>Number(sizeCfg.batchSizeQty)+0.000001){issues.push(`Batch Size vượt cấu hình: ${projectedQty} / ${sizeCfg.batchSizeQty} pcs.`);if(validation==="OK")validation="WARNING";}
-   const pjo=Number(row.planning_job_operation_id||0)||null;
-   if(!pjo)throw new Error(issues.join(" ")||"Không có Planning Job Operation phù hợp.");
+   if(sizeCfg.autoSplit&&sizeCfg.batchSizeQty&&projectedQty>Number(sizeCfg.batchSizeQty)+0.000001)
+    throw new Error(`Batch Size vượt cấu hình: ${projectedQty} / ${sizeCfg.batchSizeQty} pcs.`);
+
+   const proposal={actualStart:b.actual_start||null,actualEnd:b.actual_end||null,reportedFrom:"PRODUCTION_EXECUTION",partNum:row.part_num,revisionNum:row.revision_num,partDescription:row.part_description,qty:Number(row.plan_qty||0),surface:Number(row.plan_surface||0)};
+   await addJob(c,{batch_id:batchId,job_num:row.job_num,proposal_json:proposal},false);
    await c.query(`
     insert into production_adjustment_item(adjustment_set_id,item_type,status,batch_id,planning_job_operation_id,job_num,standard_operation,
-      reason,validation_status,validation_message,proposal_json,updated_at)
-    values($1,'ADD_JOB','PENDING',$2,$3,$4,$5,$6,$7,$8,$9::jsonb,now())
+      reason,validation_status,validation_message,proposal_json,approved_at,approved_by,updated_at)
+    values($1,'ADD_JOB','APPROVED',$2,$3,$4,$5,$6,'OK',$7,$8::jsonb,now(),'Production',now())
     on conflict(adjustment_set_id,item_type,batch_id,planning_job_operation_id)
-    do update set status='PENDING',reason=excluded.reason,validation_status=excluded.validation_status,validation_message=excluded.validation_message,proposal_json=excluded.proposal_json,updated_at=now()
-   `,[set.id,batchId,pjo,row.job_num,row.batch_standard_operation,"Production báo đã hoàn thành Job ngoài Batch",validation,issues.join(" ")||"Job hợp lệ để đề xuất thêm vào lô.",JSON.stringify({actualStart:b.actual_start||null,actualEnd:b.actual_end||null,reportedFrom:"PRODUCTION_EXECUTION",partNum:row.part_num,revisionNum:row.revision_num,qty:Number(row.plan_qty||0),surface:Number(row.plan_surface||0)})]);
+    do update set status='APPROVED',reason=excluded.reason,validation_status='OK',validation_message=excluded.validation_message,
+      proposal_json=excluded.proposal_json,approved_at=now(),approved_by='Production',updated_at=now()
+   `,[set.id,batchId,Number(row.planning_job_operation_id),row.job_num,row.batch_standard_operation,
+      "Production đã thêm Job trực tiếp vào Batch","Đã thêm trực tiếp từ Báo cáo sản xuất; không cần planner duyệt.",JSON.stringify(proposal)]);
    await c.query(`update production_adjustment_set set status='READY',updated_at=now() where id=$1`,[set.id]);
-   await c.query("commit");return NextResponse.json({ok:true});
+   await c.query("commit");
+   return NextResponse.json({ok:true,added:true,addedJob:{
+    planningJobOperationId:Number(row.planning_job_operation_id),jobNum:row.job_num,partDescription:row.part_description||"",
+    currentGoodWipQty:Number(row.plan_qty||0),totalSurface:Number(row.plan_surface||0),lastLaborOp:row.last_operation||"",
+    nextOperation:row.next_operation||"",priority:row.priority_type||"",supportOperations:[],isAddedJob:true,status:"DONE",
+    actualStart:b.actual_start||new Date().toISOString(),actualEnd:b.actual_end||new Date().toISOString(),remark:"Added from Production Report"
+   },batchTotals:{qty:projectedQty,surface:Number(row.total_surface_dm2||0)+Number(row.plan_surface||0)}});
   }
   const itemId=Number(b.item_id);if(!itemId)throw new Error("Adjustment item không hợp lệ.");
   const itemQ=await c.query(`select i.*,s.production_date from production_adjustment_item i join production_adjustment_set s on s.id=i.adjustment_set_id where i.id=$1 for update of i`,[itemId]);

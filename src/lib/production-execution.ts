@@ -16,6 +16,7 @@ export type ProductionJobDetail={
  nextOperation:string;
  priority:string;
  supportOperations:string[];
+ isAddedJob:boolean;
  status:ProductionExecutionStatus;
  actualStart:string|null;
  actualEnd:string|null;
@@ -78,6 +79,7 @@ type BatchJobDetailRow={
  last_operation:string|null;
  next_operation:string|null;
  priority_type:string|null;
+ is_added_job:boolean;
 };
 
 type RawJobDetail=Omit<ProductionJobDetail,"status"|"actualStart"|"actualEnd"|"remark">;
@@ -117,7 +119,7 @@ function parentExecutionSummary(parent:ExecutionRow|undefined){
  };
 }
 
-const makeRawJobDetail=(data:{planningJobOperationId:number;jobNum:string;partDescription:string;currentGoodWipQty:number|null;totalSurface:number|null;lastLaborOp:string;nextOperation:string;priority:string;supportOperations?:string[];}):RawJobDetail=>({
+const makeRawJobDetail=(data:{planningJobOperationId:number;jobNum:string;partDescription:string;currentGoodWipQty:number|null;totalSurface:number|null;lastLaborOp:string;nextOperation:string;priority:string;isAddedJob?:boolean;supportOperations?:string[];}):RawJobDetail=>({
  planningJobOperationId:Number(data.planningJobOperationId)||0,
  jobNum:clean(data.jobNum),
  partDescription:clean(data.partDescription),
@@ -126,6 +128,7 @@ const makeRawJobDetail=(data:{planningJobOperationId:number;jobNum:string;partDe
  lastLaborOp:clean(data.lastLaborOp),
  nextOperation:clean(data.nextOperation),
  priority:clean(data.priority),
+ isAddedJob:Boolean(data.isAddedJob),
  supportOperations:[...new Set((data.supportOperations||[]).map(clean).filter(Boolean))],
 });
 
@@ -200,7 +203,14 @@ async function loadBatchJobDetails(c:PoolClient,batchIds:number[]){
    coalesce(bj.surface_dm2,oj.total_surface) total_surface,
    oj.last_operation,
    oj.next_operation,
-   oj.priority_type
+   oj.priority_type,
+   exists(
+    select 1 from public.production_adjustment_item pai
+    where pai.batch_id=bj.batch_id
+      and pai.planning_job_operation_id=bj.planning_job_operation_id
+      and pai.item_type='ADD_JOB'
+      and pai.status='APPROVED'
+   ) is_added_job
   from public.planning_batch_job bj
   join public.planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
   left join public.open_job_current oj on oj.job_num=bj.job_num and oj.is_open=true
@@ -220,6 +230,7 @@ async function loadBatchJobDetails(c:PoolClient,batchIds:number[]){
    lastLaborOp:clean(row.last_operation),
    nextOperation:clean(row.next_operation),
    priority:clean(row.priority_type),
+   isAddedJob:Boolean(row.is_added_job),
   }));
   map.set(batchId,list);
  }

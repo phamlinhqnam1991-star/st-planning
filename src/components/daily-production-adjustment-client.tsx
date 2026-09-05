@@ -22,7 +22,7 @@ export function DailyProductionAdjustmentClient({productionDate,initialData}:Pro
  const counts=useMemo(()=>({
   carry:items.filter((x:any)=>x.item_type==="CARRY_OVER"&&x.status==="PENDING").length,
   remove:items.filter((x:any)=>x.item_type==="REMOVE_JOB"&&x.status==="PENDING").length,
-  add:items.filter((x:any)=>x.item_type==="ADD_JOB"&&x.status==="PENDING").length,
+  add:items.filter((x:any)=>x.item_type==="ADD_JOB"&&x.status==="APPROVED").length,
   approved:items.filter((x:any)=>x.status==="APPROVED").length
  }),[items]);
  async function reload(){
@@ -42,35 +42,35 @@ export function DailyProductionAdjustmentClient({productionDate,initialData}:Pro
  async function reportExtra(){
   if(!extraBatch.trim()||!extraJob.trim())return pushAppToast("Nhập Batch No. và Job Number.");
   const d=await post({action:"REPORT_EXTRA_JOB",batch_no:extraBatch.trim(),job_num:extraJob.trim(),actual_start:extraStart?toIso(extraStart):null,actual_end:extraEnd?toIso(extraEnd):null},"EXTRA");
-  if(d){setExtraJob("");pushAppToast("Đã tạo đề xuất Add Job vào Batch.");}
+  if(d){setExtraJob("");pushAppToast("Đã thêm Job trực tiếp vào Batch.");}
  }
  function impactList(x:any){const impacts=x?.proposal_json?.impacts;return Array.isArray(impacts)?impacts:[];}
  return <div className="daily-adjustment-workspace">
   <div className="production-kpis">
    <div className="production-kpi ongoing"><span>Carry Over</span><b>{counts.carry}</b></div>
    <div className="production-kpi waiting"><span>Bớt Job</span><b>{counts.remove}</b></div>
-   <div className="production-kpi neutral"><span>Thêm Job</span><b>{counts.add}</b></div>
+   <div className="production-kpi neutral"><span>Job đã thêm</span><b>{counts.add}</b></div>
    <div className="production-kpi done"><span>Đã duyệt</span><b>{counts.approved}</b></div>
   </div>
 
   <div className="erp-table-panel section">
-   <div className="erp-panel-head"><div><b>Đối soát đầu ngày · Production → Planning/Scheduling</b><small>Production day 06:00 → 05:59. Hệ thống chỉ tạo đề xuất; lịch/Batch chỉ đổi sau khi planner duyệt.</small></div><button type="button" className="btn primary" disabled={busy==="SCAN"} onClick={scan}>{busy==="SCAN"?"Đang quét...":"Quét báo cáo trước 05:59"}</button></div>
+   <div className="erp-panel-head"><div><b>Đối soát đầu ngày · Production → Planning/Scheduling</b><small>Production day 06:00 → 05:59. Carry Over/Bớt Job cần duyệt; Job phát sinh từ Báo cáo sản xuất được thêm trực tiếp và tab này chỉ lưu thông báo/audit.</small></div><button type="button" className="btn primary" disabled={busy==="SCAN"} onClick={scan}>{busy==="SCAN"?"Đang quét...":"Quét báo cáo trước 05:59"}</button></div>
    <div className="notice">Carry Over sẽ kiểm tra đồng thời <b>Cross-Main Dependency</b> và <b>Resource Conflict</b>. Main của planner khác vẫn được tính trong cùng change-set để tránh Start của Main sau nhỏ hơn End Main trước.</div>
   </div>
 
   <div className="erp-table-panel section">
-   <div className="erp-panel-head"><div><b>Báo Job hoàn thành ngoài Batch</b><small>Production chỉ nhập Batch No. + Job Number; hệ thống tự lookup Part/Rev/Main/Recipe và tạo đề xuất để planner duyệt thêm vào lô.</small></div></div>
+   <div className="erp-panel-head"><div><b>Báo Job hoàn thành ngoài Batch</b><small>Production chỉ nhập Batch No. + Job Number; hệ thống tự lookup Part/Rev/Main/Recipe, kiểm tra hợp lệ và thêm trực tiếp vào lô. Không cần approve ở tab này.</small></div></div>
    <div className="batch-add-filter" style={{alignItems:"end"}}>
     <label>Batch No.<input className="input" value={extraBatch} onChange={e=>setExtraBatch(e.target.value)} placeholder="ASP_00001"/></label>
     <label>Job Number<input className="input" value={extraJob} onChange={e=>setExtraJob(e.target.value)} placeholder="J240123"/></label>
     <label>Actual Start<input className="input" type="datetime-local" value={extraStart} onChange={e=>setExtraStart(e.target.value)}/></label>
     <label>Actual End<input className="input" type="datetime-local" value={extraEnd} onChange={e=>setExtraEnd(e.target.value)}/></label>
-    <button type="button" className="btn primary" disabled={busy==="EXTRA"} onClick={reportExtra}>{busy==="EXTRA"?"Đang lưu...":"Tạo đề xuất Add Job"}</button>
+    <button type="button" className="btn primary" disabled={busy==="EXTRA"} onClick={reportExtra}>{busy==="EXTRA"?"Đang lưu...":"Thêm Job vào Batch"}</button>
    </div>
   </div>
 
   <div className="erp-table-panel section">
-   <div className="erp-panel-head"><div><b>Đề xuất chờ duyệt</b><small>{items.filter((x:any)=>x.status==="PENDING").length} mục đang chờ.</small></div></div>
+   <div className="erp-panel-head"><div><b>Điều chỉnh & thông báo</b><small>{items.filter((x:any)=>x.status==="PENDING").length} mục chờ duyệt · {items.filter((x:any)=>x.item_type==="ADD_JOB"&&x.status==="APPROVED").length} Job đã thêm trực tiếp.</small></div></div>
    <div className="table-wrap"><table className="erp-table"><thead><tr><th>Loại</th><th>Batch / Job</th><th>Main / Planner</th><th>Production / Validation</th><th>Thời gian</th><th>Ảnh hưởng</th><th>Thao tác</th></tr></thead>
     <tbody>{items.map((x:any)=>{
      const draft=draftTimes[x.id]||{start:localInput(x.proposed_start),end:localInput(x.proposed_end)};const impacts=impactList(x);const isPending=x.status==="PENDING";
