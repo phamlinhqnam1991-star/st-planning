@@ -1,10 +1,12 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {requireApiPermission} from "@/lib/security/api";
 
 const nullableNumber=(v:unknown)=>v==null||String(v).trim()===""?null:Number(v);
 
 export async function POST(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const b=await req.json().catch(()=>({}));
  const phase=String(b.phase||"").toUpperCase();
  const duration=Number(b.duration_minutes);
@@ -26,6 +28,7 @@ export async function POST(req:Request){
 }
 
 export async function DELETE(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const id=Number((await req.json().catch(()=>({}))).id);
  if(!id)return NextResponse.json({error:"Missing id"},{status:400});
  const q=await getPool().query(`update md_chemical_handling_time_rule set is_active=false,updated_at=now() where id=$1 returning id`,[id]);

@@ -9,11 +9,13 @@ import {invalidateConfigHealth} from "@/lib/config/config-health";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import {requireApiPermission} from "@/lib/security/api";
 
 export const runtime="nodejs";
 export const maxDuration=300;
 
 export async function POST(req:Request){
+ const {denied}=await requireApiPermission("import.execute");if(denied)return denied;
  let batchId="";
  let temp="";
 

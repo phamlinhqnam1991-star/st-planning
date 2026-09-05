@@ -1,11 +1,11 @@
 import {NextResponse} from "next/server";
 import {revalidateTag} from "next/cache";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {invalidateLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 
 export async function POST(req:Request){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("config.edit");
  if(denied)return denied;
  try{
   const body=await req.json().catch(()=>({}));

@@ -1,5 +1,6 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {requireApiPermission} from "@/lib/security/api";
 
 const text=(v:unknown)=>String(v??"").trim();
 const bool=(v:unknown)=>Boolean(v);
@@ -17,6 +18,7 @@ const nullableInt=(v:unknown)=>{
 const MODES=new Set(["OFF","SUGGEST","FULL_AUTO"]);
 
 export async function POST(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const body=await req.json().catch(()=>({}));
 
  const standardOperation=text(body.standard_operation);

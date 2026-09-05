@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim();
 
@@ -13,7 +13,7 @@ const clean=(v:unknown)=>String(v??"").trim();
  * lists and cannot tell which two values belonged to the same Job.
  */
 export async function GET(req:NextRequest){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("config.view");
  if(denied)return denied;
  try{
   const url=new URL(req.url);

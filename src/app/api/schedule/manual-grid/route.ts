@@ -4,7 +4,9 @@ import {assertResourceAndChemicalCapacity,chemicalScheduleColumns,resolveChemica
 import {resolveProcessMinutes} from "@/lib/planning/batch-utils";
 import {allocateBatchNumbers,loadBatchNumberConfig} from "@/lib/planning/batch-number";
 
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
+import {scopeAllows} from "@/lib/security/access";
+import {canScheduleResource} from "@/lib/security/scope-db";
 const clean=(v:unknown)=>String(v??"").trim();
 const asDate=(v:unknown)=>{
  const d=new Date(String(v??""));
@@ -23,8 +25,8 @@ function parseOverrides(body:any){
 }
 
 export async function POST(req:Request){
- const denied=await requireApiUser();
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("schedule.edit");
+ if(denied||!ctx)return denied!;
  const body=await req.json().catch(()=>({}));
  const requestedScheduleArea=clean(body.schedule_area_code).toUpperCase();
  const requestedStGroup=clean(body.st_group);
@@ -38,6 +40,7 @@ export async function POST(req:Request){
 
  if(!resourceCode||!planningDate||!start)
   return NextResponse.json({error:"Resource / Date / Start là bắt buộc."},{status:400});
+ if(requestedScheduleArea&&!scopeAllows(ctx,"SCHEDULE_AREA",requestedScheduleArea))return NextResponse.json({error:`Không có quyền Điều độ Schedule Area ${requestedScheduleArea}.`},{status:403});
  if(!Number.isFinite(duration)||duration<=0)
   return NextResponse.json({error:"Duration phải lớn hơn 0 phút."},{status:400});
 
@@ -77,6 +80,7 @@ export async function POST(req:Request){
   if(!opQ.rowCount)throw new Error(`Operation Master chưa có ${standardOperation}.`);
 
   const op=opQ.rows[0];
+  if(!requestedScheduleArea){const scope=await canScheduleResource(c,ctx,resourceCode,op.standard_operation);if(!scope.allowed){await c.query("rollback");return NextResponse.json({error:`Không có quyền Điều độ Schedule Area ${scope.scopeKey||resourceCode}.`},{status:403});}}
 
   if(recipeKey){
    const recipeMapQ=await c.query(`

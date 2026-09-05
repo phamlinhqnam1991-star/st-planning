@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool,getDbHostInfo} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {resolvePlanningView} from "@/lib/planning/planning-view-server";
 import {loadPlanningCandidates} from "@/lib/planning/candidate-data";
 
@@ -20,7 +20,7 @@ export const maxDuration=60;
 
 export async function GET(req:NextRequest){
  const requestStarted=Date.now();
- const denied=await requireApiUser();
+ const {denied,ctx}=await requireApiPermission("planning.view");
  if(denied){
   console.warn(`[candidates] REJECTED by auth (${denied.status}) scope=${JSON.stringify(debugScope(req.nextUrl.searchParams))}`);
   return denied;
@@ -28,6 +28,7 @@ export async function GET(req:NextRequest){
  const sp=req.nextUrl.searchParams;
  const areaId=(sp.get("area")||"").trim();
  const op=(sp.get("op")||"").trim();
+ if(op&&ctx?.scopes.PLANNING_MAIN.size&&!ctx.scopes.PLANNING_MAIN.has(op.toUpperCase()))return NextResponse.json({error:`Không có quyền xem Main ${op}.`},{status:403});
  const recipeKey=(sp.get("recipe")||"").trim();
  const previousBatchNo=(sp.get("prevBatch")||"").trim();
  // Current board requests numeric pageSize=200 progressively. `all` remains a

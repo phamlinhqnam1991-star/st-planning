@@ -1,9 +1,9 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 export async function PUT(req:Request){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("schedule.edit");
  if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const ids=Array.isArray(body.schedule_ids)

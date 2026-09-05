@@ -2,6 +2,11 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ERP_UI_CONFIG } from "@/lib/erp/ui-config";
 import { LanguageSwitch } from "@/components/i18n";
+import {redirect} from "next/navigation";
+import {firstAllowedPath,getAccessContext} from "@/lib/security/access";
+import {getAuthorizedModuleGroups} from "@/lib/erp/st-navigation";
+import {PAGE_PERMISSION} from "@/lib/security/permissions";
+import {LogoutButton} from "@/components/logout-button";
 
 export type ErpNavItem = {
   key: string;
@@ -39,7 +44,7 @@ const defaultModules: ErpNavItem[] = [
   { key: "schedule", label: "Điều độ", href: "/schedule", shortLabel: "SC" },
 ];
 
-export function ErpAppShell({
+export async function ErpAppShell({
   children,
   moduleItems = defaultModules,
   moduleGroups = [],
@@ -54,10 +59,33 @@ export function ErpAppShell({
   userArea,
   breadcrumb,
 }: Props) {
+  const access=await getAccessContext();
+  if(!access)redirect("/login");
+  if(!access.active)redirect("/access-denied?reason=inactive");
+  const activePermission=activeSecondary
+   ? PAGE_PERMISSION[activeSecondary as keyof typeof PAGE_PERMISSION]
+   : activeModule&&PAGE_PERMISSION[activeModule as keyof typeof PAGE_PERMISSION]
+     ? PAGE_PERMISSION[activeModule as keyof typeof PAGE_PERMISSION]
+     : activeModule==="dashboard"?"dashboard.view":undefined;
+  if(activePermission&&!access.permissions.has(activePermission))redirect("/access-denied");
+  const authorizedGroups=getAuthorizedModuleGroups(access);
+  const visibleGroups=moduleGroups.length?authorizedGroups:[];
+  const fallbackPermissionByHref:Record<string,string>={
+   "/master-data":"master.view","/settings":"config.view","/job-tracker":"tracking.view",
+   "/part-tracker":"tracking.view","/all-open-jobs":"jobs.view","/planning":"planning.view",
+   "/schedule":"schedule.view","/production-execution":"production.view","/daily-production-adjustment":"adjustment.view",
+   "/production-change-alerts":"alerts.view","/import-master":"import.view","/logic-guide":"guide.view",
+   "/training":"training.view","/users-permissions":"security.manage","/dashboard":"dashboard.view"
+  };
+  const visibleModuleItems=moduleItems.filter(item=>{
+   const p=fallbackPermissionByHref[item.href];
+   return !p||access.permissions.has(p);
+  });
+  const effectiveUserArea=(<span className="erpkit-security-user"><b>{access.displayName}</b><small>{access.roles.join(" · ")||"USER"}</small>{userArea??<LogoutButton presentation="erp"/>}</span>);
   return (
     <main className="erpkit-app-shell">
       <header className="erpkit-app-header">
-        <Link href="/master-data" className="erpkit-brand">
+        <Link href={firstAllowedPath(access)} className="erpkit-brand">
           <span className="erpkit-brand-mark">ST</span>
           <span>
             <strong>{ERP_UI_CONFIG.productName}</strong>
@@ -67,16 +95,16 @@ export function ErpAppShell({
         <div className="erpkit-header-tools">
           <LanguageSwitch/>
           <span className="erpkit-environment">{environment}</span>
-          {userArea ?? <span className="erpkit-user-chip">Planner</span>}
+          {effectiveUserArea}
         </div>
       </header>
 
       <div className="erpkit-shell-body">
         <aside className="erpkit-navigation-stack erpkit-navigation-vertical" aria-label="Điều hướng ERP">
           <div className="erpkit-navigation-caption">WORK CENTERS</div>
-          {moduleGroups.length > 0 ? (
+          {visibleGroups.length > 0 ? (
             <nav className="erpkit-module-nav erpkit-module-nav-all" aria-label="Modules">
-              {moduleGroups.map((group) => (
+              {visibleGroups.map((group) => (
                 <section key={group.key} className="erpkit-navigation-module-group">
                   <Link href={group.href} className={`erpkit-module-link ${activeModule === group.key ? "is-active" : ""}`}>
                     <span className="erpkit-module-short">{group.shortLabel ?? group.label.slice(0, 2).toUpperCase()}</span>
@@ -96,7 +124,7 @@ export function ErpAppShell({
             </nav>
           ) : (<>
             <nav className="erpkit-module-nav" aria-label="Modules">
-              {moduleItems.map((item) => (
+              {visibleModuleItems.map((item) => (
                 <Link key={item.key} href={item.href} className={`erpkit-module-link ${activeModule === item.key ? "is-active" : ""}`}>
                   <span className="erpkit-module-short">{item.shortLabel ?? item.label.slice(0, 2).toUpperCase()}</span>
                   <span>{item.label}</span>

@@ -3,6 +3,7 @@ import { getPool } from "@/lib/db";
 import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
 import { syncPlanningChains } from "@/lib/planning/sync-planning-chains";
+import {requireApiPermission} from "@/lib/security/api";
 
 const RULES=["DIRECT","OCCURRENCE","SEQUENCE","SEQUENCE/FALLBACK"];
 const clean=(v:unknown)=>String(v??"").trim();
@@ -75,6 +76,7 @@ async function refresh(client:any){
 }
 
 export async function POST(req:NextRequest){
+ const {denied}=await requireApiPermission("master.edit");if(denied)return denied;
   try{
     const user={email:"system"}; const b=await req.json();
     const stGroup=clean(b.st_group), source=clean(b.source_operation_code).toUpperCase();
@@ -112,6 +114,7 @@ export async function POST(req:NextRequest){
 }
 
 export async function PATCH(req:NextRequest){
+ const {denied}=await requireApiPermission("master.edit");if(denied)return denied;
   try{
     const user={email:"system"}; const b=await req.json(); const id=Number(b.id);
     if(!id) return NextResponse.json({error:"Mapping id không hợp lệ."},{status:400});
@@ -134,6 +137,7 @@ export async function PATCH(req:NextRequest){
 }
 
 export async function DELETE(req:NextRequest){
+ const {denied}=await requireApiPermission("master.edit");if(denied)return denied;
   try{
     const user={email:"system"}; const b=await req.json(); const id=Number(b.id);
     const c=await getPool().connect();

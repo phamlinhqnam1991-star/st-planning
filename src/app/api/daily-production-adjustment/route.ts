@@ -1,6 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
+import {canProductionBatch,canPlanningMain} from "@/lib/security/scope-db";
 import {getProductionDateString} from "@/lib/schedule-time";
 import {buildScheduleCascadePreview,ensureAdjustmentSet,loadAdjustmentData,scanProductionAdjustments} from "@/lib/daily-production-adjustment";
 import {refreshBatchTotals,recomputeJobPlanningStatus,recipeAllowedForJob} from "@/lib/planning/batch-utils";
@@ -207,7 +208,7 @@ async function applyCascade(c:any,impacts:any[],adjustmentId:number){
 }
 
 export async function GET(req:NextRequest){
- const denied=await requireApiUser();if(denied)return denied;
+ const {denied}=await requireApiPermission("adjustment.view");if(denied)return denied;
  const date=clean(req.nextUrl.searchParams.get("date"));
  if(!validDate(date))return NextResponse.json({error:"Ngày sản xuất không hợp lệ."},{status:400});
  const c=await getPool().connect();
@@ -217,8 +218,9 @@ export async function GET(req:NextRequest){
 }
 
 export async function POST(req:NextRequest){
- const denied=await requireApiUser();if(denied)return denied;
  const b=await req.json();const action=clean(b.action).toUpperCase();
+ const requiredPermission=action==="REPORT_EXTRA_JOB"||action==="ACCEPT_NEXT_MAIN_JOB"?"production.add_job":"adjustment.approve";
+ const {denied,ctx}=await requireApiPermission(requiredPermission);if(denied||!ctx)return denied!;
  const date=clean(b.production_date);
  const c=await getPool().connect();
  try{
@@ -232,6 +234,7 @@ export async function POST(req:NextRequest){
    if(!validDate(date))throw new Error("Ngày sản xuất không hợp lệ.");
    const batchId=Number(b.batch_id);const jobNum=clean(b.job_num);const eventId=Number(b.event_id||0);
    if(!batchId||!jobNum||!eventId)throw new Error("Thiếu Batch, Job hoặc attention event.");
+   const prodScope=await canProductionBatch(c,ctx,batchId);if(!prodScope.allowed){await c.query("rollback");return NextResponse.json({error:`Không có quyền thêm Job khu vực ${prodScope.scopeKey||"của Batch"}.`},{status:403});}
    const eventQ=await c.query(`
     select * from planning_handover_change_event
     where id=$1 and affected_batch_id=$2 and job_num=$3 and change_type='ADD_JOB' and status='NEW' and note like 'PRODUCTION_ADD:%'
@@ -281,6 +284,7 @@ export async function POST(req:NextRequest){
    let batchId=Number(b.batch_id);const batchNo=clean(b.batch_no),jobNum=clean(b.job_num);
    if(!batchId&&batchNo){const bq=await c.query(`select id from planning_batch where upper(trim(batch_no))=upper(trim($1)) and status<>'CANCELLED' order by created_at desc limit 1`,[batchNo]);batchId=Number(bq.rows[0]?.id||0);}
    if(!batchId||!jobNum)throw new Error("Cần Batch No. và Job Number.");
+   const prodScope=await canProductionBatch(c,ctx,batchId);if(!prodScope.allowed){await c.query("rollback");return NextResponse.json({error:`Không có quyền thêm Job khu vực ${prodScope.scopeKey||"của Batch"}.`},{status:403});}
    const set=await ensureAdjustmentSet(c,date);const row=await findJobForBatch(c,batchId,jobNum);
    if(!row)throw new Error(`Không tìm thấy Job ${jobNum}.`);
    if(!row.planning_job_operation_id)throw new Error(`Job không có Main ${row.batch_standard_operation||"của Batch"}.`);
@@ -331,6 +335,7 @@ export async function POST(req:NextRequest){
   const itemQ=await c.query(`select i.*,s.production_date from production_adjustment_item i join production_adjustment_set s on s.id=i.adjustment_set_id where i.id=$1 for update of i`,[itemId]);
   if(!itemQ.rowCount)throw new Error("Không tìm thấy đề xuất.");
   const item=itemQ.rows[0];
+  if(!canPlanningMain(ctx,String(item.standard_operation||""))){await c.query("rollback");return NextResponse.json({error:`Không có quyền điều chỉnh Main ${item.standard_operation||""}.`},{status:403});}
   if(action==="PREVIEW"){
    if(item.item_type!=="CARRY_OVER")throw new Error("Preview thời gian chỉ áp dụng Carry Over.");
    const ps=clean(b.proposed_start)||item.proposed_start;const pe=clean(b.proposed_end)||item.proposed_end;

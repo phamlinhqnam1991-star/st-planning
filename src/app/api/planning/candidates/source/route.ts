@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 
 // v324: lazy All Open Source columns for the legacy board.
 // Main Candidate load now runs light (no source_data — it was ~2.8MB of the
@@ -10,7 +10,7 @@ import {requireApiUser} from "@/lib/api-auth";
 export const maxDuration=60;
 
 export async function POST(req:NextRequest){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("planning.edit");
  if(denied)return denied;
  const b=await req.json().catch(()=>({}));
  const jobNums=(Array.isArray(b.jobNums)?b.jobNums:[])

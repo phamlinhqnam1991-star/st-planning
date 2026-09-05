@@ -1,10 +1,12 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {requireApiPermission} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim().toUpperCase();
 
 export async function POST(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const operation=String(body.standard_operation||"").trim();
  const prefix=clean(body.batch_prefix);

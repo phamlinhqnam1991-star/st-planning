@@ -1,0 +1,5 @@
+import {randomBytes,scrypt as scryptCb,timingSafeEqual} from "node:crypto";
+const N=16384,r=8,p=1,KEYLEN=64;
+function derive(password:string,salt:Buffer,keylen:number,opts:{N:number;r:number;p:number}){return new Promise<Buffer>((resolve,reject)=>{scryptCb(password,salt,keylen,{...opts,maxmem:64*1024*1024},(err,key)=>err?reject(err):resolve(key as Buffer));});}
+export async function hashPassword(password:string){const salt=randomBytes(16);const key=await derive(password,salt,KEYLEN,{N,r,p});return `scrypt$${N}$${r}$${p}$${salt.toString("base64")}$${key.toString("base64")}`;}
+export async function verifyPassword(password:string,encoded:string|null|undefined){if(!encoded)return false;const parts=encoded.split("$");if(parts.length!==6||parts[0]!=="scrypt")return false;const n=Number(parts[1]),rr=Number(parts[2]),pp=Number(parts[3]);if(!Number.isInteger(n)||!Number.isInteger(rr)||!Number.isInteger(pp))return false;try{const salt=Buffer.from(parts[4],"base64"),expected=Buffer.from(parts[5],"base64");const actual=await derive(password,salt,expected.length,{N:n,r:rr,p:pp});return actual.length===expected.length&&timingSafeEqual(actual,expected);}catch{return false;}}

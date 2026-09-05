@@ -9,9 +9,9 @@ import {simulateChemicalDay} from "@/lib/chemical-line-schedule-server";
 // tôn trọng lịch đã lưu, chuỗi Loading nối tiếp, NDT ≥ 1:30,
 // tối đa 3 Process cùng lúc. Đọc-only — không ghi database.
 // =====================================================================
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 export async function POST(req:Request){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("schedule.edit");
  if(denied)return denied;
  const b=await req.json().catch(()=>({}));
  const desiredStart=new Date(String(b.desired_start||""));

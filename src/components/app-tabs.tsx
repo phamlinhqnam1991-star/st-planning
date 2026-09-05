@@ -1,9 +1,12 @@
 import Link from "next/link";
 import {
- ST_ERP_MODULE_GROUPS,
+ getAuthorizedModuleGroups,
  getStErpModuleKey,
  type StErpLeafKey,
 } from "@/lib/erp/st-navigation";
+import {getAccessContext} from "@/lib/security/access";
+import {PAGE_PERMISSION} from "@/lib/security/permissions";
+import {redirect} from "next/navigation";
 
 export type AppTab=StErpLeafKey;
 
@@ -12,12 +15,18 @@ export type AppTab=StErpLeafKey;
  * Level 1: business module/work center.
  * Level 2: functions that belong to the selected module.
  */
-export function AppTabs({active}:{active:AppTab}){
+export async function AppTabs({active}:{active:AppTab}){
+ const access=await getAccessContext();
+ if(!access)redirect("/login");
+ if(!access.active)redirect("/access-denied?reason=inactive");
+ const required=PAGE_PERMISSION[active];
+ if(required&&!access.permissions.has(required))redirect("/access-denied");
+ const groups=getAuthorizedModuleGroups(access);
  const activeModule=getStErpModuleKey(active);
  return <aside className="erp-navigation-stack erp-navigation-vertical" aria-label="Điều hướng ERP">
   <div className="erp-navigation-caption">WORK CENTERS</div>
   <nav className="erp-modules erp-modules-primary erp-modules-all" aria-label="ST Planning modules">
-   {ST_ERP_MODULE_GROUPS.map(module=><section key={module.key} className="erp-navigation-module-group">
+   {groups.map(module=><section key={module.key} className="erp-navigation-module-group">
     <Link
      href={module.href}
      className={`erp-module ${activeModule===module.key?"active":""}`}

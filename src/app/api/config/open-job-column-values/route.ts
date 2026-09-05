@@ -2,6 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {requireApiPermission} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim();
 
@@ -15,6 +16,7 @@ const clean=(v:unknown)=>String(v??"").trim();
 // =====================================================================
 
 export async function GET(req:NextRequest){
+ const {denied}=await requireApiPermission("config.view");if(denied)return denied;
  try{
   const url=new URL(req.url);
   const column=clean(url.searchParams.get("column"));
@@ -55,6 +57,7 @@ export async function GET(req:NextRequest){
 }
 
 export async function POST(req:NextRequest){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  try{
   const b=await req.json();
   const c=await getPool().connect();
@@ -93,6 +96,7 @@ export async function POST(req:NextRequest){
 }
 
 export async function PATCH(req:NextRequest){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  try{
   const b=await req.json();
   const id=Number(b.id);
@@ -118,6 +122,7 @@ export async function PATCH(req:NextRequest){
 }
 
 export async function DELETE(req:NextRequest){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  try{
   const b=await req.json();
   const id=Number(b.id);

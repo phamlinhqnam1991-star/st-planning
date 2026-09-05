@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
 import {invalidateRecipeRuntimeCache} from "@/lib/planning/planning-static-cache";
 
@@ -73,7 +73,7 @@ async function assertOpenJobSelection(c:any,column:string|null,value?:string|nul
  * that history, therefore PATCH changes only display/configuration fields.
  */
 export async function POST(req:NextRequest){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("config.edit");
  if(denied)return denied;
  try{
   const b=await req.json();
@@ -206,7 +206,7 @@ export async function POST(req:NextRequest){
 }
 
 export async function PATCH(req:NextRequest){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("config.edit");
  if(denied)return denied;
  try{
   const b=await req.json();
@@ -285,7 +285,7 @@ export async function PATCH(req:NextRequest){
  * because their master-import fallback must remain internally consistent.
  */
 export async function DELETE(req:NextRequest){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("config.edit");
  if(denied)return denied;
  try{
   const b=await req.json();

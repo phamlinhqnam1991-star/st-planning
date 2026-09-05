@@ -3,7 +3,8 @@ import {getPool} from "@/lib/db";
 import {refreshBatchTotals,recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
+import {canPlanningMain} from "@/lib/security/scope-db";
 const clean=(v:unknown)=>String(v??"").trim();
 
 async function getBatch(c:any,batchId:number,forUpdate=false){
@@ -73,7 +74,7 @@ export async function GET(
  _req:NextRequest,
  {params}:{params:Promise<{id:string}>}
 ){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("planning.view");
  if(denied)return denied;
  const {id}=await params;
  const batchId=Number(id);
@@ -136,8 +137,8 @@ export async function PATCH(
  req:NextRequest,
  {params}:{params:Promise<{id:string}>}
 ){
- const denied=await requireApiUser();
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("planning.edit");
+ if(denied||!ctx)return denied!;
  const {id}=await params;
  const batchId=Number(id);
  const body=await req.json().catch(()=>({}));
@@ -153,6 +154,7 @@ export async function PATCH(
 
   const batch=await getBatch(c,batchId,true);
   if(!batch)throw new Error("Không tìm thấy Batch.");
+  if(!canPlanningMain(ctx,batch.standard_operation)){await c.query("rollback");return NextResponse.json({error:`Không có quyền sửa Main ${batch.standard_operation}.`},{status:403});}
 
   if(!["PLANNED","RELEASED"].includes(batch.status))
    throw new Error("Chỉ Batch PLANNED/RELEASED mới được sửa Recipe.");
@@ -234,8 +236,8 @@ export async function DELETE(
  _req:NextRequest,
  {params}:{params:Promise<{id:string}>}
 ){
- const denied=await requireApiUser();
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("planning.edit");
+ if(denied||!ctx)return denied!;
  const {id}=await params;
  const batchId=Number(id);
 
@@ -248,6 +250,7 @@ export async function DELETE(
 
   const batch=await getBatch(c,batchId,true);
   if(!batch)throw new Error("Không tìm thấy Batch.");
+  if(!canPlanningMain(ctx,batch.standard_operation)){await c.query("rollback");return NextResponse.json({error:`Không có quyền sửa Main ${batch.standard_operation}.`},{status:403});}
 
   if(!["PLANNED","RELEASED"].includes(batch.status))
    throw new Error("Chỉ Batch PLANNED/RELEASED mới được xóa.");

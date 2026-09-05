@@ -10,7 +10,7 @@ Luồng:
 
 Không thay Planning Chain, Recipe, Batch, Schedule, Chemical Line, Masking/Unmasking, Production, Dashboard.
 
-> Gói này chỉ chuyển **PostgreSQL public schema + public data**. Supabase Auth/Storage không nằm trong Aiven PostgreSQL. V438 giữ Supabase tạm thời cho Storage/Auth; toàn bộ database nghiệp vụ đi Aiven.
+> Database runtime là **Aiven PostgreSQL**. Từ V478, Login/RBAC/Session cũng nằm trên Aiven. Supabase chỉ còn có thể xuất hiện ở các luồng Storage/import cũ nếu bạn vẫn dùng chúng; không dùng Supabase Auth cho account ST Planning.
 
 ---
 
@@ -236,9 +236,8 @@ DB_CONNECT_TIMEOUT_MS=20000
 ### Giữ tạm Supabase cho Storage/Auth
 
 ```text
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
-SUPABASE_SECRET_KEY=...
+NEXT_PUBLIC_SUPABASE_URL=...   # chỉ nếu còn dùng Supabase Storage/import cũ
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...   # chỉ nếu flow cũ cần
 ```
 
 ### Có thể bỏ sau khi deploy V438
@@ -393,3 +392,24 @@ Khi click `READY · Previous Main Scheduled / Done` trên Planning Board, danh s
 - Không còn tính First Main vào `READY · Previous Main Unscheduled / START`.
 - Workload Summary và drill-down Planning Board dùng cùng classifier.
 - Không thay đổi Sequential READY/WAIT, Batch, Recipe, Scheduling hay Production.
+
+---
+
+# V478 — Đăng nhập và phân quyền đầy đủ trên Aiven
+
+Từ V478, ST Planning bắt buộc đăng nhập trước khi vào hệ thống bằng account lưu trên Aiven PostgreSQL. Sau khi đăng nhập, menu và dữ liệu thao tác được giới hạn theo `Role + Permission + Scope`; backend API cũng kiểm tra lại nên việc ẩn nút không phải lớp bảo mật duy nhất.
+
+Vai trò mặc định: `ADMIN`, `PLANNER`, `PRODUCTION_OPERATOR`, `SHIFT_SUPERVISOR`. Admin có tab **Quản trị → Users & Permissions** để tạo account bằng email/mật khẩu tạm, khóa/mở account, gán nhiều Role, chỉnh từng Permission và giới hạn `PLANNING_MAIN`, `SCHEDULE_AREA`, `PRODUCTION_AREA`.
+
+Production được tách quyền: Operator có `production.report`; Shift Supervisor có thêm `production.add_job`. Vì vậy Operator báo cáo trạng thái/Actual/Note nhưng không thấy chức năng thêm Job ngoài lô. Shift Supervisor mới có quyền Production Add Job và nhận Job từ Next Main Attention.
+
+## Triển khai V478
+1. Chạy `079_rbac_core.sql`.
+2. Chạy `080_rbac_permissions_scope.sql`.
+3. Chạy `081_rbac_seed_roles_permissions.sql`.
+4. Chạy `082_rbac_indexes.sql`.
+5. Chạy thêm `083_aiven_app_auth_credentials.sql` và `084_aiven_app_sessions.sql` trên Aiven.
+6. Trong Vercel/`.env`, đặt `ADMIN_EMAILS=<email admin đầu tiên>` và `BOOTSTRAP_ADMIN_PASSWORD=<mật khẩu bootstrap mạnh>`. Có thể đặt `SESSION_HOURS=12`.
+7. Deploy, đăng nhập bằng email bootstrap Admin + mật khẩu bootstrap, sau đó vào **Users & Permissions** để tạo account thật và gán quyền/scope. Login/RBAC không cần `SUPABASE_SECRET_KEY`.
+
+Mỗi migration V478 có tối đa 4 câu SQL. Chi tiết kiến trúc xem `V478_FIX.md`, tab **Logic & Hướng dẫn**, và chương phân quyền trong **Training người mới**.

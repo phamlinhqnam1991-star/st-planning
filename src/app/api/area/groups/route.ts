@@ -2,8 +2,10 @@ import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {requireApiPermission} from "@/lib/security/api";
 
 export async function PUT(req:NextRequest){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const areaId=Number(body.area_id);
 

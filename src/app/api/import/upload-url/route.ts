@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureImportStorageBucket, IMPORT_STORAGE_BUCKET } from "@/lib/storage/import-storage";
+import {requireApiPermission} from "@/lib/security/api";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,7 @@ function normalizePath(value: unknown) {
 }
 
 export async function POST(req: Request) {
+ const {denied}=await requireApiPermission("import.execute");if(denied)return denied;
   try {
     const body = await req.json();
     const storagePath = normalizePath(body?.path);

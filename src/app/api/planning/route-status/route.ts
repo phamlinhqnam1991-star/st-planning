@@ -1,12 +1,12 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {loadPlanningRouteStatus} from "@/lib/planning/route-status-data";
 
 const MAX_IDS_PER_REQUEST=60;
 
 export async function POST(req:Request){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("planning.edit");
  if(denied)return denied;
  const body:unknown=await req.json().catch(()=>({}));
  const raw:unknown[]=

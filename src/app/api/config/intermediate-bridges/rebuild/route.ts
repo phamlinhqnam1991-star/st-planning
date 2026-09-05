@@ -11,6 +11,7 @@ import {
 } from "@/lib/planning/intermediate-bridge-segments";
 import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {requireApiPermission} from "@/lib/security/api";
 
 export const runtime="nodejs";
 // Every request is intentionally short; Vercel Hobby's normal timeout is enough.
@@ -19,6 +20,7 @@ export const maxDuration=60;
 const cleanCodes=(v:unknown)=>Array.isArray(v)?v.map(x=>String(x??"").trim().toUpperCase()).filter(Boolean):[];
 
 export async function GET(){
+ const {denied}=await requireApiPermission("config.view");if(denied)return denied;
  const c=await getPool().connect();
  try{
   return NextResponse.json({ok:true,...await getIntermediateBridgeRebuildOverview(c)});
@@ -28,6 +30,7 @@ export async function GET(){
 }
 
 export async function POST(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const c=await getPool().connect();
  let runId="";
  try{

@@ -1,12 +1,12 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 export async function POST(
  req:Request,
  {params}:{params:Promise<{id:string}>}
 ){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("schedule.edit");
  if(denied)return denied;
  const {id}=await params;
  const eventId=Number(id);

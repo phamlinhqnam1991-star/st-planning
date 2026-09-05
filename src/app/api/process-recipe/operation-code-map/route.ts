@@ -1,7 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {canonicalizeSelectionRule} from "@/lib/batch-key-recipe";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
 import {invalidateLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 
@@ -20,7 +20,7 @@ const validPrefix=(v:unknown)=>/^[A-Z0-9]{3}$/.test(upper(v));
  * and later stored on planning_batch as recipe_mapping_id.
  */
 export async function POST(req:NextRequest){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("config.edit");
  if(denied)return denied;
  try{
   const b=await req.json();
@@ -171,7 +171,7 @@ export async function POST(req:NextRequest){
 }
 
 export async function DELETE(req:NextRequest){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("config.edit");
  if(denied)return denied;
  try{
   const b=await req.json();

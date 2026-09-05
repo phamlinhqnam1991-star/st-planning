@@ -949,7 +949,7 @@ export default async function Page(){
      <>Database runtime chuẩn dùng <b>Aiven PostgreSQL</b> qua <code>DATABASE_URL</code> và driver <code>pg</code>. Không còn Supabase/Supavisor DNS fallback hoặc Transaction Pooler logic trong tầng database.</>,
      <>Giai đoạn chuyển đổi đầu tiên copy <b>toàn bộ public schema + toàn bộ public data hiện hành</b> từ Supabase sang Aiven. Chưa xóa history, chưa giảm Routing Detail, chưa dọn index trước khi cutover.</>,
      <>Vì Aiven Free có connection budget nhỏ, Vercel đặt <code>DB_POOL_MAX=1</code> mặc định. Chỉ tăng sau khi đo concurrency thực tế.</>,
-     <>Supabase có thể được giữ tạm cho <b>Storage/Auth</b> trong giai đoạn migration; Master/Planning/Open Job/Batch/Schedule/Dashboard database read/write phải đi Aiven.</>,
+     <>Supabase có thể được giữ tạm cho <b>Storage</b> nếu các luồng import cũ còn sử dụng; từ V478 <b>Authentication/RBAC/Session cũng chạy trên Aiven PostgreSQL</b>, không dùng Supabase Auth.</>,
      <>Chỉ đổi Vercel sang Aiven sau khi restore + row-count verify thành công. Sau cutover ổn định mới thực hiện phase giảm database/index/history.</>
     ]}/>
     <Rule title="Không đổi nghiệp vụ" tone="important">Provider move không thay Planning Chain READY/WAIT, Recipe Resolver, Batch Compatibility, Previous Main Schedule Lock, Chemical Line proposal/capacity, Masking/Unmasking resolver hay Production Execution.</Rule>
@@ -986,7 +986,35 @@ export default async function Page(){
     <p>Ví dụ: Production thêm <b>J008</b> vào <b>BSA_00001 / BSAUNSLD</b> → hệ thống ghi audit → tìm Next Main <b>PRIMER</b> theo route thật → xác định <b>PRI_00002</b> là Batch downstream phù hợp → tạo Attention cho planner/production ở PRIMER. Nếu downstream chưa có Batch phù hợp, alert vẫn phải cho planner thấy trạng thái <b>chưa có lô Main sau</b>.</p>
    </Section>
 
-   <Section id="faq" title="18 · FAQ / Chẩn đoán nhanh">
+
+   <Section id="security-rbac" title="18 · Đăng nhập, phân quyền Role + Permission + Scope (V478 · Aiven Auth)"
+    sub="Mỗi account chỉ thấy chức năng được cấp; mọi API quan trọng kiểm tra quyền ở server, không chỉ ẩn nút trên UI">
+    <Chain steps={[
+     {t:"ST Planning Login",d:"Aiven User + Password Hash",c:"blue"},
+     {t:"User Profile",d:"Active / Display Name",c:"teal"},
+     {t:"Role + Permission",d:"Được vào tab / được thao tác gì",c:"orange"},
+     {t:"Scope",d:"Main / Schedule Area / Production Area",c:"green"},
+    ]}/>
+    <StepList items={[
+     <>Trang đầu của app là <b>Đăng nhập</b>. Không có session hợp lệ thì proxy chuyển về <code>/login</code>. Sau khi login, hệ thống tìm trang đầu tiên mà account được phép xem.</>,
+     <>Admin quản lý account tại <b>Quản trị → Users & Permissions</b>: tạo account ST Planning trực tiếp trên Aiven, đặt mật khẩu tạm, bật/tắt Active, gán một hoặc nhiều Role, bật/tắt từng Permission và gán Scope.</>,
+     <>Role mặc định gồm <b>ADMIN</b>, <b>PLANNER</b>, <b>PRODUCTION_OPERATOR</b>, <b>SHIFT_SUPERVISOR</b>. Role chỉ là bộ Permission; Admin vẫn có thể override từng Permission trên từng user.</>,
+     <>Planner có thể sửa Planning/Điều độ nhưng chỉ trong <b>PLANNING_MAIN</b> và <b>SCHEDULE_AREA</b> được phân. Scope để trống nghĩa là toàn bộ phạm vi của Permission đó.</>,
+     <>Production Operator có <b>production.report</b> để báo WAITING / ON-GOING / DONE, Actual, Note trong khu vực được cấp. Operator <b>không có</b> quyền thêm Job ngoài lô.</>,
+     <>Shift Supervisor có thêm <b>production.add_job</b>. Vì vậy ô nhập Job ngoài lô và nút nhận Job từ Previous Main Attention chỉ xuất hiện/hoạt động khi account có quyền này.</>,
+     <>Frontend chỉ hiển thị các tab account được xem. Tuy nhiên bảo mật thật nằm ở API: gọi trực tiếp API không đúng Permission/Scope vẫn trả <b>403</b>.</>,
+     <>Các thay đổi quản lý user được ghi vào <b>app_audit_log</b>. Password chỉ lưu dạng <b>scrypt hash</b>; session lưu token hash trong <b>app_session</b> và browser dùng cookie HttpOnly. <code>ADMIN_EMAILS</code> + <code>BOOTSTRAP_ADMIN_PASSWORD</code> chỉ dùng để bootstrap Admin đầu tiên; sau đó account/quyền chuẩn nằm trong Aiven.</>
+    ]}/>
+    <div className="table-wrap"><table className="erp-table"><thead><tr><th>Role mặc định</th><th>Quyền chính</th><th>Scope</th></tr></thead><tbody>
+     <tr><td><b>ADMIN</b></td><td>Toàn bộ hệ thống + Users & Permissions</td><td>Không giới hạn</td></tr>
+     <tr><td><b>PLANNER</b></td><td>Planning view/edit, Scheduling view/edit, Production view, Adjustment approve, Alert/Tracker/Guide/Training</td><td>Main Planning + Schedule Area</td></tr>
+     <tr><td><b>PRODUCTION_OPERATOR</b></td><td>Production view/report + Alert/Tracker/Guide/Training</td><td>Production Area</td></tr>
+     <tr><td><b>SHIFT_SUPERVISOR</b></td><td>Operator + Add Job ngoài lô / nhận Attention</td><td>Production Area</td></tr>
+    </tbody></table></div>
+    <Rule title="Nguyên tắc owner" tone="important">Role trả lời <b>được làm gì</b>; Scope trả lời <b>được làm ở đâu</b>. Hai điều kiện phải cùng đúng mới được sửa dữ liệu.</Rule>
+   </Section>
+
+   <Section id="faq" title="19 · FAQ / Chẩn đoán nhanh">
     <Faq q="Vì sao Next Operation không sort theo chữ ABC?" a={<>Đó là chủ ý. Khi Sort Priority dùng <b>NextOperation</b>, Board resolve RAW NextOperation → Main và dùng <b>Main Planning Order</b>. Operation Code Order chỉ tie-break trong cùng Main. Kiểm tra Cấu hình → Main Operation và ST Scope.</>}/>
     <Faq q="Vì sao một Job READY nhưng click xong các READY khác bị mờ?" a={<>Bạn đang ở <b>Batch Selection Mode</b>. Main khác bị dim; cùng Main nhưng khác Recipe hoặc không thỏa các condition đang tích cũng bị dim/disable. Clear Selection để thoát mode.</>}/>
     <Faq q="Vì sao Main kế tiếp READY dù Batch trước chưa Schedule?" a={<>Theo Sequential READY hiện tại, Batch <b>PLANNED-UNSCHEDULED</b> đã là handoff Planning hợp lệ. Scheduling là lớp resource/time. Tuy nhiên khi xếp lịch hoặc sau Carry Over, Start Main sau vẫn phải thỏa dependency thời gian với Effective End Main trước.</>}/>

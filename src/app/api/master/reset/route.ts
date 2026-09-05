@@ -4,11 +4,13 @@ import { invalidateConfigHealth } from "@/lib/config/config-health";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { seedRoutingConfig } from "@/lib/import/master-import";
 import { IMPORT_STORAGE_BUCKET } from "@/lib/storage/import-storage";
+import {requireApiPermission} from "@/lib/security/api";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST() {
+ const {denied}=await requireApiPermission("master.edit");if(denied)return denied;
   try {
     const c = await getPool().connect();
     try {

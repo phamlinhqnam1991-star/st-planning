@@ -1,6 +1,6 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {dashboardAiPayload,loadDashboardData} from "@/lib/dashboard-data";
 import {GROQ_READ_ONLY_TOOLS,compactToolContent,executeGroqReadOnlyTool,type AiToolAudit} from "@/lib/ai/read-only-db-tools";
 import {ST_AI_KNOWLEDGE_VERSION,ST_AI_SYSTEM_KNOWLEDGE} from "@/lib/ai/st-planning-knowledge";
@@ -144,7 +144,7 @@ function errorResponse(message:string,status=502,extra:Record<string,unknown>={}
 }
 
 export async function GET(){
- const denied=await requireApiUser();if(denied)return denied;
+ const {denied}=await requireApiPermission("dashboard.view");if(denied)return denied;
  const {primary,fallback,maxToolRounds}=providerConfig();
  const [groqStatus,openRouterStatus]=await Promise.all([testProvider(primary),testProvider(fallback)]);
  const configured=groqStatus.configured||openRouterStatus.configured;
@@ -164,7 +164,7 @@ export async function GET(){
 }
 
 export async function POST(req:Request){
- const denied=await requireApiUser();if(denied)return denied;
+ const {denied}=await requireApiPermission("dashboard.view");if(denied)return denied;
  const {primary,fallback,maxToolRounds}=providerConfig();
  const configuredProviders=[primary,fallback].filter(x=>x.apiKey);
  if(!configuredProviders.length)return errorResponse("No AI provider is configured. Add GROQ_API_KEY and/or OPENROUTER_API_KEY.",503,{code:"AI_NOT_CONFIGURED",provider:"None",connected:false,providerChain:"Groq → OpenRouter"});

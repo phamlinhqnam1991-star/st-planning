@@ -1,7 +1,8 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import type {ProductionExecutionSource,ProductionExecutionStatus} from "@/lib/production-execution";
+import {canProductionBatch} from "@/lib/security/scope-db";
 
 const SOURCES=new Set<ProductionExecutionSource>(["BATCH","MASKING","UNMASKING"]);
 const STATUSES=new Set<ProductionExecutionStatus>(["WAITING","ON-GOING","DONE"]);
@@ -9,8 +10,8 @@ const REPORT_LEVELS=new Set(["JOB","LINE"]);
 const clean=(v:unknown)=>String(v??"").trim();
 
 export async function PATCH(req:Request){
- const denied=await requireApiUser();
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("production.report");
+ if(denied||!ctx)return denied!;
  const body=await req.json().catch(()=>({}));
  const sourceType=clean(body.sourceType).toUpperCase() as ProductionExecutionSource;
  const sourceKey=clean(body.sourceKey);
@@ -33,6 +34,8 @@ export async function PATCH(req:Request){
 
  const c=await getPool().connect();
  try{
+  const prodScope=await canProductionBatch(c,ctx,batchId);
+  if(!prodScope.allowed)return NextResponse.json({error:`Không có quyền báo cáo khu vực ${prodScope.scopeKey||"của Batch"}.`},{status:403});
   await c.query("begin");
   const b=await c.query(`select id,standard_operation from planning_batch where id=$1 and status<>'CANCELLED' for share`,[batchId]);
   if(!b.rowCount)throw new Error("Batch not found or cancelled");

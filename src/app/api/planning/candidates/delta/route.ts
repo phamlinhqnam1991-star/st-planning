@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {resolvePlanningView} from "@/lib/planning/planning-view-server";
 import {loadPlanningCandidates} from "@/lib/planning/candidate-data";
 
@@ -10,7 +10,7 @@ export const maxDuration=30;
 // the exact same Candidate resolver as the full board, but constrains the SQL
 // by job_num so creating a Batch never reloads the whole Planning tab.
 export async function POST(req:NextRequest){
- const denied=await requireApiUser();
+ const {denied,ctx}=await requireApiPermission("planning.edit");
  if(denied)return denied;
 
  const body=(await req.json().catch(()=>({}))) as Record<string,unknown>;
@@ -24,6 +24,7 @@ export async function POST(req:NextRequest){
 
  const areaId=String(body.areaId??"").trim();
  const op=String(body.op??"").trim();
+ if(op&&ctx?.scopes.PLANNING_MAIN.size&&!ctx.scopes.PLANNING_MAIN.has(op.toUpperCase()))return NextResponse.json({error:`Không có quyền sửa Main ${op}.`},{status:403});
  const recipeKey=String(body.recipeKey??"").trim();
  const previousBatchNo=String(body.previousBatchNo??"").trim();
 

@@ -12,6 +12,7 @@ import {importMasterXlsx,seedRoutingConfig} from "@/lib/import/master-import";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import {requireApiPermission} from "@/lib/security/api";
 
 export const runtime="nodejs";
 export const maxDuration=300;
@@ -22,6 +23,7 @@ async function activeRoutingCodes(client:any){
 }
 
 export async function POST(req:Request){
+ const {denied}=await requireApiPermission("import.execute");if(denied)return denied;
  let batchId="";
  let temp="";
  try{

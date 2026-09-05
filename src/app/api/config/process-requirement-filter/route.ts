@@ -1,6 +1,6 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {PROCESS_REQUIREMENT_HEADERS} from "@/data/master-config";
 import {
  canonicalRequirementCode,
@@ -55,14 +55,14 @@ async function readState(){
 }
 
 export async function GET(){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("config.view");
  if(denied)return denied;
  try{return NextResponse.json(await readState(),{headers:{"Cache-Control":"private, no-store"}});}
  catch(error){return NextResponse.json({error:error instanceof Error?error.message:String(error)},{status:500});}
 }
 
 export async function POST(req:Request){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("config.edit");
  if(denied)return denied;
  try{
   const body=await req.json().catch(()=>({}));

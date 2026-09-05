@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {requireApiPermission} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim();
 
@@ -7,6 +8,7 @@ const clean=(v:unknown)=>String(v??"").trim();
 // No column -> list All Open Job columns.
 // With column -> active unique values of that column.
 export async function GET(req:NextRequest){
+ const {denied}=await requireApiPermission("config.view");if(denied)return denied;
  try{
   const url=new URL(req.url);
   const column=clean(url.searchParams.get("column"));

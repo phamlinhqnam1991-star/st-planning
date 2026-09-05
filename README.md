@@ -47,9 +47,9 @@ Copy `.env.example` to `.env.local` and set the required values. Never commit `.
 Required:
 
 - `DATABASE_URL` — canonical PostgreSQL runtime; V439 targets Aiven and the URI should include `sslmode=require`. Node runtime keeps TLS enabled with libpq-compatible `require` semantics.
-- `NEXT_PUBLIC_SUPABASE_URL` — retained temporarily for Storage/Auth only.
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — retained temporarily for Auth/browser client.
-- `SUPABASE_SECRET_KEY` — retained temporarily for import Storage server access.
+- `NEXT_PUBLIC_SUPABASE_URL` — chỉ cần nếu các luồng Storage/import cũ vẫn dùng Supabase Storage; không dùng cho login.
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — chỉ cần nếu còn browser/storage flow cũ; không dùng cho login ST Planning.
+- `SUPABASE_SECRET_KEY` — chỉ giữ nếu import Storage server vẫn dùng Supabase; Users & Permissions không dùng key này.
 
 Optional:
 
@@ -57,6 +57,8 @@ Optional:
 - `DATABASE_CA_CERT` — optional Aiven CA PEM for strict TLS certificate verification; leave unset to use libpq-compatible `sslmode=require`.
 - `DB_CONNECT_TIMEOUT_MS`
 - `ADMIN_EMAILS`
+- `BOOTSTRAP_ADMIN_PASSWORD`
+- `SESSION_HOURS` (optional, default 12)
 - `DB_BACKUP_URL` / `DB_RESTORE_URL`
 
 ## Commands
@@ -286,3 +288,6 @@ Production report panels are visually separated more strongly. Masking & Unmaski
 
 ## V449 — Production date ownership hardened
 Báo cáo sản xuất và Masking/Unmasking scheduled view xác định ngày sở hữu duy nhất bằng `planned_start` giờ Việt Nam trừ 6 giờ. Start 00:00–05:59 thuộc ngày sản xuất trước. UI hiển thị thêm ngày lịch cho mốc sau nửa đêm để tránh hiểu nhầm.
+
+## V480 build fix
+Client ERP components must import from `@/components/erp/client`. `ErpAppHeader` and `ErpAppShell` are server-only and must never be exported from the client barrel, because they load Aiven RBAC through `pg`.

@@ -2,10 +2,12 @@ import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {requireApiPermission} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim();
 
 export async function GET(req:NextRequest){
+ const {denied}=await requireApiPermission("config.view");if(denied)return denied;
  const fresh=new URL(req.url).searchParams.has("fresh");
  const c=await getPool().connect();
 
@@ -46,6 +48,7 @@ export async function GET(req:NextRequest){
 }
 
 export async function POST(req:NextRequest){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const areaCode=clean(body.area_code).toUpperCase();
  const areaName=clean(body.area_name);
@@ -83,6 +86,7 @@ export async function POST(req:NextRequest){
 }
 
 export async function PUT(req:NextRequest){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const id=Number(body.id);
 

@@ -9,7 +9,8 @@ import {assertSameRecipeConditionGroup,normalizeCompatibilityColumns} from "@/li
 import type {BatchCompatibilityRuleCondition} from "@/lib/planning/batch-compatibility";
 import {allocateBatchNumbers,loadBatchNumberConfig} from "@/lib/planning/batch-number";
 
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
+import {canPlanningMain} from "@/lib/security/scope-db";
 const clean=(v:unknown)=>String(v??"").trim();
 
 function splitRowsByQty(rows:any[],batchSize:number|null){
@@ -116,8 +117,8 @@ async function loadBatchTarget(c:any,batchId:number){
 
 
 export async function POST(req:NextRequest){
- const denied=await requireApiUser();
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("planning.edit");
+ if(denied||!ctx)return denied!;
  const body=await req.json();
  const ids=Array.isArray(body.planning_job_operation_ids)
    ? body.planning_job_operation_ids.map(Number).filter(Number.isFinite)
@@ -142,6 +143,7 @@ export async function POST(req:NextRequest){
 
  if(!standardOperation)
    return NextResponse.json({error:"Standard Operation là bắt buộc."},{status:400});
+ if(!canPlanningMain(ctx,standardOperation))return NextResponse.json({error:`Không có quyền sửa Main ${standardOperation}.`},{status:403});
 
  const c=await getPool().connect();
  try{

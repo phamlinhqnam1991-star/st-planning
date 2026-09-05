@@ -4,6 +4,7 @@ import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache
 import {invalidateConfigHealth} from "@/lib/config/config-health";
 import type {PoolClient} from "pg";
 import {validBatchPrefix} from "@/lib/planning/batch-number";
+import {requireApiPermission} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const upper=(v:unknown)=>clean(v).toUpperCase();
@@ -76,6 +77,7 @@ async function activeSourceMappingCount(c:PoolClient,operation:string){
 }
 
 export async function POST(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const operation=upper(body.standard_operation);
  const stGroup=upper(body.st_group);
@@ -174,6 +176,7 @@ export async function POST(req:Request){
 }
 
 export async function PATCH(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const operation=upper(body.standard_operation);
  const isActive=body.is_active===true;
@@ -232,6 +235,7 @@ export async function PATCH(req:Request){
 }
 
 export async function DELETE(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const operation=upper(body.standard_operation);
  if(!operation)return NextResponse.json({error:"Thiếu Main Operation."},{status:400});

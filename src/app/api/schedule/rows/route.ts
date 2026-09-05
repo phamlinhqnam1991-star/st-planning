@@ -7,9 +7,9 @@ import {getPool} from "@/lib/db";
 // điều độ sau khi Save/Edit/Delete/Move mà KHÔNG tải lại trang (giữ các
 // dòng đang nhập dở của planner).
 // =====================================================================
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 export async function GET(req:Request){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("schedule.view");
  if(denied)return denied;
  const url=new URL(req.url);
  const date=String(url.searchParams.get("date")||"");

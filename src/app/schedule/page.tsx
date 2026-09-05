@@ -6,6 +6,7 @@ import {ManualScheduleGrid} from "@/components/manual-schedule-grid";
 import ProductionTimelineClient from "@/components/production-timeline-client";
 import {ScheduleDayShiftControl} from "@/components/schedule-day-shift-control";
 import {calculateScheduleEnd,getProductionDateString} from "@/lib/schedule-time";
+import {getAccessContext} from "@/lib/security/access";
 
 export const dynamic="force-dynamic";
 
@@ -29,12 +30,15 @@ export default async function Page({
  const today=getProductionDateString(new Date());
  const date=sp.date||today;
  const planner=sp.planner==="2"?"2":"1";
+ const access=await getAccessContext();
+ const scheduleScope=access?.scopes.SCHEDULE_AREA||new Set<string>();
  const c=await getPool().connect();
  try{
   // Planner ownership is fully dynamic: Schedule Area -> Planner Assignment -> Main Operation.
   const plannerScopeQ=await c.query(`
    select
     coalesce(w.planner_owner,'UNASSIGNED') planner_owner,
+    a.schedule_area_code,
     m.standard_operation,
     a.display_order
    from md_schedule_area a
@@ -45,12 +49,13 @@ export default async function Page({
    where a.is_active=true
    order by a.display_order,m.standard_operation
   `);
-  const planner1Operations:string[]=[...new Set<string>(plannerScopeQ.rows.filter((x:any)=>x.planner_owner==='1').map((x:any)=>String(x.standard_operation)))];
-  const planner2Operations:string[]=[...new Set<string>(plannerScopeQ.rows.filter((x:any)=>x.planner_owner==='2').map((x:any)=>String(x.standard_operation)))];
+  const scopedPlannerRows=scheduleScope.size?plannerScopeQ.rows.filter((x:any)=>scheduleScope.has(String(x.schedule_area_code||"").toUpperCase())):plannerScopeQ.rows;
+  const planner1Operations:string[]=[...new Set<string>(scopedPlannerRows.filter((x:any)=>x.planner_owner==='1').map((x:any)=>String(x.standard_operation)))];
+  const planner2Operations:string[]=[...new Set<string>(scopedPlannerRows.filter((x:any)=>x.planner_owner==='2').map((x:any)=>String(x.standard_operation)))];
   const plannerOperations=planner==='2'?planner2Operations:planner1Operations;
   const plannerOperationSet=new Set(plannerOperations.map(x=>x.toUpperCase()));
   const plannerOwnerByOperation=new Map<string,string>();
-  for(const x of plannerScopeQ.rows){
+  for(const x of scopedPlannerRows){
    const op=String(x.standard_operation||'').toUpperCase();
    if(op && ['1','2'].includes(String(x.planner_owner)))plannerOwnerByOperation.set(op,String(x.planner_owner));
   }
@@ -462,8 +467,9 @@ export default async function Page({
   ]);
 
   const handoverAlerts=handoverAlertsQ.rows as any[];
-  const allRows=scheduleTableQ.rows as any[];
-  const plannerScheduleAreas=scheduleAreasQ.rows as any[];
+  const authorizedScheduleOps=new Set(scopedPlannerRows.map((x:any)=>String(x.standard_operation||"").toUpperCase()));
+  const allRows=(scheduleTableQ.rows as any[]).filter((x:any)=>!scheduleScope.size||authorizedScheduleOps.has(String(x.standard_operation||"").toUpperCase()));
+  const plannerScheduleAreas=(scheduleAreasQ.rows as any[]).filter((a:any)=>!scheduleScope.size||scheduleScope.has(String(a.schedule_area_code||"").toUpperCase()));
 
   // V444 · Trial shift follows the production day used by the timeline: 06:00 -> 06:00.
   // A schedule starting 00:xx-05:59 on the next calendar date still belongs to this production day.
@@ -572,7 +578,7 @@ export default async function Page({
 
 
     <ManualScheduleGrid
-     scheduleAreas={scheduleAreasQ.rows as any}
+     scheduleAreas={plannerScheduleAreas as any}
      operations={plannerOperationRows as any}
      resources={resourcesQ.rows as any}
      recipes={recipesQ.rows as any}

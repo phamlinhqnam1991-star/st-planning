@@ -1,10 +1,12 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {requireApiPermission} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim();
 
 export async function GET(req:Request){
+ const {denied}=await requireApiPermission("config.view");if(denied)return denied;
  const fresh=new URL(req.url).searchParams.has("fresh");
  let c:any=null;
 
@@ -46,6 +48,7 @@ export async function GET(req:Request){
 }
 
 export async function PUT(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  let c:any=null;
 
  try{

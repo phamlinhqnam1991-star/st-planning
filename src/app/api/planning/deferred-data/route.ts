@@ -1,12 +1,12 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {getRecentPlanningBatches} from "@/lib/planning/recent-batches";
 
 export const maxDuration=30;
 
 export async function GET(){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("planning.view");
  if(denied)return denied;
  const c=await getPool().connect();
  try{

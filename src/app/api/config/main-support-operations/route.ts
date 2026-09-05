@@ -1,10 +1,12 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
+import {requireApiPermission} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim().toUpperCase();
 const typeOf=(v:unknown)=>clean(v)==="UNMASKING"?"UNMASKING":"MASKING";
 
 export async function POST(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const standardOperation=clean(body.standard_operation);
  const supportType=typeOf(body.support_type);

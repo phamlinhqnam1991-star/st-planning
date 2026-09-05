@@ -3,6 +3,7 @@ import {getPool} from "@/lib/db";
 import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {syncAllStDerived} from "@/lib/st-operation-flow";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {requireApiPermission} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim();
 
@@ -11,6 +12,7 @@ async function remapAll(c:any){
 }
 
 export async function POST(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  let c:any=null;
  try{
   const body=await req.json();
@@ -67,6 +69,7 @@ export async function POST(req:Request){
 }
 
 export async function DELETE(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  let c:any=null;
  try{
   const body=await req.json();

@@ -1,6 +1,6 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 
 function isIsoDate(value:unknown){
  return typeof value==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -13,7 +13,7 @@ function shiftDate(date:string,days:number){
 }
 
 export async function POST(req:Request){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("schedule.edit");
  if(denied)return denied;
 
  const body=await req.json().catch(()=>({}));

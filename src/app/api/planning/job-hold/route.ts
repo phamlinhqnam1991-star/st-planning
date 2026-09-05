@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireUser} from "@/lib/auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {syncPlanningChains} from "@/lib/planning/sync-planning-chains";
 
 export const runtime="nodejs";
@@ -9,11 +9,6 @@ export const maxDuration=120;
 const clean=(v:unknown)=>String(v??"").trim();
 const HOLD_REASONS=new Set(["DMR","QUALITY","MATERIAL","CUSTOMER","OTHER"]);
 
-function authError(error:unknown){
- const message=error instanceof Error?error.message:String(error);
- if(message==="FORBIDDEN")return NextResponse.json({error:"Bạn không có quyền sử dụng chức năng này."},{status:403});
- return NextResponse.json({error:"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."},{status:401});
-}
 
 async function loadHoldState(c:any,id:number){
  const q=await c.query(`
@@ -26,8 +21,7 @@ async function loadHoldState(c:any,id:number){
 }
 
 export async function POST(req:NextRequest){
- let user:any;
- try{user=await requireUser();}catch(error){return authError(error);}
+ const {denied,ctx:user}=await requireApiPermission("planning.edit");if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const id=Number(body.planning_job_operation_id||0);
  const reason=clean(body.reason).toUpperCase();
@@ -67,7 +61,7 @@ export async function POST(req:NextRequest){
           held_by=$4,
           updated_at=now()
     where id=$1
-  `,[id,reason,note,clean(user?.email)||clean(user?.id)||"USER"]);
+  `,[id,reason,note,clean(user?.email)||clean(user?.userId)||"USER"]);
   const state=await loadHoldState(c,id);
   await c.query("commit");
   return NextResponse.json({ok:true,action:"HOLD",state});
@@ -78,7 +72,7 @@ export async function POST(req:NextRequest){
 }
 
 export async function DELETE(req:NextRequest){
- try{await requireUser();}catch(error){return authError(error);}
+ const {denied}=await requireApiPermission("planning.edit");if(denied)return denied;
  const body=await req.json().catch(()=>({}));
  const id=Number(body.planning_job_operation_id||0);
  if(!Number.isFinite(id)||id<=0)

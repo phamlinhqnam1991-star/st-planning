@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 import {bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
 import {
@@ -151,7 +151,7 @@ function mergeConditionsByColumn(
 }
 
 export async function POST(req:NextRequest){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("planning.edit");
  if(denied)return denied;
 
  const body=await req.json().catch(()=>({}));

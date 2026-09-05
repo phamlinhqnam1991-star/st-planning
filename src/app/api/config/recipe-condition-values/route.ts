@@ -1,13 +1,13 @@
 import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 
 // v341: lazy-load giá trị distinct cho cột điều kiện MD:REQ:<code>.
 // Trang Công thức & Rule KHÔNG tải toàn bộ md_process_requirement (2.1M rows)
 // mỗi lần mở nữa — chỉ fetch giá trị của đúng mã yêu cầu khi người dùng chọn
 // cột đó trong builder "Áp dụng cho Job".
 export async function GET(req:NextRequest){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("config.view");
  if(denied)return denied;
  const column=(req.nextUrl.searchParams.get("column")||"").trim().toUpperCase();
  if(!column.startsWith("MD:REQ:"))

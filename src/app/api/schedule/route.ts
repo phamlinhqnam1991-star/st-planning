@@ -4,7 +4,8 @@ import {assertResourceAndChemicalCapacity,chemicalScheduleColumns,resolveChemica
 import {recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
 import {assertPreviousMainScheduledBeforeAdd} from "@/lib/schedule-predecessor-guard";
 
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
+import {canScheduleResource} from "@/lib/security/scope-db";
 function asDate(v:any){const d=new Date(v);return Number.isNaN(d.getTime())?null:d}
 // Planner override giờ bắt đầu Process/NDT/Unloading (ISO hoặc null = tự động).
 function parseOverrides(body:any){
@@ -19,8 +20,8 @@ function parseOverrides(body:any){
 }
 
 export async function POST(req:Request){
- const denied=await requireApiUser();
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("schedule.edit");
+ if(denied||!ctx)return denied!;
  const body=await req.json().catch(()=>({}));
  const batchId=Number(body.batchId);
  const resourceCode=String(body.resourceCode||"").trim();
@@ -56,6 +57,8 @@ export async function POST(req:Request){
 
   const batch=bq.rows[0];
   const resource=rq.rows[0];
+  const scope=await canScheduleResource(c,ctx,resourceCode,batch.standard_operation);
+  if(!scope.allowed){await c.query("rollback");return NextResponse.json({error:`Không có quyền Điều độ Schedule Area ${scope.scopeKey||resourceCode}.`},{status:403});}
 
   // Use manual Duration when supplied; otherwise use configured Process Time.
   const configuredDuration=Number(batch.process_minutes||0);
@@ -170,8 +173,8 @@ export async function POST(req:Request){
 }
 
 export async function PATCH(req:Request){
- const denied=await requireApiUser();
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("schedule.edit");
+ if(denied||!ctx)return denied!;
  const body=await req.json().catch(()=>({}));
  const scheduleId=Number(body.scheduleId);
  const resourceCode=String(body.resourceCode||"").trim();
@@ -189,7 +192,7 @@ export async function PATCH(req:Request){
   await c.query("begin");
 
   const sq=await c.query(`
-    select s.*,b.process_minutes,b.batch_no,b.total_qty,b.total_surface_dm2,r.recipe_no
+    select s.*,b.process_minutes,b.batch_no,b.standard_operation,b.total_qty,b.total_surface_dm2,r.recipe_no
     from planning_schedule s
     join planning_batch b on b.id=s.batch_id
     left join md_process_recipe r on r.recipe_key=b.recipe_key and r.is_active=true
@@ -207,6 +210,8 @@ export async function PATCH(req:Request){
 
   const current=sq.rows[0];
   const resource=rq.rows[0];
+  const scope=await canScheduleResource(c,ctx,resourceCode,current.standard_operation);
+  if(!scope.allowed){await c.query("rollback");return NextResponse.json({error:`Không có quyền Điều độ Schedule Area ${scope.scopeKey||resourceCode}.`},{status:403});}
   if(["RUNNING","COMPLETED"].includes(String(current.status)))
    throw new Error("RUNNING/COMPLETED schedule cannot be moved");
 
@@ -286,8 +291,8 @@ export async function PATCH(req:Request){
 // Keep planning_batch + planning_batch_job intact so the Batch returns to the
 // Unscheduled pool. This is intentionally different from deleting a Batch.
 export async function DELETE(req:Request){
- const denied=await requireApiUser();
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("schedule.edit");
+ if(denied||!ctx)return denied!;
  const body=await req.json().catch(()=>({}));
  const scheduleId=Number(body.scheduleId);
  if(!scheduleId)return NextResponse.json({error:"Missing scheduleId"},{status:400});
@@ -296,7 +301,7 @@ export async function DELETE(req:Request){
  try{
   await c.query("begin");
   const sq=await c.query(`
-   select s.id,s.batch_id,s.status,b.batch_no
+   select s.id,s.batch_id,s.status,s.resource_code,b.batch_no,b.standard_operation
    from planning_schedule s
    join planning_batch b on b.id=s.batch_id
    where s.id=$1 and s.status<>'CANCELLED'
@@ -304,6 +309,8 @@ export async function DELETE(req:Request){
   `,[scheduleId]);
   if(!sq.rowCount)throw new Error("Schedule not found");
   const row=sq.rows[0];
+  const scope=await canScheduleResource(c,ctx,String(row.resource_code||""),row.standard_operation);
+  if(!scope.allowed){await c.query("rollback");return NextResponse.json({error:`Không có quyền Điều độ Schedule Area ${scope.scopeKey||row.resource_code}.`},{status:403});}
   if(["RUNNING","COMPLETED"].includes(String(row.status||"").toUpperCase()))
    throw new Error("RUNNING/COMPLETED schedule cannot be unscheduled");
 

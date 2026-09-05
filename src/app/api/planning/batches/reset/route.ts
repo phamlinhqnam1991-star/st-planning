@@ -2,9 +2,9 @@ import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
 
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 export async function POST(){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("planning.edit");
  if(denied)return denied;
  const c=await getPool().connect();
 

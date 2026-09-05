@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDbHostInfo, getPool } from "@/lib/db";
+import {requireApiPermission} from "@/lib/security/api";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -13,6 +14,7 @@ function detectProvider(host: string) {
 }
 
 export async function GET() {
+ const {denied}=await requireApiPermission("config.view");if(denied)return denied;
   const startedAt = Date.now();
   try {
     const result = await getPool().query(`

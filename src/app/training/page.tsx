@@ -2,6 +2,7 @@ import Link from "next/link";
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
 import {getPool} from "@/lib/db";
+import {getAccessContext} from "@/lib/security/access";
 
 export const dynamic="force-dynamic";
 
@@ -19,7 +20,7 @@ function Check({children}:{children:React.ReactNode}){return <li><span className
 function Badge({children}:{children:React.ReactNode}){return <span className="badge b-ready">{children}</span>}
 
 export default async function Page({searchParams}:{searchParams:Promise<{job?:string}>}){
- const sp=await searchParams;const requestedJob=clean(sp.job);const db=await getPool().connect();
+ const sp=await searchParams;const requestedJob=clean(sp.job);const access=await getAccessContext();const db=await getPool().connect();
  let sampleJob:any=null,chain:any[]=[],mappings:any[]=[],mainOps:any[]=[],recipeSizes:any[]=[],recipes:any[]=[],timeRules:any[]=[],areas:any[]=[],scheduleAreas:any[]=[],batchRows:any[]=[];
  const errors:Record<string,string>={};
  const read=async(key:string,sql:string,args:any[]=[]):Promise<any[]>=>{try{return (await db.query(sql,args)).rows;}catch(e){errors[key]=e instanceof Error?e.message:String(e);return [];}};
@@ -133,9 +134,9 @@ export default async function Page({searchParams}:{searchParams:Promise<{job?:st
  return <main className="erp-shell erpkit-migrated-page">
   <ErpAppHeader module="TRAINING"/><AppTabs active="training"/>
   <section className="erp-content erp-content-full guide-page training-page">
-   <div className="erp-page-head guide-head"><div><div className="erp-object-eyebrow">ONBOARDING · LIVE DATABASE · ST PLANNING · V474</div><h2>Training người mới — học bằng dữ liệu thật đang chạy</h2><p>Lý thuyết trước, sau đó đối chiếu ngay Operation Code, Main, Area, Planner, Recipe, Batch Rules, Process Time và một Job thật từ database.</p></div><div className="erp-command-actions"><Link className="btn" href="/logic-guide">Logic & Hướng dẫn</Link><Link className="btn primary" href="/job-tracker">Mở Job Tracker</Link></div></div>
+   <div className="erp-page-head guide-head"><div><div className="erp-object-eyebrow">ONBOARDING · LIVE DATABASE · ST PLANNING · V478</div><h2>Training người mới — học bằng dữ liệu thật đang chạy</h2><p>Lý thuyết trước, sau đó đối chiếu ngay Operation Code, Main, Area, Planner, Recipe, Batch Rules, Process Time và một Job thật từ database.</p></div><div className="erp-command-actions"><Link className="btn" href="/logic-guide">Logic & Hướng dẫn</Link><Link className="btn primary" href="/job-tracker">Mở Job Tracker</Link></div></div>
 
-   <div className="guide-jump"><a href="#theory">1. Lý thuyết</a><a href="#live-config">2. Config thật</a><a href="#op-example">3. Operation Code thật</a><a href="#batch-rules">4. Batch Rules thật</a><a href="#time-rules">5. Process Time thật</a><a href="#job-live">6. Job thật</a><a href="#flow">7. Đi xuyên flow</a><a href="#scenarios">8. Tình huống</a><a href="#practice">9. Bài thực hành</a></div>
+   <div className="guide-jump"><a href="#theory">1. Lý thuyết</a><a href="#live-config">2. Config thật</a><a href="#op-example">3. Operation Code thật</a><a href="#batch-rules">4. Batch Rules thật</a><a href="#time-rules">5. Process Time thật</a><a href="#job-live">6. Job thật</a><a href="#flow">7. Đi xuyên flow</a><a href="#scenarios">8. Tình huống</a><a href="#security">9. Phân quyền</a><a href="#practice">10. Bài thực hành</a></div>
 
    <section className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>Trạng thái dữ liệu Training</b><small className="planning-sub">Trang này đọc database mỗi lần mở/reload; không dùng ví dụ hard-code làm nguồn chuẩn.</small></div><span className={`badge ${liveOk?"b-ready":"b-wait"}`}>{liveOk?"LIVE DATA OK":"LIVE DATA PARTIAL"}</span></div><div className="lg-body">
     <form method="get" className="training-live-search"><label><b>Chọn Job thật để học</b><input name="job" defaultValue={requestedJob} placeholder={sampleJob?`Ví dụ: ${sampleJob.job_num}`:"Nhập Job Number"}/></label><button className="btn primary" type="submit">Load Job</button>{requestedJob?<Link className="btn" href="/training">Job mẫu tự động</Link>:null}</form>
@@ -224,7 +225,20 @@ export default async function Page({searchParams}:{searchParams:Promise<{job?:st
     <tr><td>Masking/Unmasking</td><td>Support config theo Main là strict khi đã cấu hình.</td><td>Preparation report tách PRIMER/PRIMER2/PRIMER3/TOPCOAT1/TOPCOAT2/ANTI-ABRASION.</td></tr>
    </tbody></table></div></div></section>
 
-   <section id="practice" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>9 · Bài thực hành bắt buộc trước khi dùng app thật</b></div></div><div className="lg-body"><ol className="lg-steps">
+
+   <section id="security" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>9 · Ai được làm gì — Aiven Login/RBAC, học bằng quyền thật của account đang đăng nhập</b><small className="planning-sub">Người mới phải hiểu Role, Permission và Scope trước khi thao tác dữ liệu thật.</small></div></div><div className="lg-body">
+    <div className="lg-key lg-key-2"><Card title="Account hiện tại" tone="important"><b>{access?.displayName||access?.email||"—"}</b><div className="muted">{access?.email||"—"}</div></Card><Card title="Role hiện tại">{access?.roles?.length?access.roles.map(r=><span key={r} className="badge b-ready" style={{marginRight:4}}>{r}</span>):"Chưa có Role"}</Card><Card title="Permission đang có">{access?.permissions?.size||0} permission</Card><Card title="Scope đang có"><div>Planning Main: {access?.scopes.PLANNING_MAIN.size||0}</div><div>Schedule Area: {access?.scopes.SCHEDULE_AREA.size||0}</div><div>Production Area: {access?.scopes.PRODUCTION_AREA.size||0}</div></Card></div>
+    <div className="table-wrap"><table className="erp-table"><thead><tr><th>Role</th><th>Được làm gì</th><th>Không được làm gì nếu thiếu quyền</th></tr></thead><tbody>
+     <tr><td><b>ADMIN</b></td><td>Toàn quyền, tạo account, gán Role/Permission/Scope</td><td>—</td></tr>
+     <tr><td><b>PLANNER</b></td><td>Tạo/sửa Batch và Điều độ trong Main/Area được giao</td><td>Không được sửa Main hoặc Schedule Area ngoài Scope</td></tr>
+     <tr><td><b>PRODUCTION_OPERATOR</b></td><td>Báo trạng thái, Actual, Note trong Production Area được giao</td><td>Không được Add Job ngoài lô</td></tr>
+     <tr><td><b>SHIFT_SUPERVISOR</b></td><td>Operator + Add Job ngoài lô + nhận Next Main Attention</td><td>Không được sửa Planning/Schedule nếu không có permission riêng</td></tr>
+    </tbody></table></div>
+    <ol className="lg-steps"><li>Trainer mở menu và yêu cầu học viên giải thích vì sao chỉ một số tab xuất hiện.</li><li>Vào Production bằng Operator: chứng minh có thể Report nhưng không thấy ô Add Job.</li><li>Đổi sang Shift Supervisor: chứng minh Add Job xuất hiện và vẫn bị giới hạn theo Production Area Scope.</li><li>Đăng nhập Planner: thử mở Main ngoài Planning Scope hoặc Schedule Area ngoài Scope và giải thích lỗi 403.</li><li>Admin vào Users & Permissions, tạo account test trực tiếp trên Aiven, đặt mật khẩu tạm, gán Role + Permission + Scope rồi đăng nhập thử bằng account đó.</li></ol>
+    <Card title="Quy tắc an toàn" tone="warning">Ẩn nút trên giao diện không phải là bảo mật. Học viên phải hiểu session được xác thực từ Aiven và API cũng kiểm tra Permission/Scope; không được dùng URL/API trực tiếp để vượt quyền.</Card>
+   </div></section>
+
+   <section id="practice" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>10 · Bài thực hành bắt buộc trước khi dùng app thật</b></div></div><div className="lg-body"><ol className="lg-steps">
     <li><b>Trace Job live:</b> dùng Job đang hiển thị phía trên, tự nói thành lời: RAW code → ST Group → Main → Area/Planner → Recipe → Batch Rule → Time Rule → Previous/Next Main.</li>
     <li><b>So sánh 2 Main:</b> chọn một Main có Common Batch Size và một Main có Recipe-specific Size; giải thích precedence.</li>
     <li><b>Tính tay Process Time:</b> chọn một Recipe có rule Qty/Surface, lấy Qty/Surface của Batch thật và chỉ ra rule nào match.</li>

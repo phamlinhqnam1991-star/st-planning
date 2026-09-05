@@ -1,9 +1,9 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 export async function GET(req:Request){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("schedule.view");
  if(denied)return denied;
  const url=new URL(req.url);
  const planner=url.searchParams.get("planner")==="2"?"2":"1";

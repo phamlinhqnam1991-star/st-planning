@@ -1,4 +1,6 @@
 import type {ErpNavItem} from "@/components/erp/erp-shell";
+import {PAGE_PERMISSION} from "@/lib/security/permissions";
+import type {AccessContext} from "@/lib/security/access";
 
 export type StErpLeafKey=
  |"dashboard"
@@ -14,7 +16,8 @@ export type StErpLeafKey=
  |"productionalerts"
  |"import"
  |"guide"
- |"training";
+ |"training"
+ |"security";
 
 export type StErpModuleKey="dashboard"|"operations"|"tracking"|"masterdata"|"administration";
 
@@ -64,6 +67,7 @@ export const ST_ERP_MODULE_GROUPS:StErpModuleGroup[]=[
    {key:"config",label:"Cấu hình",href:"/settings",shortLabel:"CF"},
    {key:"guide",label:"Logic & Hướng dẫn",href:"/logic-guide",shortLabel:"LG"},
    {key:"training",label:"Training người mới",href:"/training",shortLabel:"TRN"},
+   {key:"security",label:"Users & Permissions",href:"/users-permissions",shortLabel:"USR"},
   ]
  },
 ];
@@ -86,4 +90,18 @@ export function getStErpModuleItems(groupKey:StErpModuleKey):ErpNavItem[]{
 
 export function getStErpModuleLabel(groupKey:StErpModuleKey):string{
  return ST_ERP_MODULE_GROUPS.find(group=>group.key===groupKey)?.label||groupKey;
+}
+
+
+export function getAuthorizedModuleGroups(ctx:AccessContext|null):StErpModuleGroup[]{
+ if(!ctx?.active)return [];
+ return ST_ERP_MODULE_GROUPS.map(group=>{
+  if(group.key==="dashboard")return ctx.permissions.has("dashboard.view")?group:null;
+  const items=group.items.filter(item=>{
+   const permission=PAGE_PERMISSION[item.key];
+   return permission?ctx.permissions.has(permission):false;
+  });
+  if(!items.length)return null;
+  return {...group,href:items[0].href,items};
+ }).filter(Boolean) as StErpModuleGroup[];
 }

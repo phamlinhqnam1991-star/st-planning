@@ -12,7 +12,7 @@ import {
   ErpTabs,
   ErpToolbar,
   type ErpGridColumn,
-} from "@/components/erp";
+} from "@/components/erp/client";
 import type { ErpStatusKey } from "@/lib/erp/status-config";
 
 type DemoJob = {

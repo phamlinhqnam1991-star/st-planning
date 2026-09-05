@@ -3,6 +3,7 @@ import {getPool} from "@/lib/db";
 import {cleanCode,findOpenJobNumsUsingRawOperation,syncAllStDerived} from "@/lib/st-operation-flow";
 import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {requireApiPermission} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const RULES=new Set(["DIRECT","OCCURRENCE","SEQUENCE","SEQUENCE/FALLBACK"]);
@@ -23,6 +24,7 @@ async function deactivateSourceMappings(c:any,source:string,action:"MOVE"|"DEACT
 }
 
 export async function GET(){
+ const {denied}=await requireApiPermission("config.view");if(denied)return denied;
  const c=await getPool().connect();
  try{
   const [flowQ,rawQ,mainQ,groupQ,areaQ,scheduleQ]=await Promise.all([
@@ -151,6 +153,7 @@ export async function GET(){
 }
 
 export async function POST(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const b=await req.json().catch(()=>({}));
  const source=cleanCode(b.source_operation_code);
  const sourceName=clean(b.source_operation_name)||source;
@@ -370,6 +373,7 @@ export async function POST(req:Request){
 }
 
 export async function DELETE(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const b=await req.json().catch(()=>({}));
  const source=cleanCode(b.source_operation_code);
  const fullRebuild=Boolean(b.full_rebuild);

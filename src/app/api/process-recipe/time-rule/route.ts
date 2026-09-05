@@ -3,6 +3,7 @@ import type {PoolClient} from "pg";
 import {getPool} from "@/lib/db";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
 import {refreshUnscheduledRecipeBatches} from "@/lib/planning/batch-utils";
+import {requireApiPermission} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const nullableNumber=(v:unknown)=>{
@@ -102,6 +103,7 @@ function validateRule(calcType:string,fixedHours:number|null,standardHours:numbe
 }
 
 export async function POST(req:NextRequest){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const b=await req.json().catch(()=>({}));
  const recipeKey=clean(b.recipe_key);
  const calcType=clean(b.calc_type).toUpperCase();
@@ -181,6 +183,7 @@ export async function POST(req:NextRequest){
 }
 
 export async function PATCH(req:NextRequest){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const b=await req.json().catch(()=>({}));
  const id=Number(b.id);
  if(!Number.isFinite(id))
@@ -263,6 +266,7 @@ export async function PATCH(req:NextRequest){
 }
 
 export async function DELETE(req:NextRequest){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const b=await req.json().catch(()=>({}));
  const id=Number(b.id);
  if(!Number.isFinite(id))

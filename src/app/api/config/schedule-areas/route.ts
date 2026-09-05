@@ -1,10 +1,12 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
+import {requireApiPermission} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim();
 
 export async function GET(req:Request){
+ const {denied}=await requireApiPermission("config.view");if(denied)return denied;
  const fresh=new URL(req.url).searchParams.has("fresh");
  const c=await getPool().connect();
  try{
@@ -85,6 +87,7 @@ export async function GET(req:Request){
 }
 
 export async function POST(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const b=await req.json().catch(()=>({}));
  const code=clean(b.schedule_area_code).toUpperCase();
  const name=clean(b.schedule_area_name);
@@ -118,6 +121,7 @@ export async function POST(req:Request){
 }
 
 export async function PATCH(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const b=await req.json().catch(()=>({}));
  const code=clean(b.schedule_area_code).toUpperCase();
  if(!code)return NextResponse.json({error:"Thiếu Schedule Area Code."},{status:400});
@@ -141,6 +145,7 @@ export async function PATCH(req:Request){
 }
 
 export async function PUT(req:Request){
+ const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
  const b=await req.json().catch(()=>({}));
  const code=clean(b.schedule_area_code).toUpperCase();
  const operations=Array.isArray(b.operations)?[...new Set(b.operations.map((x:unknown)=>clean(x)).filter(Boolean))]:[];

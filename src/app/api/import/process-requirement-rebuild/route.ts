@@ -6,7 +6,7 @@ import path from "node:path";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {ensureImportStorageBucket,IMPORT_STORAGE_BUCKET} from "@/lib/storage/import-storage";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {invalidateLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 import {rebuildProcessRequirementsOnly} from "@/lib/import/process-requirement-rebuild";
 
@@ -20,7 +20,7 @@ function normalizeStoragePath(value:unknown){
 }
 
 export async function POST(req:Request){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("import.execute");
  if(denied)return denied;
  let temp="";
  let storagePath="";

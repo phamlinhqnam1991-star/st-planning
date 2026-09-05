@@ -16,7 +16,7 @@ import {
   type ErpPlanningMatrixOperation,
   type ErpPlanningMatrixRow,
   type ErpPlanningMatrixSelection,
-} from "@/components/erp";
+} from "@/components/erp/client";
 import type { ErpStatusKey } from "@/lib/erp/status-config";
 
 type MainTab =

@@ -1,6 +1,6 @@
 import{NextRequest,NextResponse}from"next/server";
 import{getPool}from"@/lib/db";
-import{requireApiUser}from"@/lib/api-auth";
+import{requireApiPermission}from"@/lib/security/api";
 import{diagnoseJobRecipe,loadRecipeComparison}from"@/lib/planning/recipe-diagnosis";
 
 const clean=(v:unknown)=>String(v??"").trim();
@@ -11,7 +11,7 @@ const clean=(v:unknown)=>String(v??"").trim();
  * - mode "compare": so sánh cấu hình Recipe ↔ nhu cầu trên board.
  */
 export async function POST(req:NextRequest){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("planning.edit");
  if(denied)return denied;
  try{
   const body=await req.json();

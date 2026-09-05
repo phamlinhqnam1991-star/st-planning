@@ -1,10 +1,10 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 import {loadStDashboardData} from "@/lib/dashboard-st-workload";
 
 export async function GET(){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("schedule.view");
  if(denied)return denied;
  const c=await getPool().connect();
  try{

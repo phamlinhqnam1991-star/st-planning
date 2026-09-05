@@ -3,12 +3,12 @@ import {getPool} from "@/lib/db";
 import {syncPlanningChains} from "@/lib/planning/sync-planning-chains";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
 
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
 export const runtime="nodejs";
 export const maxDuration=300;
 
 export async function POST(){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("planning.edit");
  if(denied)return denied;
  const c=await getPool().connect();
  try{

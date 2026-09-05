@@ -8,7 +8,8 @@ import {recipeAllowedForJob} from "@/lib/planning/batch-utils";
 import {assertSameRecipeConditionGroup} from "@/lib/planning/batch-compatibility";
 import {loadBatchNumberConfig} from "@/lib/planning/batch-number";
 
-import {requireApiUser} from "@/lib/api-auth";
+import {requireApiPermission} from "@/lib/security/api";
+import {canPlanningMain} from "@/lib/security/scope-db";
 async function plannerForOperationDb(c:any,operation:unknown):Promise<"1"|"2"|null>{
  const op=String(operation??"").trim();
  if(!op)return null;
@@ -163,7 +164,7 @@ export async function GET(
  req:NextRequest,
  {params}:{params:Promise<{id:string}>}
 ){
- const denied=await requireApiUser();
+ const {denied}=await requireApiPermission("planning.view");
  if(denied)return denied;
  const {id}=await params;
  const batchId=Number(id);
@@ -232,8 +233,8 @@ export async function POST(
  req:NextRequest,
  {params}:{params:Promise<{id:string}>}
 ){
- const denied=await requireApiUser();
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("planning.edit");
+ if(denied||!ctx)return denied!;
  const {id}=await params;
  const batchId=Number(id);
  const b=await req.json();
@@ -276,6 +277,8 @@ export async function POST(
    `,[batchId]);
 
    if(!batchQ.rowCount)throw new Error("Không tìm thấy Batch.");
+  const scopeOp=String(batchQ.rows[0]?.standard_operation||batchQ.rows[0]?.batch_standard_operation||"");
+  if(!canPlanningMain(ctx,scopeOp)){await c.query("rollback");return NextResponse.json({error:`Không có quyền sửa Main ${scopeOp}.`},{status:403});}
    const batch=batchQ.rows[0];
 
    if(!["PLANNED","RELEASED"].includes(batch.status))
@@ -485,8 +488,8 @@ export async function DELETE(
  req:NextRequest,
  {params}:{params:Promise<{id:string}>}
 ){
- const denied=await requireApiUser();
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("planning.edit");
+ if(denied||!ctx)return denied!;
  const {id}=await params;
  const batchId=Number(id);
  const b=await req.json();
@@ -508,6 +511,8 @@ export async function DELETE(
      for update
    `,[batchId]);
    if(!batchQ.rowCount)throw new Error("Không tìm thấy Batch.");
+  const scopeOp=String(batchQ.rows[0]?.standard_operation||batchQ.rows[0]?.batch_standard_operation||"");
+  if(!canPlanningMain(ctx,scopeOp)){await c.query("rollback");return NextResponse.json({error:`Không có quyền sửa Main ${scopeOp}.`},{status:403});}
    const batch=batchQ.rows[0];
    if(!["PLANNED","RELEASED"].includes(batch.status))
      throw new Error("Batch hiện tại không cho phép bỏ Job.");
