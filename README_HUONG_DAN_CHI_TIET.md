@@ -369,3 +369,7 @@ Tab `Cảnh báo thay đổi SX` là màn hình read-only dành cho planner đ�
 - Training theo đúng vòng đời một Job: All Open Jobs → Job Tracker → Planning Board → Board Điều Độ → Production Execution → Điều chỉnh đầu ngày → Cảnh báo thay đổi SX.
 - Nội dung Training gồm: 6 nguyên tắc cốt lõi, lộ trình từng màn hình, bài thực hành, tình huống sai/lệch, checklist trước khi thao tác độc lập và câu hỏi tự kiểm tra.
 - Không thêm migration SQL và không thay đổi business logic Planning/Scheduling/Production.
+
+
+## V472 - Training người mới theo lý thuyết → thực hành
+Tab Training được mở rộng từ khái niệm chung nhất đến chi tiết: Operation Code → ST Scope/ST Group → Main Operation/Main Planning Order → Area/Planner → Recipe/Batch Key/Batch Size/Time Rules → Planning → Batch → Scheduling → Production. Có ví dụ mô phỏng một Job xuyên suốt và thư viện tình huống vận hành/ngoại lệ. Không thay đổi business logic hoặc database.

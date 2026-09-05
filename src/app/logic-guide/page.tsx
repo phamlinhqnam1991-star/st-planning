@@ -1003,8 +1003,8 @@ export default async function Page(){
    </Section>
 
    <section className="erp-table-panel guide-section">
-    <div className="erp-panel-head"><div><b>Training người mới · V470</b><small className="planning-sub">Tài liệu onboarding tách riêng để người mới học theo tình huống thực tế thay vì đọc toàn bộ cấu hình.</small></div></div>
-    <div className="lg-body"><p>Tab <b>Training người mới</b> hướng dẫn theo một Job thật: All Open Jobs → Job Tracker → Planning Board → Board Điều Độ → Production Execution → Điều chỉnh đầu ngày → Cảnh báo thay đổi SX. Có 6 nguyên tắc cốt lõi, bài thực hành, tình huống sai/lệch, checklist trước khi thao tác độc lập và câu hỏi tự kiểm tra.</p><a className="btn primary" href="/training">Mở Training người mới</a></div>
+    <div className="erp-panel-head"><div><b>Training người mới · V472</b><small className="planning-sub">Tài liệu onboarding tách riêng để người mới học theo tình huống thực tế thay vì đọc toàn bộ cấu hình.</small></div></div>
+    <div className="lg-body"><p>Tab <b>Training người mới</b> nay đào tạo theo kiểu theory-first: bắt đầu từ Job/Operation Code/ST Scope/ST Group/Main Operation/Main Planning Order/Area/Planner, sau đó Recipe/Batch Key/Batch Size/Time Rules, rồi mới đi vào Planning → Batch → Scheduling → Production. Có ví dụ một Job xuyên suốt, thư viện tình huống ngoại lệ, bài thực hành và checklist đạt trước khi thao tác độc lập.</p><a className="btn primary" href="/training">Mở Training người mới</a></div>
    </section>
 
   </section>
