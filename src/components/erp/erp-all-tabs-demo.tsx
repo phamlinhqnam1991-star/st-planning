@@ -28,7 +28,8 @@ type MainTab =
   | "planning"
   | "schedule"
   | "import"
-  | "guide";
+  | "guide"
+  | "training";
 
 const MAIN_TABS: { key: MainTab; label: string; short: string }[] = [
   { key: "master", label: "Master Data", short: "MD" },
@@ -40,6 +41,7 @@ const MAIN_TABS: { key: MainTab; label: string; short: string }[] = [
   { key: "schedule", label: "Board Điều Độ", short: "SC" },
   { key: "import", label: "Import Master", short: "IM" },
   { key: "guide", label: "Logic & Hướng dẫn", short: "LG" },
+  { key: "training", label: "Training người mới", short: "TRN" },
 ];
 
 const MASTER_TABS = [
@@ -641,6 +643,29 @@ function GuideDemo() {
   </div></div>;
 }
 
+function TrainingDemo() {
+  const steps = [
+    "Tìm Job trong All Open Jobs / Job Tracker",
+    "Đọc route và xác định Main Operation hiện tại",
+    "Kiểm tra READY / WAIT và Previous Main",
+    "Tạo Batch tại Planning Board",
+    "Điều độ Resource / Start / Duration",
+    "Theo dõi Production Execution và Job phát sinh ngoài lô",
+    "Kiểm tra Attention / Cảnh báo thay đổi SX và downstream",
+    "Cuối ngày xử lý Carry Over / Điều chỉnh đầu ngày khi có phát sinh",
+  ];
+  return <>
+    <ErpPageHeader eyebrow="New User Training" title="Training người mới" description="Học theo một Job thật từ dữ liệu nguồn đến Planning, Scheduling và Production." />
+    <ErpSection title="Lộ trình thực hành">
+      <div className="erpkit-guide-flow">{steps.map((s,i)=><div key={s}><span>{String(i+1).padStart(2,"0")}</span><b>{s}</b>{i<steps.length-1?<i>↓</i>:null}</div>)}</div>
+    </ErpSection>
+    <div className="erpkit-demo-split">
+      <ErpSection title="Nguyên tắc phải nhớ"><ul className="erpkit-guide-list"><li>Planning nhìn theo Job; Production vận hành theo Batch.</li><li>Không tự ý bỏ qua route, Recipe, Batch Size hoặc Previous Main.</li><li>Job Production thêm ngoài lô phải được nhìn thấy ở Batch và Attention downstream.</li><li>Carry Over và thay đổi lịch chỉ commit sau bước duyệt theo logic đầu ngày.</li></ul></ErpSection>
+      <ErpSection title="Mục tiêu sau training"><div className="erpkit-notice-box"><b>Đọc đúng trước khi thao tác</b><span>Người mới phải giải thích được Job đang ở Main nào, Batch nào, resource nào, Main kế tiếp là gì và thay đổi hiện tại ảnh hưởng downstream ra sao.</span></div></ErpSection>
+    </div>
+  </>;
+}
+
 function LocalTabs({ items, active, onChange }: { items: readonly (readonly [string,string,number?])[]; active: string; onChange: (key:string)=>void }) {
   return <div className="erpkit-local-tabs">{items.map(([key,label,count])=><button type="button" key={key} className={active===key?"is-active":""} onClick={()=>onChange(key)}><span>{label}</span>{typeof count==="number"?<b>{count}</b>:null}</button>)}</div>;
 }
@@ -657,6 +682,7 @@ export function ErpAllTabsDemo() {
     schedule: <ScheduleDemo />,
     import: <ImportDemo />,
     guide: <GuideDemo />,
+    training: <TrainingDemo />,
   };
   return <>
     <div className="erpkit-demo-note"><b>ERP All Tabs Demo.</b> Toàn bộ dữ liệu trong trang này là dữ liệu mẫu, không đọc/ghi database. Bấm các tab bên dưới để duyệt giao diện trước khi migrate thật.</div>

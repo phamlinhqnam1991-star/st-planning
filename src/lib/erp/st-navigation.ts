@@ -13,7 +13,8 @@ export type StErpLeafKey=
  |"adjustment"
  |"productionalerts"
  |"import"
- |"guide";
+ |"guide"
+ |"training";
 
 export type StErpModuleKey="dashboard"|"operations"|"tracking"|"masterdata"|"administration";
 
@@ -62,6 +63,7 @@ export const ST_ERP_MODULE_GROUPS:StErpModuleGroup[]=[
   items:[
    {key:"config",label:"Cấu hình",href:"/settings",shortLabel:"CF"},
    {key:"guide",label:"Logic & Hướng dẫn",href:"/logic-guide",shortLabel:"LG"},
+   {key:"training",label:"Training người mới",href:"/training",shortLabel:"TRN"},
   ]
  },
 ];

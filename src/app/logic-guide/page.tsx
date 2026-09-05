@@ -5,7 +5,7 @@ import {getPool} from "@/lib/db";
 export const dynamic="force-dynamic";
 
 // =====================================================================
-// LOGIC & HƯỚNG DẪN v393
+// LOGIC & HƯỚNG DẪN v470
 // Tài liệu vận hành nằm ngay trong app. Nội dung mô tả SOURCE OF TRUTH,
 // trình tự thao tác, dependency và impact của từng tab theo code hiện tại.
 // Phần "Mapping đang chạy" đọc trực tiếp database để đối chiếu cấu hình thật.
@@ -212,7 +212,7 @@ export default async function Page(){
    <div className="erp-page-head guide-head">
     <div>
      <h2>Logic & Hướng dẫn vận hành</h2>
-     <p>Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau theo logic hiện tại.</p>
+     <p>Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau theo logic hiện tại đến V470.</p>
     </div>
    </div>
 
@@ -229,6 +229,9 @@ export default async function Page(){
     <a href="#schedule">Board Điều Độ</a>
     <a href="#import">Import Master</a>
     <a href="#production">Production Execution</a>
+    <a href="#daily-production-adjustment">Điều chỉnh đầu ngày</a>
+    <a href="#production-change-alerts">Cảnh báo thay đổi SX</a>
+    <a href="/training">Training người mới</a>
     <a href="#dashboard">Dashboard & AI</a>
     <a href="#impact">Impact Matrix</a>
     <a href="#live">Mapping đang chạy</a>
@@ -243,9 +246,10 @@ export default async function Page(){
      {t:"C · Import All Open Job",d:"Snapshot NEW/CHANGED/CLOSED",c:"blue"},
      {t:"D · Planning Board",d:"READY → chọn Job → Batch",c:"blue"},
      {t:"E · Board Điều Độ",d:"Unscheduled Batch → Resource/Time",c:"green"},
-     {t:"F · Báo cáo sản xuất",d:"Production + Unmasking → Masking theo Job",c:"teal"},
-     {t:"G · Handoff",d:"Batch mở Main kế tiếp",c:"orange"},
-     {t:"H · Dashboard",d:"KPI → Risk → AI Analysis",c:"green"},
+     {t:"F · Báo cáo sản xuất",d:"Actual + Extra Job + Attention",c:"teal"},
+     {t:"G · Điều chỉnh đầu ngày",d:"Carry Over → Preview → Duyệt",c:"orange"},
+     {t:"H · Cảnh báo thay đổi SX",d:"Audit Production-added + downstream",c:"amber"},
+     {t:"I · Dashboard",d:"KPI → Risk → AI Analysis",c:"green"},
     ]}/>
     <div className="lg-key lg-key-2">
      <Rule title="Nguyên tắc 1 · Master ≠ Config" tone="important">
@@ -760,8 +764,8 @@ export default async function Page(){
     </Rule>
    </Section>
 
-   <Section id="production" title="11 · Production Execution — production worklist & completion reporting"
-    sub="Reads scheduled Batch + Masking / Unmasking work; stores execution status separately from Planning and Scheduling">
+   <Section id="production" title="11 · Production Execution — báo cáo thực tế theo Batch (đến V469)"
+    sub="Scheduled Batch + support work + actual report + Production-added Job + Next Main Attention; membership Job được đọc bền vững từ database">
     <Chain steps={[
      {t:"Scheduling Board",d:"Batch · Resource · Planned Start/End",c:"blue"},
      {t:"Masking / Unmasking",d:"Derived support work",c:"teal"},
@@ -775,6 +779,9 @@ export default async function Page(){
      <Rule title="Production sub-tabs + area color · V447">Báo cáo sản xuất có sub-tab: Chemical Line; Shot Peening (Auto + Manual); Masking &amp; Unmasking; Painting; Sirius Cleaning; Blasting (Manual + Auto); Plating (Plating + He-Bake); Passivation / Brightening. Tiêu đề từng bảng khu vực dùng màu nhận dạng riêng. Tất cả bảng tiếp tục không có inner vertical scroll; cuộn dọc dùng trang chính.</Rule>
      <Rule title="Report panel grouping · V448 / V455" tone="important">UI bảng báo cáo được tăng khoảng cách, viền/màu tiêu đề và nền header để phân biệt rõ từng nhóm. Từ <b>V455</b>, trong sub-tab <b>Masking &amp; Unmasking</b>, các Preparation Job được gom theo <b>Khu vực vật lý của Main Planning liên kết</b>, không còn tạo panel riêng theo từng Main. Ví dụ PRIMER1/PRIMER2/TOPCOAT1/TOPCOAT2 cùng thuộc Painting sẽ nằm chung panel <code>Painting (Preparation)</code>; cột Main trong từng Job vẫn giữ rõ công đoạn đích. Mỗi Job vẫn gộp các bước theo thứ tự Unmasking → Masking và từng support step giữ trạng thái execution riêng. Trong sub-tab <b>Painting</b>, dữ liệu Main được chia thành đúng 4 panel: <b>CAB1</b>, <b>CAB2</b>, <b>CAB3</b>, <b>Powercoating</b>. Không đổi dữ liệu hay trạng thái Planning/Schedule.</Rule>
      <Rule title="Compact Batch blocks + Production Note · V450" tone="important">Báo cáo dài được tối giản để dễ quét theo Batch: bỏ cột <b>Công đoạn</b> ở dòng Batch và bỏ <b>Công đoạn trước / Công đoạn kế tiếp</b> ở Job detail, đồng thời tăng separator giữa các Batch. Thêm cột <b>Ghi chú</b>: Chemical Line/Painting lưu ghi chú theo dòng vào <code>production_execution.remark</code>; các khu vực báo cáo theo Job lưu ghi chú riêng từng Job vào <code>production_execution_job.remark</code>. Ghi chú là dữ liệu thực thi, không thay đổi Planning Chain, Batch, Recipe hay Schedule.</Rule>
+     <Rule title="Production Add Job trực tiếp · V465/V466" tone="important">Ở mọi khu vực, Production có thể nhập <b>Job Number</b> vào Batch. Hệ thống lookup thông tin Job và validate; nếu hợp lệ thì thêm trực tiếp vào <code>planning_batch_job</code>, <b>không cần approve</b> ở Điều chỉnh đầu ngày. V465 sửa input để gõ liên tục không mất focus; V466 sửa kiểu dữ liệu bigint/text khi ghi audit.</Rule>
+     <Rule title="Next Main Attention · V467" tone="important">Sau khi Production thêm Job ngoài lô ở Main hiện tại, hệ thống dùng <b>route thật của Job</b> để tìm Next Main và dùng overlap Job/previous relationship để xác định Batch downstream phù hợp. Batch Main kế tiếp hiện Attention; Production có thể bấm <b>Thêm Job này</b>. Job downstream được thêm ở trạng thái WAITING, không tự DONE. Không hard-code BSA → PRIMER.</Rule>
+     <Rule title="Production-added Job phải tồn tại sau reload · V469" tone="important">Painting/Chemical Line vẫn báo cáo theo Batch, nhưng Job membership của mọi Batch đều được load từ <code>planning_batch_job</code>. Vì vậy Job Production-added vẫn hiển thị đúng dưới Batch sau khi đổi tab, tạo thêm Batch khác hoặc reload trang; không còn phụ thuộc state tạm của UI.</Rule>
      <Rule title="Hiệu năng tải trang · V437">Production Execution dùng cùng resolver Masking/Unmasking đã thu hẹp theo ngày/Batch/Part-Rev và không còn chạy thêm một vòng <code>array_agg</code> Job Number theo từng Batch; Job Number được tái sử dụng từ Batch Job detail đã tải. Business status WAITING/ON-GOING/DONE không đổi.</Rule>
     </div>
    </Section>
@@ -947,41 +954,59 @@ export default async function Page(){
     <Rule title="Không đổi nghiệp vụ" tone="important">Provider move không thay Planning Chain READY/WAIT, Recipe Resolver, Batch Compatibility, Previous Main Schedule Lock, Chemical Line proposal/capacity, Masking/Unmasking resolver hay Production Execution.</Rule>
    </Section>
 
-   <Section id="daily-production-adjustment" title="16 · Daily Production Adjustment · đối soát đầu ngày (V465)"
-    sub="Production Report trước 05:59 → Carry Over / Remove Job cần duyệt; Extra Job được thêm trực tiếp, ghi audit và truyền Attention sang Next Main">
-    <StepList items={[
-     <>Ngày sản xuất vẫn là <b>06:00 → 05:59 hôm sau</b>. Carry Over/Remove Job không tự sửa lịch trước khi planner duyệt; riêng Extra Job hợp lệ từ Production được thêm trực tiếp vào Batch, ghi audit và tự tạo <b>Next Main Attention</b> cho lô downstream phù hợp. Production của lô downstream bấm <b>Thêm Job này</b> thì Job vào Batch ở trạng thái WAITING, không tự DONE.</>,
-     <>Tab <b>Điều chỉnh đầu ngày</b> quét Production Report và tạo <b>CARRY_OVER</b> cho Batch còn Job chưa DONE; Job còn WAITING được tạo thêm đề xuất <b>REMOVE_JOB</b> để planner xác nhận bớt khỏi lô khi thực tế chưa bắt đầu.</>,
-     <>Production có thể nhập <b>Job Number phát sinh ngoài Batch</b>. Hệ thống tự lookup Job/Main/Recipe, validate và <b>thêm trực tiếp</b> vào Batch, không cần approve ở tab Điều chỉnh. Tab Điều chỉnh chỉ hiện thông báo/audit Batch nào đã thêm và thông tin Job đã thêm; mismatch/Job đang ở Batch khác vẫn bị chặn.</>,
-     <>Carry Over không chỉ dời cùng Resource. Preview chạy <b>Cross-Main Dependency</b>: Start Main sau phải ≥ Effective End Main trước, kể cả Main thuộc planner khác; sau đó chạy tiếp <b>Resource Cascade</b> cho các Batch bị overlap.</>,
-     <>Preview chỉ là change-set. Nút <b>Duyệt</b> mới commit. Lịch cũ được giữ dưới dạng Schedule CANCELLED có note audit; lịch mới được tạo thành Schedule active mới để không mất lịch sử trước chỉnh.</>,
-     <>Planning Board vẫn nhìn theo Job; Scheduling/Production vận hành theo Batch. Carry Over không tạo Batch No mới.</>,
-     <>Chức năng <b>Add Job nhanh</b> dùng chung cho mọi khu vực: mở Batch Detail từ Planning hoặc Scheduling, chỉ nhập Job Number → tự hiện Part/Rev/Qty/Surface/Main/Operation/Recipe/Status và validate trước khi Add.</>
+   <Section id="daily-production-adjustment" title="16 · Điều chỉnh đầu ngày · Daily Production Reconciliation (V464–V469)"
+    sub="Production Report trước 05:59 → Carry Over / Remove Job cần duyệt; Extra Job được thêm trực tiếp và chỉ ghi audit">
+    <Chain steps={[
+     {t:"Production trước 05:59",d:"Actual / Remaining / Extra Job",c:"teal"},
+     {t:"Reconciliation",d:"Detect Carry Over / Remove / Add audit",c:"blue"},
+     {t:"Preview",d:"Cross-Main + Resource Cascade",c:"orange"},
+     {t:"Planner Duyệt",d:"Commit change-set",c:"green"},
     ]}/>
-    <Rule title="Constraint bắt buộc" tone="important">Một lịch sau khi duyệt không hợp lệ nếu Start của Main hiện tại nhỏ hơn End hiệu lực của Main trước. Planner Owner chỉ xác định trách nhiệm/hiển thị; không được làm đứt dependency chain.</Rule>
+    <StepList items={[
+     <>Ngày sản xuất chuẩn là <b>06:00 → 05:59 hôm sau</b>. Batch chưa hoàn thành trước 05:59 có thể trở thành <b>CARRY_OVER_PENDING</b>; Carry Over không tạo Batch No mới chỉ vì sang ngày.</>,
+     <>Tab <b>Điều chỉnh đầu ngày</b> tạo đề xuất <b>CARRY_OVER</b> cho Batch chưa hoàn thành và <b>REMOVE_JOB</b> cho Job planned nhưng thực tế chưa bắt đầu/không thực hiện theo rule hiện hành.</>,
+     <>Job phát sinh ngoài lô do Production nhập là ngoại lệ: nếu validate hợp lệ thì <b>thêm trực tiếp vào Batch, không cần approve</b>. Tab Điều chỉnh chỉ hiển thị thông báo/audit Batch nào được Production thay đổi và Job nào đã thêm.</>,
+     <>Carry Over Preview phải chạy <b>Cross-Main Dependency</b>: Start Main sau ≥ Effective End Main trước, kể cả hai Main thuộc hai planner khác nhau; sau đó tiếp tục <b>Resource Cascade</b> cho Batch bị overlap.</>,
+     <>Preview chỉ là change-set. Chỉ nút <b>Duyệt chỉnh lịch</b> mới commit. Lịch cũ được giữ để audit, không ghi đè mất lịch sử.</>,
+     <>Nếu Main trước có nhiều Batch do Auto Split, Effective End dùng mốc hoàn thành hiệu lực của toàn bộ Batch cần thiết theo logic chain; UI Planning vẫn một Job row, còn Scheduling/Production vẫn vận hành từng Batch.</>
+    ]}/>
+    <Rule title="Constraint schedule bắt buộc" tone="important">Một schedule sau khi duyệt không hợp lệ nếu Start của Main hiện tại nhỏ hơn Effective End của Previous Main. Planner Owner chỉ xác định trách nhiệm/hiển thị; không được làm đứt dependency chain.</Rule>
+    <Rule title="Phân biệt READY với khả thi về thời gian" tone="warning">Tạo Batch vẫn là handoff Planning và có thể mở Next Main theo Sequential READY trước khi previous Batch được Schedule. Nhưng khi xếp lịch hoặc điều chỉnh Carry Over, lịch thực tế vẫn phải thỏa dependency thời gian giữa Main trước và Main sau.</Rule>
    </Section>
 
-   <Section id="faq" title="17 · FAQ / Chẩn đoán nhanh">
+   <Section id="production-change-alerts" title="17 · Cảnh báo thay đổi bởi Sản xuất (V468–V469)"
+    sub="Tab read-only để planner đọc một nơi và hiểu ngay Production đã thay đổi gì ngoài kế hoạch và ảnh hưởng downstream">
+    <div className="lg-key lg-key-2">
+     <Rule title="Nguồn alert">Đọc audit Production Adjustment + Handover Event để gom toàn bộ <b>Production-added Job</b> và các Attention downstream.</Rule>
+     <Rule title="Thông tin phải đọc được ngay" tone="important">Job/Part/Rev/Qty/Surface; Batch/Main/Recipe/Resource nguồn; Qty Batch trước → sau; Next Main; Planner/Batch/Resource downstream; Planned Start; trạng thái Attention đang chờ / đã nhận / chưa có lô đích.</Rule>
+     <Rule title="Read-only">Tab Alert không tự sửa Batch/Schedule/Production. Planner dùng nó để hiểu thay đổi; thao tác thật vẫn ở Production Execution, Board Điều Độ hoặc Điều chỉnh đầu ngày.</Rule>
+     <Rule title="Không mất dấu Job sau reload · V469">Do Batch membership được load lại từ database, Production-added Job vẫn còn dưới Batch và alert vẫn có cơ sở dữ liệu thật sau khi người dùng đổi tab, tạo Batch khác hoặc reload.</Rule>
+    </div>
+    <p>Ví dụ: Production thêm <b>J008</b> vào <b>BSA_00001 / BSAUNSLD</b> → hệ thống ghi audit → tìm Next Main <b>PRIMER</b> theo route thật → xác định <b>PRI_00002</b> là Batch downstream phù hợp → tạo Attention cho planner/production ở PRIMER. Nếu downstream chưa có Batch phù hợp, alert vẫn phải cho planner thấy trạng thái <b>chưa có lô Main sau</b>.</p>
+   </Section>
+
+   <Section id="faq" title="18 · FAQ / Chẩn đoán nhanh">
     <Faq q="Vì sao Next Operation không sort theo chữ ABC?" a={<>Đó là chủ ý. Khi Sort Priority dùng <b>NextOperation</b>, Board resolve RAW NextOperation → Main và dùng <b>Main Planning Order</b>. Operation Code Order chỉ tie-break trong cùng Main. Kiểm tra Cấu hình → Main Operation và ST Scope.</>}/>
     <Faq q="Vì sao một Job READY nhưng click xong các READY khác bị mờ?" a={<>Bạn đang ở <b>Batch Selection Mode</b>. Main khác bị dim; cùng Main nhưng khác Recipe hoặc không thỏa các condition đang tích cũng bị dim/disable. Clear Selection để thoát mode.</>}/>
+    <Faq q="Vì sao Main kế tiếp READY dù Batch trước chưa Schedule?" a={<>Theo Sequential READY hiện tại, Batch <b>PLANNED-UNSCHEDULED</b> đã là handoff Planning hợp lệ. Scheduling là lớp resource/time. Tuy nhiên khi xếp lịch hoặc sau Carry Over, Start Main sau vẫn phải thỏa dependency thời gian với Effective End Main trước.</>}/>
+    <Faq q="Production thêm Job ngoài lô có cần approve ở Điều chỉnh đầu ngày không?" a={<>Không. Nếu validation hợp lệ, Job được thêm trực tiếp vào Batch, ghi audit và tạo Next Main Attention. Điều chỉnh đầu ngày chỉ hiện thông báo/audit cho Extra Job.</>}/>
+    <Faq q="Vì sao Job Production-added phải còn hiện sau khi tôi tạo thêm Batch khác hoặc reload?" a={<>Từ V469, Job membership của tất cả Batch được load từ <code>planning_batch_job</code>, kể cả Painting/Chemical Line report theo Batch. Nếu Job biến mất thì đó là lỗi dữ liệu/API, không phải hành vi mong muốn.</>}/>
+    <Faq q="Production thêm Job vào BSA thì PRIMER phía sau biết bằng cách nào?" a={<>V467 dùng route thật của Job để tìm Next Main, sau đó tìm Batch downstream phù hợp dựa trên relationship/overlap Job. Batch PRIMER nhận Attention; Production có thể bấm <b>Thêm Job này</b>. Không hard-code BSA → PRIMER.</>}/>
+    <Faq q="Shot Peening đổi End 07:00 → 09:00 nhưng BSAUNSLD của planner khác đang Start 07:30 thì sao?" a={<>Đầu ngày, Carry Over Preview phải đánh dấu dependency conflict và đề xuất dời BSAUNSLD đến sau Effective End của Shot Peening, rồi kiểm tra tiếp resource overlap và các Main sau. Không chỉ sửa riêng Shot Peening.</>}/>
     <Faq q="Vì sao không thấy checkbox condition trong Batch Compatibility?" a={<>Checkbox lấy từ <b>Operation Code → Recipe → Điều kiện áp dụng cho Job</b> của đúng Recipe mapping. Process Time condition không tạo checkbox. Nếu mapping Recipe không có condition, panel sẽ báo chỉ khóa theo Recipe.</>}/>
     <Faq q="Tôi bỏ tích hết condition thì có trộn Recipe được không?" a={<>Không. Empty condition subset chỉ có nghĩa là <b>same Main + same Recipe</b>. Recipe khác vẫn bị server chặn.</>}/>
-    <Faq q="Vì sao Main kế tiếp READY dù Batch trước chưa Schedule?" a={<>Theo Sequential READY hiện tại, Batch <b>PLANNED-UNSCHEDULED</b> đã là handoff hợp lệ. Scheduling chỉ xếp resource/time; không phải gate mở Main kế tiếp.</>}/>
     <Faq q="Vì sao Main xa hơn vẫn WAIT?" a={<>Chỉ immediate next Main được mở sau handoff. Các Main sau nữa giữ WAIT cho đến khi chuỗi previous liên tục đã có Batch/DONE.</>}/>
-    <Faq q="Tạo Batch xong có reload toàn Board không?" a={<>Không. Luồng hiện tại dùng <b>Delta Refresh</b> cho affected Job/Route Matrix và refresh Target Batch. Rebuild Chain mới là thao tác có thể tải lại nhiều dữ liệu.</>}/>
     <Faq q="Recipe đúng nhưng Process Time = — / chưa xác định?" a={<>Kiểm tra Cấu hình → Thời gian xử lý. Batch có thể không match range Qty/Surface hoặc condition cụ thể; cần rule fallback không condition nếu muốn có thời gian cho trường hợp trộn value.</>}/>
     <Faq q="Job không xuất hiện ở All Open Jobs ST?" a={<>Kiểm tra RAW <b>NextOperation</b> của Job có thuộc operational ST Scope <b>PLANNING_OPERATION</b> hoặc <b>ST_SCOPE_ONLY</b> hay không. INTERMEDIATE Dashboard ST không làm Job xuất hiện ở tab All Open Jobs.</>}/>
-    <Faq q="Job xuất hiện All Open Jobs nhưng không có READY?" a={<>Có thể Operation là ST_SCOPE_ONLY, chain chưa resolve, Main phía trước còn WAIT/gap, hoặc dữ liệu Last/Next/AllOperation/Bridge không định vị được. Với raw Operation lặp lại nhiều occurrence, hệ thống ưu tiên occurrence sớm nhất chưa có Batch. Kiểm tra Route Matrix/NO CHAIN, Job Tracker và ST Operation Flow để xác định vị trí của Job.</>}/>
-    <Faq q="Đổi Operation Code Order có cần Rebuild Chain?" a={<>Không. Operation Code Order chỉ dùng tie-break presentation. Rebuild Chain chỉ cần cho thay đổi cấu trúc Planning/Mapping/Bridge/Scope.</>}/>
-    <Faq q="Ngưng Main Operation có mất Batch lịch sử không?" a={<>Không. Ngưng giữ lịch sử. Xóa vĩnh viễn chỉ được phép khi đã ngưng và không còn dependency; API sẽ chặn và báo các nhóm còn tham chiếu.</>}/>
+    <Faq q="Job xuất hiện All Open Jobs nhưng không có READY?" a={<>Có thể Operation là ST_SCOPE_ONLY, chain chưa resolve, Main phía trước còn WAIT/gap, hoặc dữ liệu Last/Next/AllOperation/Bridge không định vị được. Kiểm tra Route Matrix/NO CHAIN, Job Tracker và ST Operation Flow.</>}/>
     <Faq q="Import Master và Import All Open Job khác gì?" a={<>Import Master = dữ liệu kỹ thuật Part/Revision/Routing/Finish/Requirement. Import All Open Job = snapshot WIP/job thực tế. Hai luồng độc lập nhưng gặp nhau tại Planning resolver.</>}/>
    </Section>
 
+   <section className="erp-table-panel guide-section">
+    <div className="erp-panel-head"><div><b>Training người mới · V470</b><small className="planning-sub">Tài liệu onboarding tách riêng để người mới học theo tình huống thực tế thay vì đọc toàn bộ cấu hình.</small></div></div>
+    <div className="lg-body"><p>Tab <b>Training người mới</b> hướng dẫn theo một Job thật: All Open Jobs → Job Tracker → Planning Board → Board Điều Độ → Production Execution → Điều chỉnh đầu ngày → Cảnh báo thay đổi SX. Có 6 nguyên tắc cốt lõi, bài thực hành, tình huống sai/lệch, checklist trước khi thao tác độc lập và câu hỏi tự kiểm tra.</p><a className="btn primary" href="/training">Mở Training người mới</a></div>
+   </section>
+
   </section>
- 
-   <Section id="production-change-alerts" title="17 · Cảnh báo thay đổi bởi Sản xuất (V468)"
-    sub="Một tab read-only gom toàn bộ Job Production thêm ngoài lô và ảnh hưởng xuyên Main/Planner/Batch/Resource">
-    <>Tab <b>Cảnh báo thay đổi SX</b> đọc audit từ Production Adjustment + Handover Event. Planner thấy ngay Job/Part/Qty/Surface nào được thêm, Batch/Main/Recipe/Resource nào bị thay đổi, Qty Batch trước/sau, Next Main nào phải nhận, Planner/Batch/Resource downstream, Planned Start và trạng thái Attention. Tab này <b>không sửa dữ liệu</b>; thao tác Production/Điều độ vẫn thực hiện ở màn hình nghiệp vụ tương ứng.</>
-   </Section>
-</main>;
+ </main>;
 }

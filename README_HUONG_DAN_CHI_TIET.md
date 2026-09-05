@@ -362,3 +362,10 @@ Tab `Cảnh báo thay đổi SX` là màn hình read-only dành cho planner đ�
 
 ## V469 — Job thêm bởi Production không mất sau khi reload
 Ở Painting/Chemical Line vẫn báo cáo theo dòng Batch. Tuy nhiên hệ thống luôn tải membership Job của Batch để các Job được Production thêm ngoài kế hoạch tiếp tục hiện bên dưới dòng Batch sau khi đổi tab, tạo thêm Batch khác hoặc reload trang. Đây chỉ là dữ liệu hiển thị/audit; không đổi sang báo cáo trạng thái theo từng Job ở các khu vực LINE.
+
+## V470 — Logic & Hướng dẫn mới nhất + Training người mới
+- Cập nhật tab **Logic & Hướng dẫn** đến logic V469: Production Add Job trực tiếp, Next Main Attention, Cảnh báo thay đổi SX, Job Production-added tồn tại sau reload, Carry Over/Cross-Main/Resource Cascade và phân biệt READY với dependency thời gian.
+- Thêm tab **Training người mới** trong nhóm Quản trị.
+- Training theo đúng vòng đời một Job: All Open Jobs → Job Tracker → Planning Board → Board Điều Độ → Production Execution → Điều chỉnh đầu ngày → Cảnh báo thay đổi SX.
+- Nội dung Training gồm: 6 nguyên tắc cốt lõi, lộ trình từng màn hình, bài thực hành, tình huống sai/lệch, checklist trước khi thao tác độc lập và câu hỏi tự kiểm tra.
+- Không thêm migration SQL và không thay đổi business logic Planning/Scheduling/Production.
