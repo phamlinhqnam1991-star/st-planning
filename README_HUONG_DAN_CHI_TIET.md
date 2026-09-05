@@ -430,3 +430,10 @@ Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu khô
 - Production Attention hiển thị rõ **Job · Source Batch · Source Main → Downstream Main · Recipe No. · Recipe Name**. Ví dụ: `F0200884 · CHM00001 · CPBILP → BSAUNSLD · Recipe 002 · Anodizing BSA Unsealed`.
 - Khi nhận Job từ Attention, Job downstream ở trạng thái **WAITING**; không tự DONE. Duplicate NEW attention được chặn theo Source Batch + Job + Downstream Main + Target Batch.
 - Không thay đổi Recipe rule, Batch Size, Planning READY/WAIT, Scheduling dependency hay Production status logic khác.
+
+
+## V485 · Daily Adjustment Scan = latest snapshot
+- `Quét báo cáo trước 05:59` đối soát lại trạng thái Production hiện tại, không cộng dồn cảnh báo cũ.
+- Carry Over / Remove Job còn `PENDING` nhưng Batch/Job đã `DONE` (hoặc không còn thỏa điều kiện) sẽ tự biến mất sau lần quét tiếp theo.
+- `APPROVED` / `REJECTED` và audit `ADD_JOB` không bị xóa.
+- Không thay đổi Batch, Recipe, Scheduling cascade hay Production reporting.

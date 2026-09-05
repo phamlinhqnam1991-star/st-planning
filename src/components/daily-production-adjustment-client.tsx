@@ -55,7 +55,7 @@ export function DailyProductionAdjustmentClient({productionDate,initialData}:Pro
 
   <div className="erp-table-panel section">
    <div className="erp-panel-head"><div><b>Đối soát đầu ngày · Production → Planning/Scheduling</b><small>Production day 06:00 → 05:59. Carry Over/Bớt Job cần duyệt; Job phát sinh từ Báo cáo sản xuất được thêm trực tiếp và tab này chỉ lưu thông báo/audit.</small></div><button type="button" className="btn primary" disabled={busy==="SCAN"} onClick={scan}>{busy==="SCAN"?"Đang quét...":"Quét báo cáo trước 05:59"}</button></div>
-   <div className="notice">Carry Over sẽ kiểm tra đồng thời <b>Cross-Main Dependency</b> và <b>Resource Conflict</b>. Main của planner khác vẫn được tính trong cùng change-set để tránh Start của Main sau nhỏ hơn End Main trước.</div>
+   <div className="notice">Mỗi lần quét là <b>snapshot mới nhất</b> của Production Report: mục Carry Over/Bớt Job còn PENDING nhưng Production đã báo DONE hoặc không còn thỏa điều kiện sẽ tự biến mất. Carry Over vẫn kiểm tra đồng thời <b>Cross-Main Dependency</b> và <b>Resource Conflict</b>.</div>
   </div>
 
   <div className="erp-table-panel section">

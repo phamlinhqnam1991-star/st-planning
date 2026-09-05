@@ -202,7 +202,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{job?:st
     <li><b>Planning Board:</b> Job READY hay WAIT? Tạo Batch ở Main đúng, không tạo ở Scheduling. Nếu cùng Job/Main nhiều batch thì Planning Board hiển thị nối bằng &.</li>
     <li><b>Scheduling:</b> Chọn Resource/Start/Duration. Start Current Main phải phù hợp Effective End Previous Main và resource constraints.</li>
     <li><b>Production:</b> Báo actual. Khi cần thêm Job ngoài lô, bấm <b>Add Job</b> cạnh Batch No., nhập Job Number rồi Save. Job được audit và hệ thống tạo Attention cho <b>tất cả Main Planning phía sau</b> theo route thật; mỗi Attention phải đọc được Recipe của Main đích.</li>
-    <li><b>Đầu ngày:</b> trước 05:59 nếu còn Batch chưa hoàn tất, Carry Over được preview; chỉ khi duyệt mới cascade lịch xuyên resource và planner.</li>
+    <li><b>Đầu ngày:</b> trước 05:59 nếu còn Batch chưa hoàn tất, Carry Over được preview; chỉ khi duyệt mới cascade lịch xuyên resource và planner.</li><li><b>Quét lại sau khi sửa báo cáo:</b> mỗi lần Scan đọc trạng thái Production mới nhất. Nếu Batch từng bị báo thiếu nhưng sau đó Operator cập nhật DONE, Scan lại phải xóa Carry Over/Bớt Job còn PENDING của Batch đó; lịch sử đã duyệt/từ chối vẫn giữ để audit.</li>
    </ol></div></section>
 
    <section id="scenarios" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>8 · Tất cả tình huống trainer phải đưa ra</b><small className="planning-sub">Không chỉ học happy path; phải biết vì sao sai và kiểm tra ở đâu.</small></div></div><div className="lg-body"><div className="table-wrap"><table className="erp-table"><thead><tr><th>Tình huống</th><th>Người mới phải hiểu</th><th>Cách xử lý đúng</th></tr></thead><tbody>

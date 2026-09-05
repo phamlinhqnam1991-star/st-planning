@@ -966,6 +966,7 @@ export default async function Page(){
     ]}/>
     <StepList items={[
      <>Ngày sản xuất chuẩn là <b>06:00 → 05:59 hôm sau</b>. Batch chưa hoàn thành trước 05:59 có thể trở thành <b>CARRY_OVER_PENDING</b>; Carry Over không tạo Batch No mới chỉ vì sang ngày.</>,
+     <>Từ V485, nút <b>Quét báo cáo trước 05:59</b> là phép <b>reconciliation snapshot</b>, không phải append-only. Nếu lần quét đầu Batch chưa báo nên xuất hiện Carry Over/Bớt Job, nhưng Production quay lại báo <b>DONE</b> rồi quét lại, các mục <b>PENDING</b> không còn đúng phải tự biến mất. Mục đã APPROVED/REJECTED vẫn được giữ để audit.</>,
      <>Tab <b>Daily Production Adjustment</b> tạo đề xuất <b>CARRY_OVER</b> cho Batch chưa hoàn thành và <b>REMOVE_JOB</b> cho Job planned nhưng thực tế chưa bắt đầu/không thực hiện theo rule hiện hành.</>,
      <>Job phát sinh ngoài lô do Production nhập là ngoại lệ: nếu validate hợp lệ thì <b>thêm trực tiếp vào Batch, không cần approve</b>. Tab Điều chỉnh chỉ hiển thị thông báo/audit Batch nào được Production thay đổi và Job nào đã thêm.</>,
      <>Carry Over Preview phải chạy <b>Cross-Main Dependency</b>: Start Main sau ≥ Effective End Main trước, kể cả hai Main thuộc hai planner khác nhau; sau đó tiếp tục <b>Resource Cascade</b> cho Batch bị overlap.</>,

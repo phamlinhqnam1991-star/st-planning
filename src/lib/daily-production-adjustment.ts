@@ -62,12 +62,20 @@ export async function scanProductionAdjustments(c:PoolClient,productionDate:stri
 
  const byBatch=new Map<number,any[]>();
  for(const r of rowsQ.rows){const id=Number(r.batch_id);const a=byBatch.get(id)||[];a.push(r);byBatch.set(id,a);}
+
+ // V485: SCAN is a reconciliation snapshot, not an append-only detector.
+ // Keep only PENDING auto-generated findings that are still true in the latest
+ // Production Report. APPROVED/REJECTED items remain untouched for audit.
+ const activeCarryKeys=new Set<string>();
+ const activeRemoveKeys=new Set<string>();
+
  for(const [batchId,rows] of byBatch){
   const first=rows[0];
   const unfinished=rows.filter(r=>r.execution_status!=="DONE");
   if(!unfinished.length)continue;
   const planner=await plannerForOperation(c,first.standard_operation);
   const carryPjo=Number(rows[0].planning_job_operation_id);
+  activeCarryKeys.add(`${batchId}:${carryPjo}`);
   const duration=Math.max(1,Number(first.duration_minutes||first.process_minutes||60));
   const proposedStart=new Date(nextStart);
   const proposedEnd=new Date(proposedStart.getTime()+duration*60000);
@@ -89,6 +97,7 @@ export async function scanProductionAdjustments(c:PoolClient,productionDate:stri
       `Batch ${first.batch_no}: ${unfinished.length} Job chưa DONE`,JSON.stringify({unfinishedJobs:unfinished.map(r=>({jobNum:r.job_num,status:r.execution_status,qty:Number(r.qty||0)})),resource:first.resource_code})]);
 
   for(const r of unfinished.filter(x=>x.execution_status==="WAITING")){
+   activeRemoveKeys.add(`${batchId}:${Number(r.planning_job_operation_id)}`);
    await c.query(`
     insert into production_adjustment_item(
      adjustment_set_id,item_type,status,batch_id,schedule_id,planning_job_operation_id,job_num,
@@ -101,6 +110,23 @@ export async function scanProductionAdjustments(c:PoolClient,productionDate:stri
        "Đề xuất bớt khỏi lô chỉ khi Job thực tế chưa bắt đầu.",JSON.stringify({executionStatus:r.execution_status,qty:Number(r.qty||0),surface:Number(r.surface_dm2||0)})]);
   }
  }
+
+ // Remove stale PENDING findings from an earlier scan. Example: a Batch was
+ // WAITING during the first scan, Production later reports DONE, then the next
+ // scan must make that Carry Over / Remove Job disappear immediately.
+ const pendingQ=await c.query(`
+  select id,item_type,batch_id,planning_job_operation_id
+  from production_adjustment_item
+  where adjustment_set_id=$1 and status='PENDING' and item_type in ('CARRY_OVER','REMOVE_JOB')
+ `,[set.id]);
+ const staleIds=pendingQ.rows.filter((r:any)=>{
+  const key=`${Number(r.batch_id)}:${Number(r.planning_job_operation_id)}`;
+  return r.item_type==='CARRY_OVER'?!activeCarryKeys.has(key):!activeRemoveKeys.has(key);
+ }).map((r:any)=>Number(r.id)).filter(Boolean);
+ if(staleIds.length){
+  await c.query(`delete from production_adjustment_item where adjustment_set_id=$1 and status='PENDING' and id=any($2::bigint[])`,[set.id,staleIds]);
+ }
+
  await c.query(`update production_adjustment_set set status='READY',updated_at=now() where id=$1 and status='DRAFT'`,[set.id]);
  return set;
 }
