@@ -69,16 +69,17 @@ type Draft={
 };
 
 type ScheduleWorkloadMetric={jobs:number;qty:number;surface:number};
+type ScheduleWaitNextBreakdown={previousMain:string;metric:ScheduleWorkloadMetric};
 type ScheduleWorkloadStatus="WAIT_NEXT_MAIN"|"WAIT_FUTURE_MAIN"|"READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
 type ScheduleWorkloadRecipeRow={
  recipeKey:string;recipeNo:string;recipeName:string;
  WAIT:ScheduleWorkloadMetric;WAIT_NEXT_MAIN:ScheduleWorkloadMetric;WAIT_FUTURE_MAIN:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;READY_PREV_SCHEDULED:ScheduleWorkloadMetric;READY_PREV_UNSCHEDULED:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
- total:ScheduleWorkloadMetric;
+ total:ScheduleWorkloadMetric;waitNextBreakdown?:ScheduleWaitNextBreakdown[];
 };
 type ScheduleWorkloadMainRow={
  areaId:number;areaName:string;areaSort:number;standardOperation:string;mainOrder:number;
  WAIT:ScheduleWorkloadMetric;WAIT_NEXT_MAIN:ScheduleWorkloadMetric;WAIT_FUTURE_MAIN:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;READY_PREV_SCHEDULED:ScheduleWorkloadMetric;READY_PREV_UNSCHEDULED:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
- total:ScheduleWorkloadMetric;recipes:ScheduleWorkloadRecipeRow[];
+ total:ScheduleWorkloadMetric;waitNextBreakdown?:ScheduleWaitNextBreakdown[];recipes:ScheduleWorkloadRecipeRow[];
 };
 
 const blank=(date:string,resourceCode=""):Draft=>({
@@ -1113,12 +1114,12 @@ export function ManualScheduleGrid({
   return set;
  }
 
- const workloadStatuses:ScheduleWorkloadStatus[]=["WAIT_NEXT_MAIN","WAIT_FUTURE_MAIN","READY_PREV_SCHEDULED","READY_PREV_UNSCHEDULED","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"];
+ const workloadStatuses:ScheduleWorkloadStatus[]=["READY_PREV_SCHEDULED","READY_PREV_UNSCHEDULED","WAIT_NEXT_MAIN","WAIT_FUTURE_MAIN","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"];
  const workloadLabel:Record<ScheduleWorkloadStatus,string>={
+  READY_PREV_SCHEDULED:"READY · Previous Main Scheduled / Done",
+  READY_PREV_UNSCHEDULED:"READY · Previous Main Not Yet Scheduled",
   WAIT_NEXT_MAIN:"WAIT · Next Main",
   WAIT_FUTURE_MAIN:"WAIT · Future Mains",
-  READY_PREV_SCHEDULED:"READY · chính trước Scheduled / Done",
-  READY_PREV_UNSCHEDULED:"READY · Previous Main chưa Schedule",
   PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",SCHEDULED:"SCHEDULED",HOLD:"HOLD"
  };
  function workloadMetric(metric:ScheduleWorkloadMetric|undefined,status?:ScheduleWorkloadStatus){
@@ -1127,34 +1128,53 @@ export function ManualScheduleGrid({
    <b>{fmt(m.surface)} dm²</b><span>{fmt(m.qty,0)} pcs · {fmt(m.jobs,0)} Job</span>
   </div>;
  }
- function renderScheduleAreaWorkload(areaName:string,allowed:Set<string>){
+ function workloadWaitNextBreakdown(groups:ScheduleWaitNextBreakdown[]|undefined){
+  const list=(groups||[]).filter(x=>x&&x.metric&&Number(x.metric.jobs||0)>0);
+  if(!list.length)return null;
+  return <div className="schedule-area-wait-breakdown" aria-label="WAIT Next Main breakdown by nearest Previous Main">
+   {list.map((x,index)=><span key={`${x.previousMain}-${index}`} title={`${x.previousMain} · ${fmt(x.metric.surface)} dm² · ${fmt(x.metric.qty,0)} pcs · ${fmt(x.metric.jobs,0)} Job`}>
+    <b>← {x.previousMain||"START"}</b><em>{fmt(x.metric.jobs,0)} Job</em>
+   </span>)}
+  </div>;
+ }
+ function renderScheduleAreaWorkload(
+  areaName:string,
+  allowed:Set<string>,
+  options?:{compactRecipesOnly?:boolean;showWaitNextBreakdown?:boolean}
+ ){
+  const compactRecipesOnly=Boolean(options?.compactRecipesOnly);
+  const showWaitNextBreakdown=Boolean(options?.showWaitNextBreakdown);
   const rows=stWorkloadRows
    .filter(row=>allowed.has(String(row.standardOperation||"").trim().toUpperCase()))
    .sort((a,b)=>Number(a.mainOrder||999999)-Number(b.mainOrder||999999)||String(a.standardOperation).localeCompare(String(b.standardOperation)));
+  const visibleGroups=compactRecipesOnly?rows.reduce((n,row)=>n+(row.recipes?.length||0),0):rows.length;
+  const statusCell=(metric:ScheduleWorkloadMetric|undefined,status:ScheduleWorkloadStatus,breakdown?:ScheduleWaitNextBreakdown[])=>
+   <>{workloadMetric(metric,status)}{status==="WAIT_NEXT_MAIN"&&showWaitNextBreakdown&&workloadWaitNextBreakdown(breakdown)}</>;
 
-  return <section className="schedule-area-st-workload">
+  return <section className={`schedule-area-st-workload${compactRecipesOnly?" is-recipe-only":""}`}>
    <div className="schedule-area-st-workload-head">
-    <div><b>ST Workload Summary · By Area</b><small>{areaName} · cùng canonical Dashboard ST workload, lọc theo Main Operation của khu vực điều độ</small></div>
-    <span>{stWorkloadLoading?"Đang đọc…":`${rows.length} Workload Groups`}</span>
+    <div><b>ST Workload Summary · By Area</b><small>{areaName} · cùng canonical Dashboard ST workload, lọc theo Main Operation của khu vực điều độ{compactRecipesOnly?" · Flybar · Recipe rows only":""}</small></div>
+    <span>{stWorkloadLoading?"Đang đọc…":`${visibleGroups} Workload Groups`}</span>
    </div>
    {stWorkloadError?<div className="schedule-area-st-workload-error">{stWorkloadError}</div>:
     <div className="table-wrap schedule-area-st-workload-wrap"><table className="erp-table schedule-area-st-workload-table">
-     <thead><tr><th>Main Operation</th><th>Recipe No</th><th>Recipe Name</th>{workloadStatuses.map(status=><th key={status}>{workloadLabel[status]}</th>)}<th>Total</th></tr></thead>
+     <thead><tr><th>Main Operation</th><th>Recipe No</th><th>Recipe Name</th>{workloadStatuses.map(status=><th key={status} className={`workload-head-${status.toLowerCase().replace(/_/g,"-")}`}>{workloadLabel[status]}</th>)}<th>Total</th></tr></thead>
      <tbody>
       {rows.flatMap(row=>{
-       const key=`${areaName}-${row.standardOperation}`;
-       const main=<tr key={`${key}-main`} className="schedule-area-st-workload-main">
-        <td><b>{row.standardOperation}</b></td><td>—</td><td><b>MAIN TOTAL</b><small>{row.recipes?.length||0} Recipe groups</small></td>
-        {workloadStatuses.map(status=><td key={status}>{workloadMetric(row[status],status)}</td>)}
-        <td>{workloadMetric(row.total)}</td>
-       </tr>;
-       const recipes=(row.recipes||[]).map((recipe,index)=><tr key={`${key}-${recipe.recipeKey}-${index}`} className="schedule-area-st-workload-recipe">
-        <td><span className="schedule-area-st-workload-indent">↳</span></td>
+       const rowKey=`${areaName}-${row.standardOperation}`;
+       const recipes=(row.recipes||[]).map((recipe,index)=><tr key={`${rowKey}-${recipe.recipeKey}-${index}`} className="schedule-area-st-workload-recipe">
+        <td>{compactRecipesOnly?<b>{row.standardOperation}</b>:<span className="schedule-area-st-workload-indent">↳</span>}</td>
         <td><b className="mono">{recipe.recipeNo||"—"}</b></td>
         <td>{recipe.recipeName||"No Recipe"}</td>
-        {workloadStatuses.map(status=><td key={status}>{workloadMetric(recipe[status],status)}</td>)}
+        {workloadStatuses.map(status=><td key={status}>{statusCell(recipe[status],status,recipe.waitNextBreakdown)}</td>)}
         <td>{workloadMetric(recipe.total)}</td>
        </tr>);
+       if(compactRecipesOnly)return recipes;
+       const main=<tr key={`${rowKey}-main`} className="schedule-area-st-workload-main">
+        <td><b>{row.standardOperation}</b></td><td>—</td><td><b>MAIN TOTAL</b><small>{row.recipes?.length||0} Recipe groups</small></td>
+        {workloadStatuses.map(status=><td key={status}>{statusCell(row[status],status,row.waitNextBreakdown)}</td>)}
+        <td>{workloadMetric(row.total)}</td>
+       </tr>;
        return [main,...recipes];
       })}
       {!rows.length&&!stWorkloadLoading&&<tr><td colSpan={11} className="muted">Khu vực này chưa có workload trong canonical Dashboard ST population.</td></tr>}
@@ -1200,7 +1220,7 @@ export function ManualScheduleGrid({
       </div>
      </div>
 
-     {showWorkload&&renderScheduleAreaWorkload(a.schedule_area_name,workloadOps)}
+     {showWorkload&&renderScheduleAreaWorkload(a.schedule_area_name,workloadOps,{compactRecipesOnly:chemical,showWaitNextBreakdown:!chemical})}
 
      {unscheduledArea.length>0&&
       <div className="schedule-area-unscheduled-strip">
@@ -1675,7 +1695,7 @@ export function ManualScheduleGrid({
        <div><b>{a.schedule_area_name}</b><small>{a.schedule_area_code} · khu gộp {children.map(c=>c.schedule_area_name).join(" / ")} — mỗi lane dùng chung lô Unscheduled của cả khu, chọn vào lane nào tùy ý</small></div>
        <div className="schedule-area-row-actions"><span>{children.length} lane · từng cabin điều độ riêng (logic giữ nguyên)</span></div>
       </div>
-      {renderScheduleAreaWorkload(a.schedule_area_name,pool)}
+      {renderScheduleAreaWorkload(a.schedule_area_name,pool,{compactRecipesOnly:a.resource_group==="CHEMICAL_LINE",showWaitNextBreakdown:a.resource_group!=="CHEMICAL_LINE"})}
       <div className="schedule-area-group-children">
        {[...children].sort((x,y)=>scheduleAreaMainOrder(x)-scheduleAreaMainOrder(y)||Number(x.display_order)-Number(y.display_order)).map(ch=>renderAreaBlock(ch,pool,false))}
       </div>

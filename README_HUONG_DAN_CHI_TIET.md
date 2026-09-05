@@ -476,3 +476,13 @@ Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu khô
 - Planning Board Workload Summary, Dashboard `ST Workload Summary · By Area` và Scheduling Workload Summary dùng cùng phân loại.
 - READY split V486 giữ nguyên; Batch, Recipe, Scheduling dependency và Production logic không đổi.
 - Logic & Guide và Training được cập nhật đồng bộ. Không có SQL migration mới.
+
+## V490 — Scheduling Board Workload: READY-first + Flybar Recipe-only + WAIT Next breakdown
+
+- `ST Workload Summary · By Area` trên Scheduling Board đổi thứ tự cột: `Main Operation → Recipe No → Recipe Name → READY Previous Main Scheduled/Done → READY Previous Main Not Yet Scheduled → WAIT Next Main → WAIT Future Mains → PLANNED-UNSCHEDULED → SCHEDULED → HOLD → Total`.
+- READY Scheduled/Done dùng xanh lá đậm; READY Not Yet Scheduled dùng xanh lá nhạt.
+- Chemical Line/Flybar chỉ hiển thị Recipe rows, bỏ MAIN TOTAL để gọn; Main Operation vẫn lặp ở từng Recipe row.
+- Ngoài Chemical Line, `WAIT · Next Main` breakdown theo immediate Previous Main Planning của từng Job để planner biết workload đang chờ từ Main nào.
+- Không đổi classifier V489: `LOCKED` gần nhất = WAIT Next Main, các LOCKED phía sau = WAIT Future Mains.
+- Không đổi rule mở Next Main: Previous Main chỉ cần có Plan/Batch là mở đúng một Next Main READY; Schedule chỉ phân loại READY, không phải điều kiện mở.
+- Logic & Guide và Training cập nhật đồng bộ. Không có SQL migration mới.

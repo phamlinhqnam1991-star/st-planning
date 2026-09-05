@@ -15,6 +15,7 @@ import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 // INTERMEDIATE remains Dashboard-only and never syncs Planning Chain / Candidate / Batch / Schedule.
 
 export type StDashboardMetric={jobs:number;qty:number;surface:number};
+export type StDashboardWaitNextBreakdown={previousMain:string;metric:StDashboardMetric};
 export type StDashboardStatus="WAIT"|"READY"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD"|"ST_ONLY";
 
 export type StDashboardRecipeRow={
@@ -32,6 +33,7 @@ export type StDashboardRecipeRow={
  HOLD:StDashboardMetric;
  ST_ONLY:StDashboardMetric;
  total:StDashboardMetric;
+ waitNextBreakdown:StDashboardWaitNextBreakdown[];
 };
 
 export type StDashboardMainRow={
@@ -51,6 +53,7 @@ export type StDashboardMainRow={
  HOLD:StDashboardMetric;
  ST_ONLY:StDashboardMetric;
  total:StDashboardMetric;
+ waitNextBreakdown:StDashboardWaitNextBreakdown[];
  recipes:StDashboardRecipeRow[];
 };
 
@@ -381,6 +384,7 @@ const DASHBOARD_CHAIN_WORKLOAD_SQL=`
     ) then 'NEXT_MAIN' else 'FUTURE_MAIN' end
     else null
    end wait_level,
+   nullif(trim(coalesce(prev_ident.previous_operation,'')),'') previous_main_operation,
    active_batch.recipe_key batch_recipe_key,
    case
     when p.status<>'ELIGIBLE' then null
@@ -479,6 +483,13 @@ function addMetric(target:StDashboardMetric,metric:StDashboardMetric){
  target.surface+=metric.surface;
 }
 
+function addWaitNextBreakdown(target:StDashboardWaitNextBreakdown[],previousMain:string,metric:StDashboardMetric){
+ const key=text(previousMain)||"START";
+ let row=target.find(x=>x.previousMain===key);
+ if(!row){row={previousMain:key,metric:zero()};target.push(row);}
+ addMetric(row.metric,metric);
+}
+
 function emptyStatusRecord():Record<StDashboardStatus,StDashboardMetric>{
  return {WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero()};
 }
@@ -487,7 +498,7 @@ function emptyMainRow(input:{areaId:number;areaName:string;areaSort:number;stand
  return {
   ...input,
   WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),
-  total:zero(),recipes:[]
+  total:zero(),waitNextBreakdown:[],recipes:[]
  };
 }
 
@@ -596,6 +607,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   if(bucket==="WAIT"){
    const waitKey:"WAIT_NEXT_MAIN"|"WAIT_FUTURE_MAIN"=text(wr.wait_level)==="NEXT_MAIN"?"WAIT_NEXT_MAIN":"WAIT_FUTURE_MAIN";
    addMetric(row[waitKey],metric);
+   if(waitKey==="WAIT_NEXT_MAIN")addWaitNextBreakdown(row.waitNextBreakdown,text(wr.previous_main_operation),metric);
   }
   if(bucket==="READY"){
    const readyKey=text(wr.ready_previous_schedule)==="SCHEDULED"?"READY_PREV_SCHEDULED":"READY_PREV_UNSCHEDULED";
@@ -620,7 +632,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   if(!recipe){
    recipe={
     recipeKey:recipeGroupKey,recipeNo,recipeName,
-    WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()
+    WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero(),waitNextBreakdown:[]
    };
    row.recipes.push(recipe);
   }
@@ -628,6 +640,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   if(bucket==="WAIT"){
    const waitKey:"WAIT_NEXT_MAIN"|"WAIT_FUTURE_MAIN"=text(wr.wait_level)==="NEXT_MAIN"?"WAIT_NEXT_MAIN":"WAIT_FUTURE_MAIN";
    addMetric(recipe[waitKey],metric);
+   if(waitKey==="WAIT_NEXT_MAIN")addWaitNextBreakdown(recipe.waitNextBreakdown,text(wr.previous_main_operation),metric);
   }
   if(bucket==="READY"){
    const readyKey=text(wr.ready_previous_schedule)==="SCHEDULED"?"READY_PREV_SCHEDULED":"READY_PREV_UNSCHEDULED";
@@ -658,16 +671,18 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   addMetric(row[bucket],metric);
   let recipe=row.recipes.find(x=>x.recipeKey==="__ST_SCOPE_ONLY__");
   if(!recipe){
-   recipe={recipeKey:"__ST_SCOPE_ONLY__",recipeNo:"",recipeName:"ST Scope Only",WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero()};
+   recipe={recipeKey:"__ST_SCOPE_ONLY__",recipeNo:"",recipeName:"ST Scope Only",WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero(),waitNextBreakdown:[]};
    row.recipes.push(recipe);
   }
   addMetric(recipe[bucket],metric);
  }
 
  const mainRows=[...rows.values()].map(row=>{
+  row.waitNextBreakdown.sort((a,b)=>b.metric.surface-a.metric.surface||b.metric.jobs-a.metric.jobs||a.previousMain.localeCompare(b.previousMain));
   const metrics=[row.WAIT,row.READY,row.PLANNED_UNSCHEDULED,row.SCHEDULED,row.HOLD,row.ST_ONLY];
   row.total=metrics.reduce((acc,m)=>{addMetric(acc,m);return acc;},zero());
   row.recipes=row.recipes.map(recipe=>{
+   recipe.waitNextBreakdown.sort((a,b)=>b.metric.surface-a.metric.surface||b.metric.jobs-a.metric.jobs||a.previousMain.localeCompare(b.previousMain));
    const rm=[recipe.WAIT,recipe.READY,recipe.PLANNED_UNSCHEDULED,recipe.SCHEDULED,recipe.HOLD,recipe.ST_ONLY];
    recipe.total=rm.reduce((acc,m)=>{addMetric(acc,m);return acc;},zero());
    return recipe;

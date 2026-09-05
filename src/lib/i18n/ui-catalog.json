@@ -8130,6 +8130,21 @@
       "en": "WAIT · Future Mains",
       "vi": "WAIT · Các Main phía sau",
       "mode": "phrase"
+    },
+    {
+      "en": "READY · Previous Main Scheduled / Done",
+      "vi": "READY · Main trước đã Schedule / Done",
+      "mode": "exact"
+    },
+    {
+      "en": "READY · Previous Main Not Yet Scheduled",
+      "vi": "READY · Main trước chưa Schedule",
+      "mode": "exact"
+    },
+    {
+      "en": "Flybar · Recipe rows only",
+      "vi": "Flybar · chỉ hiển thị dòng Recipe",
+      "mode": "exact"
     }
   ]
 }
