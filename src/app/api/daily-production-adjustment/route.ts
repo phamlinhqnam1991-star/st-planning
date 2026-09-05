@@ -84,7 +84,7 @@ async function addJob(c:any,item:any,forceException:boolean){
  const scheduleQ=await c.query(`select id from planning_schedule where batch_id=$1 and status<>'CANCELLED' order by planned_start desc,id desc limit 1`,[row.batch_id]);
  await c.query(`
   insert into production_execution_job(source_type,source_key,batch_id,schedule_id,planning_job_operation_id,job_num,execution_status,actual_start,actual_end,remark)
-  values('BATCH','BATCH:'||$1::text,$1,$2,$3,$4,'DONE',coalesce(($5::jsonb->>'actualStart')::timestamptz,now()),coalesce(($5::jsonb->>'actualEnd')::timestamptz,now()),'Added by Daily Production Adjustment')
+  values('BATCH','BATCH:'||$1::bigint::text,$1::bigint,$2::bigint,$3::bigint,$4,'DONE',coalesce(($5::jsonb->>'actualStart')::timestamptz,now()),coalesce(($5::jsonb->>'actualEnd')::timestamptz,now()),'Added by Daily Production Adjustment')
   on conflict(source_type,source_key,planning_job_operation_id)
   do update set execution_status='DONE',actual_start=coalesce(production_execution_job.actual_start,excluded.actual_start),actual_end=coalesce(excluded.actual_end,now()),remark=excluded.remark,updated_at=now()
  `,[row.batch_id,scheduleQ.rows[0]?.id||null,row.planning_job_operation_id,row.job_num,JSON.stringify(item.proposal_json||{})]);
