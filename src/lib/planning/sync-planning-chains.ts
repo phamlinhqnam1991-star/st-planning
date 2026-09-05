@@ -848,6 +848,27 @@ export async function syncPlanningChains(c:PoolClient,options:SyncPlanningChainO
    `,incremental?[recipeRequirementCodes,partNums]:[recipeRequirementCodes])
   :{rows:[] as any[]};
 
+ const entryOverrideQ=await c.query(`
+   select distinct on (i.job_num)
+     i.job_num,
+     nullif(trim(i.proposal_json->>'stEntryInstanceKey'),'') st_entry_instance_key,
+     nullif(trim(i.proposal_json->>'stEntryMain'),'') st_entry_main,
+     i.approved_at,i.id
+   from production_adjustment_item i
+   where i.item_type='ADD_JOB'
+     and i.status='APPROVED'
+     and i.approved_by='Production'
+     and coalesce(i.proposal_json->>'futureStEntry','false')='true'
+     ${incremental?`and i.job_num=any($1::text[])`:``}
+   order by i.job_num,i.approved_at desc nulls last,i.id desc
+ `,incremental?[targetJobNums]:[]);
+ const productionEntryByJob=new Map<string,{instanceKey:string;main:string}>();
+ for(const r of entryOverrideQ.rows){
+   const jobNum=clean(r.job_num);
+   const instanceKey=clean(r.st_entry_instance_key);
+   if(jobNum&&instanceKey)productionEntryByJob.set(jobNum,{instanceKey,main:clean(r.st_entry_main)});
+ }
+
  const planningScope=new Set<string>(
    scopeQ.rows.map((r:any)=>clean(r.standard_operation)).filter(Boolean)
  );
@@ -1107,7 +1128,33 @@ export async function syncPlanningChains(c:PoolClient,options:SyncPlanningChainO
    else if(anchor.mode==="DIRECT_NEXT_MAIN")directNextMainAnchored++;
    else noChain++;
 
-   const chain=planningChainFromAnchor(full,anchor);
+   // V487 · Production Future-ST entry override.
+   // When Production has already confirmed a Job at a later ST Main while RAW
+   // NextOperation is still in another department, do not resurrect earlier
+   // unbatched ST Mains on the next All Open Job sync. The override remains only
+   // while the RAW-derived physical anchor is before (or cannot resolve before)
+   // the confirmed entry. Once RAW catches up to or passes it, canonical RAW
+   // position wins again automatically.
+   let effectiveAnchor=anchor;
+   const entryOverride=productionEntryByJob.get(jobNum);
+   if(entryOverride){
+     const entryIndex=full.findIndex(x=>normCode(x.instanceKey)===normCode(entryOverride.instanceKey));
+     if(entryIndex>=0){
+       const rawChain=planningChainFromAnchor(full,anchor);
+       const rawStartIndex=rawChain.length?full.findIndex(x=>x.instanceKey===rawChain[0].instanceKey):-1;
+       if(rawStartIndex<0||rawStartIndex<entryIndex){
+         const entry=full[entryIndex];
+         effectiveAnchor={
+           startIndex:entry.sourceSeq-1,
+           mode:"ALLOPERATION_FALLBACK",
+           targetInstanceKey:entry.instanceKey,
+           reason:`Production Future-ST entry keeps live chain at ${entry.standardOperation} (${entry.instanceKey}) until RAW position catches up`
+         };
+       }
+     }
+   }
+
+   const chain=planningChainFromAnchor(full,effectiveAnchor);
 
    // v342 SEQUENTIAL READY RULE:
    // The live chain already starts at the physical Current Main resolved from

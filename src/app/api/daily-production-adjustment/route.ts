@@ -7,6 +7,8 @@ import {buildScheduleCascadePreview,ensureAdjustmentSet,loadAdjustmentData,scanP
 import {refreshBatchTotals,recomputeJobPlanningStatus,recipeAllowedForJob} from "@/lib/planning/batch-utils";
 import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 import {loadBatchNumberConfig} from "@/lib/planning/batch-number";
+import {syncPlanningChains} from "@/lib/planning/sync-planning-chains";
+import {loadMaskingUnmaskingPlan,type SupportType} from "@/lib/masking-unmasking-plan";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const validDate=(v:unknown)=>/^\d{4}-\d{2}-\d{2}$/.test(clean(v));
@@ -150,6 +152,88 @@ async function findJobForBatch(c:any,batchId:number,jobNum:string){
  return q.rows[0]||null;
 }
 
+
+async function ensureJobForProductionBatch(c:any,batchId:number,jobNum:string){
+ let row=await findJobForBatch(c,batchId,jobNum);
+ if(!row)throw new Error(`Không tìm thấy Job ${jobNum} trong All Open Job.`);
+ if(row.planning_job_operation_id)return {row,synced:false};
+
+ // Future ST Job: RAW NextOperation may still belong to another department.
+ // Rebuild ONLY this Job from its own AllOperation, then resolve the Batch Main again.
+ await syncPlanningChains(c,{jobNums:[jobNum]});
+ row=await findJobForBatch(c,batchId,jobNum);
+ if(!row?.planning_job_operation_id){
+  throw new Error(`Job ${jobNum} không có Main ${row?.batch_standard_operation||"của Batch"} trong current/future ST routing.`);
+ }
+ return {row,synced:true};
+}
+
+async function promoteProductionStEntry(c:any,row:any){
+ const planningSeq=Number(row.planning_seq||0);
+ if(!planningSeq)return {futureStEntry:false,deactivatedEarlier:0};
+ const priorQ=await c.query(`
+  select p.id
+  from planning_job_operation p
+  where p.job_num=$1 and p.is_active=true and p.planning_seq<$2
+    and not exists(
+      select 1 from planning_batch_job bj
+      join planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
+      where bj.planning_job_operation_id=p.id
+    )
+  order by p.planning_seq,p.id
+ `,[row.job_num,planningSeq]);
+ if(!priorQ.rowCount)return {futureStEntry:false,deactivatedEarlier:0};
+ await c.query(`
+  update planning_job_operation p
+  set is_active=false,updated_at=now()
+  where p.id=any($1::bigint[])
+ `,[priorQ.rows.map((x:any)=>Number(x.id))]);
+ return {futureStEntry:true,deactivatedEarlier:priorQ.rowCount};
+}
+
+function supportKey(type:SupportType,batchId:number,main:string){
+ return `${type}:${batchId}:${clean(main).toUpperCase()}`;
+}
+
+async function seedPreparationForProductionAddedJob(c:any,args:{productionDate:string;batchId:number;planningJobOperationId:number;jobNum:string;mainOperation:string;remark:string}){
+ const plans=await loadMaskingUnmaskingPlan(c,{view:"scheduled",scheduleDate:args.productionDate});
+ const main=plans.find(x=>clean(x.standardOperation).toUpperCase()===clean(args.mainOperation).toUpperCase());
+ if(!main)return [] as Array<{type:SupportType;operations:string[]}>;
+ const result:Array<{type:SupportType;operations:string[]}>=[];
+ for(const type of ["UNMASKING","MASKING"] as SupportType[]){
+  const rows=(type==="MASKING"?main.masking:main.unmasking).filter(x=>x.batchId===args.batchId);
+  const target=rows.find(x=>x.planningJobOperationId===args.planningJobOperationId&&clean(x.jobNum).toUpperCase()===clean(args.jobNum).toUpperCase());
+  if(!target)continue;
+  const sourceKey=supportKey(type,args.batchId,args.mainOperation);
+
+  // Preserve legacy parent-level execution before introducing the first explicit
+  // Job row for this support source. Otherwise an old DONE parent could be lost
+  // as soon as the newly added Job receives its WAITING row.
+  const existingQ=await c.query(`select count(*)::int n from production_execution_job where source_type=$1 and source_key=$2`,[type,sourceKey]);
+  if(Number(existingQ.rows[0]?.n||0)===0){
+   const parentQ=await c.query(`select execution_status,actual_start,actual_end,remark,schedule_id from production_execution where source_type=$1 and source_key=$2 limit 1`,[type,sourceKey]);
+   const parent=parentQ.rows[0];
+   if(parent){
+    for(const old of rows.filter(x=>x.planningJobOperationId!==args.planningJobOperationId)){
+     await c.query(`
+      insert into production_execution_job(source_type,source_key,batch_id,schedule_id,planning_job_operation_id,job_num,execution_status,actual_start,actual_end,remark)
+      values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      on conflict(source_type,source_key,planning_job_operation_id) do nothing
+     `,[type,sourceKey,args.batchId,old.scheduleId||parent.schedule_id||null,old.planningJobOperationId,old.jobNum,parent.execution_status||"WAITING",parent.actual_start||null,parent.actual_end||null,parent.remark||null]);
+    }
+   }
+  }
+
+  await c.query(`
+   insert into production_execution_job(source_type,source_key,batch_id,schedule_id,planning_job_operation_id,job_num,execution_status,actual_start,actual_end,remark)
+   values($1,$2,$3,$4,$5,$6,'WAITING',null,null,$7)
+   on conflict(source_type,source_key,planning_job_operation_id) do nothing
+  `,[type,sourceKey,args.batchId,target.scheduleId||null,args.planningJobOperationId,args.jobNum,args.remark]);
+  result.push({type,operations:[...new Set(target.supportOperations.map(op=>op.detailCode||op.operationCode).filter(Boolean))]});
+ }
+ return result;
+}
+
 async function removeJob(c:any,item:any){
  const rowQ=await c.query(`
   select bj.id,bj.job_num,bj.planning_job_operation_id,bj.qty,bj.surface_dm2,p.planning_seq
@@ -271,8 +355,8 @@ export async function POST(req:NextRequest){
     for update
    `,[eventId,batchId,jobNum]);
    if(!eventQ.rowCount)throw new Error("Attention đã được xử lý hoặc không còn hợp lệ.");
-   const row=await findJobForBatch(c,batchId,jobNum);
-   if(!row||!row.planning_job_operation_id)throw new Error(`Job ${jobNum} không có Main phù hợp với Batch đích.`);
+   const ensured=await ensureJobForProductionBatch(c,batchId,jobNum);
+   const row=ensured.row;
    if(row.in_this_batch){
     await c.query(`update planning_handover_change_event set status='ACKNOWLEDGED',acknowledged_at=now(),acknowledged_by='Production' where id=$1`,[eventId]);
     await c.query("commit");
@@ -287,8 +371,10 @@ export async function POST(req:NextRequest){
    const projectedQty=Number(row.total_qty||0)+Number(row.plan_qty||0);
    if(sizeCfg.autoSplit&&sizeCfg.batchSizeQty&&projectedQty>Number(sizeCfg.batchSizeQty)+0.000001)
     throw new Error(`Batch Size vượt cấu hình: ${projectedQty} / ${sizeCfg.batchSizeQty} pcs.`);
-   const proposal={reportedFrom:"NEXT_MAIN_ATTENTION",sourceEventId:eventId,sourceBatchNo:eventQ.rows[0].source_batch_no,partNum:row.part_num,revisionNum:row.revision_num,partDescription:row.part_description,qty:Number(row.plan_qty||0),surface:Number(row.plan_surface||0)};
+   const entry=await promoteProductionStEntry(c,row);
+   const proposal={reportedFrom:"NEXT_MAIN_ATTENTION",sourceEventId:eventId,sourceBatchNo:eventQ.rows[0].source_batch_no,partNum:row.part_num,revisionNum:row.revision_num,partDescription:row.part_description,qty:Number(row.plan_qty||0),surface:Number(row.plan_surface||0),futureStEntry:entry.futureStEntry,stEntryMain:row.batch_standard_operation,stEntryInstanceKey:row.operation_instance_key,deactivatedEarlier:entry.deactivatedEarlier};
    await addJob(c,{batch_id:batchId,job_num:row.job_num,proposal_json:proposal},false,"WAITING","Added from Previous Main Production attention");
+   const preparation=await seedPreparationForProductionAddedJob(c,{productionDate:date,batchId,planningJobOperationId:Number(row.planning_job_operation_id),jobNum:row.job_num,mainOperation:row.batch_standard_operation,remark:"Auto-added preparation for Production-added Job"});
    await c.query(`update planning_handover_change_event set status='ACKNOWLEDGED',acknowledged_at=now(),acknowledged_by='Production',note=concat_ws(E'\n',note,'Accepted into downstream Batch') where id=$1`,[eventId]);
    const nextMainAttentions=await createProductionNextMainAttentions(c,{
     sourceBatchId:batchId,sourceBatchNo:row.batch_no,sourceOperation:row.batch_standard_operation,jobNum:row.job_num,planningSeq:Number(row.planning_seq||0),
@@ -304,9 +390,9 @@ export async function POST(req:NextRequest){
    `,[set.id,batchId,Number(row.planning_job_operation_id),row.job_num,row.batch_standard_operation,"Production thêm Job từ chú ý Main trước","Đã thêm vào Batch đích với trạng thái WAITING; không đánh dấu hoàn thành.",JSON.stringify(proposal)]);
    await c.query(`update production_adjustment_set set status='READY',updated_at=now() where id=$1`,[set.id]);
    await c.query("commit");
-   return NextResponse.json({ok:true,added:true,addedJob:{
+   return NextResponse.json({ok:true,added:true,futureStEntry:entry.futureStEntry,preparation,addedJob:{
     planningJobOperationId:Number(row.planning_job_operation_id),jobNum:row.job_num,partDescription:row.part_description||"",currentGoodWipQty:Number(row.plan_qty||0),totalSurface:Number(row.plan_surface||0),
-    lastLaborOp:row.last_operation||"",nextOperation:row.next_operation||"",priority:row.priority_type||"",supportOperations:[],isAddedJob:true,status:"WAITING",actualStart:null,actualEnd:null,remark:"Added from Previous Main attention"
+    lastLaborOp:row.last_operation||"",nextOperation:row.next_operation||"",priority:row.priority_type||"",supportOperations:preparation.flatMap((x:any)=>x.operations||[]),isAddedJob:true,status:"WAITING",actualStart:null,actualEnd:null,remark:"Added from Previous Main attention"
    },batchTotals:{qty:projectedQty,surface:Number(row.total_surface_dm2||0)+Number(row.plan_surface||0)},nextMainAttentions,nextMainAttention:nextMainAttentions.find((x:any)=>!x.alreadyInNextBatch)||nextMainAttentions[0]||null});
   }
   if(action==="REPORT_EXTRA_JOB"){
@@ -315,9 +401,10 @@ export async function POST(req:NextRequest){
    if(!batchId&&batchNo){const bq=await c.query(`select id from planning_batch where upper(trim(batch_no))=upper(trim($1)) and status<>'CANCELLED' order by created_at desc limit 1`,[batchNo]);batchId=Number(bq.rows[0]?.id||0);}
    if(!batchId||!jobNum)throw new Error("Cần Batch No. và Job Number.");
    const prodScope=await canProductionBatch(c,ctx,batchId);if(!prodScope.allowed){await c.query("rollback");return NextResponse.json({error:`Không có quyền thêm Job khu vực ${prodScope.scopeKey||"của Batch"}.`},{status:403});}
-   const set=await ensureAdjustmentSet(c,date);const row=await findJobForBatch(c,batchId,jobNum);
-   if(!row)throw new Error(`Không tìm thấy Job ${jobNum}.`);
-   if(!row.planning_job_operation_id)throw new Error(`Job không có Main ${row.batch_standard_operation||"của Batch"}.`);
+   const set=await ensureAdjustmentSet(c,date);
+   const ensured=await ensureJobForProductionBatch(c,batchId,jobNum);
+   const row=ensured.row;
+   const entry=await promoteProductionStEntry(c,row);
    if(row.in_this_batch)throw new Error("Job đã nằm trong Batch.");
    if(row.other_batch_no)throw new Error(`Job đang thuộc Batch active khác: ${row.other_batch_no}.`);
    if(row.batch_recipe_key){
@@ -329,8 +416,9 @@ export async function POST(req:NextRequest){
    if(sizeCfg.autoSplit&&sizeCfg.batchSizeQty&&projectedQty>Number(sizeCfg.batchSizeQty)+0.000001)
     throw new Error(`Batch Size vượt cấu hình: ${projectedQty} / ${sizeCfg.batchSizeQty} pcs.`);
 
-   const proposal={actualStart:b.actual_start||null,actualEnd:b.actual_end||null,reportedFrom:"PRODUCTION_EXECUTION",partNum:row.part_num,revisionNum:row.revision_num,partDescription:row.part_description,qty:Number(row.plan_qty||0),surface:Number(row.plan_surface||0)};
+   const proposal={actualStart:b.actual_start||null,actualEnd:b.actual_end||null,reportedFrom:"PRODUCTION_EXECUTION",partNum:row.part_num,revisionNum:row.revision_num,partDescription:row.part_description,qty:Number(row.plan_qty||0),surface:Number(row.plan_surface||0),futureStEntry:entry.futureStEntry,stEntryMain:row.batch_standard_operation,stEntryInstanceKey:row.operation_instance_key,deactivatedEarlier:entry.deactivatedEarlier,rawNextOperationAtAdd:row.next_operation||null};
    await addJob(c,{batch_id:batchId,job_num:row.job_num,proposal_json:proposal},false);
+   const preparation=await seedPreparationForProductionAddedJob(c,{productionDate:date,batchId,planningJobOperationId:Number(row.planning_job_operation_id),jobNum:row.job_num,mainOperation:row.batch_standard_operation,remark:"Auto-added preparation for Production-added Job"});
    const nextMainAttentions=await createProductionNextMainAttentions(c,{
     sourceBatchId:batchId,sourceBatchNo:row.batch_no,sourceOperation:row.batch_standard_operation,jobNum:row.job_num,planningSeq:Number(row.planning_seq||0),
     qtyBefore:Number(row.total_qty||0),qtyAfter:projectedQty,surfaceBefore:Number(row.total_surface_dm2||0),
@@ -354,10 +442,10 @@ export async function POST(req:NextRequest){
       "Production đã thêm Job trực tiếp vào Batch","Đã thêm trực tiếp từ Báo cáo sản xuất; không cần planner duyệt.",JSON.stringify(proposal)]);
    await c.query(`update production_adjustment_set set status='READY',updated_at=now() where id=$1`,[set.id]);
    await c.query("commit");
-   return NextResponse.json({ok:true,added:true,addedJob:{
+   return NextResponse.json({ok:true,added:true,futureStEntry:entry.futureStEntry,preparation,addedJob:{
     planningJobOperationId:Number(row.planning_job_operation_id),jobNum:row.job_num,partDescription:row.part_description||"",
     currentGoodWipQty:Number(row.plan_qty||0),totalSurface:Number(row.plan_surface||0),lastLaborOp:row.last_operation||"",
-    nextOperation:row.next_operation||"",priority:row.priority_type||"",supportOperations:[],isAddedJob:true,status:"DONE",
+    nextOperation:row.next_operation||"",priority:row.priority_type||"",supportOperations:preparation.flatMap((x:any)=>x.operations||[]),isAddedJob:true,status:"DONE",
     actualStart:b.actual_start||new Date().toISOString(),actualEnd:b.actual_end||new Date().toISOString(),remark:"Added from Production Report"
    },batchTotals:{qty:projectedQty,surface:Number(row.total_surface_dm2||0)+Number(row.plan_surface||0)},nextMainAttentions,nextMainAttention:nextMainAttentions.find((x:any)=>!x.alreadyInNextBatch)||nextMainAttentions[0]||null});
   }

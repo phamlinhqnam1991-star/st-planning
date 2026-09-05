@@ -444,3 +444,14 @@ Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu khô
 - `ST Workload Summary · By Area` trên Dashboard tách `READY` thành hai cột: `READY · Previous Main Scheduled` và `READY · Previous Main Unscheduled / START`.
 - Classifier dùng cùng logic Planning Board: Previous Main có Schedule hoặc đã DONE theo physical progress → Scheduled; Main đầu tiên của chain cũng → Scheduled; plan-ahead chưa handoff → Unscheduled / START.
 - Hai cột READY cộng lại đúng READY tổng. WAIT / PLANNED-UNSCHEDULED / SCHEDULED / HOLD / ST ONLY không đổi.
+
+
+## V487 — Future ST Job + Auto Preparation khi Production Add Job
+
+- Production Add Job áp dụng cho mọi Main Planning, không hard-code CPBILP/BSA/Primer.
+- Nếu Job có trong All Open Job nhưng RAW NextOperation vẫn ở bộ phận khác, server tự sync riêng Job từ AllOperation. Target Main chỉ được chấp nhận khi tồn tại trong current/future ST routing thật.
+- Nếu Production đưa Job vào một Main phía sau trong khi còn Main ST trước đó chưa có Batch, các Main chưa thực hiện trước Target được đưa khỏi live chain. Marker Production entry được lưu trong audit ADD_JOB và được Planning Chain dùng để không dựng lại các Main cũ cho tới khi RAW position bắt kịp. RAW NextOperation không bị sửa.
+- Sau khi Add/Accept Job vào Batch, resolver Masking/Unmasking hiện tại được chạy lại. Nếu Main có Preparation, Job được tạo trực tiếp trong Production Report ở trạng thái WAITING. Không kế thừa DONE từ Job cũ.
+- Có hay không có Masking/Unmasking không ảnh hưởng propagation: hệ thống vẫn tạo Attention cho tất cả Main Planning phía sau theo route thật.
+- Production page refresh server state sau Add/Accept để Preparation mới xuất hiện ngay.
+- Không có SQL migration mới.

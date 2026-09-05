@@ -1,6 +1,7 @@
 "use client";
 
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
+import {useRouter} from "next/navigation";
 import {useUiLanguage} from "@/components/i18n/ui-language-provider";
 import {safeJson} from "@/lib/fetch-json";
 import {pushAppToast} from "@/components/app-toast-provider";
@@ -14,7 +15,9 @@ type DisplayGroup={key:string;title:string;subtitle:string;rows:ProductionWorkIt
 
 export function ProductionExecutionClient({initialItems,productionDate,canReport=false,canAddJob=false}:{initialItems:ProductionWorkItem[];productionDate:string;canReport?:boolean;canAddJob?:boolean}){
  const {locale,text}=useUiLanguage();
+ const router=useRouter();
  const [items,setItems]=useState(initialItems);
+ useEffect(()=>setItems(initialItems),[initialItems]);
  const [search,setSearch]=useState("");
  const [status,setStatus]=useState<"ALL"|ProductionExecutionStatus>("ALL");
  const [reportGroup,setReportGroup]=useState<GroupFilter>("ALL");
@@ -164,7 +167,10 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
    const targeted=actionable.filter((a:any)=>a?.targetBatchNo);
    const waiting=actionable.filter((a:any)=>!a?.targetBatchNo);
    const suffix=actionable.length?text(` Created ${actionable.length} downstream Main attention(s): ${targeted.length} linked to Batch, ${waiting.length} waiting for Batch.`,` Đã tạo ${actionable.length} chú ý cho các Main phía sau: ${targeted.length} đã xác định lô, ${waiting.length} đang chờ tạo lô.`):"";
-   pushAppToast(text(`Added ${job} directly to ${item.batchNo}.`,`Đã thêm trực tiếp ${job} vào ${item.batchNo}.`)+suffix);
+   const prep=Array.isArray(d?.preparation)?d.preparation:[];
+   const prepSuffix=prep.length?text(` Preparation was added to Production Report as WAITING.`,` Masking/Unmasking liên quan đã được thêm vào Báo cáo sản xuất ở trạng thái Chờ thực hiện.`):"";
+   pushAppToast(text(`Added ${job} directly to ${item.batchNo}.`,`Đã thêm trực tiếp ${job} vào ${item.batchNo}.`)+prepSuffix+suffix);
+   router.refresh();
   }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
   finally{setBusy("");}
  }
@@ -201,7 +207,10 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
     return next;
    }));
    const suffix=downstream.some((a:any)=>!a?.alreadyInNextBatch)?` · ${text("downstream Main attentions updated","đã cập nhật chú ý các Main phía sau")}`:"";
-   pushAppToast(text(`Added ${attention.jobNum} to ${item.batchNo} as WAITING.`,`Đã thêm ${attention.jobNum} vào ${item.batchNo} ở trạng thái Chờ thực hiện.`)+suffix);
+   const prep=Array.isArray(d?.preparation)?d.preparation:[];
+   const prepSuffix=prep.length?` · ${text("Preparation added as WAITING","Masking/Unmasking đã được thêm ở trạng thái Chờ thực hiện")}`:"";
+   pushAppToast(text(`Added ${attention.jobNum} to ${item.batchNo} as WAITING.`,`Đã thêm ${attention.jobNum} vào ${item.batchNo} ở trạng thái Chờ thực hiện.`)+prepSuffix+suffix);
+   router.refresh();
   }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
   finally{setBusy("");}
  }
