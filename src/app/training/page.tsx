@@ -208,6 +208,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{job?:st
     <tr><td>ST_SCOPE_ONLY</td><td>Theo dõi được nhưng không tham gia Planning Chain/Batch/Board.</td><td>Không ép đưa vào Batch.</td></tr>
     <tr><td>Job WAIT</td><td>Previous Main chưa đủ điều kiện handoff.</td><td>Đọc Job Tracker, không sửa Master để ép READY.</td></tr>
     <tr><td>Previous Main DONE nhưng dữ liệu cũ không có Batch</td><td>Physical progress vẫn có thể đủ handoff. Workload Summary và danh sách drill-down phải dùng cùng một classifier.</td><td>READY · chính trước Scheduled / Done. Khi bấm KPI này, Job vẫn phải hiện trong Candidate list dù Previous Main không có Batch/Schedule lịch sử.</td></tr>
+    <tr><td>Main Planning đầu tiên trong chuỗi</td><td>Không có Previous Main nên không có dependency upstream để chờ. Khi Main đầu tiên đã READY, nó thuộc nhóm handoff hợp lệ ngay từ START.</td><td>Từ V476 phải nằm ở READY · chính trước Scheduled / Done, không nằm ở READY · chính trước chưa Scheduled / START.</td></tr>
     <tr><td>Recipe mismatch</td><td>Batch và Job khác công nghệ.</td><td>Không đổi Recipe Batch chỉ để nhét Job vào.</td></tr>
     <tr><td>Common Batch Size trống</td><td>Có thể vẫn split nếu Recipe-specific Size tồn tại.</td><td>Recipe override thắng Common.</td></tr>
     <tr><td>Cả Common và Recipe Size trống</td><td>Không có size rule.</td><td>Không auto split theo size.</td></tr>

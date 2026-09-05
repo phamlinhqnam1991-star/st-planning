@@ -137,8 +137,10 @@ export async function loadPlanningWorkloadSummary(
     end bucket,
     case
      when p.status<>'ELIGIBLE' then null
-     when nullif(trim(coalesce(prev_ident.previous_operation,'')),'') is null then 'UNSCHEDULED'
+     when nullif(trim(coalesce(prev_ident.previous_operation,'')),'') is null then 'SCHEDULED'
      when prev_schedule.schedule_id is not null then 'SCHEDULED'
+     -- V476: First Main has no predecessor, so it is physically ready at chain start and
+     -- belongs to the same READY handoff bucket as Previous Main Scheduled / Done.
      -- V473: if this READY row is the canonical current Main, its Previous Main
      -- is already behind physical progress even when legacy production had no Batch.
      -- Treat that as the same READY handoff bucket as Previous Main Scheduled.

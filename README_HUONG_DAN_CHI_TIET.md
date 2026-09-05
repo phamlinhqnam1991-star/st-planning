@@ -378,7 +378,7 @@ Tab Training được mở rộng từ khái niệm chung nhất đến chi ti�
 ## V473 — Area Display Order + Preparation split + READY previous DONE
 - Configuration có tab **Area Display Order** dùng `md_area.sort_order` làm nguồn thứ tự hiển thị theo Physical Area; không đổi mapping hay business flow.
 - Production Report > Masking & Unmasking tách riêng panel theo **Area + Main**: PRIMER, PRIMER2, PRIMER3, TOPCOAT1, TOPCOAT2, ANTI-ABRASION.
-- READY split dùng cùng logic trên Planning Board/Dashboard/Scheduling: Previous Main đã **Scheduled hoặc DONE by physical progress** (kể cả không có Batch) thuộc `READY_PREV_SCHEDULED`; plan-ahead chưa handoff/Main đầu tiên thuộc `READY_PREV_UNSCHEDULED`.
+- READY split dùng cùng logic trên Planning Board/Dashboard/Scheduling: Previous Main đã **Scheduled hoặc DONE by physical progress** (kể cả không có Batch) thuộc `READY_PREV_SCHEDULED`; plan-ahead chưa handoff thuộc `READY_PREV_UNSCHEDULED`. **V476 cập nhật thêm: Main đầu tiên của chain cũng thuộc `READY_PREV_SCHEDULED` vì không có predecessor phải chờ.**
 - Logic & Hướng dẫn và Training được cập nhật song song.
 
 ## V474 — Training bằng dữ liệu thật
@@ -386,3 +386,10 @@ Tab Training đọc live database để minh họa Operation Code → ST Group �
 
 ## V475 — READY Workload drill-down đồng bộ với V473
 Khi click `READY · Previous Main Scheduled / Done` trên Planning Board, danh sách Job bên dưới phải dùng đúng cùng classifier với Workload Summary. Ngoài Previous Main có Schedule thật, Job đang ở current READY Main cũng thuộc cột này khi Previous Main đã đi qua theo physical progress/DONE dù lịch sử cũ không có Batch/Schedule. V475 sửa phần drill-down để không còn trường hợp KPI có Job nhưng bảng Candidate trống.
+
+
+## V476 - READY First Main classification
+- Main Planning đầu tiên trong chuỗi, khi đã READY/ELIGIBLE, được tính vào `READY · Previous Main Scheduled / Done`.
+- Không còn tính First Main vào `READY · Previous Main Unscheduled / START`.
+- Workload Summary và drill-down Planning Board dùng cùng classifier.
+- Không thay đổi Sequential READY/WAIT, Batch, Recipe, Scheduling hay Production.

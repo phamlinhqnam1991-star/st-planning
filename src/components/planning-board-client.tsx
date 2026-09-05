@@ -1847,8 +1847,9 @@ const currentPriorityMonth=useMemo(()=>{
    }
   }
 
-  // First Main / no previous Main belongs to the "not scheduled / START" side.
-  if(!previous)return "UNSCHEDULED";
+  // V476: First Main has no predecessor. It is READY from chain START, so classify it
+  // with the valid handoff side: "Previous Main Scheduled / Done".
+  if(!previous)return "SCHEDULED";
 
   // V475: keep drill-down classification identical to the canonical workload engine.
   // V473 already classifies the CURRENT READY Main as "Previous Main Scheduled / Done"
