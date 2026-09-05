@@ -43,6 +43,7 @@ export async function loadPlanningRouteStatus(c:any,candidateIds:number[]){
            'route_status',r.route_status,
            'batch_id',r.batch_id,
            'batch_no',r.batch_no,
+           'batch_nos',r.batch_nos,
            'batch_status',r.batch_status,
            'schedule_id',r.schedule_id,
            'schedule_status',r.schedule_status,
@@ -251,6 +252,7 @@ export async function loadPlanningRouteStatus(c:any,candidateIds:number[]){
 
              hist_batch.batch_id,
              hist_batch.batch_no,
+             hist_batches.batch_nos,
              hist_batch.batch_status,
              hist_batch.recipe_no,
              hist_batch.recipe_name,
@@ -290,6 +292,27 @@ export async function loadPlanningRouteStatus(c:any,candidateIds:number[]){
                hb.created_at desc,hbj.id desc
              limit 1
            ) hist_batch on true
+
+           left join lateral (
+             select array_agg(x.batch_no order by x.created_at,x.batch_id) batch_nos
+             from (
+               select distinct
+                 hb.id batch_id,
+                 hb.batch_no,
+                 hb.created_at
+               from planning_batch_job hbj
+               join planning_batch hb
+                 on hb.id=hbj.batch_id
+                and hb.status<>'CANCELLED'
+               where hbj.job_num=p.job_num
+                 and upper(trim(hbj.source_operation_code))=upper(trim(mr.source_operation))
+                 and hbj.standard_operation=mr.standard_operation
+                 and (
+                   hbj.source_seq_snapshot=mr.source_seq
+                   or mr.source_code_count=1
+                 )
+             ) x
+           ) hist_batches on true
 
            left join lateral (
              select
@@ -415,6 +438,7 @@ export async function loadPlanningRouteStatus(c:any,candidateIds:number[]){
 
            batch_id,
            batch_no,
+           batch_nos,
            batch_status,
            schedule_id,
            schedule_status,

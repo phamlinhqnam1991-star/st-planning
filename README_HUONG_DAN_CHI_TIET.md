@@ -321,3 +321,12 @@ Sau khi bạn xác nhận vận hành ổn, mới giảm DB Aiven:
 - VACUUM/REINDEX khi cần.
 
 Mục tiêu Phase 2: giảm ~600 MB xuống vùng an toàn hơn mà **không làm migration và cleanup cùng lúc**.
+
+
+## V462 — Batch Size theo Recipe
+- Batch Prefix / Sequence Start / Padding vẫn cấu hình theo Main Operation.
+- Common Batch Size để trống được phép.
+- Có thể thêm nhiều dòng Recipe + Batch Size cho cùng Main Operation.
+- Ưu tiên: Recipe Batch Size → Common Batch Size → không split nếu cả hai trống.
+- Auto Split OFF: luôn tạo một batch cho phần Qty được chọn, bất kể Batch Size.
+- Planning Board vẫn gộp nhiều Batch No trong cùng ô bằng dấu `&`; Scheduling/Preparation/Production vẫn tách từng Batch.

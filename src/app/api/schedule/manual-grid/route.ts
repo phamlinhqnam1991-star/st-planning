@@ -2,13 +2,10 @@ import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {assertResourceAndChemicalCapacity,chemicalScheduleColumns,resolveChemicalScheduleWindow} from "@/lib/chemical-line-schedule-server";
 import {resolveProcessMinutes} from "@/lib/planning/batch-utils";
+import {allocateBatchNumbers,loadBatchNumberConfig} from "@/lib/planning/batch-number";
 
 import {requireApiUser} from "@/lib/api-auth";
 const clean=(v:unknown)=>String(v??"").trim();
-const validBatchPrefix=(v:unknown)=>{
- const x=clean(v).toUpperCase();
- return /^[A-Z0-9]{3}$/.test(x)?x:"";
-};
 const asDate=(v:unknown)=>{
  const d=new Date(String(v??""));
  return Number.isNaN(d.getTime())?null:d;
@@ -137,8 +134,7 @@ export async function POST(req:Request){
    );
   }
 
-  const batchPrefix=validBatchPrefix(op.batch_prefix);
-  if(!batchPrefix)throw new Error(`${standardOperation} chưa có Batch Prefix 3 ký tự.`);
+  const batchConfig=await loadBatchNumberConfig(c,standardOperation,recipeKey);
 
   let recipeNo:string|null=null;
   if(recipeKey){
@@ -164,25 +160,7 @@ export async function POST(req:Request){
   const effectiveDateQ=await c.query(`select $1::date planning_date`,[planningDate]);
   const effectiveDate=effectiveDateQ.rows[0].planning_date;
 
-  await c.query(`
-   select pg_advisory_xact_lock(hashtext($1 || '|' || $2::date::text))
-  `,[batchPrefix,effectiveDate]);
-
-  const tokenQ=await c.query(`select upper(to_char($1::date,'DDMON')) date_token`,[effectiveDate]);
-  const dateToken=String(tokenQ.rows[0]?.date_token||"").toUpperCase();
-  const stem=`${batchPrefix}_${dateToken}_`;
-
-  const nextQ=await c.query(`
-   select coalesce(max(
-    case when batch_no ~ ('^' || $1 || '[0-9]{3}$')
-     then right(batch_no,3)::integer else null end
-   ),0)+1 next_no
-   from planning_batch
-   where left(batch_no,length($1))=$1
-  `,[stem]);
-  const nextNo=Number(nextQ.rows[0]?.next_no||1);
-  if(nextNo>999)throw new Error(`Đã vượt quá 999 Batch cho ${batchPrefix} ngày ${dateToken}.`);
-  const batchNo=`${stem}${String(nextNo).padStart(3,"0")}`;
+  const [batchNo]=await allocateBatchNumbers(c,batchConfig,1);
 
   const areaQ=await c.query(`
    select a.id

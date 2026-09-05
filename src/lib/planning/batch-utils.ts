@@ -295,32 +295,37 @@ export async function recomputeJobPlanningStatus(c:PoolClient,jobNum:string){
      p.id,p.status,p.planning_seq,p.source_seq,
      p.operation_instance_key,p.source_operation_code,p.standard_operation,
      p.previous_standard_operation_snapshot,
-     exists(
-       select 1
-       from planning_batch_job bj
-       join planning_batch b
-         on b.id=bj.batch_id
-        and b.status<>'CANCELLED'
-       where bj.job_num=p.job_num
-         and (
-           bj.planning_job_operation_id=p.id
-           or (
-             bj.source_seq_snapshot=p.source_seq
-             and upper(trim(bj.source_operation_code))=upper(trim(p.source_operation_code))
-             and upper(trim(bj.standard_operation))=upper(trim(p.standard_operation))
+     case
+       when exists(
+         select 1 from planning_batch_job bj
+         join planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
+         where bj.planning_job_operation_id=p.id
+       ) then coalesce((
+         select sum(coalesce(bj.qty,0))
+         from planning_batch_job bj
+         join planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
+         where bj.planning_job_operation_id=p.id
+       ),0) >= coalesce((
+         select coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)
+         from open_job_current j where j.job_num=p.job_num limit 1
+       ),0)
+       else exists(
+         select 1
+         from planning_batch_job bj
+         join planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
+         where bj.job_num=p.job_num
+           and (
+             (bj.source_seq_snapshot=p.source_seq
+              and upper(trim(bj.source_operation_code))=upper(trim(p.source_operation_code))
+              and upper(trim(bj.standard_operation))=upper(trim(p.standard_operation)))
+             or (nullif(trim(bj.operation_instance_key_snapshot),'') is not null
+                 and upper(trim(bj.operation_instance_key_snapshot))=upper(trim(p.operation_instance_key)))
+             or (p.source_main_count=1
+                 and upper(trim(bj.source_operation_code))=upper(trim(p.source_operation_code))
+                 and upper(trim(bj.standard_operation))=upper(trim(p.standard_operation)))
            )
-           or (
-             nullif(trim(bj.operation_instance_key_snapshot),'') is not null
-             and upper(trim(bj.operation_instance_key_snapshot))=
-                 upper(trim(p.operation_instance_key))
-           )
-           or (
-             p.source_main_count=1
-             and upper(trim(bj.source_operation_code))=upper(trim(p.source_operation_code))
-             and upper(trim(bj.standard_operation))=upper(trim(p.standard_operation))
-           )
-         )
-     ) is_planned
+       )
+     end is_planned
    from live p
    order by p.planning_seq,p.source_seq,p.id
  `,[jobNum]);

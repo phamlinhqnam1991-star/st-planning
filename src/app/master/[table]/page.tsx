@@ -143,7 +143,7 @@ export default async function Page({params,searchParams}:{params:Promise<{table:
      <ConfigPageHeader
       title={c.title}
       subtitle={`${operationActiveCount.toLocaleString()} công đoạn chính đang hoạt động · Thêm / Đổi tên / Ngưng / Xóa an toàn`}
-      purpose="Danh mục công đoạn chính (Main Operation): thêm công đoạn mới, đổi tên, đặt thứ tự, tiền tố số lô và quản lý trạng thái sử dụng."
+      purpose="Danh mục Main Operation: thêm/đổi tên/đặt thứ tự và cấu hình Batch No (Prefix + Sequence) cùng Batch Size / Auto Split."
       impact="Ngưng sử dụng giữ nguyên lịch sử. Xóa vĩnh viễn chỉ được phép khi công đoạn đã ngưng và không còn Mapping/Recipe/Planning/Batch tham chiếu."
       prev={{label:"Source → Main Mapping",href:"/master/operationmapping"}}
       next={{label:"ST Group Master",href:"/st-groups"}}

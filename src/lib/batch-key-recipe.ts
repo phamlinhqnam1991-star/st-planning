@@ -7,7 +7,7 @@
 //   → suggested_recipe_key + batch_key_template + batch_no_prefix + priority
 //
 // Batch Key = khóa gom lô (template có thể chứa {COLUMN} để thay bằng giá trị
-// thật của Job). Batch No Prefix = 3 ký tự sinh số lô XXX_DDMMM_NNN.
+// thật của Job). Batch No được sinh từ Batch Config của Operation Master (V460); prefix trong recipe-rule cũ không còn là nguồn sinh Batch No.
 // Khi nhiều rule cùng ưu tiên khớp với recipe khác nhau → AMBIGUOUS,
 // planner phải tự chọn (không tự chọn bừa).
 // =====================================================================

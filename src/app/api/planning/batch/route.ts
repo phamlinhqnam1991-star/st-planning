@@ -7,13 +7,37 @@ import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 import {resolveProcessMinutes,recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
 import {assertSameRecipeConditionGroup,normalizeCompatibilityColumns} from "@/lib/planning/batch-compatibility";
 import type {BatchCompatibilityRuleCondition} from "@/lib/planning/batch-compatibility";
+import {allocateBatchNumbers,loadBatchNumberConfig} from "@/lib/planning/batch-number";
 
 import {requireApiUser} from "@/lib/api-auth";
 const clean=(v:unknown)=>String(v??"").trim();
 
-function validBatchPrefix(v:unknown){
- const x=clean(v).toUpperCase();
- return /^[A-Z0-9]{3}$/.test(x)?x:"";
+function splitRowsByQty(rows:any[],batchSize:number|null){
+ if(!(batchSize&&batchSize>0))return [rows.map(r=>({...r}))];
+ const batches:any[][]=[];
+ let current:any[]=[];
+ let used=0;
+ const EPS=1e-9;
+ for(const row of rows){
+  const fullQty=Math.max(0,Number(row.plan_qty||0));
+  const fullSurface=Math.max(0,Number(row.plan_surface||0));
+  if(fullQty<=EPS){
+   if(!current.length)current=[];
+   current.push({...row,plan_qty:0,plan_surface:fullSurface});
+   continue;
+  }
+  let remain=fullQty;
+  while(remain>EPS){
+   if(used>=batchSize-EPS){batches.push(current);current=[];used=0;}
+   const take=Math.min(remain,batchSize-used);
+   const surface=fullQty>0?fullSurface*(take/fullQty):0;
+   current.push({...row,plan_qty:take,plan_surface:surface});
+   used+=take;remain-=take;
+   if(used>=batchSize-EPS){batches.push(current);current=[];used=0;}
+  }
+ }
+ if(current.length)batches.push(current);
+ return batches.length?batches:[[]];
 }
 
 // v331: batched writes — 1 INSERT + 1 UPDATE cho MỌI Job thay vì 2×N
@@ -128,21 +152,13 @@ export async function POST(req:NextRequest){
    // then filled later through the same Candidate Engine used by Batch Detail.
    if(createEmpty){
      const opQ=await c.query(`
-       select standard_operation,st_group,batch_prefix
+       select standard_operation,st_group
        from md_operation_master
-       where standard_operation=$1
-         and is_active=true
+       where standard_operation=$1 and is_active=true
        limit 1
      `,[standardOperation]);
-
-     if(!opQ.rowCount)
-       throw new Error(`Operation Master chưa có ${standardOperation}.`);
-
-     const batchPrefix=validBatchPrefix(opQ.rows[0].batch_prefix);
-     if(!batchPrefix)
-       throw new Error(
-         `Standard Operation ${standardOperation} chưa có Batch Prefix 3 ký tự.`
-       );
+     if(!opQ.rowCount)throw new Error(`Operation Master chưa có ${standardOperation}.`);
+     const batchConfig=await loadBatchNumberConfig(c,standardOperation,recipeKey);
 
      if(recipeKey){
        const recipeQ=await c.query(`
@@ -164,37 +180,7 @@ export async function POST(req:NextRequest){
      `,[planningDate]);
      const effectivePlanningDate=effectiveDateQ.rows[0].planning_date;
 
-     await c.query(`
-       select pg_advisory_xact_lock(
-         hashtext($1 || '|' || $2::date::text)
-       )
-     `,[batchPrefix,effectivePlanningDate]);
-
-     const tokenQ=await c.query(`
-       select upper(to_char($1::date,'DDMON')) date_token
-     `,[effectivePlanningDate]);
-     const dateToken=String(tokenQ.rows[0].date_token||"").toUpperCase();
-     const batchStem=`${batchPrefix}_${dateToken}_`;
-
-     const nextQ=await c.query(`
-       select coalesce(
-         max(
-           case
-             when batch_no ~ ('^' || $1 || '[0-9]{3}$')
-             then right(batch_no,3)::integer
-             else null
-           end
-         ),0
-       )+1 next_no
-       from planning_batch
-       where left(batch_no,length($1))=$1
-     `,[batchStem]);
-
-     const nextNo=Number(nextQ.rows[0]?.next_no||1);
-     if(nextNo>999)
-       throw new Error(`Đã vượt quá 999 Batch cho ${batchPrefix} ngày ${dateToken}.`);
-
-     const batchNo=`${batchStem}${String(nextNo).padStart(3,"0")}`;
+     const [batchNo]=await allocateBatchNumbers(c,batchConfig,1);
 
      const areaQ=await c.query(`
        select a.id
@@ -359,7 +345,6 @@ export async function POST(req:NextRequest){
    }
 
    let suggestedBatchKey:string|null=null;
-   let rulePrefix:string|null=null;
 
    if(!recipeKey){
      if(resolved.length===1){
@@ -405,17 +390,12 @@ export async function POST(req:NextRequest){
          mergeJobData(recipeCtx,{partNum:x.row.part_num,revisionNum:x.row.revision_num,sourceData:x.row.source_data||null})
        )).filter((x):x is string=>typeof x==="string"&&x.length>0)
      ));
-     const prefixes:string[]=Array.from(new Set<string>(
-       keyMatches.map(x=>x.match.batchNoPrefix).filter((x):x is string=>typeof x==="string"&&x.length>0)
-     ));
-
      if(batchKeys.length>1){
        throw new Error(
         `Các Job có Mã lô mẫu khác nhau (${batchKeys.join(" | ")}). Một Batch chỉ gom Job cùng Mã lô.`
        );
      }
      if(batchKeys.length===1)suggestedBatchKey=batchKeys[0];
-     if(prefixes.length===1)rulePrefix=prefixes[0];
    }
 
    if(recipeKey){
@@ -562,10 +542,6 @@ export async function POST(req:NextRequest){
 
    const totalQty=q.rows.reduce((a:number,r:any)=>a+Number(r.plan_qty||0),0);
    const totalSurface=q.rows.reduce((a:number,r:any)=>a+Number(r.plan_surface||0),0);
-   const processMinutes=await resolveProcessMinutes(
-    c,recipeKey,totalQty,totalSurface,{jobNums:q.rows.map((r:any)=>String(r.job_num||""))}
-   );
-
    const areaQ=await c.query(`
      select a.id
      from md_area_operation_group ag
@@ -576,119 +552,59 @@ export async function POST(req:NextRequest){
    const areaId=areaQ.rows[0]?.id||null;
 
    let startTimestamp:string|null=null;
-   let endTimestamp:string|null=null;
-
-   if(planningDate && plannedStart){
-     startTimestamp=`${planningDate}T${plannedStart}:00+07:00`;
-     if(processMinutes!=null){
-       const d=new Date(startTimestamp);
-       if(!Number.isNaN(d.getTime())){
-         d.setMinutes(d.getMinutes()+processMinutes);
-         endTimestamp=d.toISOString();
-       }
-     }
-   }
-
-   // ===============================================================
-   // BATCH NO RULE FOR EVERY MAIN PLANNING OPERATION
-   // XXX_DDMMM_NNN, e.g. CHM_23AUG_001 / PRI_23AUG_001
-   //
-   // XXX is never derived by substring(Standard Operation).
-   // It MUST come from md_operation_master.batch_prefix so operations
-   // sharing one production family may intentionally share one prefix.
-   // Sequence is shared by Prefix + Planning Date.
-   // ===============================================================
-
-   const prefixQ=await c.query(`
-     select batch_prefix
-     from md_operation_master
-     where standard_operation=$1
-       and is_active=true
-     limit 1
-   `,[standardOperation]);
-
-   if(!prefixQ.rowCount)
-     throw new Error(`Operation Master chưa có ${standardOperation}.`);
-
-   // Rule đề xuất Prefix có quyền ưu tiên; nếu không có/không hợp lệ thì dùng
-   // Batch Prefix của Operation Master.
-   const batchPrefix=validBatchPrefix(rulePrefix)||validBatchPrefix(prefixQ.rows[0].batch_prefix);
-
-   if(!batchPrefix)
-     throw new Error(
-       `Standard Operation ${standardOperation} chưa có Batch Prefix 3 ký tự. `+
-       `Vào Cấu hình → Operation Master để khai báo Batch Prefix.`
-     );
+   if(planningDate && plannedStart)startTimestamp=`${planningDate}T${plannedStart}:00+07:00`;
 
    const effectiveDateQ=await c.query(`
-     select coalesce(
-       nullif($1,'')::date,
-       (now() at time zone 'Asia/Ho_Chi_Minh')::date
-     ) planning_date
+     select coalesce(nullif($1,'')::date,(now() at time zone 'Asia/Ho_Chi_Minh')::date) planning_date
    `,[planningDate]);
-
    const effectivePlanningDate=effectiveDateQ.rows[0].planning_date;
 
-   // One transaction at a time may allocate a number for the same
-   // Prefix + date. This prevents two planners creating the same NNN.
-   await c.query(`
-     select pg_advisory_xact_lock(
-       hashtext($1 || '|' || $2::date::text)
-     )
-   `,[batchPrefix,effectivePlanningDate]);
+   // ===============================================================
+   // V460 BATCH NUMBER + AUTO SPLIT
+   // Batch number is now fully configured per Main Operation:
+   // Prefix + numeric sequence. No DDMM/DDMMM token is injected by code.
+   // Example: Prefix XXX_ + Start 1 + Padding 5 => XXX_00001.
+   // ===============================================================
+   const batchConfig=await loadBatchNumberConfig(c,standardOperation,recipeKey);
+   const splitSize=batchConfig.autoSplit?batchConfig.batchSizeQty:null;
+   const allocationBatches=splitRowsByQty(q.rows,splitSize);
+   const batchNos=await allocateBatchNumbers(c,batchConfig,allocationBatches.length);
 
-   const tokenQ=await c.query(`
-     select upper(to_char($1::date,'DDMON')) date_token
-   `,[effectivePlanningDate]);
-
-   const dateToken=String(tokenQ.rows[0].date_token||"").toUpperCase();
-   const batchStem=`${batchPrefix}_${dateToken}_`;
-
-   const nextQ=await c.query(`
-     select coalesce(
-       max(
-         case
-           when batch_no ~ ('^' || $1 || '[0-9]{3}$')
-           then right(batch_no,3)::integer
-           else null
-         end
-       ),
-       0
-     ) + 1 next_no
-     from planning_batch
-     where left(batch_no,length($1))=$1
-   `,[batchStem]);
-
-   const nextNo=Number(nextQ.rows[0]?.next_no||1);
-
-   if(nextNo>999)
-     throw new Error(
-       `Đã vượt quá 999 Batch cho Prefix ${batchPrefix} ngày ${dateToken}.`
+   const createdBatches:any[]=[];
+   for(let i=0;i<allocationBatches.length;i++){
+     const allocationRows=allocationBatches[i];
+     const batchQty=allocationRows.reduce((a:number,r:any)=>a+Number(r.plan_qty||0),0);
+     const batchSurface=allocationRows.reduce((a:number,r:any)=>a+Number(r.plan_surface||0),0);
+     const batchProcessMinutes=await resolveProcessMinutes(
+       c,recipeKey,batchQty,batchSurface,{jobNums:[...new Set(allocationRows.map((r:any)=>String(r.job_num||"")))]}
      );
+     let batchEndTimestamp:string|null=null;
+     if(startTimestamp&&batchProcessMinutes!=null){
+       const d=new Date(startTimestamp);
+       if(!Number.isNaN(d.getTime())){d.setMinutes(d.getMinutes()+batchProcessMinutes);batchEndTimestamp=d.toISOString();}
+     }
+     const batchQ=await c.query(`
+       insert into planning_batch(
+         batch_no,planning_date,area_id,standard_operation,recipe_key,recipe_mapping_id,batch_key,
+         total_jobs,total_qty,total_surface_dm2,process_minutes,
+         planned_start,planned_end,priority,status,note,plan_source,compatibility_conditions
+       )
+       values(
+         $1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+         $12::timestamptz,$13::timestamptz,$14,'PLANNED',$15,'PLANNING_BOARD',$16::jsonb
+       )
+       returning id,batch_no,planning_date
+     `,[
+       batchNos[i],effectivePlanningDate,areaId,standardOperation,recipeKey,recipeMappingId,suggestedBatchKey,
+       new Set(allocationRows.map((r:any)=>String(r.job_num||""))).size,batchQty,batchSurface,batchProcessMinutes,
+       startTimestamp,batchEndTimestamp,priority,note,
+       JSON.stringify(compatibilityConditionsToPersist||[])
+     ]);
+     const batchId=Number(batchQ.rows[0].id);
+     await insertBatchJobs(c,batchId,allocationRows);
+     createdBatches.push({batchId,batchNo:batchNos[i],totalQty:batchQty,totalSurface:batchSurface,processMinutes:batchProcessMinutes,plannedEnd:batchEndTimestamp});
+   }
 
-   const batchNo=`${batchStem}${String(nextNo).padStart(3,"0")}`;
-
-   const batchQ=await c.query(`
-     insert into planning_batch(
-       batch_no,planning_date,area_id,standard_operation,recipe_key,recipe_mapping_id,batch_key,
-       total_jobs,total_qty,total_surface_dm2,process_minutes,
-       planned_start,planned_end,priority,status,note,plan_source,compatibility_conditions
-     )
-     values(
-       $1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,$11,
-       $12::timestamptz,$13::timestamptz,$14,'PLANNED',$15,'PLANNING_BOARD',$16::jsonb
-     )
-     returning id,batch_no,planning_date
-   `,[
-     batchNo,effectivePlanningDate,areaId,standardOperation,recipeKey,recipeMappingId,suggestedBatchKey,
-     q.rows.length,totalQty,totalSurface,processMinutes,
-     startTimestamp,endTimestamp,priority,note,
-     JSON.stringify(compatibilityConditionsToPersist||[])
-   ]);
-
-   const batchId=batchQ.rows[0].id;
-
-   await insertBatchJobs(c,batchId,q.rows);
    await markOpsPlanned(c,q.rows.map((r:any)=>r.id),recipeKey);
    // v342: creating a Batch (still UNSCHEDULED) unlocks only the immediate
    // next Main Planning operation for each Job. Next-next stays WAIT.
@@ -697,19 +613,23 @@ export async function POST(req:NextRequest){
    }
 
    const affectedJobNums=q.rows.map((r:any)=>String(r.job_num||"")).filter(Boolean);
-   const batchTarget=await loadBatchTarget(c,Number(batchId));
+   const firstBatch=createdBatches[0];
+   const batchTarget=firstBatch?await loadBatchTarget(c,Number(firstBatch.batchId)):null;
    await c.query("commit");
 
    return NextResponse.json({
     ok:true,
-    batchId,
-    batchNo,
+    batchId:firstBatch?.batchId||null,
+    batchNo:firstBatch?.batchNo||"",
+    batchNos:createdBatches.map(x=>x.batchNo),
+    batches:createdBatches,
+    autoSplit:createdBatches.length>1,
     batchKey:suggestedBatchKey,
     totalJobs:q.rows.length,
     totalQty,
     totalSurface,
-    processMinutes,
-    plannedEnd:endTimestamp,
+    processMinutes:createdBatches.length===1?createdBatches[0].processMinutes:null,
+    plannedEnd:createdBatches.length===1?createdBatches[0].plannedEnd:null,
     affectedJobNums,
     batchTarget
    });

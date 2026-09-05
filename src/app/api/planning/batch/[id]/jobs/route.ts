@@ -310,7 +310,7 @@ export async function POST(
          qty,surface_dm2
        )
        values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       on conflict(planning_job_operation_id) do nothing
+       on conflict(batch_id,planning_job_operation_id) do nothing
      `,[
        batchId,r.id,r.job_num,r.source_operation_code,r.standard_operation,
        r.source_seq,r.planning_seq,r.operation_instance_key,

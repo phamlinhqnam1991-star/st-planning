@@ -170,7 +170,7 @@ export async function POST(req:Request){
   return NextResponse.json({error:"Planning Operation bắt buộc đủ Main Operation → ST Group → Physical Area → Schedule Area → Planner."},{status:400});
  if(sourceOrder!==null&&!Number.isInteger(sourceOrder))return NextResponse.json({error:"Operation Code Order phải là số nguyên."},{status:400});
  if(operationType==="PLANNING_OPERATION"&&mainOrder!==null&&!Number.isInteger(mainOrder))return NextResponse.json({error:"Main Planning Order phải là số nguyên."},{status:400});
- if(operationType==="PLANNING_OPERATION"&&batchPrefix&&!/^[A-Z0-9]{3}$/.test(batchPrefix))return NextResponse.json({error:"Batch Prefix phải đúng 3 ký tự."},{status:400});
+ if(operationType==="PLANNING_OPERATION"&&batchPrefix&&!/^[A-Z0-9][A-Z0-9_-]{0,29}$/.test(batchPrefix))return NextResponse.json({error:"Batch Prefix: 1-30 ký tự A-Z, 0-9, _ hoặc -."},{status:400});
 
  const c=await getPool().connect();
  try{

@@ -42,6 +42,7 @@ type RouteStatusItem={
   |string;
  batch_id:number|null;
  batch_no:string|null;
+ batch_nos?:string[]|null;
  batch_status:string|null;
  schedule_id:number|null;
  schedule_status:string|null;
@@ -3026,9 +3027,11 @@ const currentPriorityMonth=useMemo(()=>{
      const d=await safeJson(r);
      if(!r.ok)throw new Error(d?.error||(erpMode?"Không lưu được Batch.":"Không tạo/cập nhật được Batch."));
 
+     const createdNos=Array.isArray(d.batchNos)?d.batchNos.filter(Boolean):[];
+     const batchLabel=createdNos.length>1?`${createdNos.length} lô: ${createdNos.join(", ")}`:d.batchNo;
      setMessage(erpMode
-      ?`${d.batchNo} · ${d.addedToExisting?"đã cập nhật":"đã tạo"} · ${d.totalJobs} Job · Qty ${formatNumber(d.totalQty)} · Diện tích ${formatNumber(d.totalSurface)} dm² · Thời gian ${minutesToHHMM(d.processMinutes)}${d.batchKey?` · Batch Key ${d.batchKey}`:""}${d.ruleName?` · Quy tắc ${d.ruleName}`:""}`
-      :`${d.batchNo} ${d.addedToExisting?"updated":"created"} · ${d.totalJobs} Jobs · Qty ${formatNumber(d.totalQty)} · Surface ${formatNumber(d.totalSurface)} dm² · Process ${minutesToHHMM(d.processMinutes)}${d.batchKey?` · Batch Key ${d.batchKey}`:""}${d.ruleName?` · Rule: ${d.ruleName}`:""}`
+      ?`${batchLabel} · ${d.addedToExisting?"đã cập nhật":"đã tạo"} · ${d.totalJobs} Job · Qty ${formatNumber(d.totalQty)} · Diện tích ${formatNumber(d.totalSurface)} dm²${d.processMinutes!=null?` · Thời gian ${minutesToHHMM(d.processMinutes)}`:""}${d.batchKey?` · Batch Key ${d.batchKey}`:""}${d.ruleName?` · Quy tắc ${d.ruleName}`:""}`
+      :`${batchLabel} ${d.addedToExisting?"updated":"created"} · ${d.totalJobs} Jobs · Qty ${formatNumber(d.totalQty)} · Surface ${formatNumber(d.totalSurface)} dm²${d.processMinutes!=null?` · Process ${minutesToHHMM(d.processMinutes)}`:""}${d.batchKey?` · Batch Key ${d.batchKey}`:""}${d.ruleName?` · Rule: ${d.ruleName}`:""}`
      );
 
      // v335: Batch mutation is a DELTA update. Keep the current board mounted
@@ -3653,7 +3656,14 @@ const currentPriorityMonth=useMemo(()=>{
     :"";
 
    const batchNos=[
-    ...new Set(items.map(r=>String(r.batch_no||"").trim()).filter(Boolean))
+    ...new Set(
+     items.flatMap(r=>{
+      const many=Array.isArray(r.batch_nos)?r.batch_nos:[];
+      return (many.length?many:[r.batch_no])
+       .map(v=>String(v||"").trim())
+       .filter(Boolean);
+     })
+    )
    ];
 
    const resources=[
@@ -3734,7 +3744,7 @@ const currentPriorityMonth=useMemo(()=>{
     {!currentMainFocus&&<>
      {(scheduledEnds.length>0||batchNos.length>0)&&
       <span className="route-status-batch">
-       {scheduledEnds.length>0 ? scheduledEnds.join(" / ") : batchNos.join(" / ")}
+       {batchNos.length>0 ? batchNos.join(" & ") : scheduledEnds.join(" / ")}
       </span>}
      {resources.length>0&&<small>{resources.join(" / ")}</small>}
     </>}

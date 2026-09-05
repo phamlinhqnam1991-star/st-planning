@@ -48,15 +48,17 @@ export async function POST(req:Request){
   await c.query(`
    insert into md_operation_master(
     standard_operation,st_group,time_calc_type,priority,planning_sort_order,batch_prefix,
+    batch_sequence_start,batch_sequence_padding,batch_size_qty,batch_auto_split,
     qty_min,qty_max,surface_min_dm2,surface_max_dm2,
     fixed_hours,standard_hours,note,is_active,created_at,updated_at
    )
    values(
-    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
-    coalesce($15,now()),now()
+    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
+    coalesce($19,now()),now()
    )
   `,[
    newName,row.st_group,row.time_calc_type,row.priority,row.planning_sort_order,row.batch_prefix,
+   row.batch_sequence_start,row.batch_sequence_padding,row.batch_size_qty,row.batch_auto_split,
    row.qty_min,row.qty_max,row.surface_min_dm2,row.surface_max_dm2,
    row.fixed_hours,row.standard_hours,row.note,row.is_active,row.created_at
   ]);
@@ -130,6 +132,12 @@ export async function POST(req:Request){
 
   await c.query(`
    update md_batch_key_recipe_rule
+   set standard_operation=$2,updated_at=now()
+   where standard_operation=$1
+  `,[oldName,newName]);
+
+  await c.query(`
+   update md_operation_recipe_batch_size
    set standard_operation=$2,updated_at=now()
    where standard_operation=$1
   `,[oldName,newName]);

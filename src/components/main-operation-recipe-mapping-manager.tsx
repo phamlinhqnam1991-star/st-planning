@@ -477,7 +477,7 @@ export function MainOperationRecipeMappingManager({
        </label>
 
        <label>
-         Prefix số lô (tùy chọn, 3 ký tự)
+         Legacy Prefix (không còn dùng sinh Batch No từ V460)
          <input
            className="input"
            value={batchNoPrefix}

@@ -3,6 +3,7 @@ import {getPool} from "@/lib/db";
 import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
 import type {PoolClient} from "pg";
+import {validBatchPrefix} from "@/lib/planning/batch-number";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const upper=(v:unknown)=>clean(v).toUpperCase();
@@ -24,6 +25,7 @@ const DEPENDENCIES:Dependency[]=[
  {key:"schedule_area",label:"Schedule Area",table:"md_schedule_area_operation",where:`upper(trim(standard_operation))=$1`},
  {key:"auto_plan",label:"Auto Planning Rule",table:"md_auto_planning_rule",where:`upper(trim(standard_operation))=$1`},
  {key:"batch_recipe_rule",label:"Batch Key / Recipe Rule",table:"md_batch_key_recipe_rule",where:`upper(trim(standard_operation))=$1`},
+ {key:"recipe_batch_size",label:"Recipe Batch Size",table:"md_operation_recipe_batch_size",where:`upper(trim(standard_operation))=$1`},
  {key:"main_support",label:"Masking / Unmasking by Main",table:"md_main_support_operation",where:`upper(trim(standard_operation))=$1`},
  {key:"planning_job",label:"Planning Job Operation",table:"planning_job_operation",where:`upper(trim(standard_operation))=$1 or upper(trim(coalesce(previous_standard_operation_snapshot,'')))=$1`},
  {key:"planning_batch",label:"Planning Batch",table:"planning_batch",where:`upper(trim(standard_operation))=$1`},
@@ -77,15 +79,25 @@ export async function POST(req:Request){
  const body=await req.json().catch(()=>({}));
  const operation=upper(body.standard_operation);
  const stGroup=upper(body.st_group);
- const prefix=upper(body.batch_prefix);
+ const prefix=validBatchPrefix(body.batch_prefix);
+ const sequenceStart=Number(body.batch_sequence_start??1);
+ const sequencePadding=Number(body.batch_sequence_padding??5);
+ const batchSize=body.batch_size_qty==null||body.batch_size_qty===""?null:Number(body.batch_size_qty);
+ const autoSplit=body.batch_auto_split===true;
  const note=clean(body.note)||null;
  const rawOrder=body.planning_sort_order;
  const planningOrder=rawOrder===""||rawOrder===null||rawOrder===undefined?null:Number(rawOrder);
 
  if(!operation)return NextResponse.json({error:"Main Operation không được để trống."},{status:400});
  if(!stGroup)return NextResponse.json({error:"Phải chọn ST Group."},{status:400});
- if(!/^[A-Z0-9]{3}$/.test(prefix))
-  return NextResponse.json({error:"Batch Prefix phải đúng 3 ký tự A-Z hoặc 0-9."},{status:400});
+ if(!prefix)
+  return NextResponse.json({error:"Batch Prefix: 1-30 ký tự A-Z, 0-9, _ hoặc -."},{status:400});
+ if(!Number.isInteger(sequenceStart)||sequenceStart<0)
+  return NextResponse.json({error:"Sequence Start phải là số nguyên >= 0."},{status:400});
+ if(!Number.isInteger(sequencePadding)||sequencePadding<1||sequencePadding>12)
+  return NextResponse.json({error:"Sequence Padding phải từ 1 đến 12."},{status:400});
+ if(batchSize!==null&&(!Number.isFinite(batchSize)||batchSize<=0))
+  return NextResponse.json({error:"Batch Size phải > 0 hoặc để trống."},{status:400});
  if(planningOrder!==null&&(!Number.isInteger(planningOrder)||planningOrder<0))
   return NextResponse.json({error:"Planning Order phải là số nguyên >= 0."},{status:400});
 
@@ -118,21 +130,22 @@ export async function POST(req:Request){
        set standard_operation=$1,
            st_group=$2,
            batch_prefix=$3,
-           planning_sort_order=$4,
-           note=$5,
+           batch_sequence_start=$4,batch_sequence_padding=$5,batch_size_qty=$6,batch_auto_split=$7,
+           planning_sort_order=$8,
+           note=$9,
            is_active=true,
            updated_at=now()
      where upper(trim(standard_operation))=$1
      returning *
-   `,[operation,stGroup,prefix,planningOrder,note]);
+   `,[operation,stGroup,prefix,sequenceStart,sequencePadding,batchSize,autoSplit,planningOrder,note]);
    row=q.rows[0];
   }else{
    const q=await c.query(`
     insert into md_operation_master(
-     standard_operation,st_group,batch_prefix,planning_sort_order,note,is_active,created_at,updated_at
-    ) values($1,$2,$3,$4,$5,true,now(),now())
+     standard_operation,st_group,batch_prefix,batch_sequence_start,batch_sequence_padding,batch_size_qty,batch_auto_split,planning_sort_order,note,is_active,created_at,updated_at
+    ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,true,now(),now())
     returning *
-   `,[operation,stGroup,prefix,planningOrder,note]);
+   `,[operation,stGroup,prefix,sequenceStart,sequencePadding,batchSize,autoSplit,planningOrder,note]);
    row=q.rows[0];
   }
 

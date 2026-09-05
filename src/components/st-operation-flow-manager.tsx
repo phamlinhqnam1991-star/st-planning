@@ -352,7 +352,7 @@ export function StOperationFlowManager({rows,rawOperations,mainOperations,groups
     {step===2&&<><div className="candidate-filter-grid">
      <label>Công đoạn chính<input className="input" list="st-main-ops" value={form.standard_operation} onChange={e=>selectMain(e.target.value.toUpperCase())}/><datalist id="st-main-ops">{mainOperations.map(x=><option key={x.standard_operation} value={x.standard_operation}>{x.st_group}</option>)}</datalist></label>
      <label>Thứ tự Main<input className="input" type="number" value={form.main_planning_order} onChange={e=>setForm({...form,main_planning_order:e.target.value})}/></label>
-     <label>Tiền tố số lô<input className="input" maxLength={3} value={form.batch_prefix} onChange={e=>setForm({...form,batch_prefix:e.target.value.toUpperCase()})}/></label>
+     <label>Tiền tố số lô<input className="input" maxLength={30} value={form.batch_prefix} onChange={e=>setForm({...form,batch_prefix:e.target.value.toUpperCase()})}/></label>
      <label>Nhóm ST<select className="input" value={form.st_group} onChange={e=>setForm({...form,st_group:e.target.value})}><option value="">Chọn nhóm...</option>{groups.map(x=><option key={x.st_group} value={x.st_group}>{x.st_group} · {x.group_name}</option>)}</select></label>
      <label>Quy tắc mapping<select className="input" value={form.mapping_rule} onChange={e=>setForm({...form,mapping_rule:e.target.value})}><option>DIRECT</option><option>OCCURRENCE</option><option>SEQUENCE</option><option>SEQUENCE/FALLBACK</option></select></label>
     </div></>}

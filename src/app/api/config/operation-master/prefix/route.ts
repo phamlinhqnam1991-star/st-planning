@@ -12,9 +12,9 @@ export async function POST(req:Request){
  if(!operation)
   return NextResponse.json({error:"Thiếu Standard Operation."},{status:400});
 
- if(!/^[A-Z0-9]{3}$/.test(prefix))
+ if(!/^[A-Z0-9][A-Z0-9_-]{0,29}$/.test(prefix))
   return NextResponse.json(
-   {error:"Batch Prefix phải đúng 3 ký tự A-Z hoặc 0-9."},
+   {error:"Batch Prefix: 1-30 ký tự A-Z, 0-9, _ hoặc -."},
    {status:400}
   );
 
