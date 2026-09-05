@@ -97,7 +97,7 @@ export async function loadPlanningWorkloadSummary(
 
  const q=await c.query(`
   with candidate_jobs as (
-   select j.job_num
+   select j.job_num,current_main.id current_planning_id
    from public.open_job_current j
    left join lateral (
     select p0.id,p0.standard_operation,p0.source_operation_code,p0.st_group
@@ -139,6 +139,10 @@ export async function loadPlanningWorkloadSummary(
      when p.status<>'ELIGIBLE' then null
      when nullif(trim(coalesce(prev_ident.previous_operation,'')),'') is null then 'UNSCHEDULED'
      when prev_schedule.schedule_id is not null then 'SCHEDULED'
+     -- V473: if this READY row is the canonical current Main, its Previous Main
+     -- is already behind physical progress even when legacy production had no Batch.
+     -- Treat that as the same READY handoff bucket as Previous Main Scheduled.
+     when p.id=cj.current_planning_id then 'SCHEDULED'
      else 'UNSCHEDULED'
     end ready_previous_schedule,
     coalesce(nullif(j.current_good_wip_qty,0),j.prod_qty,0)::numeric qty,

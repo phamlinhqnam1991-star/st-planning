@@ -373,3 +373,10 @@ Tab `Cảnh báo thay đổi SX` là màn hình read-only dành cho planner đ�
 
 ## V472 - Training người mới theo lý thuyết → thực hành
 Tab Training được mở rộng từ khái niệm chung nhất đến chi tiết: Operation Code → ST Scope/ST Group → Main Operation/Main Planning Order → Area/Planner → Recipe/Batch Key/Batch Size/Time Rules → Planning → Batch → Scheduling → Production. Có ví dụ mô phỏng một Job xuyên suốt và thư viện tình huống vận hành/ngoại lệ. Không thay đổi business logic hoặc database.
+
+
+## V473 — Area Display Order + Preparation split + READY previous DONE
+- Configuration có tab **Area Display Order** dùng `md_area.sort_order` làm nguồn thứ tự hiển thị theo Physical Area; không đổi mapping hay business flow.
+- Production Report > Masking & Unmasking tách riêng panel theo **Area + Main**: PRIMER, PRIMER2, PRIMER3, TOPCOAT1, TOPCOAT2, ANTI-ABRASION.
+- READY split dùng cùng logic trên Planning Board/Dashboard/Scheduling: Previous Main đã **Scheduled hoặc DONE by physical progress** (kể cả không có Batch) thuộc `READY_PREV_SCHEDULED`; plan-ahead chưa handoff/Main đầu tiên thuộc `READY_PREV_UNSCHEDULED`.
+- Logic & Hướng dẫn và Training được cập nhật song song.

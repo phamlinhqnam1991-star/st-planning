@@ -340,7 +340,9 @@ const DASHBOARD_VISIBLE_SQL=`
 
 
 const DASHBOARD_CHAIN_WORKLOAD_SQL=`
- with area_by_group as (
+ with current_scope as (
+  select * from unnest($1::text[],$2::bigint[]) as x(job_num,current_planning_id)
+ ), area_by_group as (
   select ag.st_group,min(ag.area_id) area_id
   from public.md_area_operation_group ag
   join public.md_area ax on ax.id=ag.area_id and ax.is_active=true
@@ -367,9 +369,13 @@ const DASHBOARD_CHAIN_WORKLOAD_SQL=`
     when p.status<>'ELIGIBLE' then null
     when nullif(trim(coalesce(prev_ident.previous_operation,'')),'') is null then 'UNSCHEDULED'
     when prev_schedule.schedule_id is not null then 'SCHEDULED'
+    -- V473: canonical Current Main means Previous Main is already behind
+    -- physical progress, even when legacy history has no Batch/Schedule.
+    when p.id=cs.current_planning_id then 'SCHEDULED'
     else 'UNSCHEDULED'
    end ready_previous_schedule
   from public.planning_job_operation p
+  join current_scope cs on cs.job_num=p.job_num
   left join area_by_group abg on abg.st_group=p.st_group
   left join public.md_area a on a.id=abg.area_id and a.is_active=true
   left join public.md_operation_master om on om.standard_operation=p.standard_operation and om.is_active=true
@@ -437,7 +443,6 @@ const DASHBOARD_CHAIN_WORKLOAD_SQL=`
   where p.is_active=true
     and p.status in ('LOCKED','ELIGIBLE','PLANNED')
     and upper(trim(p.standard_operation))<>'PIONBL'
-    and p.job_num=any($1::text[])
  ), picked as (
   select distinct on (job_num,standard_operation,dashboard_status)
    *
@@ -491,14 +496,15 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
  const visibleRows=visibleQ.rows as any[];
  const visibleByJob=new Map<string,any>();
  const planningJobNums:string[]=[];
+ const planningCurrentIds:number[]=[];
  for(const raw of visibleRows){
   const jobNum=text(raw.job_num);
   if(!jobNum)continue;
   visibleByJob.set(jobNum,raw);
-  if(text(raw.operation_type)!=="ST_SCOPE_ONLY")planningJobNums.push(jobNum);
+  if(text(raw.operation_type)!=="ST_SCOPE_ONLY"){planningJobNums.push(jobNum);planningCurrentIds.push(num(raw.current_planning_id));}
  }
  const workloadQ=planningJobNums.length
-  ?await c.query(DASHBOARD_CHAIN_WORKLOAD_SQL,[planningJobNums])
+  ?await c.query(DASHBOARD_CHAIN_WORKLOAD_SQL,[planningJobNums,planningCurrentIds])
   :{rows:[] as any[]};
  const workloadRows=workloadQ.rows as any[];
 

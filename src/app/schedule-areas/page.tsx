@@ -14,7 +14,7 @@ export default function Page(){return <main className="erp-shell erpkit-migrated
     subtitle="Cấu hình khu vực điều độ, số dòng mặc định và Standard Operation thuộc từng khu vực."
     purpose="Tạo 'lane' trên Board Điều Độ: mỗi khu vực điều độ có tên, thứ tự, số dòng, resource và danh sách công đoạn chính được phép điều độ tại đó."
     impact="Công đoạn chính chưa gán vào Schedule Area nào sẽ không xuất hiện trên Board Điều Độ. Chỉ khu vực bật Điều độ tay mới xuất hiện trong luồng điều độ thủ công."
-    prev={{label:"Physical Area Master",href:"/area"}}
+    prev={{label:"Area Display Order",href:"/area-display-order"}}
     next={{label:"Phân chia Planner",href:"/planner-work-assignment"}}
    />
    <ScheduleAreaManager/>

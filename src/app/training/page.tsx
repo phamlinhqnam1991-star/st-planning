@@ -12,7 +12,7 @@ function Check({children}:{children:React.ReactNode}){return <li><span className
 export default function Page(){return <main className="erp-shell erpkit-migrated-page">
  <ErpAppHeader module="TRAINING"/><AppTabs active="training"/>
  <section className="erp-content erp-content-full guide-page training-page">
-  <div className="erp-page-head guide-head"><div><div className="erp-object-eyebrow">ONBOARDING · ST PLANNING · V472</div><h2>Training người mới — từ lý thuyết đến vận hành</h2><p>Học từ khái niệm chung nhất → cấu hình Operation Code → Mapping/Main/Area/Planner → Recipe & Time Rules → Planning → Batch → Scheduling → Production → xử lý ngoại lệ.</p></div><div className="erp-command-actions"><Link className="btn" href="/logic-guide">Logic & Hướng dẫn</Link><Link className="btn primary" href="/job-tracker">Mở Job Tracker</Link></div></div>
+  <div className="erp-page-head guide-head"><div><div className="erp-object-eyebrow">ONBOARDING · ST PLANNING · V473</div><h2>Training người mới — từ lý thuyết đến vận hành</h2><p>Học từ khái niệm chung nhất → cấu hình Operation Code → Mapping/Main/Area/Planner → Recipe & Time Rules → Planning → Batch → Scheduling → Production → xử lý ngoại lệ.</p></div><div className="erp-command-actions"><Link className="btn" href="/logic-guide">Logic & Hướng dẫn</Link><Link className="btn primary" href="/job-tracker">Mở Job Tracker</Link></div></div>
 
   <div className="guide-jump"><a href="#map">Bản đồ hệ thống</a><a href="#theory">Lý thuyết nền</a><a href="#config">Từ Operation Code đến điều độ</a><a href="#recipe">Recipe</a><a href="#time">Time Rules</a><a href="#example">Ví dụ 1 Job</a><a href="#normal-flow">Flow thao tác</a><a href="#scenarios">Tình huống</a><a href="#practice">Thực hành</a><a href="#checklist">Kiểm tra đạt</a></div>
 
@@ -156,5 +156,16 @@ export default function Page(){return <main className="erp-shell erpkit-migrated
    <Check>Biết Carry Over 06:00–05:59 và chỉ duyệt sau khi đọc Cross-Main/Resource impact.</Check>
    <Check>Khi có lỗi, biết chẩn đoán từ nguồn thay vì sửa Master để ép kết quả.</Check>
   </ul></div></section>
+
+  <section className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>Bổ sung V473 — thứ tự Area, Preparation split và READY handoff</b></div></div><div className="lg-body">
+   <ul>
+    <li><b>Area Display Order:</b> người mới phải hiểu <code>Physical Area</code> khác <code>Schedule Area</code>. Tab Configuration → Area Display Order chỉ đổi thứ tự hiển thị bằng <code>md_area.sort_order</code>, không đổi nơi Job được điều độ.</li>
+    <li><b>Masking/Unmasking Preparation:</b> báo cáo Production tách riêng theo Main đích. PRIMER, PRIMER2, PRIMER3, TOPCOAT1, TOPCOAT2 và ANTI-ABRASION là các bảng Preparation riêng; không được nhìn một bảng Painting tổng rồi nhầm Main.</li>
+    <li><b>READY handoff:</b> cột <b>READY · chính trước Scheduled / Done</b> gồm cả Previous Main đã Schedule và Previous Main đã DONE theo physical progress dù dữ liệu cũ không có Batch. Cột <b>READY · chính trước chưa Scheduled / START</b> là plan-ahead chưa handoff hoặc Main đầu tiên.</li>
+   </ul>
+   <div className="notice"><b>Bài kiểm tra:</b> Cho Job J-TRAIN-001 có Previous Main A-SHPN đã DONE ngoài hệ thống cũ, không có Batch, Current Main BSAUNSLD đang ELIGIBLE. Học viên phải trả lời đúng: Job nằm ở READY · chính trước Scheduled / Done, không phải READY · chính trước chưa Scheduled.</div>
+  </div></section>
  </section>
- </main>}
+ 
+
+</main>}

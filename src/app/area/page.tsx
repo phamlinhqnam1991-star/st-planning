@@ -15,7 +15,7 @@ export default async function AreaPage(){return <main className="erp-shell erpki
     purpose="Khai báo khu vực (vd khu Chemical Line) và xác định ST Group nào chạy ở khu nào."
     impact="Một ST Group chỉ thuộc 1 khu vật lý. Đây là cầu nối từ Nhóm ST sang Khu vực điều độ (Schedule Area)."
     prev={{label:"ST Group Master",href:"/st-groups"}}
-    next={{label:"Schedule Area Mapping",href:"/schedule-areas"}}
+    next={{label:"Area Display Order",href:"/area-display-order"}}
    />
    <AreaManager/>
   </section>

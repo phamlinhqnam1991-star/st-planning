@@ -4002,7 +4002,7 @@ const currentPriorityMonth=useMemo(()=>{
        <small>{selectedAreaId?selectedAreaName:"Tất cả khu vực"}{standardOperation?` · ${standardOperation}`:""} · Candidate ST View → READY / WAIT / HOLD theo Route Matrix / Planning Chain đang active</small>
       </div>
       <div className="erpkit-workload-summary-kpis">
-       <div className="erpkit-workload-summary-kpi is-ready"><b>{formatNumber(workloadTotals.READY.surface)} dm²</b><span>{formatNumber(workloadTotals.READY.qty)} pcs · {formatNumber(workloadTotals.READY.jobs,0)} Job</span><small>READY · Prev S {formatNumber(workloadTotals.READY_PREV_SCHEDULED.jobs,0)} · Prev U/Start {formatNumber(workloadTotals.READY_PREV_UNSCHEDULED.jobs,0)}</small></div>
+       <div className="erpkit-workload-summary-kpi is-ready"><b>{formatNumber(workloadTotals.READY.surface)} dm²</b><span>{formatNumber(workloadTotals.READY.qty)} pcs · {formatNumber(workloadTotals.READY.jobs,0)} Job</span><small>READY · Prev S/Done {formatNumber(workloadTotals.READY_PREV_SCHEDULED.jobs,0)} · Prev U/Start {formatNumber(workloadTotals.READY_PREV_UNSCHEDULED.jobs,0)}</small></div>
        <div className="erpkit-workload-summary-kpi is-wait"><b>{formatNumber(workloadTotals.WAIT.surface)} dm²</b><span>{formatNumber(workloadTotals.WAIT.qty)} pcs · {formatNumber(workloadTotals.WAIT.jobs,0)} Job</span><small>WAIT</small></div>
        <div className="erpkit-workload-summary-kpi is-hold"><b>{formatNumber(workloadTotals.HOLD.surface)} dm²</b><span>{formatNumber(workloadTotals.HOLD.qty)} pcs · {formatNumber(workloadTotals.HOLD.jobs,0)} Job</span><small>HOLD</small></div>
        <div className="erpkit-workload-summary-kpi is-total"><b>{formatNumber(workloadGrandTotal.surface)} dm²</b><span>{formatNumber(workloadGrandTotal.qty)} pcs · {formatNumber(workloadGrandTotal.jobs,0)} Job</span><small>TỔNG R+W+H</small></div>
@@ -4024,7 +4024,7 @@ const currentPriorityMonth=useMemo(()=>{
           const active=Boolean(workloadDrill&&normalized(workloadDrill.main)===normalized(row.standardOperation)&&workloadDrill.bucket===bucket);
           const busyKey=`${normalized(row.standardOperation)}|${bucket}`;
           const tone=bucket.startsWith("READY_PREV_")?"ready":bucket.toLowerCase();
-          const label=bucket==="READY_PREV_SCHEDULED"?"READY · Previous Main Scheduled":bucket==="READY_PREV_UNSCHEDULED"?"READY · Previous Main Unscheduled / START":bucket;
+          const label=bucket==="READY_PREV_SCHEDULED"?"READY · Previous Main Scheduled / Done by progress":bucket==="READY_PREV_UNSCHEDULED"?"READY · Previous Main Unscheduled / START":bucket;
           return <button
            type="button"
            className={`erpkit-workload-metric is-${tone} ${active?"is-active":""}`}

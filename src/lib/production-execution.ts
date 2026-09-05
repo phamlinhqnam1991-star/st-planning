@@ -46,6 +46,7 @@ export type ProductionWorkItem={
  plannedEnd:string|null;
  targetTime:string|null;
  area:string;
+ areaSort:number;
  resource:string;
  operation:string;
  linkedMainOperation:string;
@@ -477,6 +478,7 @@ export async function loadProductionExecution(
    plannedEnd:iso(row.planned_end),
    targetTime:iso(row.planned_start),
    area:clean(row.area_name)||"—",
+   areaSort:mainAreaByOperation.get(clean(row.standard_operation).toUpperCase())?.areaSort||999999,
    resource:clean(row.resource_code),
    operation:clean(row.standard_operation),
    linkedMainOperation:clean(row.standard_operation),
@@ -514,6 +516,7 @@ export async function loadProductionExecution(
     // V455: physical area belongs to the linked Main Planning operation.
     // The support type is still preserved by sourceType and supportOperations.
     area:linkedArea?.areaName||"Unmapped",
+    areaSort:linkedArea?.areaSort||999999,
     resource:clean(first.resourceCode),
     operation:group.supportOps.join(" / ")||(type==="MASKING"?"MASKING":"UNMASKING"),
     linkedMainOperation:clean(first.standardOperation),

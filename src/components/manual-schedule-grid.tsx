@@ -1116,7 +1116,7 @@ export function ManualScheduleGrid({
  const workloadStatuses:ScheduleWorkloadStatus[]=["WAIT","READY_PREV_SCHEDULED","READY_PREV_UNSCHEDULED","PLANNED_UNSCHEDULED","SCHEDULED","HOLD"];
  const workloadLabel:Record<ScheduleWorkloadStatus,string>={
   WAIT:"WAIT",
-  READY_PREV_SCHEDULED:"READY · Previous Main đã Schedule",
+  READY_PREV_SCHEDULED:"READY · chính trước Scheduled / Done",
   READY_PREV_UNSCHEDULED:"READY · Previous Main chưa Schedule",
   PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",SCHEDULED:"SCHEDULED",HOLD:"HOLD"
  };
@@ -1631,17 +1631,26 @@ export function ManualScheduleGrid({
     </div>
    }
 
- const workloadMainOrderByOperation=new Map(
-  stWorkloadRows.map(row=>[String(row.standardOperation||"").trim().toUpperCase(),Number(row.mainOrder||999999)] as const)
+ const workloadMainOrderByOperation=new Map<string,number>(
+  stWorkloadRows.map(row=>[String(row.standardOperation||"").trim().toUpperCase(),Number(row.mainOrder||999999)] as [string,number])
  );
- const scheduleAreaMainOrder=(area:ScheduleArea)=>{
-  const own=(area.operations||[]).map(x=>workloadMainOrderByOperation.get(String(x.standard_operation||"").trim().toUpperCase())??999999);
+ const workloadAreaOrderByOperation=new Map<string,number>(
+  stWorkloadRows.map(row=>[String(row.standardOperation||"").trim().toUpperCase(),Number(row.areaSort||999999)] as [string,number])
+ );
+ const scheduleAreaAreaOrder=(area:ScheduleArea)=>{
+  const own:number[]=(area.operations||[]).map(x=>workloadAreaOrderByOperation.get(String(x.standard_operation||"").trim().toUpperCase())??999999);
   const children=area.resource_group&&!area.resource_code?(childrenByGroup.get(area.resource_group)||[]):[];
-  const childOrders=children.flatMap(ch=>(ch.operations||[]).map(x=>workloadMainOrderByOperation.get(String(x.standard_operation||"").trim().toUpperCase())??999999));
+  const childOrders:number[]=children.flatMap(ch=>(ch.operations||[]).map(x=>workloadAreaOrderByOperation.get(String(x.standard_operation||"").trim().toUpperCase())??999999));
+  return Math.min(...own,...childOrders,999999);
+ };
+ const scheduleAreaMainOrder=(area:ScheduleArea)=>{
+  const own:number[]=(area.operations||[]).map(x=>workloadMainOrderByOperation.get(String(x.standard_operation||"").trim().toUpperCase())??999999);
+  const children=area.resource_group&&!area.resource_code?(childrenByGroup.get(area.resource_group)||[]):[];
+  const childOrders:number[]=children.flatMap(ch=>(ch.operations||[]).map(x=>workloadMainOrderByOperation.get(String(x.standard_operation||"").trim().toUpperCase())??999999));
   return Math.min(...own,...childOrders,999999);
  };
  const orderedScheduleAreas=[...scheduleAreas].sort((a,b)=>
-  scheduleAreaMainOrder(a)-scheduleAreaMainOrder(b)||Number(a.display_order||999999)-Number(b.display_order||999999)||a.schedule_area_code.localeCompare(b.schedule_area_code)
+  scheduleAreaAreaOrder(a)-scheduleAreaAreaOrder(b)||scheduleAreaMainOrder(a)-scheduleAreaMainOrder(b)||Number(a.display_order||999999)-Number(b.display_order||999999)||a.schedule_area_code.localeCompare(b.schedule_area_code)
  );
 
  return <section className="erp-table-panel section schedule-area-direct-grid">

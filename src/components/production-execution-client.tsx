@@ -402,13 +402,17 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
   });
   const addAreaGroups=(group:ProductionReportGroup)=>{
    const rows=filtered.filter(item=>item.reportGroup===group);
-   const names=[...new Set(rows.map(item=>item.area||text("Unmapped area","Chưa map khu vực")))];
+   const names:string[]=[...new Set<string>(rows.map(item=>String(item.area||text("Unmapped area","Chưa map khu vực"))))].sort((a,b)=>{
+    const ao=Math.min(...rows.filter(x=>(x.area||text("Unmapped area","Chưa map khu vực"))===a).map(x=>Number(x.areaSort||999999)));
+    const bo=Math.min(...rows.filter(x=>(x.area||text("Unmapped area","Chưa map khu vực"))===b).map(x=>Number(x.areaSort||999999)));
+    return ao-bo||a.localeCompare(b);
+   });
    for(const name of names){
     const list=sortRows(rows.filter(item=>(item.area||text("Unmapped area","Chưa map khu vực"))===name));
     if(!list.length)continue;
     result.push({
      key:`${group}|AREA|${name}`,title:name,subtitle:`${list.length} ${text("work items","công việc")}`,rows:list,
-     tone:areaTone(name),order:productionGroupOrder[group]*100000+Math.min(...list.map(x=>x.sequence))
+     tone:areaTone(name),order:productionGroupOrder[group]*1000000000+Math.min(...list.map(x=>Number(x.areaSort||999999)))*1000+Math.min(...list.map(x=>x.sequence))
     });
    }
   };
@@ -416,29 +420,44 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
   addAreaGroups("CHEMICAL_LINE");
   addAreaGroups("SHOT_PEENING");
 
-  // V455: Masking/Unmasking is grouped by the linked Main's physical area.
-  // Individual combined Job rows still retain Main so PRIMER2/TOPCOAT1 etc.
-  // remain distinguishable inside one physical-area panel.
+  // V473: Preparation report is separated by linked Main Planning inside each Physical Area.
+  // PRIMER / PRIMER2 / PRIMER3 / TOPCOAT1 / TOPCOAT2 / ANTI-ABRASION no longer share one Painting panel.
+  // Execution identity and Unmasking → Masking step order remain unchanged.
   const maskRows=filtered.filter(item=>item.reportGroup==="MASK_UNMASK");
-  const areaMap=new Map<string,{label:string;rows:ProductionWorkItem[]}>();
+  const preparationMainRank=(main:string)=>{
+   const x=main.trim().toUpperCase().replaceAll("_","-");
+   if(x==="PRIMER"||x==="PRIMER1")return 10;
+   if(x==="PRIMER2")return 20;
+   if(x==="PRIMER3")return 30;
+   if(x==="TOPCOAT1")return 40;
+   if(x==="TOPCOAT2")return 50;
+   if(x==="ANTI-ABRASION"||x==="ANTIABRASION")return 60;
+   return 900;
+  };
+  const preparationMainLabel=(main:string)=>{
+   const x=main.trim().toUpperCase();
+   return x==="PRIMER1"?"PRIMER":x||text("Unmapped Main","Chưa map Main");
+  };
+  const prepMap=new Map<string,{area:string;areaSort:number;main:string;rows:ProductionWorkItem[]}>();
   for(const item of maskRows){
-   const label=item.area.trim()||text("Unmapped physical area","Chưa map khu vực vật lý");
-   const key=label.toUpperCase();
-   const entry=areaMap.get(key)||{label,rows:[]};
-   entry.rows.push(item);areaMap.set(key,entry);
+   const area=item.area.trim()||text("Unmapped physical area","Chưa map khu vực vật lý");
+   const main=preparationMainLabel(item.linkedMainOperation);
+   const key=`${area.toUpperCase()}|${main}`;
+   const entry:{area:string;areaSort:number;main:string;rows:ProductionWorkItem[]}=prepMap.get(key)||{area,areaSort:Number(item.areaSort||999999),main,rows:[]};
+   entry.areaSort=Math.min(entry.areaSort,Number(item.areaSort||999999));
+   entry.rows.push(item);prepMap.set(key,entry);
   }
-  for(const [areaKey,entry] of areaMap){
+  for(const entry of [...prepMap.values()].sort((a,b)=>a.areaSort-b.areaSort||preparationMainRank(a.main)-preparationMainRank(b.main)||a.main.localeCompare(b.main))){
    const list=sortRows(entry.rows);
    const masking=list.filter(x=>x.sourceType==="MASKING").length;
    const unmasking=list.filter(x=>x.sourceType==="UNMASKING").length;
    const preparationJobs=combineSupportReportJobs(list).length;
-   const mains=[...new Set(list.map(x=>x.linkedMainOperation).filter(Boolean))];
    result.push({
-    key:`MASK_UNMASK|AREA|${areaKey}`,
-    title:`${entry.label} (Preparation)`,
-    subtitle:`${preparationJobs} Job · ${unmasking} Unmasking · ${masking} Masking${mains.length?` · ${mains.join(" / ")}`:""}`,
-    rows:list,tone:areaTone(entry.label),
-    order:productionGroupOrder.MASK_UNMASK*100000+Math.min(...list.map(x=>x.sequence))
+    key:`MASK_UNMASK|AREA|${entry.area.toUpperCase()}|MAIN|${entry.main}`,
+    title:`${entry.area} · ${entry.main} (Preparation)`,
+    subtitle:`${preparationJobs} Job · ${unmasking} Unmasking · ${masking} Masking`,
+    rows:list,tone:areaTone(entry.area),
+    order:productionGroupOrder.MASK_UNMASK*1000000000+entry.areaSort*1000+preparationMainRank(entry.main)
    });
   }
 
@@ -457,7 +476,7 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
    result.push({
     key:`PAINTING|${def.key}`,title:def.title,
     subtitle:list.length?`${list.length} ${text("work items","công việc")}${resources.length?` · ${resources.join(" / ")}`:""}`:text("No scheduled work","Chưa có kế hoạch"),
-    rows:list,tone:def.tone,order:productionGroupOrder.PAINTING*100000+index
+    rows:list,tone:def.tone,order:productionGroupOrder.PAINTING*1000000000+index
    });
   });
 
