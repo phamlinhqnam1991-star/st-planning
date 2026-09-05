@@ -391,6 +391,7 @@ export default function ScheduleBoardClient({
   ()=>showAcknowledged?alerts:newAlerts,
   [alerts,newAlerts,showAcknowledged]
  );
+ const handoverCountForBatch=(batchId:number)=>newAlerts.filter(a=>Number(a.affected_batch_id)===Number(batchId)).length;
 
  const configuredDuration=Number(batch?.process_minutes||0);
  const enteredDuration=parseHHMM(durationText);
@@ -550,7 +551,7 @@ export default function ScheduleBoardClient({
    <div className="handover-alert-head">
     <div>
      <b>Handover Alerts · Planner {planner}</b>
-     <small>Planner khác thay đổi Job có ảnh hưởng tới công đoạn của bạn · tự cập nhật mỗi 15 giây.</small>
+     <small>Thay đổi Job từ Main trước có ảnh hưởng tới lô/công đoạn của bạn · tự cập nhật mỗi 15 giây.</small>
     </div>
     <div className="handover-alert-head-actions">
      <span className={`handover-new-count ${newAlerts.length?"active":""}`}>
@@ -818,8 +819,8 @@ export default function ScheduleBoardClient({
             {b.batch_no}
             {Number(b.total_jobs||0)===0&&
              <em className="schedule-empty-badge">EMPTY</em>}
-            {Number(b.handover_alert_count||0)>0&&
-             <em className="schedule-impact-badge">Impact {b.handover_alert_count}</em>}
+            {Math.max(Number(b.handover_alert_count||0),handoverCountForBatch(b.id))>0&&
+             <em className="schedule-impact-badge">Attention {Math.max(Number(b.handover_alert_count||0),handoverCountForBatch(b.id))}</em>}
            </strong>
 
            <div className="schedule-operation-batch-actions">
@@ -911,8 +912,8 @@ export default function ScheduleBoardClient({
           <div className="schedule-operation-batch-head">
            <strong>
             {b.batch_no}
-            {Number(b.handover_alert_count||0)>0&&
-             <em className="schedule-impact-badge">Impact {b.handover_alert_count}</em>}
+            {Math.max(Number(b.handover_alert_count||0),handoverCountForBatch(b.id))>0&&
+             <em className="schedule-impact-badge">Attention {Math.max(Number(b.handover_alert_count||0),handoverCountForBatch(b.id))}</em>}
            </strong>
            <div className="schedule-operation-batch-actions">
             <span>{b.scheduled_resource_code||"—"}</span>

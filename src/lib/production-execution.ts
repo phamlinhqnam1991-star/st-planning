@@ -23,6 +23,16 @@ export type ProductionJobDetail={
  remark:string;
 };
 
+export type ProductionNextMainAttention={
+ eventId:number;
+ jobNum:string;
+ sourceBatchId:number;
+ sourceBatchNo:string;
+ sourceOperation:string;
+ nextOperation:string;
+ createdAt:string;
+};
+
 export type ProductionWorkItem={
  sourceType:ProductionExecutionSource;
  sourceKey:string;
@@ -49,6 +59,7 @@ export type ProductionWorkItem={
  jobNumbers:string[];
  jobDetails:ProductionJobDetail[];
  supportOperations:string[];
+ nextMainAttentions:ProductionNextMainAttention[];
  sequence:number;
  scheduleStatus:string;
  reportGroup:ProductionReportGroup;
@@ -168,6 +179,36 @@ async function loadJobExecutionRows(c:PoolClient,batchIds:number[]){
   // V446 can render from the legacy parent execution row before migration 074 is applied.
   // Per-Job reporting writes require migration 074 on Aiven.
   if(e?.code==="42P01")return empty;
+  throw e;
+ }
+}
+
+
+async function loadNextMainAttentions(c:PoolClient,batchIds:number[]){
+ const map=new Map<number,ProductionNextMainAttention[]>();
+ if(!batchIds.length)return map;
+ try{
+  const q=await c.query(`
+   select e.id,e.affected_batch_id,e.job_num,e.source_batch_id,e.source_batch_no,e.source_standard_operation,e.next_standard_operation,e.created_at
+   from planning_handover_change_event e
+   where e.affected_batch_id=any($1::bigint[])
+     and e.change_type='ADD_JOB' and e.status='NEW'
+     and e.note like 'PRODUCTION_ADD:%'
+     and not exists(
+      select 1 from planning_batch_job bj
+      where bj.batch_id=e.affected_batch_id and bj.job_num=e.job_num
+     )
+   order by e.affected_batch_id,e.created_at,e.id
+  `,[batchIds]);
+  for(const row of q.rows as any[]){
+   const batchId=Number(row.affected_batch_id);
+   const list=map.get(batchId)||[];
+   list.push({eventId:Number(row.id),jobNum:clean(row.job_num),sourceBatchId:Number(row.source_batch_id),sourceBatchNo:clean(row.source_batch_no),sourceOperation:clean(row.source_standard_operation),nextOperation:clean(row.next_standard_operation),createdAt:iso(row.created_at)||new Date().toISOString()});
+   map.set(batchId,list);
+  }
+  return map;
+ }catch(e:any){
+  if(e?.code==="42P01")return map;
   throw e;
  }
 }
@@ -403,11 +444,12 @@ export async function loadProductionExecution(
   ...supportAggregates.flatMap(([,groups])=>groups.map(g=>Number(g.first.batchId)))
  ].filter(Number.isFinite))];
  const lineBatchIds=batchRows.filter(x=>x.mode==="LINE").map(x=>Number(x.row.batch_id)).filter(Number.isFinite);
- const [execution,jobExecutionState,batchJobDetails,lineJobNumbers]=await Promise.all([
+ const [execution,jobExecutionState,batchJobDetails,lineJobNumbers,nextMainAttentionByBatch]=await Promise.all([
   loadExecutionRows(c,batchIds),
   loadJobExecutionRows(c,detailBatchIds),
   loadBatchJobDetails(c,detailBatchIds),
   loadBatchJobNumbers(c,lineBatchIds),
+  loadNextMainAttentions(c,batchIds),
  ]);
 
  const work:ProductionWorkItem[]=[];
@@ -436,6 +478,7 @@ export async function loadProductionExecution(
    recipeName:clean(row.recipe_name),
    jobs:num(row.total_jobs),qty:num(row.total_qty),surface:num(row.total_surface_dm2),
    jobNumbers:batchRow.mode==="LINE"?(lineJobNumbers.get(batchId)||[]):details.map(x=>x.jobNum).filter(Boolean),jobDetails:details,supportOperations:[],
+   nextMainAttentions:nextMainAttentionByBatch.get(batchId)||[],
    sequence:num(row.planning_order),scheduleStatus:clean(row.schedule_status),
    reportGroup:batchRow.group,reportMode:batchRow.mode,
   });
@@ -469,6 +512,7 @@ export async function loadProductionExecution(
     batchNo:clean(first.batchNo),recipeKey:clean(first.recipeKey),recipeNo:clean(first.recipeNo),recipeName:clean(first.recipeName),
     jobs:group.jobs.length,qty:group.qty,surface:group.surface,
     jobNumbers:group.jobs,jobDetails:details,supportOperations:group.supportOps,
+    nextMainAttentions:[],
     sequence:(first.planningOrder??999999)+(type==="MASKING"?-0.2:0.2),scheduleStatus:clean(first.scheduleStatus),
     reportGroup:"MASK_UNMASK",reportMode:"JOB",
    });

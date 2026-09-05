@@ -124,8 +124,8 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
   };
  },[scoped]);
 
- async function reportExtraJob(item:ProductionWorkItem){
-  const job=(extraJobByBatch[item.batchId]||"").trim();
+ async function reportExtraJob(item:ProductionWorkItem,explicitJobNum?:string){
+  const job=(explicitJobNum??extraJobByBatch[item.batchId]??"").trim();
   if(!job)return pushAppToast(text("Enter the extra Job Number.","Nhập Job Number phát sinh ngoài lô."));
   const k=`EXTRA|${item.batchId}`;setBusy(k);
   try{
@@ -140,10 +140,37 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
     jobs:added&&!x.jobNumbers.includes(added.jobNum)?x.jobs+1:x.jobs,
     qty:Number(d?.batchTotals?.qty??x.qty),surface:Number(d?.batchTotals?.surface??x.surface),
     jobNumbers:added&&!x.jobNumbers.includes(added.jobNum)?[...x.jobNumbers,added.jobNum]:x.jobNumbers,
-    jobDetails:added&&!x.jobDetails.some(j=>j.planningJobOperationId===added.planningJobOperationId)?[...x.jobDetails,added]:x.jobDetails
+    jobDetails:added&&!x.jobDetails.some(j=>j.planningJobOperationId===added.planningJobOperationId)?[...x.jobDetails,added]:x.jobDetails,
+    nextMainAttentions:x.nextMainAttentions.filter(a=>a.jobNum!==job)
    }:x));
    setExtraJobByBatch(prev=>({...prev,[item.batchId]:""}));
-   pushAppToast(text(`Added ${job} directly to ${item.batchNo}.`,`Đã thêm trực tiếp ${job} vào ${item.batchNo}.`));
+   const next=d?.nextMainAttention;
+   const suffix=next?.targetBatchNo?text(` Next Main attention sent to ${next.targetBatchNo}.`,` Đã gửi chú ý sang lô Next Main ${next.targetBatchNo}.`):next?.nextOperation?text(` Next Main ${next.nextOperation} has no matching Batch yet.`,` Next Main ${next.nextOperation} chưa có lô tương ứng.`):"";
+   pushAppToast(text(`Added ${job} directly to ${item.batchNo}.`,`Đã thêm trực tiếp ${job} vào ${item.batchNo}.`)+suffix);
+  }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
+  finally{setBusy("");}
+ }
+
+
+ async function acceptNextMainAttention(item:ProductionWorkItem,attention:ProductionWorkItem["nextMainAttentions"][number]){
+  const k=`EXTRA|${item.batchId}`;setBusy(k);
+  try{
+   const r=await fetch("/api/daily-production-adjustment",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
+    action:"ACCEPT_NEXT_MAIN_JOB",production_date:productionDate,batch_id:item.batchId,job_num:attention.jobNum,event_id:attention.eventId
+   })});
+   const d=await safeJson(r);if(!r.ok)throw new Error(d?.error||text("Unable to add the upstream Job.","Không thêm được Job từ Main trước."));
+   const added=d?.addedJob as ProductionJobDetail|undefined;
+   setItems(prev=>prev.map(x=>x.batchId===item.batchId&&x.sourceType==="BATCH"?{
+    ...x,
+    jobs:added&&!x.jobNumbers.includes(added.jobNum)?x.jobs+1:x.jobs,
+    qty:Number(d?.batchTotals?.qty??x.qty),surface:Number(d?.batchTotals?.surface??x.surface),
+    jobNumbers:added&&!x.jobNumbers.includes(added.jobNum)?[...x.jobNumbers,added.jobNum]:x.jobNumbers,
+    jobDetails:added&&!x.jobDetails.some(j=>j.planningJobOperationId===added.planningJobOperationId)?[...x.jobDetails,added]:x.jobDetails,
+    nextMainAttentions:x.nextMainAttentions.filter(a=>a.eventId!==attention.eventId)
+   }:x));
+   const next=d?.nextMainAttention;
+   const suffix=next?.targetBatchNo?` · ${text("next attention","chú ý tiếp")} ${next.targetBatchNo}`:"";
+   pushAppToast(text(`Added ${attention.jobNum} to ${item.batchNo} as WAITING.`,`Đã thêm ${attention.jobNum} vào ${item.batchNo} ở trạng thái Chờ thực hiện.`)+suffix);
   }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
   finally{setBusy("");}
  }
@@ -350,9 +377,18 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
     const addedRow=addedJobs.length?<tr key={`${k}__added`} className="production-detail-row production-added-job-row"><td colSpan={13}>
      <div className="notice" style={{margin:0}}><b>{text("Jobs added during production","Job thêm mới trong sản xuất")}:</b> {addedJobs.map(d=>`${d.jobNum}${d.partDescription?` · ${d.partDescription}`:""} · Qty ${d.currentGoodWipQty??"—"}`).join("  |  ")}</div>
     </td></tr>:null;
-    if(item.reportMode!=="JOB"||!item.jobDetails.length)return addedRow?[mainRow,addedRow]:[mainRow];
-    const detailRow=<tr key={`${k}__detail`} className="production-detail-row"><td colSpan={13}>{DetailTable({item})}</td></tr>;
-    return addedRow?[mainRow,addedRow,detailRow]:[mainRow,detailRow];
+    const attentionRow=item.sourceType==="BATCH"&&item.nextMainAttentions.length?<tr key={`${k}__next_attention`} className="production-detail-row production-next-main-attention-row"><td colSpan={13}>
+     <div className="notice warning" style={{margin:0,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+      <b>{text("Attention from previous Main:","Chú ý từ Main trước:")}</b>
+      {item.nextMainAttentions.map(a=><span key={a.eventId} style={{display:"inline-flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+       <span className="mono"><b>{a.jobNum}</b> · {a.sourceBatchNo} · {a.sourceOperation} → {a.nextOperation}</span>
+       <button type="button" className="btn small primary" disabled={busy===`EXTRA|${item.batchId}`} onClick={()=>acceptNextMainAttention(item,a)}>{text("Add this Job","Thêm Job này")}</button>
+      </span>)}
+     </div>
+    </td></tr>:null;
+    const rows=[mainRow];if(attentionRow)rows.push(attentionRow);if(addedRow)rows.push(addedRow);
+    if(item.reportMode==="JOB"&&item.jobDetails.length)rows.push(<tr key={`${k}__detail`} className="production-detail-row"><td colSpan={13}>{DetailTable({item})}</td></tr>);
+    return rows;
    })}</tbody>
   </table></div>;
  }

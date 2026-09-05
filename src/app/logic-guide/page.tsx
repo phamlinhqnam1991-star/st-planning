@@ -948,9 +948,9 @@ export default async function Page(){
    </Section>
 
    <Section id="daily-production-adjustment" title="16 · Daily Production Adjustment · đối soát đầu ngày (V465)"
-    sub="Production Report trước 05:59 → Carry Over / Remove Job cần duyệt; Extra Job được thêm trực tiếp và ghi audit">
+    sub="Production Report trước 05:59 → Carry Over / Remove Job cần duyệt; Extra Job được thêm trực tiếp, ghi audit và truyền Attention sang Next Main">
     <StepList items={[
-     <>Ngày sản xuất vẫn là <b>06:00 → 05:59 hôm sau</b>. Carry Over/Remove Job không tự sửa lịch trước khi planner duyệt; riêng Extra Job hợp lệ từ Production được thêm trực tiếp vào Batch và ghi audit.</>,
+     <>Ngày sản xuất vẫn là <b>06:00 → 05:59 hôm sau</b>. Carry Over/Remove Job không tự sửa lịch trước khi planner duyệt; riêng Extra Job hợp lệ từ Production được thêm trực tiếp vào Batch, ghi audit và tự tạo <b>Next Main Attention</b> cho lô downstream phù hợp. Production của lô downstream bấm <b>Thêm Job này</b> thì Job vào Batch ở trạng thái WAITING, không tự DONE.</>,
      <>Tab <b>Điều chỉnh đầu ngày</b> quét Production Report và tạo <b>CARRY_OVER</b> cho Batch còn Job chưa DONE; Job còn WAITING được tạo thêm đề xuất <b>REMOVE_JOB</b> để planner xác nhận bớt khỏi lô khi thực tế chưa bắt đầu.</>,
      <>Production có thể nhập <b>Job Number phát sinh ngoài Batch</b>. Hệ thống tự lookup Job/Main/Recipe, validate và <b>thêm trực tiếp</b> vào Batch, không cần approve ở tab Điều chỉnh. Tab Điều chỉnh chỉ hiện thông báo/audit Batch nào đã thêm và thông tin Job đã thêm; mismatch/Job đang ở Batch khác vẫn bị chặn.</>,
      <>Carry Over không chỉ dời cùng Resource. Preview chạy <b>Cross-Main Dependency</b>: Start Main sau phải ≥ Effective End Main trước, kể cả Main thuộc planner khác; sau đó chạy tiếp <b>Resource Cascade</b> cho các Batch bị overlap.</>,

@@ -345,3 +345,14 @@ Mục tiêu Phase 2: giảm ~600 MB xuống vùng an toàn hơn mà **không là
 - Migration mới: `078_daily_production_adjustment.sql`, tối đa 4 SQL statements theo giới hạn executor.
 
 - V465 sửa lỗi ô nhập Extra Job mất focus: gõ liên tục không cần click lại sau từng ký tự.
+
+
+## V467 · Job thêm từ Production truyền chú ý sang Next Main
+- Production thêm Job ngoài lô ở Main hiện tại: thêm trực tiếp như V465/V466.
+- Hệ thống lấy Next Main theo route thật của Job, không hard-code theo khu vực.
+- Batch đích được nhận diện bằng các Job chung giữa Batch nguồn và Batch Next Main; ưu tiên Batch có overlap lớn nhất.
+- Scheduling Board hiện Attention/Handover cho Batch đích.
+- Production Report của Batch đích hiện Job cần bổ sung và nút **Thêm Job này**.
+- Khi bấm, Job vào Batch đích với Production status **WAITING**, không tự hoàn thành.
+- Nếu còn Main tiếp theo, attention được truyền tiếp theo cùng cơ chế.
+- Không cần migration SQL mới; dùng `planning_handover_change_event` hiện hữu.
