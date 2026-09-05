@@ -81,6 +81,17 @@ type ScheduleWorkloadMainRow={
  WAIT:ScheduleWorkloadMetric;WAIT_NEXT_MAIN:ScheduleWorkloadMetric;WAIT_FUTURE_MAIN:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;READY_PREV_SCHEDULED:ScheduleWorkloadMetric;READY_PREV_UNSCHEDULED:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
  total:ScheduleWorkloadMetric;waitNextBreakdown?:ScheduleWaitNextBreakdown[];recipes:ScheduleWorkloadRecipeRow[];
 };
+type WorkloadQuickViewFilter={
+ areaName:string;standardOperation:string;recipeKey:string;recipeNo:string;recipeName:string;status:ScheduleWorkloadStatus;previousMain:string;
+};
+type WorkloadQuickViewRow={
+ planningJobOperationId:number;jobNum:string;partNum:string;revisionNum:string;partDescription:string;priority:string;qty:number;surface:number;
+ previousMain:string;standardOperation:string;recipeKey:string;recipeNo:string;recipeName:string;nextMain:string;nextRecipeKey:string;nextRecipeNo:string;nextRecipeName:string;
+ currentBatchNo:string;internalStatus:string;
+};
+type WorkloadQuickViewBatch={
+ id:number;batchNo:string;standardOperation:string;recipeKey:string;recipeNo:string;recipeName:string;totalJobs:number;totalQty:number;totalSurface:number;scheduled:boolean;resourceCode:string;
+};
 
 const blank=(date:string,resourceCode=""):Draft=>({
  standardOperation:"",recipeKey:"",resourceCode,date,startTime:"",duration:"",noLoading:false,chainFrom:null,chainFromExisting:null,startIso:null,keep:false,
@@ -198,6 +209,14 @@ export function ManualScheduleGrid({
  const [stWorkloadRows,setStWorkloadRows]=useState<ScheduleWorkloadMainRow[]>([]);
  const [stWorkloadLoading,setStWorkloadLoading]=useState(false);
  const [stWorkloadError,setStWorkloadError]=useState("");
+ const [workloadQuickView,setWorkloadQuickView]=useState<WorkloadQuickViewFilter|null>(null);
+ const [workloadQuickRows,setWorkloadQuickRows]=useState<WorkloadQuickViewRow[]>([]);
+ const [workloadQuickBatches,setWorkloadQuickBatches]=useState<WorkloadQuickViewBatch[]>([]);
+ const [workloadQuickLoading,setWorkloadQuickLoading]=useState(false);
+ const [workloadQuickError,setWorkloadQuickError]=useState("");
+ const [workloadQuickSelected,setWorkloadQuickSelected]=useState<Set<number>>(new Set());
+ const [workloadQuickTargetBatch,setWorkloadQuickTargetBatch]=useState("");
+ const [workloadQuickBusy,setWorkloadQuickBusy]=useState(false);
 
 
  function optimisticScheduledRow(batch:PlanningBatch,schedule:any):ScheduledRow|null{
@@ -718,6 +737,111 @@ export function ManualScheduleGrid({
   }
  }
 
+ async function loadWorkloadQuickView(filter:WorkloadQuickViewFilter){
+  setWorkloadQuickLoading(true);
+  setWorkloadQuickError("");
+  try{
+   const qs=new URLSearchParams({
+    standardOperation:filter.standardOperation,
+    status:filter.status
+   });
+   if(filter.recipeKey)qs.set("recipeKey",filter.recipeKey);
+   if(filter.previousMain)qs.set("previousMain",filter.previousMain);
+   const res=await fetch(`/api/schedule/workload-quick-view?${qs.toString()}`,{cache:"no-store"});
+   const d=await safeJson(res);
+   if(!res.ok)throw new Error(d?.error||"Không đọc được Planning Board Quick View.");
+   setWorkloadQuickRows(Array.isArray(d?.rows)?d.rows:[]);
+   setWorkloadQuickBatches(Array.isArray(d?.batches)?d.batches:[]);
+  }catch(e){
+   setWorkloadQuickRows([]);
+   setWorkloadQuickBatches([]);
+   setWorkloadQuickError(e instanceof Error?e.message:String(e));
+  }finally{
+   setWorkloadQuickLoading(false);
+  }
+ }
+
+ function openWorkloadQuickView(filter:WorkloadQuickViewFilter){
+  setWorkloadQuickView(filter);
+  setWorkloadQuickSelected(new Set());
+  setWorkloadQuickTargetBatch("");
+  void loadWorkloadQuickView(filter);
+ }
+ function closeWorkloadQuickView(){
+  if(workloadQuickBusy)return;
+  setWorkloadQuickView(null);
+  setWorkloadQuickRows([]);
+  setWorkloadQuickBatches([]);
+  setWorkloadQuickSelected(new Set());
+  setWorkloadQuickTargetBatch("");
+  setWorkloadQuickError("");
+ }
+ function quickViewCanPlan(){
+  return workloadQuickView?.status==="READY_PREV_SCHEDULED"||workloadQuickView?.status==="READY_PREV_UNSCHEDULED";
+ }
+ function toggleWorkloadQuickRow(row:WorkloadQuickViewRow){
+  if(!quickViewCanPlan())return;
+  setWorkloadQuickSelected(prev=>{
+   const next=new Set(prev);
+   if(next.has(row.planningJobOperationId)){next.delete(row.planningJobOperationId);return next;}
+   const firstId=[...next][0];
+   const first=workloadQuickRows.find(x=>x.planningJobOperationId===firstId);
+   const firstRecipe=first?.recipeKey||"__NO_RECIPE__";
+   const rowRecipe=row.recipeKey||"__NO_RECIPE__";
+   if(first&&firstRecipe!==rowRecipe){
+    setMessage("Quick View: chỉ chọn Job cùng Recipe trong một lần tạo/thêm Batch. Chọn từng Recipe riêng.");
+    return prev;
+   }
+   next.add(row.planningJobOperationId);
+   return next;
+  });
+ }
+ function applyQuickBatchTarget(raw:any){
+  if(!raw||!Number(raw.id))return;
+  const row:PlanningBatch={
+   id:Number(raw.id),batch_no:String(raw.batch_no||""),standard_operation:String(raw.standard_operation||""),
+   recipe_key:raw.recipe_key||null,recipe_no:raw.recipe_no||null,recipe_name:raw.recipe_name||null,
+   total_jobs:Number(raw.total_jobs||0),total_qty:Number(raw.total_qty||0),total_surface_dm2:Number(raw.total_surface_dm2||0),
+   process_minutes:raw.process_minutes==null?null:Number(raw.process_minutes),schedule_id:raw.schedule_id==null?null:Number(raw.schedule_id),previous_main_batches:[]
+  };
+  setLiveBatches(prev=>[row,...prev.filter(x=>Number(x.id)!==Number(row.id))]);
+ }
+ async function saveWorkloadQuickSelection(mode:"CREATE"|"EXISTING"){
+  if(!workloadQuickView||!quickViewCanPlan()||!workloadQuickSelected.size)return;
+  const selected=workloadQuickRows.filter(x=>workloadQuickSelected.has(x.planningJobOperationId));
+  if(!selected.length)return;
+  const recipes=[...new Set(selected.map(x=>x.recipeKey||""))];
+  if(recipes.length>1){setMessage("Quick View: các Job đang có Recipe khác nhau. Chọn từng Recipe riêng.");return;}
+  const targetBatchId=mode==="EXISTING"?Number(workloadQuickTargetBatch||0):0;
+  if(mode==="EXISTING"&&!targetBatchId){setMessage("Chọn Existing Batch trước khi Add to Batch.");return;}
+  setWorkloadQuickBusy(true);
+  try{
+   const res=await fetch("/api/planning/batch",{
+    method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({
+     planning_job_operation_ids:selected.map(x=>x.planningJobOperationId),
+     standard_operation:workloadQuickView.standardOperation,
+     recipe_key:recipes[0]||null,
+     planning_date:date,
+     ...(targetBatchId?{target_batch_id:targetBatchId}:{})
+    })
+   });
+   const d=await safeJson(res);
+   if(!res.ok)throw new Error(d?.error||"Không thể tạo/thêm Batch từ Quick View.");
+   applyQuickBatchTarget(d?.batchTarget);
+   setMessage(targetBatchId
+    ?`${d?.batchNo||"Batch"}: đã thêm ${selected.length} Job từ Scheduling Workload.`
+    :`${Array.isArray(d?.batchNos)&&d.batchNos.length?d.batchNos.join(" & "):d?.batchNo||"Batch"}: đã tạo từ ${selected.length} Job trong Scheduling Workload.`);
+   setWorkloadQuickSelected(new Set());
+   await Promise.all([refreshStWorkload(),loadWorkloadQuickView(workloadQuickView)]);
+   window.dispatchEvent(new Event("st-schedule-changed"));
+  }catch(e){
+   setWorkloadQuickError(e instanceof Error?e.message:String(e));
+  }finally{
+   setWorkloadQuickBusy(false);
+  }
+ }
+
  useEffect(()=>{
   void refreshStWorkload();
   const onChanged=()=>{void refreshStWorkload();};
@@ -1122,19 +1246,23 @@ export function ManualScheduleGrid({
   WAIT_FUTURE_MAIN:"WAIT · Future Mains",
   PLANNED_UNSCHEDULED:"PLANNED-UNSCHEDULED",SCHEDULED:"SCHEDULED",HOLD:"HOLD"
  };
- function workloadMetric(metric:ScheduleWorkloadMetric|undefined,status?:ScheduleWorkloadStatus){
+ function workloadMetric(metric:ScheduleWorkloadMetric|undefined,status:ScheduleWorkloadStatus,filter:Omit<WorkloadQuickViewFilter,"status"|"previousMain">){
   const m=metric||{jobs:0,qty:0,surface:0};
-  return <div className={`schedule-area-workload-metric${status?` is-${status.toLowerCase().replace(/_/g,"-")}`:" is-total"}`}>
+  const active=Number(m.jobs||0)>0;
+  return <button type="button" disabled={!active} className={`schedule-area-workload-metric workload-card-button is-${status.toLowerCase().replace(/_/g,"-")}${active?" is-clickable":""}`}
+   title={active?"Mở Planning Board Quick View theo đúng card này":"Không có Job"}
+   onClick={()=>active&&openWorkloadQuickView({...filter,status,previousMain:""})}>
    <b>{fmt(m.surface)} dm²</b><span>{fmt(m.qty,0)} pcs · {fmt(m.jobs,0)} Job</span>
-  </div>;
+  </button>;
  }
- function workloadWaitNextBreakdown(groups:ScheduleWaitNextBreakdown[]|undefined){
+ function workloadWaitNextBreakdown(groups:ScheduleWaitNextBreakdown[]|undefined,filter:Omit<WorkloadQuickViewFilter,"status"|"previousMain">){
   const list=(groups||[]).filter(x=>x&&x.metric&&Number(x.metric.jobs||0)>0);
   if(!list.length)return null;
   return <div className="schedule-area-wait-breakdown" aria-label="WAIT Next Main breakdown by nearest Previous Main">
-   {list.map((x,index)=><span key={`${x.previousMain}-${index}`} title={`${x.previousMain} · ${fmt(x.metric.surface)} dm² · ${fmt(x.metric.qty,0)} pcs · ${fmt(x.metric.jobs,0)} Job`}>
+   {list.map((x,index)=><button type="button" key={`${x.previousMain}-${index}`} title={`Mở ${x.previousMain} · ${fmt(x.metric.surface)} dm² · ${fmt(x.metric.qty,0)} pcs · ${fmt(x.metric.jobs,0)} Job`}
+    onClick={(e)=>{e.stopPropagation();openWorkloadQuickView({...filter,status:"WAIT_NEXT_MAIN",previousMain:x.previousMain||"START"});}}>
     <b>← {x.previousMain||"START"}</b><em>{fmt(x.metric.jobs,0)} Job · {fmt(x.metric.qty,0)} pcs · {fmt(x.metric.surface)} dm²</em>
-   </span>)}
+   </button>)}
   </div>;
  }
  function renderScheduleAreaWorkload(
@@ -1148,8 +1276,8 @@ export function ManualScheduleGrid({
    .filter(row=>allowed.has(String(row.standardOperation||"").trim().toUpperCase()))
    .sort((a,b)=>Number(a.mainOrder||999999)-Number(b.mainOrder||999999)||String(a.standardOperation).localeCompare(String(b.standardOperation)));
   const visibleGroups=compactRecipesOnly?rows.reduce((n,row)=>n+(row.recipes?.length||0),0):rows.length;
-  const statusCell=(metric:ScheduleWorkloadMetric|undefined,status:ScheduleWorkloadStatus,breakdown?:ScheduleWaitNextBreakdown[])=>
-   <>{workloadMetric(metric,status)}{status==="WAIT_NEXT_MAIN"&&showWaitNextBreakdown&&workloadWaitNextBreakdown(breakdown)}</>;
+  const statusCell=(metric:ScheduleWorkloadMetric|undefined,status:ScheduleWorkloadStatus,filter:Omit<WorkloadQuickViewFilter,"status"|"previousMain">,breakdown?:ScheduleWaitNextBreakdown[])=>
+   <>{workloadMetric(metric,status,filter)}{status==="WAIT_NEXT_MAIN"&&showWaitNextBreakdown&&workloadWaitNextBreakdown(breakdown,filter)}</>;
 
   return <section className={`schedule-area-st-workload${compactRecipesOnly?" is-recipe-only":""}`}>
    <div className="schedule-area-st-workload-head">
@@ -1166,12 +1294,12 @@ export function ManualScheduleGrid({
         <td>{compactRecipesOnly?<b>{row.standardOperation}</b>:<span className="schedule-area-st-workload-indent">↳</span>}</td>
         <td><b className="mono">{recipe.recipeNo||"—"}</b></td>
         <td>{recipe.recipeName||"No Recipe"}</td>
-        {workloadStatuses.map(status=><td key={status}>{statusCell(recipe[status],status,recipe.waitNextBreakdown)}</td>)}
+        {workloadStatuses.map(status=><td key={status}>{statusCell(recipe[status],status,{areaName,standardOperation:row.standardOperation,recipeKey:recipe.recipeKey,recipeNo:recipe.recipeNo||"",recipeName:recipe.recipeName||""},recipe.waitNextBreakdown)}</td>)}
        </tr>);
        if(compactRecipesOnly)return recipes;
        const main=<tr key={`${rowKey}-main`} className="schedule-area-st-workload-main">
         <td><b>{row.standardOperation}</b></td><td>—</td><td><b>MAIN TOTAL</b><small>{row.recipes?.length||0} Recipe groups</small></td>
-        {workloadStatuses.map(status=><td key={status}>{statusCell(row[status],status,row.waitNextBreakdown)}</td>)}
+        {workloadStatuses.map(status=><td key={status}>{statusCell(row[status],status,{areaName,standardOperation:row.standardOperation,recipeKey:"",recipeNo:"",recipeName:""},row.waitNextBreakdown)}</td>)}
        </tr>;
        return [main,...recipes];
       })}
@@ -1650,6 +1778,85 @@ export function ManualScheduleGrid({
     </div>
    }
 
+ function renderWorkloadQuickView(){
+  if(!workloadQuickView)return null;
+  const canPlan=quickViewCanPlan();
+  const selectedRows=workloadQuickRows.filter(x=>workloadQuickSelected.has(x.planningJobOperationId));
+  const selectedQty=selectedRows.reduce((sum,x)=>sum+Number(x.qty||0),0);
+  const selectedSurface=selectedRows.reduce((sum,x)=>sum+Number(x.surface||0),0);
+  const selectedRecipe=selectedRows.length?(selectedRows[0].recipeKey||""):"";
+  const targetBatches=workloadQuickBatches.filter(b=>!selectedRecipe||(b.recipeKey||"")===selectedRecipe);
+  const recipeGroups=[...new Set(workloadQuickRows.map(x=>x.recipeKey||"__NO_RECIPE__"))];
+  const allSelectable=canPlan&&workloadQuickRows.length>0&&recipeGroups.length<=1;
+  const allSelected=allSelectable&&workloadQuickRows.every(x=>workloadQuickSelected.has(x.planningJobOperationId));
+  const titleRecipe=workloadQuickView.recipeNo||workloadQuickView.recipeName
+   ?` · ${workloadQuickView.recipeNo||"—"}${workloadQuickView.recipeName?` · ${workloadQuickView.recipeName}`:""}`:"";
+  return <div className="schedule-workload-quick-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)closeWorkloadQuickView();}}>
+   <section className="schedule-workload-quick-modal" role="dialog" aria-modal="true" aria-label="Planning Board Quick View">
+    <div className="schedule-workload-quick-head">
+     <div>
+      <div className="erp-object-eyebrow">PLANNING BOARD QUICK VIEW</div>
+      <b>{workloadQuickView.areaName} · {workloadQuickView.standardOperation}{titleRecipe}</b>
+      <small>{workloadLabel[workloadQuickView.status]}{workloadQuickView.previousMain?` · Previous Main ${workloadQuickView.previousMain}`:""}</small>
+     </div>
+     <button type="button" className="btn small" disabled={workloadQuickBusy} onClick={closeWorkloadQuickView}>✕</button>
+    </div>
+    {workloadQuickError&&<div className="notice danger">{workloadQuickError}</div>}
+    {!canPlan&&<div className="notice warning">
+     {workloadQuickView.status==="HOLD"
+      ?"HOLD: xem danh sách được nhưng phải bỏ HOLD trước khi thêm Job vào Batch."
+      :"WAIT: xem danh sách được nhưng chưa được tạo/thêm Batch. Previous Main phải có Plan/Batch để mở đúng Next Main READY."}
+    </div>}
+    <div className="schedule-workload-quick-summary">
+     <span><b>{fmt(workloadQuickRows.length,0)}</b> Job in card</span>
+     <span><b>{fmt(selectedRows.length,0)}</b> Selected</span>
+     <span><b>{fmt(selectedQty,0)}</b> pcs</span>
+     <span><b>{fmt(selectedSurface)}</b> dm²</span>
+    </div>
+    <div className="table-wrap schedule-workload-quick-table-wrap">
+     <table className="erp-table schedule-workload-quick-table">
+      <thead><tr>
+       <th className="quick-pick">{canPlan?<input type="checkbox" aria-label="Chọn tất cả" title={recipeGroups.length>1?"Card có nhiều Recipe: chọn Job cùng Recipe thủ công.":"Chọn tất cả Job"} disabled={!allSelectable} checked={allSelected} onChange={()=>{
+        if(allSelected){setWorkloadQuickSelected(new Set());return;}
+        setWorkloadQuickSelected(new Set(workloadQuickRows.map(x=>x.planningJobOperationId)));
+       }}/>:null}</th>
+       <th>Job</th><th>Part / Rev</th><th>Description</th><th>Qty</th><th>dm²</th><th>Priority</th><th>Previous Main</th><th>Main</th><th>Recipe No</th><th>Recipe Name</th><th>Next Main</th><th>Next Recipe No</th><th>Next Recipe Name</th><th>Batch</th>
+      </tr></thead>
+      <tbody>
+       {workloadQuickRows.map(row=><tr key={row.planningJobOperationId}>
+        <td className="quick-pick">{canPlan?<input type="checkbox" aria-label={`Chọn ${row.jobNum}`} checked={workloadQuickSelected.has(row.planningJobOperationId)} onChange={()=>toggleWorkloadQuickRow(row)}/>:null}</td>
+        <td><b>{row.jobNum}</b></td>
+        <td>{row.partNum||"—"}{row.revisionNum?` / ${row.revisionNum}`:""}</td>
+        <td>{row.partDescription||"—"}</td>
+        <td className="num">{fmt(row.qty,0)}</td><td className="num">{fmt(row.surface)}</td>
+        <td>{row.priority||"—"}</td><td>{row.previousMain||"START"}</td><td><b>{row.standardOperation}</b></td>
+        <td className="mono">{row.recipeNo||"—"}</td><td>{row.recipeName||"No Recipe"}</td>
+        <td><b>{row.nextMain||"—"}</b></td><td className="mono">{row.nextRecipeNo||"—"}</td><td>{row.nextRecipeName||"—"}</td>
+        <td>{row.currentBatchNo||"—"}</td>
+       </tr>)}
+       {!workloadQuickRows.length&&!workloadQuickLoading&&<tr><td colSpan={15} className="muted">Không còn Job phù hợp với card này.</td></tr>}
+       {workloadQuickLoading&&<tr><td colSpan={15} className="muted">Đang tải danh sách Planning Board…</td></tr>}
+      </tbody>
+     </table>
+    </div>
+    <div className="schedule-workload-quick-actions">
+     {canPlan?<>
+      <div className="schedule-workload-quick-target">
+       <label>Existing Batch
+        <select className="input" value={workloadQuickTargetBatch} onChange={e=>setWorkloadQuickTargetBatch(e.target.value)}>
+         <option value="">Select Batch...</option>
+         {targetBatches.map(b=><option key={b.id} value={b.id}>{b.batchNo} · {b.recipeNo||"No Recipe"} · {fmt(b.totalJobs,0)} Job · {fmt(b.totalQty,0)} pcs{b.scheduled?` · Scheduled ${b.resourceCode||""}`:""}</option>)}
+        </select>
+       </label>
+       <button type="button" className="btn" disabled={workloadQuickBusy||!workloadQuickSelected.size||!workloadQuickTargetBatch} onClick={()=>void saveWorkloadQuickSelection("EXISTING")}>{workloadQuickBusy?"Saving...":"Add to Batch"}</button>
+      </div>
+      <button type="button" className="btn primary" disabled={workloadQuickBusy||!workloadQuickSelected.size} onClick={()=>void saveWorkloadQuickSelection("CREATE")}>{workloadQuickBusy?"Saving...":"Create New Batch"}</button>
+     </>:<button type="button" className="btn" onClick={closeWorkloadQuickView}>Close</button>}
+    </div>
+   </section>
+  </div>;
+ }
+
  const workloadMainOrderByOperation=new Map<string,number>(
   stWorkloadRows.map(row=>[String(row.standardOperation||"").trim().toUpperCase(),Number(row.mainOrder||999999)] as [string,number])
  );
@@ -1704,5 +1911,6 @@ export function ManualScheduleGrid({
    return renderAreaBlock(a);
   })}
   </div>
+  {renderWorkloadQuickView()}
  </section>
 }

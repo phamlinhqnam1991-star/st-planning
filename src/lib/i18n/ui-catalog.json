@@ -8145,6 +8145,56 @@
       "en": "Flybar · Recipe rows only",
       "vi": "Flybar · chỉ hiển thị dòng Recipe",
       "mode": "exact"
+    },
+    {
+      "en": "Planning Board Quick View",
+      "vi": "Xem nhanh Planning Board",
+      "mode": "exact"
+    },
+    {
+      "en": "Next Main",
+      "vi": "Main kế tiếp",
+      "mode": "exact"
+    },
+    {
+      "en": "Next Recipe No",
+      "vi": "Số Recipe Main kế tiếp",
+      "mode": "exact"
+    },
+    {
+      "en": "Next Recipe Name",
+      "vi": "Tên Recipe Main kế tiếp",
+      "mode": "exact"
+    },
+    {
+      "en": "Existing Batch",
+      "vi": "Batch hiện có",
+      "mode": "exact"
+    },
+    {
+      "en": "Create New Batch",
+      "vi": "Tạo Batch mới",
+      "mode": "exact"
+    },
+    {
+      "en": "Add to Batch",
+      "vi": "Thêm vào Batch",
+      "mode": "exact"
+    },
+    {
+      "en": "Select Batch...",
+      "vi": "Chọn Batch...",
+      "mode": "exact"
+    },
+    {
+      "en": "Selected",
+      "vi": "Đã chọn",
+      "mode": "exact"
+    },
+    {
+      "en": "Job in card",
+      "vi": "Job trong card",
+      "mode": "exact"
     }
   ]
 }

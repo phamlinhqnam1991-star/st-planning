@@ -3084,3 +3084,31 @@
 .erpkit-migrated-page .schedule-area-wait-breakdown b{font-size:6.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:92px}
 .erpkit-migrated-page .schedule-area-wait-breakdown em{font-style:normal;color:#8b6a2a;white-space:nowrap;font-variant-numeric:tabular-nums}
 
+
+/* V492 · Scheduling Workload → Planning Board Quick View.
+   Workload cards are now entry points into the same Planning Batch engine.
+   WAIT/HOLD remain read-only; only READY buckets can create/add Batch membership. */
+.erpkit-migrated-page .schedule-area-workload-metric.workload-card-button{
+ width:100%;font:inherit;text-align:left;border:0;border-radius:4px;padding:5px 7px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:default;
+}
+.erpkit-migrated-page .schedule-area-workload-metric.workload-card-button.is-clickable{cursor:pointer;outline:1px solid transparent}
+.erpkit-migrated-page .schedule-area-workload-metric.workload-card-button.is-clickable:hover{outline-color:#9bb1c8;filter:brightness(.985)}
+.erpkit-migrated-page .schedule-area-workload-metric.workload-card-button:focus-visible{outline:2px solid #2f6eb6;outline-offset:1px}
+.erpkit-migrated-page .schedule-area-workload-metric.workload-card-button:disabled{opacity:1}
+.erpkit-migrated-page .schedule-area-wait-breakdown>button{
+ appearance:none;width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;
+ padding:2px 4px;border:1px solid #ead9b6;border-radius:3px;background:#fffdf6;
+ color:#7a5a1d;font-size:6.1px;line-height:1.2;text-align:left;cursor:pointer;
+}
+.erpkit-migrated-page .schedule-area-wait-breakdown>button:hover{background:#fff8e8;border-color:#d7ba79}
+.erpkit-migrated-page .schedule-area-wait-breakdown>button:focus-visible{outline:2px solid #b8862b;outline-offset:1px}
+
+.erpkit-migrated-page .schedule-workload-quick-backdrop{position:fixed;inset:0;z-index:12500;background:rgba(15,23,42,.38);display:flex;align-items:center;justify-content:center;padding:18px}
+.erpkit-migrated-page .schedule-workload-quick-modal{width:min(1500px,calc(100vw - 36px));max-height:calc(100vh - 36px);overflow:hidden;background:#fff;border:1px solid #cbd5df;border-radius:9px;box-shadow:0 18px 55px rgba(15,23,42,.24);display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto;gap:8px;padding:12px}
+.erpkit-migrated-page .schedule-workload-quick-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid #e3e8ef;padding-bottom:8px}
+.erpkit-migrated-page .schedule-workload-quick-head>div{display:grid;gap:2px;min-width:0}.erpkit-migrated-page .schedule-workload-quick-head b{font-size:14px;color:#17324d;overflow-wrap:anywhere}.erpkit-migrated-page .schedule-workload-quick-head small{font-size:11px;color:#667085}
+.erpkit-migrated-page .schedule-workload-quick-summary{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:6px 8px;background:#f7f9fc;border:1px solid #e1e7ef;font-size:11px}.erpkit-migrated-page .schedule-workload-quick-summary b{color:#17324d}
+.erpkit-migrated-page .schedule-workload-quick-table-wrap{overflow:auto;max-height:62vh;border:1px solid #dce3eb}
+.erpkit-migrated-page .schedule-workload-quick-table{min-width:1780px;font-size:10px}.erpkit-migrated-page .schedule-workload-quick-table th{position:sticky;top:0;z-index:2;background:#f4f7fa;white-space:nowrap}.erpkit-migrated-page .schedule-workload-quick-table td{vertical-align:top}.erpkit-migrated-page .schedule-workload-quick-table .quick-pick{width:34px;text-align:center}.erpkit-migrated-page .schedule-workload-quick-table input[type="checkbox"]{width:14px;height:14px}
+.erpkit-migrated-page .schedule-workload-quick-actions{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;border-top:1px solid #e3e8ef;padding-top:8px}.erpkit-migrated-page .schedule-workload-quick-target{display:flex;align-items:flex-end;gap:8px;min-width:0;flex:1}.erpkit-migrated-page .schedule-workload-quick-target label{display:grid;gap:3px;min-width:280px;max-width:700px;flex:1;font-size:10px;font-weight:700;color:#475467}.erpkit-migrated-page .schedule-workload-quick-target .input{width:100%}
+@media(max-width:760px){.erpkit-migrated-page .schedule-workload-quick-backdrop{padding:8px;align-items:flex-end}.erpkit-migrated-page .schedule-workload-quick-modal{width:100%;max-height:92vh;border-radius:8px 8px 0 0}.erpkit-migrated-page .schedule-workload-quick-actions,.erpkit-migrated-page .schedule-workload-quick-target{align-items:stretch;flex-direction:column}.erpkit-migrated-page .schedule-workload-quick-target label{min-width:0;max-width:none;width:100%}.erpkit-migrated-page .schedule-workload-quick-actions .btn{width:100%}}

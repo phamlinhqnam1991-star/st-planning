@@ -386,6 +386,7 @@ const DASHBOARD_CHAIN_WORKLOAD_SQL=`
    end wait_level,
    nullif(trim(coalesce(prev_ident.previous_operation,'')),'') previous_main_operation,
    active_batch.recipe_key batch_recipe_key,
+   active_batch.batch_no active_batch_no,
    case
     when p.status<>'ELIGIBLE' then null
     when nullif(trim(coalesce(prev_ident.previous_operation,'')),'') is null then 'SCHEDULED'
@@ -753,4 +754,195 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   cat3,
   cat5
  };
+}
+
+// V492 · Scheduling Workload Quick View.
+// This reuses the exact canonical Dashboard-visible population + Planning Chain workload SQL above,
+// then only filters the requested Main/Recipe/Bucket for the Scheduling popup. No second READY/WAIT
+// classifier is introduced here.
+export type StWorkloadQuickViewStatus="READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED"|"WAIT_NEXT_MAIN"|"WAIT_FUTURE_MAIN"|"HOLD";
+export type StWorkloadQuickViewRow={
+ planningJobOperationId:number;
+ jobNum:string;
+ partNum:string;
+ revisionNum:string;
+ partDescription:string;
+ priority:string;
+ qty:number;
+ surface:number;
+ previousMain:string;
+ standardOperation:string;
+ recipeKey:string;
+ recipeNo:string;
+ recipeName:string;
+ nextMain:string;
+ nextRecipeKey:string;
+ nextRecipeNo:string;
+ nextRecipeName:string;
+ currentBatchNo:string;
+ internalStatus:string;
+};
+export type StWorkloadQuickViewBatch={
+ id:number;
+ batchNo:string;
+ standardOperation:string;
+ recipeKey:string;
+ recipeNo:string;
+ recipeName:string;
+ totalJobs:number;
+ totalQty:number;
+ totalSurface:number;
+ scheduled:boolean;
+ resourceCode:string;
+};
+
+function workloadTuple(raw:any){
+ return [num(raw.planning_seq)||2147483647,num(raw.source_seq)||2147483647,num(raw.id)||2147483647] as const;
+}
+function compareWorkloadTuple(a:any,b:any){
+ const ta=workloadTuple(a),tb=workloadTuple(b);
+ return ta[0]-tb[0]||ta[1]-tb[1]||ta[2]-tb[2];
+}
+
+export async function loadStWorkloadQuickView(c:PoolClient,input:{
+ standardOperation:string;
+ recipeKey?:string|null;
+ status:StWorkloadQuickViewStatus;
+ previousMain?:string|null;
+}){
+ const requestedMain=text(input.standardOperation).toUpperCase();
+ const requestedRecipe=text(input.recipeKey);
+ const requestedPrevious=text(input.previousMain).toUpperCase();
+ if(!requestedMain)throw new Error("Main Operation là bắt buộc.");
+
+ const [visibleQ,ctx,recipeMetaQ]=await Promise.all([
+  c.query(DASHBOARD_VISIBLE_SQL),
+  getCachedLiveRecipeContext(c),
+  c.query(`select recipe_key,recipe_no,recipe_name from public.md_process_recipe`)
+ ]);
+ const visibleRows=visibleQ.rows as any[];
+ const visibleByJob=new Map<string,any>();
+ const planningJobNums:string[]=[];
+ const planningCurrentIds:number[]=[];
+ for(const raw of visibleRows){
+  const jobNum=text(raw.job_num);
+  if(!jobNum)continue;
+  visibleByJob.set(jobNum,raw);
+  if(text(raw.operation_type)!=="ST_SCOPE_ONLY"){
+   planningJobNums.push(jobNum);
+   planningCurrentIds.push(num(raw.current_planning_id));
+  }
+ }
+ const workloadQ=planningJobNums.length
+  ?await c.query(DASHBOARD_CHAIN_WORKLOAD_SQL,[planningJobNums,planningCurrentIds])
+  :{rows:[] as any[]};
+ const workloadRows=workloadQ.rows as any[];
+ const recipeMeta=new Map<string,{recipeNo:string;recipeName:string}>();
+ for(const r of recipeMetaQ.rows as any[]){
+  recipeMeta.set(text(r.recipe_key),{recipeNo:text(r.recipe_no),recipeName:text(r.recipe_name)});
+ }
+ const chainByJob=new Map<string,any[]>();
+ for(const wr of workloadRows){
+  const key=text(wr.job_num);
+  if(!key)continue;
+  const list=chainByJob.get(key)||[];
+  list.push(wr);chainByJob.set(key,list);
+ }
+ for(const list of chainByJob.values())list.sort(compareWorkloadTuple);
+
+ const resolveRecipe=(wr:any,source:any)=>{
+  const batchRecipeKey=text(wr?.batch_recipe_key);
+  const liveMatch=batchRecipeKey?null:bestRecipeMatch(ctx,{
+   standardOperation:text(wr?.standard_operation),
+   sourceOperationCode:text(wr?.source_operation_code),
+   partNum:source?.part_num,
+   revisionNum:source?.revision_num,
+   sourceData:source?.source_data||null,
+   ruleSuggestion:null
+  });
+  const recipeKey=batchRecipeKey||liveMatch?.recipeKey||text(wr?.planning_recipe_key);
+  const meta=recipeKey?recipeMeta.get(recipeKey):null;
+  return {recipeKey,recipeNo:meta?.recipeNo||"",recipeName:meta?.recipeName||""};
+ };
+ const statusMatches=(wr:any)=>{
+  const bucket=text(wr.dashboard_status);
+  if(input.status==="READY_PREV_SCHEDULED")return bucket==="READY"&&text(wr.ready_previous_schedule)==="SCHEDULED";
+  if(input.status==="READY_PREV_UNSCHEDULED")return bucket==="READY"&&text(wr.ready_previous_schedule)!=="SCHEDULED";
+  if(input.status==="WAIT_NEXT_MAIN")return bucket==="WAIT"&&text(wr.wait_level)==="NEXT_MAIN";
+  if(input.status==="WAIT_FUTURE_MAIN")return bucket==="WAIT"&&text(wr.wait_level)!=="NEXT_MAIN";
+  return bucket==="HOLD";
+ };
+
+ const rows:StWorkloadQuickViewRow[]=[];
+ for(const wr of workloadRows){
+  if(text(wr.standard_operation).toUpperCase()!==requestedMain||!statusMatches(wr))continue;
+  if(requestedPrevious){
+   const actualPrevious=text(wr.previous_main_operation).toUpperCase();
+   if(requestedPrevious==="START" ? Boolean(actualPrevious) : actualPrevious!==requestedPrevious)continue;
+  }
+  const source=visibleByJob.get(text(wr.job_num));
+  if(!source)continue;
+  const currentRecipe=resolveRecipe(wr,source);
+  const currentRecipeGroup=currentRecipe.recipeKey||"__NO_RECIPE__";
+  if(requestedRecipe&&requestedRecipe!==currentRecipeGroup)continue;
+
+  const chain=chainByJob.get(text(wr.job_num))||[];
+  const index=chain.findIndex(x=>Number(x.id)===Number(wr.id));
+  const next=index>=0?chain[index+1]||null:null;
+  const nextRecipe=next?resolveRecipe(next,source):{recipeKey:"",recipeNo:"",recipeName:""};
+  rows.push({
+   planningJobOperationId:num(wr.id),
+   jobNum:text(wr.job_num),
+   partNum:text(source.part_num),
+   revisionNum:text(source.revision_num),
+   partDescription:text(source.part_description),
+   priority:text(source.priority_type),
+   qty:num(source.qty_used),
+   surface:num(source.surface_used),
+   previousMain:text(wr.previous_main_operation),
+   standardOperation:text(wr.standard_operation),
+   recipeKey:currentRecipe.recipeKey,
+   recipeNo:currentRecipe.recipeNo,
+   recipeName:currentRecipe.recipeName,
+   nextMain:text(next?.standard_operation),
+   nextRecipeKey:nextRecipe.recipeKey,
+   nextRecipeNo:nextRecipe.recipeNo,
+   nextRecipeName:nextRecipe.recipeName,
+   currentBatchNo:text(wr.active_batch_no||wr.batch_no),
+   internalStatus:text(wr.internal_status)
+  });
+ }
+ rows.sort((a,b)=>a.jobNum.localeCompare(b.jobNum,undefined,{numeric:true,sensitivity:"base"}));
+
+ const batchParams:any[]=[requestedMain];
+ let recipeWhere="";
+ if(requestedRecipe){
+  if(requestedRecipe==="__NO_RECIPE__")recipeWhere=" and b.recipe_key is null";
+  else{batchParams.push(requestedRecipe);recipeWhere=` and b.recipe_key=$${batchParams.length}`;}
+ }
+ const batchQ=await c.query(`
+  select b.id,b.batch_no,b.standard_operation,b.recipe_key,b.total_jobs,b.total_qty,b.total_surface_dm2,
+         r.recipe_no,r.recipe_name,
+         sch.schedule_id,sch.resource_code
+  from public.planning_batch b
+  left join public.md_process_recipe r on r.recipe_key=b.recipe_key
+  left join lateral (
+   select s.id schedule_id,s.resource_code
+   from public.planning_schedule s
+   where s.batch_id=b.id and s.status<>'CANCELLED'
+   order by s.planned_start desc,s.id desc
+   limit 1
+  ) sch on true
+  where upper(trim(b.standard_operation))=upper(trim($1))
+    and upper(trim(coalesce(b.status,''))) not in ('CANCELLED','COMPLETED')
+    ${recipeWhere}
+  order by b.created_at desc,b.id desc
+  limit 200
+ `,batchParams);
+ const batches:StWorkloadQuickViewBatch[]=batchQ.rows.map((b:any)=>({
+  id:num(b.id),batchNo:text(b.batch_no),standardOperation:text(b.standard_operation),recipeKey:text(b.recipe_key),
+  recipeNo:text(b.recipe_no),recipeName:text(b.recipe_name),totalJobs:num(b.total_jobs),totalQty:num(b.total_qty),
+  totalSurface:num(b.total_surface_dm2),scheduled:Boolean(b.schedule_id),resourceCode:text(b.resource_code)
+ }));
+ return {rows,batches};
 }

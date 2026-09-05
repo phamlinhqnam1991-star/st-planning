@@ -496,3 +496,13 @@ Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu khô
 - Chemical Line/Flybar vẫn chỉ hiển thị Recipe rows nhưng từ V491 cũng có WAIT Next Main breakdown.
 - Rule mở Next Main không đổi: Previous Main chỉ cần đã Plan/tạo Batch là mở đúng một Next Main READY; Schedule chỉ dùng để phân loại READY Scheduled/Done hay Not Yet Scheduled.
 - Logic & Guide và Training được cập nhật song song. Không có SQL migration mới.
+
+## V492 — Scheduling Workload → Planning Board Quick View
+
+- Click trực tiếp card trong `ST Workload Summary · By Area` để mở popup Planning Board lọc đúng `Area + Main Operation + Recipe + workload bucket`; click breakdown `WAIT · Next Main` còn lọc thêm `Previous Main`.
+- Popup hiển thị Job, Part/Rev, Description, Qty, dm², Priority, Previous Main, Main hiện tại, Recipe hiện tại và thêm các cột `Next Main`, `Next Recipe No`, `Next Recipe Name`.
+- Chỉ `READY · Previous Main Scheduled / Done` và `READY · Previous Main Not Yet Scheduled` được chọn Job để `Add to Batch` hoặc `Create New Batch`.
+- `WAIT · Next Main`, `WAIT · Future Mains`, `HOLD` chỉ xem, không cho bypass gating.
+- Tạo/thêm Batch gọi lại canonical `/api/planning/batch`, vì vậy recipe compatibility, batch size/auto split, permission/scope và rule mở đúng một Next Main vẫn giữ nguyên.
+- Sau mutation, popup và Scheduling Workload refresh lại từ server.
+- Logic & Guide và Training được cập nhật song song. Không có SQL migration mới.
