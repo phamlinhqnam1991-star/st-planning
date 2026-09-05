@@ -1,11 +1,12 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {recomputeJobPlanningStatus} from "@/lib/planning/batch-utils";
+import {notifyInternalChange} from "@/lib/internal-chat/server";
 
 import {requireApiPermission} from "@/lib/security/api";
 export async function POST(){
- const {denied}=await requireApiPermission("planning.edit");
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("planning.edit");
+ if(denied||!ctx)return denied!;
  const c=await getPool().connect();
 
  try{
@@ -80,6 +81,7 @@ export async function POST(){
   }
 
   await c.query("commit");
+  await notifyInternalChange({ctx,eventKey:"BATCH_RESET_ALL",summary:`Reset all active Planning Batches · ${Number(batchCountQ.rows[0]?.count||0)} Batch · ${Number(jobCountQ.rows[0]?.count||0)} Job released`,entityType:"PLANNING",entityId:"RESET_ALL",metadata:{resetBatches:Number(batchCountQ.rows[0]?.count||0),releasedJobs:Number(jobCountQ.rows[0]?.count||0)}});
 
   return NextResponse.json({
    ok:true,

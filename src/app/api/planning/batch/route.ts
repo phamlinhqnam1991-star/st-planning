@@ -11,6 +11,7 @@ import {allocateBatchNumbers,loadBatchNumberConfig} from "@/lib/planning/batch-n
 
 import {requireApiPermission} from "@/lib/security/api";
 import {canPlanningMain} from "@/lib/security/scope-db";
+import {notifyInternalChange} from "@/lib/internal-chat/server";
 const clean=(v:unknown)=>String(v??"").trim();
 
 function splitRowsByQty(rows:any[],batchSize:number|null){
@@ -212,6 +213,11 @@ export async function POST(req:NextRequest){
 
      const batchTarget=await loadBatchTarget(c,Number(batchQ.rows[0].id));
      await c.query("commit");
+     await notifyInternalChange({
+      ctx,eventKey:"BATCH_CREATED",summary:`Created empty Batch ${batchNo} · ${standardOperation}`,
+      batchId:Number(batchQ.rows[0].id),batchNo,standardOperation,entityType:"BATCH",entityId:batchQ.rows[0].id,
+      metadata:{empty:true,planSource:"MANUAL_GRID"}
+     });
 
      return NextResponse.json({
        ok:true,
@@ -525,6 +531,12 @@ export async function POST(req:NextRequest){
      const affectedJobNums=q.rows.map((r:any)=>String(r.job_num||"")).filter(Boolean);
      const batchTarget=await loadBatchTarget(c,Number(targetBatch.id));
      await c.query("commit");
+     await notifyInternalChange({
+      ctx,eventKey:"BATCH_JOBS_ADDED",
+      summary:`Added ${affectedJobNums.length} Job to Batch ${targetBatch.batch_no} · ${standardOperation} · ${newTotalQty} pcs`,
+      batchId:Number(targetBatch.id),batchNo:String(targetBatch.batch_no||""),standardOperation,jobNums:affectedJobNums,
+      entityType:"BATCH",entityId:targetBatch.id,metadata:{scheduled:Boolean(targetBatch.schedule_id),totalQty:newTotalQty,totalSurface:newTotalSurface}
+     });
 
      return NextResponse.json({
       ok:true,
@@ -618,6 +630,12 @@ export async function POST(req:NextRequest){
    const firstBatch=createdBatches[0];
    const batchTarget=firstBatch?await loadBatchTarget(c,Number(firstBatch.batchId)):null;
    await c.query("commit");
+   await notifyInternalChange({
+    ctx,eventKey:"BATCH_CREATED",
+    summary:`Created ${createdBatches.length>1?`${createdBatches.length} split Batches ${createdBatches.map(x=>x.batchNo).join(" / ")}`:`Batch ${firstBatch?.batchNo||""}`} · ${standardOperation} · ${affectedJobNums.length} Job · ${totalQty} pcs`,
+    batchId:firstBatch?.batchId||null,batchNo:firstBatch?.batchNo||null,standardOperation,jobNums:affectedJobNums,
+    entityType:"BATCH",entityId:firstBatch?.batchId||null,metadata:{batchNos:createdBatches.map(x=>x.batchNo),autoSplit:createdBatches.length>1,totalQty,totalSurface}
+   });
 
    return NextResponse.json({
     ok:true,

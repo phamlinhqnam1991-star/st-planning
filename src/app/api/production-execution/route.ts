@@ -3,6 +3,7 @@ import {getPool} from "@/lib/db";
 import {requireApiPermission} from "@/lib/security/api";
 import type {ProductionExecutionSource,ProductionExecutionStatus} from "@/lib/production-execution";
 import {canProductionBatch} from "@/lib/security/scope-db";
+import {notifyInternalChange} from "@/lib/internal-chat/server";
 
 const SOURCES=new Set<ProductionExecutionSource>(["BATCH","MASKING","UNMASKING"]);
 const STATUSES=new Set<ProductionExecutionStatus>(["WAITING","ON-GOING","DONE"]);
@@ -37,7 +38,7 @@ export async function PATCH(req:Request){
   const prodScope=await canProductionBatch(c,ctx,batchId);
   if(!prodScope.allowed)return NextResponse.json({error:`Không có quyền báo cáo khu vực ${prodScope.scopeKey||"của Batch"}.`},{status:403});
   await c.query("begin");
-  const b=await c.query(`select id,standard_operation from planning_batch where id=$1 and status<>'CANCELLED' for share`,[batchId]);
+  const b=await c.query(`select id,batch_no,standard_operation from planning_batch where id=$1 and status<>'CANCELLED' for share`,[batchId]);
   if(!b.rowCount)throw new Error("Batch not found or cancelled");
   if(scheduleId!=null){
    const s=await c.query(`select id from planning_schedule where id=$1 and batch_id=$2 and status<>'CANCELLED' for share`,[scheduleId,batchId]);
@@ -89,6 +90,11 @@ export async function PATCH(req:Request){
     returning id,source_type,source_key,batch_id,schedule_id,execution_status,actual_start,actual_end,remark,updated_at
    `,[sourceType,sourceKey,batchId,scheduleId,status,remark]);
    await c.query("commit");
+   await notifyInternalChange({
+    ctx,eventKey:"PRODUCTION_REPORTED",summary:`Production ${status} · Batch ${b.rows[0].batch_no} · ${b.rows[0].standard_operation} · line ${sourceKey}`,
+    batchId,batchNo:String(b.rows[0].batch_no||""),standardOperation:String(b.rows[0].standard_operation||""),
+    entityType:"PRODUCTION_EXECUTION",entityId:pq.rows[0]?.id||sourceKey,metadata:{reportLevel:"LINE",sourceType,sourceKey,status,remark}
+   });
    return NextResponse.json({ok:true,execution:pq.rows[0],reportLevel:"LINE"});
   }
 
@@ -171,6 +177,11 @@ export async function PATCH(req:Request){
   `,[sourceType,sourceKey,batchId,scheduleId,summaryStatus,summaryStart,summaryEnd,remark]);
 
   await c.query("commit");
+  await notifyInternalChange({
+   ctx,eventKey:"PRODUCTION_REPORTED",summary:`Production ${status} · Job ${jobNum} · Batch ${b.rows[0].batch_no} · ${b.rows[0].standard_operation}${sourceType!=="BATCH"?` · ${sourceType}`:""}`,
+   batchId,batchNo:String(b.rows[0].batch_no||""),standardOperation:String(b.rows[0].standard_operation||""),jobNums:[jobNum],
+   entityType:"PRODUCTION_EXECUTION_JOB",entityId:jq.rows[0]?.id||planningJobOperationId,metadata:{reportLevel:"JOB",sourceType,sourceKey,status,remark}
+  });
   return NextResponse.json({ok:true,jobExecution:jq.rows[0],execution:pq.rows[0],reportLevel:"JOB"});
  }catch(e:any){
   await c.query("rollback");

@@ -5,6 +5,7 @@ import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 
 import {requireApiPermission} from "@/lib/security/api";
 import {canPlanningMain} from "@/lib/security/scope-db";
+import {notifyInternalChange} from "@/lib/internal-chat/server";
 const clean=(v:unknown)=>String(v??"").trim();
 
 async function getBatch(c:any,batchId:number,forUpdate=false){
@@ -220,6 +221,11 @@ export async function PATCH(
   });
 
   await c.query("commit");
+  await notifyInternalChange({
+   ctx,eventKey:"BATCH_RECIPE_CHANGED",summary:`Changed Recipe of Batch ${batch.batch_no} · ${batch.standard_operation}`,
+   batchId,batchNo:String(batch.batch_no||""),standardOperation:String(batch.standard_operation||""),
+   entityType:"BATCH",entityId:batchId,metadata:{previousRecipeKey:batch.recipe_key||null,newRecipeKey:recipeKey}
+  });
   return NextResponse.json({ok:true,...totals});
  }catch(e){
   await c.query("rollback");
@@ -345,6 +351,11 @@ export async function DELETE(
   }
 
   await c.query("commit");
+  await notifyInternalChange({
+   ctx,eventKey:"BATCH_DELETED",summary:`Deleted Batch ${batch.batch_no} · ${batch.standard_operation} · released ${affected.length} Job`,
+   batchId,batchNo:String(batch.batch_no||""),standardOperation:String(batch.standard_operation||""),jobNums:affected,
+   entityType:"BATCH",entityId:batchId,metadata:{releasedJobs:affected.length}
+  });
 
   return NextResponse.json({
    ok:true,

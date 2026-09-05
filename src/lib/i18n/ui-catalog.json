@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": "V495",
   "defaultLocale": "en",
   "locales": [
     "en",
@@ -8219,6 +8219,116 @@
     {
       "en": "Export Batch jobs to Excel",
       "vi": "Xuất danh sách Job trong Batch ra Excel",
+      "mode": "exact"
+    },
+    {
+      "en": "Internal Chat",
+      "vi": "Chat nội bộ",
+      "mode": "exact"
+    },
+    {
+      "en": "OPERATIONS · TEAM COMMUNICATION",
+      "vi": "VẬN HÀNH · GIAO TIẾP NỘI BỘ",
+      "mode": "exact"
+    },
+    {
+      "en": "One ST Planning group for team conversation and automatic change notifications. Cross-planner impacts are highlighted so Planner 1 and Planner 2 can see changes that affect each other.",
+      "vi": "Một nhóm ST Planning để mọi người trao đổi và nhận thông báo thay đổi tự động. Ảnh hưởng liên Planner được làm nổi bật để Planner 1 và Planner 2 thấy các thay đổi tác động lẫn nhau.",
+      "mode": "exact"
+    },
+    {
+      "en": "Chat supplements existing alerts",
+      "vi": "Chat bổ sung cho các cảnh báo hiện có",
+      "mode": "exact"
+    },
+    {
+      "en": "Production Change Alerts, handover attention, Daily Production Adjustment and audit history remain the source workflows. Chat adds a shared communication channel; it does not approve or change Planning/Schedule data by itself.",
+      "vi": "Production Change Alerts, cảnh báo bàn giao, Daily Production Adjustment và lịch sử audit vẫn là các luồng nguồn. Chat chỉ bổ sung kênh trao đổi chung; bản thân Chat không duyệt hoặc thay đổi dữ liệu Planning/Schedule.",
+      "mode": "exact"
+    },
+    {
+      "en": "ST Planning Group",
+      "vi": "Nhóm ST Planning",
+      "mode": "exact"
+    },
+    {
+      "en": "Manual messages + automatic Planning / Scheduling / Production change notifications.",
+      "vi": "Tin nhắn trao đổi + thông báo tự động cho các thay đổi Planning / Scheduling / Production.",
+      "mode": "exact"
+    },
+    {
+      "en": "Loading Internal Chat…",
+      "vi": "Đang tải Chat nội bộ…",
+      "mode": "exact"
+    },
+    {
+      "en": "No messages yet. Start the ST Planning group conversation here.",
+      "vi": "Chưa có tin nhắn. Bắt đầu trao đổi nhóm ST Planning tại đây.",
+      "mode": "exact"
+    },
+    {
+      "en": "Changed by",
+      "vi": "Thay đổi bởi",
+      "mode": "exact"
+    },
+    {
+      "en": "Automatic system notification",
+      "vi": "Thông báo hệ thống tự động",
+      "mode": "exact"
+    },
+    {
+      "en": "You",
+      "vi": "Bạn",
+      "mode": "exact"
+    },
+    {
+      "en": "ST user",
+      "vi": "Người dùng ST",
+      "mode": "exact"
+    },
+    {
+      "en": "Write a message to the ST Planning group…",
+      "vi": "Nhập tin nhắn cho nhóm ST Planning…",
+      "mode": "exact"
+    },
+    {
+      "en": "You have read-only access to Internal Chat.",
+      "vi": "Bạn chỉ có quyền xem Chat nội bộ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Enter to send · Shift+Enter for new line",
+      "vi": "Enter để gửi · Shift+Enter để xuống dòng",
+      "mode": "exact"
+    },
+    {
+      "en": "Sending…",
+      "vi": "Đang gửi…",
+      "mode": "exact"
+    },
+    {
+      "en": "Send",
+      "vi": "Gửi",
+      "mode": "exact"
+    },
+    {
+      "en": "Message cannot be empty.",
+      "vi": "Tin nhắn không được để trống.",
+      "mode": "exact"
+    },
+    {
+      "en": "Unable to load Internal Chat.",
+      "vi": "Không thể tải Chat nội bộ.",
+      "mode": "exact"
+    },
+    {
+      "en": "Unable to send message.",
+      "vi": "Không thể gửi tin nhắn.",
+      "mode": "exact"
+    },
+    {
+      "en": "unread chat messages",
+      "vi": "tin nhắn Chat chưa đọc",
       "mode": "exact"
     }
   ]

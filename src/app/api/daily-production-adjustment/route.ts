@@ -9,6 +9,7 @@ import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 import {loadBatchNumberConfig} from "@/lib/planning/batch-number";
 import {syncPlanningChains} from "@/lib/planning/sync-planning-chains";
 import {loadMaskingUnmaskingPlan,type SupportType} from "@/lib/masking-unmasking-plan";
+import {notifyInternalChange} from "@/lib/internal-chat/server";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const validDate=(v:unknown)=>/^\d{4}-\d{2}-\d{2}$/.test(clean(v));
@@ -342,7 +343,9 @@ export async function POST(req:NextRequest){
   if(action==="SCAN"){
    if(!validDate(date))throw new Error("Ngày sản xuất không hợp lệ.");
    await scanProductionAdjustments(c,date);
-   await c.query("commit");return NextResponse.json({ok:true,...await loadAdjustmentData(c,date)});
+   await c.query("commit");
+   await notifyInternalChange({ctx,eventKey:"ADJUSTMENT_SCANNED",summary:`Scanned Daily Production Adjustment · ${date}`,entityType:"ADJUSTMENT_SET",entityId:date,metadata:{productionDate:date}});
+   return NextResponse.json({ok:true,...await loadAdjustmentData(c,date)});
   }
   if(action==="ACCEPT_NEXT_MAIN_JOB"){
    if(!validDate(date))throw new Error("Ngày sản xuất không hợp lệ.");
@@ -390,6 +393,13 @@ export async function POST(req:NextRequest){
    `,[set.id,batchId,Number(row.planning_job_operation_id),row.job_num,row.batch_standard_operation,"Production thêm Job từ chú ý Main trước","Đã thêm vào Batch đích với trạng thái WAITING; không đánh dấu hoàn thành.",JSON.stringify(proposal)]);
    await c.query(`update production_adjustment_set set status='READY',updated_at=now() where id=$1`,[set.id]);
    await c.query("commit");
+   await notifyInternalChange({
+    ctx,eventKey:"PRODUCTION_NEXT_MAIN_ACCEPTED",
+    summary:`Accepted Production-added Job ${row.job_num} into Batch ${row.batch_no} · ${row.batch_standard_operation}`,
+    batchId,batchNo:String(row.batch_no||""),standardOperation:String(row.batch_standard_operation||""),jobNums:[String(row.job_num||"")],
+    affectedMains:nextMainAttentions.map((x:any)=>String(x.nextOperation||"")).filter(Boolean),entityType:"BATCH",entityId:batchId,
+    metadata:{productionDate:date,sourceEventId:eventId,futureStEntry:entry.futureStEntry}
+   });
    return NextResponse.json({ok:true,added:true,futureStEntry:entry.futureStEntry,preparation,addedJob:{
     planningJobOperationId:Number(row.planning_job_operation_id),jobNum:row.job_num,partDescription:row.part_description||"",currentGoodWipQty:Number(row.plan_qty||0),totalSurface:Number(row.plan_surface||0),
     lastLaborOp:row.last_operation||"",nextOperation:row.next_operation||"",priority:row.priority_type||"",supportOperations:preparation.flatMap((x:any)=>x.operations||[]),isAddedJob:true,status:"WAITING",actualStart:null,actualEnd:null,remark:"Added from Previous Main attention"
@@ -442,6 +452,13 @@ export async function POST(req:NextRequest){
       "Production đã thêm Job trực tiếp vào Batch","Đã thêm trực tiếp từ Báo cáo sản xuất; không cần planner duyệt.",JSON.stringify(proposal)]);
    await c.query(`update production_adjustment_set set status='READY',updated_at=now() where id=$1`,[set.id]);
    await c.query("commit");
+   await notifyInternalChange({
+    ctx,eventKey:"PRODUCTION_JOB_ADDED",
+    summary:`Production added Job ${row.job_num} to Batch ${row.batch_no} · ${row.batch_standard_operation} · ${Number(row.plan_qty||0)} pcs`,
+    batchId,batchNo:String(row.batch_no||""),standardOperation:String(row.batch_standard_operation||""),jobNums:[String(row.job_num||"")],
+    affectedMains:nextMainAttentions.map((x:any)=>String(x.nextOperation||"")).filter(Boolean),entityType:"BATCH",entityId:batchId,
+    metadata:{productionDate:date,futureStEntry:entry.futureStEntry,preparationCount:preparation.length}
+   });
    return NextResponse.json({ok:true,added:true,futureStEntry:entry.futureStEntry,preparation,addedJob:{
     planningJobOperationId:Number(row.planning_job_operation_id),jobNum:row.job_num,partDescription:row.part_description||"",
     currentGoodWipQty:Number(row.plan_qty||0),totalSurface:Number(row.plan_surface||0),lastLaborOp:row.last_operation||"",
@@ -464,7 +481,9 @@ export async function POST(req:NextRequest){
   }
   if(action==="REJECT"){
    await c.query(`update production_adjustment_item set status='REJECTED',approved_at=now(),approved_by=$2,updated_at=now() where id=$1`,[itemId,clean(b.approved_by)||"Planner"]);
-   await c.query("commit");return NextResponse.json({ok:true});
+   await c.query("commit");
+   await notifyInternalChange({ctx,eventKey:"ADJUSTMENT_REJECTED",summary:`Rejected ${item.item_type} adjustment${item.job_num?` · Job ${item.job_num}`:""}${item.standard_operation?` · ${item.standard_operation}`:""}`,batchId:Number(item.batch_id)||null,standardOperation:String(item.standard_operation||""),jobNums:item.job_num?[String(item.job_num)]:[],entityType:"ADJUSTMENT_ITEM",entityId:itemId,metadata:{productionDate:item.production_date}});
+   return NextResponse.json({ok:true});
   }
   if(action==="APPROVE"){
    if(item.status!=="PENDING")throw new Error(`Đề xuất đang ở trạng thái ${item.status}.`);
@@ -476,7 +495,9 @@ export async function POST(req:NextRequest){
     item.proposal_json={...(item.proposal_json||{}),impacts,revisions};
    }
    await c.query(`update production_adjustment_item set status='APPROVED',approved_at=now(),approved_by=$2,proposal_json=$3::jsonb,updated_at=now() where id=$1`,[itemId,clean(b.approved_by)||"Planner",JSON.stringify(item.proposal_json||{})]);
-   await c.query("commit");return NextResponse.json({ok:true});
+   await c.query("commit");
+   await notifyInternalChange({ctx,eventKey:"ADJUSTMENT_APPROVED",summary:`Approved ${item.item_type} adjustment${item.job_num?` · Job ${item.job_num}`:""}${item.standard_operation?` · ${item.standard_operation}`:""}`,batchId:Number(item.batch_id)||null,standardOperation:String(item.standard_operation||""),jobNums:item.job_num?[String(item.job_num)]:[],entityType:"ADJUSTMENT_ITEM",entityId:itemId,metadata:{productionDate:item.production_date}});
+   return NextResponse.json({ok:true});
   }
   throw new Error("Action không hỗ trợ.");
  }catch(e){await c.query("rollback");return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500});}

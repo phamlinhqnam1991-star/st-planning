@@ -11,6 +11,8 @@ export const PERMISSIONS = [
   "adjustment.view",
   "adjustment.approve",
   "alerts.view",
+  "chat.view",
+  "chat.send",
   "tracking.view",
   "master.view",
   "master.edit",
@@ -32,15 +34,15 @@ export const ROLE_PRESETS: Record<string, PermissionKey[]> = {
   ADMIN: [...PERMISSIONS],
   PLANNER: [
     "dashboard.view","jobs.view","planning.view","planning.edit","schedule.view","schedule.edit",
-    "production.view","adjustment.view","adjustment.approve","alerts.view","tracking.view",
+    "production.view","adjustment.view","adjustment.approve","alerts.view","chat.view","chat.send","tracking.view",
     "guide.view","training.view",
   ],
   PRODUCTION_OPERATOR: [
-    "dashboard.view","jobs.view","production.view","production.report","alerts.view","tracking.view",
+    "dashboard.view","jobs.view","production.view","production.report","alerts.view","chat.view","chat.send","tracking.view",
     "guide.view","training.view",
   ],
   SHIFT_SUPERVISOR: [
-    "dashboard.view","jobs.view","production.view","production.report","production.add_job","alerts.view",
+    "dashboard.view","jobs.view","production.view","production.report","production.add_job","alerts.view","chat.view","chat.send",
     "tracking.view","guide.view","training.view",
   ],
 };
@@ -53,6 +55,7 @@ export const PAGE_PERMISSION: Record<string, PermissionKey> = {
   production:"production.view",
   adjustment:"adjustment.view",
   productionalerts:"alerts.view",
+  chat:"chat.view",
   tracker:"tracking.view",
   jobtracker:"tracking.view",
   master:"master.view",

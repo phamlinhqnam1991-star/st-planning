@@ -10,6 +10,7 @@ import {loadBatchNumberConfig} from "@/lib/planning/batch-number";
 
 import {requireApiPermission} from "@/lib/security/api";
 import {canPlanningMain} from "@/lib/security/scope-db";
+import {notifyInternalChange} from "@/lib/internal-chat/server";
 async function plannerForOperationDb(c:any,operation:unknown):Promise<"1"|"2"|null>{
  const op=String(operation??"").trim();
  if(!op)return null;
@@ -471,6 +472,13 @@ export async function POST(
    }
 
    await c.query("commit");
+   await notifyInternalChange({
+    ctx,eventKey:"BATCH_JOBS_ADDED",
+    summary:`Added ${q.rows.length} Job to Batch ${batch.batch_no} · ${batch.standard_operation} · ${Number(totals.totalQty||0)} pcs`,
+    batchId,batchNo:String(batch.batch_no||""),standardOperation:String(batch.standard_operation||""),
+    jobNums:q.rows.map((r:any)=>String(r.job_num||"")).filter(Boolean),entityType:"BATCH",entityId:batchId,
+    metadata:{totalQty:Number(totals.totalQty||0),totalSurface:Number(totals.totalSurface||0)}
+   });
 
    return NextResponse.json({ok:true,...totals});
  }catch(e){
@@ -585,6 +593,12 @@ export async function DELETE(
    });
 
    await c.query("commit");
+   await notifyInternalChange({
+    ctx,eventKey:"BATCH_JOB_REMOVED",
+    summary:`Removed Job ${row.job_num} from Batch ${batch.batch_no} · ${batch.standard_operation}`,
+    batchId,batchNo:String(batch.batch_no||""),standardOperation:String(batch.standard_operation||""),jobNums:[String(row.job_num||"")],
+    entityType:"BATCH",entityId:batchId,metadata:{jobQty:Number(row.qty||0),jobSurface:Number(row.surface_dm2||0)}
+   });
 
    return NextResponse.json({ok:true,...totals});
  }catch(e){

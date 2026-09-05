@@ -39,7 +39,7 @@ function phraseRegex(source:string){
 
 
 const PROTECTED_UI_TERMS=[
- "All Open Jobs","Planning Board","Main Operation","Operation Code","ST Group","Schedule Area","Physical Area",
+ "CROSS-PLANNER","All Open Jobs","Planning Board","Main Operation","Operation Code","ST Group","Schedule Area","Physical Area",
  "Batch Key","Batch No","Recipe","Batch","Job","Part","Planner","Resource","Route Matrix","Planning Chain",
  "NextOperation","LastOperation","LastLaborOp","AllOperation","Process Time","Loading","Unloading","NDT",
  "READY","WAIT","DONE","PLANNED","UNSCHEDULED","SCHEDULED","RUNNING","HOLD","NO CHAIN",

@@ -1,3 +1,4 @@
+// V495 Internal Chat: shared Aiven-backed team chat + automatic SYSTEM messages for Planning/Scheduling/Production/Adjustment changes; cross-planner impacts are resolved dynamically from Main → Schedule Area → Planner Assignment and highlighted without replacing existing alerts.
 // V494 Recent Batches export: each Batch row can export its real planning_batch_job membership to Excel using the Planning Matrix-style columns. Export is read-only and does not change Batch/READY/WAIT/Schedule/Production.
 // V493 Scheduling Workload Quick View: V492 popup now has per-column filters for Job/Part/Description/Qty/dm²/Priority/Previous Main/Main/Recipe/Next Main/Next Recipe/Batch. READY can still create/add Batch through the canonical Planning Batch API; WAIT/HOLD stay read-only.
 // V489 WAIT split remains the canonical classifier underneath; no planning/scheduling gating logic is changed.
@@ -252,7 +253,8 @@ export default async function Page(){
      {t:"F · Báo cáo sản xuất",d:"Actual + Extra Job + Attention",c:"teal"},
      {t:"G · Daily Production Adjustment",d:"Carry Over → Preview → Duyệt",c:"orange"},
      {t:"H · Production Change Alerts",d:"Audit Production-added + downstream",c:"amber"},
-     {t:"I · Dashboard",d:"KPI → Risk → AI Analysis",c:"green"},
+     {t:"I · Internal Chat",d:"Team chat + automatic cross-planner notifications",c:"blue"},
+     {t:"J · Dashboard",d:"KPI → Risk → AI Analysis",c:"green"},
     ]}/>
     <div className="lg-key lg-key-2">
      <Rule title="Nguyên tắc 1 · Master ≠ Config" tone="important">
@@ -269,6 +271,9 @@ export default async function Page(){
      </Rule>
      <Rule title="V494 · Export Excel từ Recent Batches">
       Mỗi Batch ở <b>Planning Board → Recent Batches</b> có nút <b>Xuất Excel</b>. File đọc trực tiếp membership thật trong <code>planning_batch_job</code> và xuất các cột Job/Part-Rev/Qty/Surface/Operation Code/Previous Operation/Next Main/Recipe/Primer/Priority/Status/Batch. Đây là thao tác read-only, không thay đổi Batch hoặc Planning Chain.
+     </Rule>
+     <Rule title="V495 · Internal Chat + Cross-Planner Notification" tone="important">
+      Tab <b>Internal Chat</b> là nhóm trao đổi chung của ST Planning, lưu trên Aiven PostgreSQL. Tin nhắn người dùng và SYSTEM message cùng nằm trong một luồng. Sau khi thay đổi Planning/Scheduling/Production/Daily Adjustment đã commit, hệ thống gửi thêm một SYSTEM message; lỗi Chat không được rollback nghiệp vụ đã lưu. Nếu Main nguồn và bất kỳ downstream Main thuộc Planner khác, message được gắn <b>CROSS-PLANNER</b> theo mapping động <b>Main → Schedule Area → Planner Assignment</b>. Production Change Alerts, handover attention, Daily Adjustment và audit cũ vẫn giữ nguyên.
      </Rule>
     </div>
     {Object.keys(liveErrors).length>0&&<div className="notice"><b>Lưu ý:</b> Một số bảng Mapping sống không đọc được; các bảng còn lại vẫn hiển thị dữ liệu thật từ database. Chi tiết lỗi nằm ngay tại bảng tương ứng.</div>}
@@ -1048,7 +1053,7 @@ export default async function Page(){
    </Section>
 
    <section className="erp-table-panel guide-section">
-    <div className="erp-panel-head"><div><b>New User Training · V493 · Live Database</b><small className="planning-sub">Training và Logic & Hướng dẫn được cập nhật song song. V493 giữ Planning Board Quick View V492 và bổ sung filter theo từng cột; popup vẫn có Next Main + Next Recipe và dùng canonical Batch engine.</small></div></div>
+    <div className="erp-panel-head"><div><b>New User Training · V495 · Live Database</b><small className="planning-sub">Training và Logic & Hướng dẫn được cập nhật song song. V495 bổ sung Internal Chat và SYSTEM/CROSS-PLANNER notification nhưng không thay đổi canonical Planning/Scheduling/Production engine.</small></div></div>
     <div className="lg-body">
      <p>Tab <b>New User Training</b> vẫn đào tạo theory-first, nhưng từ V474 phần minh họa đọc <b>trực tiếp database đang chạy</b>: Operation Mapping, Main Operation, Area/Planner, Process Recipe, Batch Prefix/Sequence/Common Size/Auto Split, Recipe-specific Batch Size, Process Time Rules và một Open Job thật cùng Planning Chain/Batch/Schedule hiện có.</p>
      <p>Trainer có thể nhập <b>Job Number</b> ngay trong Training để học viên trace đúng Job cần đào tạo. Training không tạo logic mới; dữ liệu live chỉ giúp giải thích Source of Truth hiện hành dễ hiểu hơn.</p>

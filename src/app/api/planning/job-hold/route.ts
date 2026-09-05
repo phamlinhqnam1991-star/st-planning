@@ -2,6 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {requireApiPermission} from "@/lib/security/api";
 import {syncPlanningChains} from "@/lib/planning/sync-planning-chains";
+import {notifyInternalChange} from "@/lib/internal-chat/server";
 
 export const runtime="nodejs";
 export const maxDuration=120;
@@ -21,7 +22,7 @@ async function loadHoldState(c:any,id:number){
 }
 
 export async function POST(req:NextRequest){
- const {denied,ctx:user}=await requireApiPermission("planning.edit");if(denied)return denied;
+ const {denied,ctx:user}=await requireApiPermission("planning.edit");if(denied||!user)return denied!;
  const body=await req.json().catch(()=>({}));
  const id=Number(body.planning_job_operation_id||0);
  const reason=clean(body.reason).toUpperCase();
@@ -64,6 +65,7 @@ export async function POST(req:NextRequest){
   `,[id,reason,note,clean(user?.email)||clean(user?.userId)||"USER"]);
   const state=await loadHoldState(c,id);
   await c.query("commit");
+  await notifyInternalChange({ctx:user,eventKey:"JOB_HOLD",summary:`HOLD Job ${row.job_num} · ${row.standard_operation} · ${reason}`,standardOperation:String(row.standard_operation||""),jobNums:[String(row.job_num||"")],entityType:"JOB_MAIN",entityId:id,metadata:{reason,note}});
   return NextResponse.json({ok:true,action:"HOLD",state});
  }catch(error){
   await c.query("rollback");
@@ -72,7 +74,7 @@ export async function POST(req:NextRequest){
 }
 
 export async function DELETE(req:NextRequest){
- const {denied}=await requireApiPermission("planning.edit");if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("planning.edit");if(denied||!ctx)return denied!;
  const body=await req.json().catch(()=>({}));
  const id=Number(body.planning_job_operation_id||0);
  if(!Number.isFinite(id)||id<=0)
@@ -107,6 +109,7 @@ export async function DELETE(req:NextRequest){
   await syncPlanningChains(c,{jobNums:[String(row.job_num)]});
   const state=await loadHoldState(c,id);
   await c.query("commit");
+  await notifyInternalChange({ctx,eventKey:"JOB_RELEASED",summary:`Released HOLD Job ${row.job_num} · ${row.standard_operation}`,standardOperation:String(row.standard_operation||""),jobNums:[String(row.job_num||"")],entityType:"JOB_MAIN",entityId:id});
   return NextResponse.json({ok:true,action:"RELEASE",state,job_num:row.job_num});
  }catch(error){
   await c.query("rollback");

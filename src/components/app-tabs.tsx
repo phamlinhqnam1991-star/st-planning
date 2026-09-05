@@ -7,6 +7,7 @@ import {
 import {getAccessContext} from "@/lib/security/access";
 import {PAGE_PERMISSION} from "@/lib/security/permissions";
 import {redirect} from "next/navigation";
+import {ChatUnreadBadge} from "@/components/chat-unread-badge";
 
 export type AppTab=StErpLeafKey;
 
@@ -41,7 +42,7 @@ export async function AppTabs({active}:{active:AppTab}){
       href={item.href}
       className={`erp-module-context-item ${active===item.key?"active":""}`}
       aria-current={active===item.key?"page":undefined}
-     >{item.label}</Link>)}
+     ><span>{item.label}</span>{item.key==="chat"?<ChatUnreadBadge/>:null}</Link>)}
     </div>:null}
    </section>)}
   </nav>

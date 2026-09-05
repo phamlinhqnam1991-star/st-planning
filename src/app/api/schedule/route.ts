@@ -6,6 +6,7 @@ import {assertPreviousMainScheduledBeforeAdd} from "@/lib/schedule-predecessor-g
 
 import {requireApiPermission} from "@/lib/security/api";
 import {canScheduleResource} from "@/lib/security/scope-db";
+import {notifyInternalChange} from "@/lib/internal-chat/server";
 function asDate(v:any){const d=new Date(v);return Number.isNaN(d.getTime())?null:d}
 // Planner override giờ bắt đầu Process/NDT/Unloading (ISO hoặc null = tự động).
 function parseOverrides(body:any){
@@ -165,6 +166,13 @@ export async function POST(req:Request){
   }
 
   await c.query("commit");
+  await notifyInternalChange({
+   ctx,eventKey:"SCHEDULE_CREATED",
+   summary:`Scheduled Batch ${batch.batch_no} · ${batch.standard_operation} on ${resourceCode} · ${effectiveStart.toISOString()} → ${end.toISOString()}`,
+   batchId,batchNo:String(batch.batch_no||""),standardOperation:String(batch.standard_operation||""),
+   jobNums:handoffJobsQ.rows.map((r:any)=>String(r.job_num||"")).filter(Boolean),entityType:"SCHEDULE",entityId:iq.rows[0]?.id||null,
+   metadata:{resourceCode,plannedStart:effectiveStart.toISOString(),plannedEnd:end.toISOString(),autoAdjusted}
+  });
   return NextResponse.json({ok:true,schedule:iq.rows[0],autoAdjusted});
  }catch(e:any){
   await c.query("rollback");
@@ -278,6 +286,12 @@ export async function PATCH(req:Request){
   `,[current.batch_id,start,end]);
 
   await c.query("commit");
+  await notifyInternalChange({
+   ctx,eventKey:"SCHEDULE_CHANGED",
+   summary:`Changed Schedule ${current.batch_no} · ${current.standard_operation}: ${String(current.resource_code||"")} → ${resourceCode} · ${start.toISOString()} → ${end.toISOString()}`,
+   batchId:Number(current.batch_id),batchNo:String(current.batch_no||""),standardOperation:String(current.standard_operation||""),
+   entityType:"SCHEDULE",entityId:scheduleId,metadata:{previousResource:current.resource_code||null,resourceCode,plannedStart:start.toISOString(),plannedEnd:end.toISOString()}
+  });
   return NextResponse.json({ok:true,schedule:uq.rows[0]});
  }catch(e:any){
   await c.query("rollback");
@@ -343,6 +357,11 @@ export async function DELETE(req:Request){
   }
 
   await c.query("commit");
+  await notifyInternalChange({
+   ctx,eventKey:"SCHEDULE_REMOVED",summary:`Unscheduled Batch ${row.batch_no} · ${row.standard_operation} from ${row.resource_code}`,
+   batchId:Number(row.batch_id),batchNo:String(row.batch_no||""),standardOperation:String(row.standard_operation||""),
+   entityType:"SCHEDULE",entityId:scheduleId,metadata:{resourceCode:row.resource_code||null}
+  });
   return NextResponse.json({ok:true,batchId:Number(row.batch_id),batchNo:String(row.batch_no||"")});
  }catch(e:any){
   await c.query("rollback");

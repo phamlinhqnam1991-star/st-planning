@@ -7,6 +7,7 @@ import {firstAllowedPath,getAccessContext} from "@/lib/security/access";
 import {getAuthorizedModuleGroups} from "@/lib/erp/st-navigation";
 import {PAGE_PERMISSION} from "@/lib/security/permissions";
 import {LogoutButton} from "@/components/logout-button";
+import {ChatUnreadBadge} from "@/components/chat-unread-badge";
 
 export type ErpNavItem = {
   key: string;
@@ -74,7 +75,7 @@ export async function ErpAppShell({
    "/master-data":"master.view","/settings":"config.view","/job-tracker":"tracking.view",
    "/part-tracker":"tracking.view","/all-open-jobs":"jobs.view","/planning":"planning.view",
    "/schedule":"schedule.view","/production-execution":"production.view","/daily-production-adjustment":"adjustment.view",
-   "/production-change-alerts":"alerts.view","/import-master":"import.view","/logic-guide":"guide.view",
+   "/production-change-alerts":"alerts.view","/internal-chat":"chat.view","/import-master":"import.view","/logic-guide":"guide.view",
    "/training":"training.view","/users-permissions":"security.manage","/dashboard":"dashboard.view"
   };
   const visibleModuleItems=moduleItems.filter(item=>{
@@ -114,7 +115,7 @@ export async function ErpAppShell({
                     <div className="erpkit-context-items erpkit-context-items-always">
                       {group.items.map((item) => (
                         <Link key={item.key} href={item.href} className={`erpkit-context-link ${activeSecondary === item.key ? "is-active" : ""}`}>
-                          {item.label}
+                          <span>{item.label}</span>{item.key==="chat"?<ChatUnreadBadge/>:null}
                         </Link>
                       ))}
                     </div>

@@ -291,3 +291,6 @@ Báo cáo sản xuất và Masking/Unmasking scheduled view xác định ngày s
 
 ## V480 build fix
 Client ERP components must import from `@/components/erp/client`. `ErpAppHeader` and `ErpAppShell` are server-only and must never be exported from the client barrel, because they load Aiven RBAC through `pg`.
+
+## V495 · Internal Chat
+Internal Chat is stored in Aiven PostgreSQL and is available to the four standard RBAC roles. Core operational commits emit best-effort SYSTEM notifications; cross-planner impact is resolved dynamically from Main → Schedule Area → Planner Assignment and highlighted in the shared chat. Existing Production Change Alerts, handover events, Daily Adjustment and audit remain unchanged. Apply `V495_APPLY_AIVEN.sql` before deployment.

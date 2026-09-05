@@ -1,6 +1,7 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {requireApiPermission} from "@/lib/security/api";
+import {notifyInternalChange} from "@/lib/internal-chat/server";
 
 function isIsoDate(value:unknown){
  return typeof value==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -13,8 +14,8 @@ function shiftDate(date:string,days:number){
 }
 
 export async function POST(req:Request){
- const {denied}=await requireApiPermission("schedule.edit");
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("schedule.edit");
+ if(denied||!ctx)return denied!;
 
  const body=await req.json().catch(()=>({}));
  const sourceDate=String(body.sourceDate||"").trim();
@@ -143,6 +144,7 @@ export async function POST(req:Request){
    throw new Error("Dời ngày chưa hoàn tất: ngày sản xuất nguồn 06:00 → 06:00 vẫn còn lô. Transaction đã được rollback.");
 
   await c.query("commit");
+  await notifyInternalChange({ctx,eventKey:"SCHEDULE_DAY_SHIFTED",summary:`Moved production-day Schedule ${sourceDate} → ${targetDate} · ${Number(movedQ.rowCount||0)} rows`,entityType:"SCHEDULE_DAY",entityId:sourceDate,metadata:{sourceDate,targetDate,direction,moved:Number(movedQ.rowCount||0),batchNos:sourceQ.rows.map((x:any)=>String(x.batch_no||"")).filter(Boolean)}});
   return NextResponse.json({
    ok:true,
    sourceDate,

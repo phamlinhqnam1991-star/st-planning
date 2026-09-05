@@ -7,6 +7,7 @@ import {allocateBatchNumbers,loadBatchNumberConfig} from "@/lib/planning/batch-n
 import {requireApiPermission} from "@/lib/security/api";
 import {scopeAllows} from "@/lib/security/access";
 import {canScheduleResource} from "@/lib/security/scope-db";
+import {notifyInternalChange} from "@/lib/internal-chat/server";
 const clean=(v:unknown)=>String(v??"").trim();
 const asDate=(v:unknown)=>{
  const d=new Date(String(v??""));
@@ -265,6 +266,11 @@ export async function POST(req:Request){
     columns?.unloadingStart||null,columns?.unloadingEnd||null,columns?.unloadingDurationMinutes||null]);
 
   await c.query("commit");
+  await notifyInternalChange({
+   ctx,eventKey:"MANUAL_SCHEDULE_CREATED",summary:`Created manual Schedule Batch ${batchNo} · ${op.standard_operation} on ${resourceCode} · ${effectiveStart.toISOString()} → ${end.toISOString()}`,
+   batchId,batchNo,standardOperation:String(op.standard_operation||""),entityType:"SCHEDULE",entityId:scheduleQ.rows[0]?.id||batchId,
+   metadata:{resourceCode,planningDate,plannedStart:effectiveStart.toISOString(),plannedEnd:end.toISOString(),planSource:"MANUAL_GRID",autoAdjusted}
+  });
   return NextResponse.json({
    ok:true,
    batchId,

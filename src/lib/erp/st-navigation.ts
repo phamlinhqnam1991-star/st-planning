@@ -14,6 +14,7 @@ export type StErpLeafKey=
  |"production"
  |"adjustment"
  |"productionalerts"
+ |"chat"
  |"import"
  |"guide"
  |"training"
@@ -45,6 +46,7 @@ export const ST_ERP_MODULE_GROUPS:StErpModuleGroup[]=[
    {key:"production",label:"Production Execution",href:"/production-execution",shortLabel:"PX"},
    {key:"adjustment",label:"Daily Production Adjustment",href:"/daily-production-adjustment",shortLabel:"DA"},
    {key:"productionalerts",label:"Production Change Alerts",href:"/production-change-alerts",shortLabel:"PA"},
+   {key:"chat",label:"Internal Chat",href:"/internal-chat",shortLabel:"CH"},
   ]
  },
  {

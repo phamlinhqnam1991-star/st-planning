@@ -522,3 +522,14 @@ Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu khô
 - Qty/Surface là allocation thật trong Batch; Recipe ưu tiên Recipe của Batch; Next Main đọc Planning Chain active kế tiếp.
 - Export là read-only, có kiểm tra `planning.view` + scope Main; không đổi READY/WAIT, Batch, Schedule hay Production. Không có SQL migration mới.
 
+
+## V495 — Internal Chat + thông báo Cross-Planner
+
+- Thêm tab `Internal Chat` dùng chung cho team ST Planning; tin nhắn và trạng thái đã đọc lưu trên Aiven PostgreSQL.
+- ADMIN, PLANNER, PRODUCTION_OPERATOR và SHIFT_SUPERVISOR mặc định có `chat.view` + `chat.send` sau migration 085.
+- Menu Chat hiển thị badge số tin chưa đọc; trang Chat tự refresh định kỳ.
+- Sau khi thay đổi nghiệp vụ đã commit, hệ thống gửi thêm SYSTEM message vào Chat cho các thay đổi chính của Planning, Scheduling, Production và Daily Production Adjustment. Chat lỗi không được rollback transaction nghiệp vụ đã lưu.
+- Nếu Main nguồn thuộc Planner 1 nhưng downstream Main bị ảnh hưởng thuộc Planner 2, message được gắn `CROSS-PLANNER: Planner 1 → Planner 2`; chiều ngược lại dùng cùng resolver động `Main → Schedule Area → Planner Assignment`, không hard-code tên Main.
+- Production Change Alerts, handover attention, Daily Production Adjustment và audit hiện tại vẫn giữ nguyên; Chat chỉ là lớp trao đổi/thông báo bổ sung, không duyệt hoặc sửa Planning/Schedule trực tiếp.
+- SQL triển khai: `V495_APPLY_AIVEN.sql` — đúng 4 executable statements.
+- Logic & Guide và Training được cập nhật song song.

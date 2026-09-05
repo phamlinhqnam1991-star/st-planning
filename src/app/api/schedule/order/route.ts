@@ -2,9 +2,10 @@ import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 
 import {requireApiPermission} from "@/lib/security/api";
+import {notifyInternalChange} from "@/lib/internal-chat/server";
 export async function PUT(req:Request){
- const {denied}=await requireApiPermission("schedule.edit");
- if(denied)return denied;
+ const {denied,ctx}=await requireApiPermission("schedule.edit");
+ if(denied||!ctx)return denied!;
  const body=await req.json().catch(()=>({}));
  const ids=Array.isArray(body.schedule_ids)
   ? body.schedule_ids.map(Number).filter(Number.isFinite)
@@ -39,6 +40,7 @@ export async function PUT(req:Request){
   }
 
   await c.query("commit");
+  await notifyInternalChange({ctx,eventKey:"SCHEDULE_ORDER_CHANGED",summary:`Changed Scheduling Board sequence · ${unique.length} Schedule rows`,entityType:"SCHEDULE",entityId:"ORDER",metadata:{scheduleIds:unique}});
   return NextResponse.json({ok:true});
  }catch(e){
   await c.query("rollback");
