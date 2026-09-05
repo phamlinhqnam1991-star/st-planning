@@ -330,3 +330,16 @@ Mục tiêu Phase 2: giảm ~600 MB xuống vùng an toàn hơn mà **không là
 - Ưu tiên: Recipe Batch Size → Common Batch Size → không split nếu cả hai trống.
 - Auto Split OFF: luôn tạo một batch cho phần Qty được chọn, bất kể Batch Size.
 - Planning Board vẫn gộp nhiều Batch No trong cùng ô bằng dấu `&`; Scheduling/Preparation/Production vẫn tách từng Batch.
+
+
+## V464 — Daily Production Adjustment + Universal Add Job
+- Thêm tab **Điều chỉnh đầu ngày** trong nhóm Vận hành.
+- Production day giữ chuẩn 06:00 → 05:59 hôm sau. Production Report không tự sửa Planning/Schedule.
+- Quét báo cáo để tạo đề xuất: **CARRY_OVER**, **REMOVE_JOB**, **ADD_JOB**.
+- Carry Over mặc định sang đầu ngày kế tiếp và bắt buộc Preview trước khi duyệt.
+- Preview chạy hai chiều ảnh hưởng cần thiết: **Cross-Main Dependency** (kể cả planner khác) + **Resource Cascade**.
+- Chỉ khi planner bấm Duyệt mới commit; schedule cũ được giữ dạng CANCELLED để audit và tạo schedule active mới.
+- Production Execution có ô **Extra Job** ngay trên từng Batch để báo Job hoàn thành ngoài lô; hệ thống tạo đề xuất Add Job, không thêm thẳng.
+- Batch Detail có **Add Job nhanh** dùng chung tất cả khu vực: chỉ nhập Job Number, tự lookup Part/Rev/Qty/Surface/Main/Operation/Recipe/Status và validate.
+- ADD_JOB từ thực tế sản xuất hỗ trợ **Duyệt ngoại lệ** khi có mismatch cần audit; thao tác Add Job thông thường vẫn giữ validation chặt hiện tại.
+- Migration mới: `078_daily_production_adjustment.sql`, tối đa 4 SQL statements theo giới hạn executor.

@@ -190,6 +190,9 @@ export function BatchDetailManager({
  const [busy,setBusy]=useState(false);
  const [selected,setSelected]=useState<number[]>([]);
  const [q,setQ]=useState("");
+ const [quickJob,setQuickJob]=useState("");
+ const [quickLookup,setQuickLookup]=useState<any>(null);
+ const [quickBusy,setQuickBusy]=useState(false);
  const [message,setMessage]=useState("");
  usePopupMessage(message);
  const [viewLoaded,setViewLoaded]=useState(false);
@@ -452,6 +455,35 @@ export function BatchDetailManager({
    else setSelected(x=>[...new Set([...x,...ids])]);
  }
 
+ async function lookupQuickJob(){
+   const job=quickJob.trim();
+   if(!job)return pushAppToast("Nhập Job Number cần thêm.");
+   setQuickBusy(true);setQuickLookup(null);
+   try{
+     const r=await fetch(`/api/planning/batch/${batchId}/jobs?job_num=${encodeURIComponent(job)}`,{cache:"no-store"});
+     const d=await safeJson(r);
+     if(!r.ok)throw new Error(d.error||"Không tìm thấy Job.");
+     setQuickLookup(d);
+   }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
+   finally{setQuickBusy(false);}
+ }
+
+ async function addQuickJob(){
+   const job=quickJob.trim();
+   if(!job||!quickLookup?.canAdd)return;
+   setQuickBusy(true);
+   try{
+     const r=await fetch(`/api/planning/batch/${batchId}/jobs`,{
+       method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({job_num:job})
+     });
+     const d=await safeJson(r);
+     if(!r.ok)throw new Error(d.error||"Không thêm được Job vào Batch.");
+     setMessage(`Đã thêm Job ${job} · Batch hiện có ${d.totalJobs} Job.`);
+     setTimeout(()=>location.reload(),700);
+   }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
+   finally{setQuickBusy(false);}
+ }
+
  async function add(){
    if(!selected.length)return pushAppToast(erpMode?"Chọn ít nhất một Job để thêm vào Batch.":"Chọn ít nhất 1 Job để thêm.");
    setBusy(true);
@@ -660,6 +692,25 @@ export function BatchDetailManager({
       </tbody>
      </table>
     </div>
+   </div>
+
+   <div id="quick-add-job" className={erpMode?"erp-table-panel section erpkit-batch-detail-table":"erp-table-panel section"}>
+    <div className="erp-panel-head">
+     <div className="batch-add-title"><b>+ Add Job nhanh</b><small>Áp dụng chung cho tất cả khu vực · chỉ nhập Job Number, hệ thống tự lấy thông tin và validate theo Batch.</small></div>
+    </div>
+    <div className="batch-add-filter" style={{alignItems:"end"}}>
+     <label>Job Number
+      <input className="input" value={quickJob} onChange={e=>{setQuickJob(e.target.value);setQuickLookup(null);}} onKeyDown={e=>{if(e.key==="Enter")lookupQuickJob();}} placeholder="VD: J240123"/>
+     </label>
+     <button type="button" className="btn" disabled={quickBusy||!quickJob.trim()} onClick={lookupQuickJob}>{quickBusy?"Đang tìm...":"Tìm Job"}</button>
+     <button type="button" className="btn primary" disabled={quickBusy||!quickLookup?.canAdd} onClick={addQuickJob}>Thêm vào Batch</button>
+    </div>
+    {quickLookup?.job?<div className={`notice ${quickLookup.canAdd?"success":quickLookup.issues?.length?"warning":""}`} style={{marginTop:10}}>
+     <div><b>{quickLookup.job.job_num}</b> · {quickLookup.job.part_num||"—"} / Rev {quickLookup.job.revision_num||"—"} · Qty {formatNumber(quickLookup.job.current_good_wip_qty??quickLookup.job.prod_qty??0)} · Surface {formatNumber(quickLookup.job.total_surface??0)} dm²</div>
+     <div>Main: <b>{quickLookup.job.standard_operation||"—"}</b> · Operation Code: {quickLookup.job.source_operation_code||"—"} · Next: {quickLookup.job.next_operation||"—"} · Priority: {quickLookup.job.priority_type||"—"}</div>
+     <div>Recipe Job: {quickLookup.job.recipe_no||quickLookup.job.recipe_key||"—"}{quickLookup.job.recipe_name?` · ${quickLookup.job.recipe_name}`:""} · Status: <b>{quickLookup.job.planning_status||"—"}</b></div>
+     {Array.isArray(quickLookup.issues)&&quickLookup.issues.length?<ul style={{margin:"6px 0 0 18px"}}>{quickLookup.issues.map((x:string,i:number)=><li key={i}>{x}</li>)}</ul>:<b>✓ Job hợp lệ để thêm vào Batch.</b>}
+    </div>:null}
    </div>
 
    <div className={erpMode?"erp-table-panel section erpkit-batch-detail-table":"erp-table-panel section"}>

@@ -19,6 +19,7 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
  const [status,setStatus]=useState<"ALL"|ProductionExecutionStatus>("ALL");
  const [reportGroup,setReportGroup]=useState<GroupFilter>("ALL");
  const [busy,setBusy]=useState("");
+ const [extraJobByBatch,setExtraJobByBatch]=useState<Record<number,string>>({});
 
  const fmt=(v:number,max=2)=>new Intl.NumberFormat(locale==="vi"?"vi-VN":"en-US",{maximumFractionDigits:max}).format(Number(v||0));
  const dt=(v:string|null)=>{
@@ -122,6 +123,22 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
    surface:scoped.reduce((n,x)=>n+x.surface,0),
   };
  },[scoped]);
+
+ async function reportExtraJob(item:ProductionWorkItem){
+  const job=(extraJobByBatch[item.batchId]||"").trim();
+  if(!job)return pushAppToast(text("Enter the extra Job Number.","Nhập Job Number phát sinh ngoài lô."));
+  const k=`EXTRA|${item.batchId}`;setBusy(k);
+  try{
+   const r=await fetch("/api/daily-production-adjustment",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
+    action:"REPORT_EXTRA_JOB",production_date:productionDate,batch_id:item.batchId,job_num:job,
+    actual_start:item.actualStart,actual_end:item.actualEnd
+   })});
+   const d=await safeJson(r);if(!r.ok)throw new Error(d?.error||text("Unable to create Add Job proposal.","Không tạo được đề xuất Add Job."));
+   setExtraJobByBatch(prev=>({...prev,[item.batchId]:""}));
+   pushAppToast(text(`Proposal created: add ${job} to ${item.batchNo}.`,`Đã tạo đề xuất thêm ${job} vào ${item.batchNo}.`));
+  }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
+  finally{setBusy("");}
+ }
 
  async function setLineExecution(item:ProductionWorkItem,next:ProductionExecutionStatus){
   const k=`LINE|${item.sourceType}|${item.sourceKey}`;setBusy(k);
@@ -312,7 +329,7 @@ export function ProductionExecutionClient({initialItems,productionDate}:{initial
     const mainRow=<tr key={k} className={`production-row production-batch-row ${rowIndex>0?"production-batch-start":""} production-batch-${rowIndex%2?"odd":"even"} production-row-${statusClass(item.status)}`}>
      <td><span className={`production-source source-${item.sourceType.toLowerCase()}`}>{sourceLabel(item.sourceType)}</span>{item.sourceType!=="BATCH"?<small className="planning-sub">{item.linkedMainOperation}</small>:null}</td>
      <td>{item.area||"—"}</td><td className="mono">{item.resource||"—"}</td>
-     <td><b className="mono production-batch-no">{item.batchNo||`#${item.batchId}`}</b></td>
+     <td><b className="mono production-batch-no">{item.batchNo||`#${item.batchId}`}</b>{item.sourceType==="BATCH"?<div className="production-extra-job" style={{display:"flex",gap:4,marginTop:6,minWidth:170}}><input className="input" style={{minWidth:100}} value={extraJobByBatch[item.batchId]||""} onChange={e=>setExtraJobByBatch(v=>({...v,[item.batchId]:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")reportExtraJob(item);}} placeholder={text("Extra Job","Job ngoài lô")}/><button type="button" className="btn small" disabled={busy===`EXTRA|${item.batchId}`} onClick={()=>reportExtraJob(item)}>+</button></div>:null}</td>
      <td><span title={recipe}>{recipe}</span></td>
      <td className="num"><b>{item.jobs}</b></td>
      <td className="num">{fmt(item.qty,0)}</td><td className="num">{fmt(item.surface)}</td>

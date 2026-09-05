@@ -6,6 +6,7 @@ import {autoAdjustChemicalSchedule} from "@/lib/chemical-line-schedule-server";
 import {loadLiveRecipeContext,bestRecipeMatch,mergeJobData} from "@/lib/planning/live-recipe";
 import {recipeAllowedForJob} from "@/lib/planning/batch-utils";
 import {assertSameRecipeConditionGroup} from "@/lib/planning/batch-compatibility";
+import {loadBatchNumberConfig} from "@/lib/planning/batch-number";
 
 import {requireApiUser} from "@/lib/api-auth";
 async function plannerForOperationDb(c:any,operation:unknown):Promise<"1"|"2"|null>{
@@ -158,6 +159,75 @@ async function createCrossPlannerEvent(
  ]);
 }
 
+export async function GET(
+ req:NextRequest,
+ {params}:{params:Promise<{id:string}>}
+){
+ const denied=await requireApiUser();
+ if(denied)return denied;
+ const {id}=await params;
+ const batchId=Number(id);
+ const jobNum=clean(req.nextUrl.searchParams.get("job_num"));
+ if(!Number.isFinite(batchId)||!jobNum)
+  return NextResponse.json({error:"Batch hoặc Job Number không hợp lệ."},{status:400});
+ const c=await getPool().connect();
+ try{
+  const batchQ=await c.query(`
+   select b.id,b.batch_no,b.standard_operation,b.recipe_key,b.total_qty,b.total_surface_dm2,b.status,
+          r.recipe_no,r.recipe_name
+   from planning_batch b
+   left join md_process_recipe r on r.recipe_key=b.recipe_key
+   where b.id=$1
+  `,[batchId]);
+  if(!batchQ.rowCount)return NextResponse.json({error:"Không tìm thấy Batch."},{status:404});
+  const batch=batchQ.rows[0];
+  const jobQ=await c.query(`
+   select j.job_num,j.part_num,j.revision_num,j.part_description,j.program,j.priority_type,
+          j.next_operation,j.last_operation,j.current_good_wip_qty,j.prod_qty,j.total_surface,j.surface_per_part_dm2,
+          p.id planning_job_operation_id,p.source_operation_code,p.standard_operation,p.recipe_key,p.status planning_status,
+          p.planning_seq,p.source_seq,
+          pr.recipe_no,pr.recipe_name,
+          exists(select 1 from planning_batch_job x where x.batch_id=$1 and x.planning_job_operation_id=p.id) in_this_batch,
+          (select b2.batch_no from planning_batch_job x2 join planning_batch b2 on b2.id=x2.batch_id and b2.status<>'CANCELLED'
+             where x2.planning_job_operation_id=p.id and x2.batch_id<>$1 order by b2.created_at desc limit 1) other_batch_no
+   from open_job_current j
+   left join lateral(
+    select p0.* from planning_job_operation p0
+    where p0.job_num=j.job_num and p0.is_active=true
+      and upper(trim(p0.standard_operation))=upper(trim($2))
+    order by case p0.status when 'ELIGIBLE' then 0 when 'PLANNED' then 1 else 2 end,p0.planning_seq
+    limit 1
+   ) p on true
+   left join md_process_recipe pr on pr.recipe_key=p.recipe_key
+   where upper(trim(j.job_num))=upper(trim($3)) and j.is_open=true
+   limit 1
+  `,[batchId,batch.standard_operation,jobNum]);
+  if(!jobQ.rowCount)return NextResponse.json({error:`Không tìm thấy Job ${jobNum} trong All Open Job.`},{status:404});
+  const job=jobQ.rows[0];
+  const issues:string[]=[];
+  const batchConfig=await loadBatchNumberConfig(c,batch.standard_operation,batch.recipe_key||null);
+  const jobQty=Number(job.current_good_wip_qty||job.prod_qty||0);
+  const projectedQty=Number(batch.total_qty||0)+jobQty;
+  const batchSizeExceeded=Boolean(batchConfig.autoSplit&&batchConfig.batchSizeQty&&projectedQty>Number(batchConfig.batchSizeQty)+0.000001);
+  if(batchSizeExceeded)issues.push(`Batch Size vượt cấu hình: ${projectedQty} / ${batchConfig.batchSizeQty} pcs (${batchConfig.batchSizeSource}).`);
+  if(!job.planning_job_operation_id)issues.push(`Job không có Main Operation ${batch.standard_operation} trong Planning Chain.`);
+  if(job.in_this_batch)issues.push("Job đã có trong Batch này.");
+  if(job.other_batch_no)issues.push(`Job đang thuộc Batch active khác: ${job.other_batch_no}.`);
+  if(job.planning_status&&job.planning_status!=="ELIGIBLE")issues.push(`Planning status hiện tại là ${job.planning_status}, không phải ELIGIBLE.`);
+  let recipeCompatible=true;
+  if(job.planning_job_operation_id&&batch.recipe_key){
+   recipeCompatible=await recipeAllowedForJob(c,{
+    source_operation_code:job.source_operation_code,standard_operation:job.standard_operation,
+    part_num:job.part_num,revision_num:job.revision_num
+   },batch.recipe_key);
+   if(!recipeCompatible)issues.push(`Recipe của Batch không hợp lệ cho Job ${job.job_num}.`);
+  }
+  return NextResponse.json({ok:true,batch,job,recipeCompatible,batchConfig,projectedQty,batchSizeExceeded,canAdd:issues.length===0,issues});
+ }catch(e){
+  return NextResponse.json({error:e instanceof Error?e.message:String(e)},{status:500});
+ }finally{c.release();}
+}
+
 export async function POST(
  req:NextRequest,
  {params}:{params:Promise<{id:string}>}
@@ -167,12 +237,30 @@ export async function POST(
  const {id}=await params;
  const batchId=Number(id);
  const b=await req.json();
- const ids=Array.isArray(b.planning_job_operation_ids)
+ let ids=Array.isArray(b.planning_job_operation_ids)
    ? b.planning_job_operation_ids.map(Number).filter(Number.isFinite)
    : [];
+ const jobNum=clean(b.job_num);
 
- if(!Number.isFinite(batchId)||!ids.length)
-   return NextResponse.json({error:"Batch hoặc Candidate Job không hợp lệ."},{status:400});
+ if(!Number.isFinite(batchId))
+   return NextResponse.json({error:"Batch không hợp lệ."},{status:400});
+
+ if(!ids.length&&jobNum){
+   const lookup=await getPool().query(`
+     select p.id
+     from planning_batch b
+     join planning_job_operation p
+       on upper(trim(p.standard_operation))=upper(trim(b.standard_operation))
+      and p.is_active=true and upper(trim(p.job_num))=upper(trim($2))
+     join open_job_current j on j.job_num=p.job_num and j.is_open=true
+     where b.id=$1
+     order by case p.status when 'ELIGIBLE' then 0 when 'PLANNED' then 1 else 2 end,p.planning_seq
+     limit 1
+   `,[batchId,jobNum]);
+   if(lookup.rowCount)ids=[Number(lookup.rows[0].id)];
+ }
+ if(!ids.length)
+   return NextResponse.json({error:"Không tìm thấy Job phù hợp với Main Operation của Batch."},{status:400});
 
  const c=await getPool().connect();
  try{
@@ -233,6 +321,11 @@ export async function POST(
    if(q.rowCount!==ids.length)
      throw new Error("Một số Job không còn hợp lệ.");
 
+   const batchSizeConfig=await loadBatchNumberConfig(c,batch.standard_operation,batch.recipe_key||null);
+   const incomingQty=q.rows.reduce((sum:number,r:any)=>sum+Number(r.plan_qty||0),0);
+   if(batchSizeConfig.autoSplit&&batchSizeConfig.batchSizeQty&&Number(batch.total_qty||0)+incomingQty>Number(batchSizeConfig.batchSizeQty)+0.000001)
+     throw new Error(`Batch Size vượt cấu hình: ${Number(batch.total_qty||0)+incomingQty} / ${batchSizeConfig.batchSizeQty} pcs (${batchSizeConfig.batchSizeSource}).`);
+
    // v352: resolve BOTH Recipe and the exact Recipe Rule (mapping_id) for
    // every incoming Job. Same Recipe may have many condition rules.
    const recipeCtx=await loadLiveRecipeContext(c);
@@ -278,7 +371,7 @@ export async function POST(
    }
 
    const incomingRecipeKeys=[...new Set(q.rows.map((r:any)=>clean(r.recipe_key)).filter(Boolean))];
-   const compatibilityRecipeKey=clean(batch.recipe_key)||(incomingRecipeKeys.length===1?incomingRecipeKeys[0]:"");
+   const compatibilityRecipeKey=String(clean(batch.recipe_key)||(incomingRecipeKeys.length===1?incomingRecipeKeys[0]:""));
    if(compatibilityRecipeKey){
      const selectedCompatibilityConditions=await assertSameRecipeConditionGroup(c,{
        recipeKey:compatibilityRecipeKey,

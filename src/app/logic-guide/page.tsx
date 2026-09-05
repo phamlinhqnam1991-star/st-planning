@@ -947,7 +947,21 @@ export default async function Page(){
     <Rule title="Không đổi nghiệp vụ" tone="important">Provider move không thay Planning Chain READY/WAIT, Recipe Resolver, Batch Compatibility, Previous Main Schedule Lock, Chemical Line proposal/capacity, Masking/Unmasking resolver hay Production Execution.</Rule>
    </Section>
 
-   <Section id="faq" title="16 · FAQ / Chẩn đoán nhanh">
+   <Section id="daily-production-adjustment" title="16 · Daily Production Adjustment · đối soát đầu ngày (V464)"
+    sub="Production Report trước 05:59 → đề xuất Carry Over / Add Job / Remove Job → planner preview và duyệt một lần">
+    <StepList items={[
+     <>Ngày sản xuất vẫn là <b>06:00 → 05:59 hôm sau</b>. Production Execution chỉ ghi nhận thực tế; không tự sửa Planning/Batch/Schedule.</>,
+     <>Tab <b>Điều chỉnh đầu ngày</b> quét Production Report và tạo <b>CARRY_OVER</b> cho Batch còn Job chưa DONE; Job còn WAITING được tạo thêm đề xuất <b>REMOVE_JOB</b> để planner xác nhận bớt khỏi lô khi thực tế chưa bắt đầu.</>,
+     <>Production có thể nhập <b>Job Number phát sinh ngoài Batch</b>. Hệ thống tự lookup Job/Main/Recipe và tạo <b>ADD_JOB</b>; chỉ sau khi planner duyệt mới thêm vào Batch. Recipe mismatch / Job đang ở Batch khác được cảnh báo và chỉ được duyệt ngoại lệ khi thực tế đã xảy ra.</>,
+     <>Carry Over không chỉ dời cùng Resource. Preview chạy <b>Cross-Main Dependency</b>: Start Main sau phải ≥ Effective End Main trước, kể cả Main thuộc planner khác; sau đó chạy tiếp <b>Resource Cascade</b> cho các Batch bị overlap.</>,
+     <>Preview chỉ là change-set. Nút <b>Duyệt</b> mới commit. Lịch cũ được giữ dưới dạng Schedule CANCELLED có note audit; lịch mới được tạo thành Schedule active mới để không mất lịch sử trước chỉnh.</>,
+     <>Planning Board vẫn nhìn theo Job; Scheduling/Production vận hành theo Batch. Carry Over không tạo Batch No mới.</>,
+     <>Chức năng <b>Add Job nhanh</b> dùng chung cho mọi khu vực: mở Batch Detail từ Planning hoặc Scheduling, chỉ nhập Job Number → tự hiện Part/Rev/Qty/Surface/Main/Operation/Recipe/Status và validate trước khi Add.</>
+    ]}/>
+    <Rule title="Constraint bắt buộc" tone="important">Một lịch sau khi duyệt không hợp lệ nếu Start của Main hiện tại nhỏ hơn End hiệu lực của Main trước. Planner Owner chỉ xác định trách nhiệm/hiển thị; không được làm đứt dependency chain.</Rule>
+   </Section>
+
+   <Section id="faq" title="17 · FAQ / Chẩn đoán nhanh">
     <Faq q="Vì sao Next Operation không sort theo chữ ABC?" a={<>Đó là chủ ý. Khi Sort Priority dùng <b>NextOperation</b>, Board resolve RAW NextOperation → Main và dùng <b>Main Planning Order</b>. Operation Code Order chỉ tie-break trong cùng Main. Kiểm tra Cấu hình → Main Operation và ST Scope.</>}/>
     <Faq q="Vì sao một Job READY nhưng click xong các READY khác bị mờ?" a={<>Bạn đang ở <b>Batch Selection Mode</b>. Main khác bị dim; cùng Main nhưng khác Recipe hoặc không thỏa các condition đang tích cũng bị dim/disable. Clear Selection để thoát mode.</>}/>
     <Faq q="Vì sao không thấy checkbox condition trong Batch Compatibility?" a={<>Checkbox lấy từ <b>Operation Code → Recipe → Điều kiện áp dụng cho Job</b> của đúng Recipe mapping. Process Time condition không tạo checkbox. Nếu mapping Recipe không có condition, panel sẽ báo chỉ khóa theo Recipe.</>}/>
