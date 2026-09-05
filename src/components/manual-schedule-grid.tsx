@@ -1295,18 +1295,21 @@ export function ManualScheduleGrid({
   </div>;
  }
 
- function workloadReadyRecipeBreakdown(groups:ScheduleReadyRecipeBreakdown[]|undefined,status:"READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED"){
-  const list=(groups||[]).filter(x=>x&&x.metric&&Number(x.metric.jobs||0)>0);
-  if(!list.length)return null;
+ function workloadReadyMainRecipeBreakdown(
+  metric:ScheduleWorkloadMetric|undefined,
+  status:"READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED",
+  filter:Omit<WorkloadQuickViewFilter,"status"|"previousMain">
+ ){
+  const m=metric||{jobs:0,qty:0,surface:0};
+  if(Number(m.jobs||0)<=0)return null;
   const unscheduled=status==="READY_PREV_UNSCHEDULED";
-  return <div className={`schedule-area-ready-breakdown${unscheduled?" is-unscheduled":""}`} aria-label={`${workloadLabel[status]} breakdown by Previous Main Recipe`}>
-   {list.map((x,index)=>{
-    const recipeLabel=x.recipeNo||"—";
-    const recipeName=x.recipeName||"No Recipe";
-    return <span key={`${x.previousMain}-${x.recipeKey}-${index}`} title={`${x.previousMain} · ${recipeLabel} · ${recipeName} · ${fmt(x.metric.surface)} dm² · ${fmt(x.metric.qty,0)} pcs · ${fmt(x.metric.jobs,0)} Job`}>
-     <b>← {x.previousMain} · {recipeLabel}</b><em>{fmt(x.metric.jobs,0)} Job · {fmt(x.metric.qty,0)} pcs · {fmt(x.metric.surface)} dm²</em>
-    </span>;
-   })}
+  const readyMain=filter.standardOperation||"—";
+  const recipeLabel=filter.recipeNo||"—";
+  const recipeName=filter.recipeName||"No Recipe";
+  return <div className={`schedule-area-ready-breakdown${unscheduled?" is-unscheduled":""}`} aria-label={`${workloadLabel[status]} breakdown by READY Main Recipe`}>
+   <span title={`${readyMain} · ${recipeLabel} · ${recipeName} · ${fmt(m.surface)} dm² · ${fmt(m.qty,0)} pcs · ${fmt(m.jobs,0)} Job`}>
+    <b>→ {readyMain} · {recipeLabel}</b><em>{fmt(m.jobs,0)} Job · {fmt(m.qty,0)} pcs · {fmt(m.surface)} dm²</em>
+   </span>
   </div>;
  }
  function renderScheduleAreaWorkload(
@@ -1324,12 +1327,12 @@ export function ManualScheduleGrid({
    metric:ScheduleWorkloadMetric|undefined,
    status:ScheduleWorkloadStatus,
    filter:Omit<WorkloadQuickViewFilter,"status"|"previousMain">,
-   options?:{waitNext?:ScheduleWaitNextBreakdown[];readyRecipe?:ScheduleReadyRecipeBreakdown[];showReadyRecipeBreakdown?:boolean}
+   options?:{waitNext?:ScheduleWaitNextBreakdown[];showReadyRecipeBreakdown?:boolean}
   )=>
    <>
     {workloadMetric(metric,status,filter)}
     {status==="WAIT_NEXT_MAIN"&&showWaitNextBreakdown&&workloadWaitNextBreakdown(options?.waitNext,filter)}
-    {options?.showReadyRecipeBreakdown&&(status==="READY_PREV_SCHEDULED"||status==="READY_PREV_UNSCHEDULED")&&workloadReadyRecipeBreakdown(options?.readyRecipe,status)}
+    {options?.showReadyRecipeBreakdown&&(status==="READY_PREV_SCHEDULED"||status==="READY_PREV_UNSCHEDULED")&&workloadReadyMainRecipeBreakdown(metric,status,filter)}
    </>;
 
   return <section className={`schedule-area-st-workload${compactRecipesOnly?" is-recipe-only":""}`}>
@@ -1353,7 +1356,6 @@ export function ManualScheduleGrid({
          {areaName,standardOperation:row.standardOperation,recipeKey:recipe.recipeKey,recipeNo:recipe.recipeNo||"",recipeName:recipe.recipeName||""},
          {
           waitNext:recipe.waitNextBreakdown,
-          readyRecipe:status==="READY_PREV_SCHEDULED"?recipe.readyPrevScheduledBreakdown:status==="READY_PREV_UNSCHEDULED"?recipe.readyPrevUnscheduledBreakdown:undefined,
           showReadyRecipeBreakdown:true
          }
         )}</td>)}
