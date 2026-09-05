@@ -513,3 +513,12 @@ Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu khô
 - Hỗ trợ lọc đồng thời nhiều cột: Job, Part/Rev, Description, Qty, dm², Priority, Previous Main, Main, Recipe No/Name, Next Main, Next Recipe No/Name, Batch.
 - Check-all chỉ chọn các dòng đang hiển thị sau lọc; selection thủ công và canonical Batch API giữ nguyên.
 - Clear filters trả popup về toàn bộ Job của card. Không đổi READY/WAIT/HOLD hay Batch/Scheduling logic.
+
+## V494 — Recent Batches: xuất Excel từng Batch
+
+- Thêm nút `Xuất Excel` cạnh `Delete` ở từng dòng `Planning Board → Recent Batches`.
+- File lấy trực tiếp Job membership từ `planning_batch_job`, không phụ thuộc state UI.
+- Cột xuất theo mẫu Planning Matrix: `Job`, `Part / Rev`, `Qty`, `Surface`, `Operation Code`, `Previous Operation`, `Next Main Operation`, `Recipe`, `Primer 1`, `Primer 2`, `Primer 3`, `Priority`, `Status`, `Batches`.
+- Qty/Surface là allocation thật trong Batch; Recipe ưu tiên Recipe của Batch; Next Main đọc Planning Chain active kế tiếp.
+- Export là read-only, có kiểm tra `planning.view` + scope Main; không đổi READY/WAIT, Batch, Schedule hay Production. Không có SQL migration mới.
+

@@ -1,3 +1,4 @@
+// V494 Recent Batches export: each Batch row can export its real planning_batch_job membership to Excel using the Planning Matrix-style columns. Export is read-only and does not change Batch/READY/WAIT/Schedule/Production.
 // V493 Scheduling Workload Quick View: V492 popup now has per-column filters for Job/Part/Description/Qty/dm²/Priority/Previous Main/Main/Recipe/Next Main/Next Recipe/Batch. READY can still create/add Batch through the canonical Planning Batch API; WAIT/HOLD stay read-only.
 // V489 WAIT split remains the canonical classifier underneath; no planning/scheduling gating logic is changed.
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
@@ -7,7 +8,7 @@ import {getPool} from "@/lib/db";
 export const dynamic="force-dynamic";
 
 // =====================================================================
-// LOGIC & HƯỚNG DẪN v491
+// LOGIC & HƯỚNG DẪN v494
 // Tài liệu vận hành nằm ngay trong app. Nội dung mô tả SOURCE OF TRUTH,
 // trình tự thao tác, dependency và impact của từng tab theo code hiện tại.
 // Phần "Mapping đang chạy" đọc trực tiếp database để đối chiếu cấu hình thật.
@@ -265,6 +266,9 @@ export default async function Page(){
      </Rule>
      <Rule title="Nguyên tắc 4 · Tạo Batch đã là handoff">
       Batch chưa điều độ (<b>PLANNED-UNSCHEDULED</b>) vẫn được xem là Main trước đã plan. Vì vậy Main kế tiếp có thể READY ngay; Scheduling không phải điều kiện bắt buộc để mở Main kế tiếp.
+     </Rule>
+     <Rule title="V494 · Export Excel từ Recent Batches">
+      Mỗi Batch ở <b>Planning Board → Recent Batches</b> có nút <b>Xuất Excel</b>. File đọc trực tiếp membership thật trong <code>planning_batch_job</code> và xuất các cột Job/Part-Rev/Qty/Surface/Operation Code/Previous Operation/Next Main/Recipe/Primer/Priority/Status/Batch. Đây là thao tác read-only, không thay đổi Batch hoặc Planning Chain.
      </Rule>
     </div>
     {Object.keys(liveErrors).length>0&&<div className="notice"><b>Lưu ý:</b> Một số bảng Mapping sống không đọc được; các bảng còn lại vẫn hiển thị dữ liệu thật từ database. Chi tiết lỗi nằm ngay tại bảng tương ứng.</div>}

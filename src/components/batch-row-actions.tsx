@@ -144,6 +144,14 @@ export function BatchRowActions({
           {editing ? (erpMode?"Đóng":"Close") : (erpMode?"Sửa Recipe":"Edit Recipe")}
         </button>
 
+        <a
+          className={erpMode?"erpkit-btn":"btn small"}
+          href={`/api/planning/batch/${batchId}/export`}
+          title={erpMode?"Xuất danh sách Job trong Batch ra Excel":"Export Batch jobs to Excel"}
+        >
+          {erpMode?"Xuất Excel":"Export Excel"}
+        </a>
+
         <button
           className={erpMode?"erpkit-btn erpkit-btn-danger":"btn small danger-btn"}
           type="button"

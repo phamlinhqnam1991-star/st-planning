@@ -8210,6 +8210,16 @@
       "en": "No Job matches the active column filters.",
       "vi": "Không có Job nào khớp với các bộ lọc cột đang áp dụng.",
       "mode": "exact"
+    },
+    {
+      "en": "Export Excel",
+      "vi": "Xuất Excel",
+      "mode": "exact"
+    },
+    {
+      "en": "Export Batch jobs to Excel",
+      "vi": "Xuất danh sách Job trong Batch ra Excel",
+      "mode": "exact"
     }
   ]
 }
