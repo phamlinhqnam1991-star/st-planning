@@ -1849,7 +1849,15 @@ const currentPriorityMonth=useMemo(()=>{
 
   // First Main / no previous Main belongs to the "not scheduled / START" side.
   if(!previous)return "UNSCHEDULED";
-  return previous.schedule_id&&previous.planned_start?"SCHEDULED":"UNSCHEDULED";
+
+  // V475: keep drill-down classification identical to the canonical workload engine.
+  // V473 already classifies the CURRENT READY Main as "Previous Main Scheduled / Done"
+  // when the previous Main is behind physical progress, even if legacy production has
+  // no Batch/Schedule record.  The Route Matrix gives us the exact current occurrence
+  // through planning_job_operation_id, so mirror that same rule here.
+  if(previous.schedule_id&&previous.planned_start)return "SCHEDULED";
+  if(Number(target.planning_job_operation_id)===Number(x.id))return "SCHEDULED";
+  return "UNSCHEDULED";
  };
 
  const workloadReadyPreviousFilterPass=(x:Candidate)=>{

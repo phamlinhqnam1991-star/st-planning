@@ -383,3 +383,6 @@ Tab Training được mở rộng từ khái niệm chung nhất đến chi ti�
 
 ## V474 — Training bằng dữ liệu thật
 Tab Training đọc live database để minh họa Operation Code → ST Group → Main → Area/Planner → Recipe → Batch Rules → Process Time → Batch → Schedule trên dữ liệu đang dùng. Có ô nhập Job Number để trace một Job thật. Training và Logic & Hướng dẫn phải được cập nhật song song khi có logic mới.
+
+## V475 — READY Workload drill-down đồng bộ với V473
+Khi click `READY · Previous Main Scheduled / Done` trên Planning Board, danh sách Job bên dưới phải dùng đúng cùng classifier với Workload Summary. Ngoài Previous Main có Schedule thật, Job đang ở current READY Main cũng thuộc cột này khi Previous Main đã đi qua theo physical progress/DONE dù lịch sử cũ không có Batch/Schedule. V475 sửa phần drill-down để không còn trường hợp KPI có Job nhưng bảng Candidate trống.

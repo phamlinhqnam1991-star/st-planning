@@ -583,7 +583,7 @@ export default async function Page(){
      <li><b>Qty:</b> dùng CurrentGoodWIPQty nếu &gt; 0, nếu không dùng ProdQty — cùng quy tắc Candidate.</li>
      <li><b>Surface:</b> dùng TotalSurface; nếu thiếu thì Qty × SurfacePerPart.</li>
      <li><b>Repeated occurrence:</b> cùng Job + cùng Main + cùng status bucket chỉ tính một lần để không nhân đôi pcs/dm².</li>
-     <li><b>Drill-down:</b> click một trong hai cột READY, WAIT hoặc HOLD để lọc Candidate Matrix theo đúng Main + route status; hai cột READY còn lọc thêm theo Previous Main Scheduled / Unscheduled. Nếu Route Matrix của Job chưa tải, Board hydrate trước rồi mới áp dụng filter.</li>
+     <li><b>Drill-down:</b> click một trong hai cột READY, WAIT hoặc HOLD để lọc Candidate Matrix theo đúng Main + route status; hai cột READY còn lọc thêm theo Previous Main Scheduled / Unscheduled. Nếu Route Matrix của Job chưa tải, Board hydrate trước rồi mới áp dụng filter. <b>V475:</b> classifier drill-down phải giống hệt Workload Summary: Current READY Main có Previous Main đã đi qua theo physical progress/DONE vẫn thuộc <code>READY · Previous Main Scheduled / Done</code> dù Previous Main không có Batch/Schedule lịch sử, nên KPI có Job thì danh sách phía dưới phải hiện đúng các Job đó.</li>
      <li><b>Refresh:</b> tự cập nhật sau Create/Add Batch, Hold/Unhold, Rebuild Planning Chain và khi đổi Area/Main scope; có nút Làm mới thủ công.</li>
     </ul>
 
