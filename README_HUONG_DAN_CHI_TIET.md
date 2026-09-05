@@ -486,3 +486,13 @@ Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu khô
 - Không đổi classifier V489: `LOCKED` gần nhất = WAIT Next Main, các LOCKED phía sau = WAIT Future Mains.
 - Không đổi rule mở Next Main: Previous Main chỉ cần có Plan/Batch là mở đúng một Next Main READY; Schedule chỉ phân loại READY, không phải điều kiện mở.
 - Logic & Guide và Training cập nhật đồng bộ. Không có SQL migration mới.
+
+## V491 — Scheduling Workload gọn hơn + READY card xanh + WAIT breakdown đầy đủ
+
+- `ST Workload Summary · By Area` trên Scheduling Board chỉ giữ: `Main Operation → Recipe No → Recipe Name → READY Scheduled/Done → READY Not Yet Scheduled → WAIT Next Main → WAIT Future Mains → HOLD`.
+- Riêng bảng workload ở tab Điều độ, các cột `PLANNED-UNSCHEDULED`, `SCHEDULED` và `Total` được ẩn để giảm chiều ngang; dữ liệu Schedule thật không bị xóa và logic điều độ không đổi.
+- Hai cột READY dùng cùng kiểu card phẳng như `WAIT · Next Main`: Scheduled/Done xanh lá đậm hơn, Not Yet Scheduled xanh lá nhạt hơn; bỏ kiểu header xanh quá đậm và border trái.
+- `WAIT · Next Main` breakdown hiển thị đầy đủ `← Previous Main · Job · pcs · dm²`.
+- Chemical Line/Flybar vẫn chỉ hiển thị Recipe rows nhưng từ V491 cũng có WAIT Next Main breakdown.
+- Rule mở Next Main không đổi: Previous Main chỉ cần đã Plan/tạo Batch là mở đúng một Next Main READY; Schedule chỉ dùng để phân loại READY Scheduled/Done hay Not Yet Scheduled.
+- Logic & Guide và Training được cập nhật song song. Không có SQL migration mới.

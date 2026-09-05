@@ -1,4 +1,4 @@
-// V490 Scheduling workload presentation: READY-first column order, green READY handoff colors, Flybar recipe-only rows, non-Chemical WAIT Next Main breakdown.
+// V491 Scheduling workload presentation: flat green READY cards, Scheduling summary hides schedule-state/Total columns, WAIT Next breakdown includes Job+pcs+dm² for every area including Chemical Line.
 // V489 WAIT split remains the canonical classifier underneath; no planning/scheduling gating logic is changed.
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs} from "@/components/app-tabs";
@@ -7,7 +7,7 @@ import {getPool} from "@/lib/db";
 export const dynamic="force-dynamic";
 
 // =====================================================================
-// LOGIC & HƯỚNG DẪN v490
+// LOGIC & HƯỚNG DẪN v491
 // Tài liệu vận hành nằm ngay trong app. Nội dung mô tả SOURCE OF TRUTH,
 // trình tự thao tác, dependency và impact của từng tab theo code hiện tại.
 // Phần "Mapping đang chạy" đọc trực tiếp database để đối chiếu cấu hình thật.
@@ -214,7 +214,7 @@ export default async function Page(){
    <div className="erp-page-head guide-head">
     <div>
      <h2>Logic & Hướng dẫn vận hành</h2>
-     <p>Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau theo logic hiện tại đến V489.</p>
+     <p>Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau theo logic hiện tại đến V491.</p>
     </div>
    </div>
 
@@ -725,7 +725,7 @@ export default async function Page(){
     <p>Painting và các khu vực khác lấy danh sách lane/resource từ <b>Schedule Area Mapping</b>. Painting hiện hỗ trợ các CAB được cấu hình (hệ thống hiện có CAB1–CAB4 theo Board). Công đoạn chỉ được kéo vào vùng đã map cho Main đó.</p>
     <Rule title="ST Workload Summary · By Area trên Scheduling Board" tone="important">
      Trên đầu mỗi khu vực điều độ, Board hiển thị bảng workload của chính tập Main Operation được map cho Schedule Area đó. Bảng này <b>không có công thức workload riêng</b>: nó đọc cùng canonical Dashboard ST workload và chỉ lọc theo operation set của Schedule Area. Từ <b>V473</b>, cột READY dùng cùng classifier với Planning Board/Dashboard: <b>READY · main trước Scheduled / Done</b> gồm Previous Main đã Schedule hoặc đã DONE theo physical progress dù không có Batch; <b>READY · Previous Main not yet Schedule</b> chỉ giữ plan-ahead chưa handoff. Từ <b>V476</b>, Main đầu tiên của chain được tính vào <b>READY · main trước Scheduled / Done</b> vì không có Previous Main cần chờ. Hai cột cộng lại đúng READY tổng và không đổi Sequential READY. Từ <b>V489</b>, WAIT được tách thành <b>WAIT · Next Main</b> + <b>WAIT · Future Mains</b>.
-     <br/><br/><b>V490 presentation:</b> thứ tự cột trên Scheduling Board cố định là <b>Main Operation → Recipe No → Recipe Name → READY Scheduled/Done → READY not yet Schedule → WAIT Next Main → WAIT Future Mains → PLANNED-UNSCHEDULED → SCHEDULED → HOLD → Total</b>. READY Scheduled/Done dùng xanh lá đậm; READY not yet Schedule dùng xanh lá nhạt. Riêng <b>Chemical Line / Flybar</b> bỏ dòng MAIN TOTAL và chỉ hiển thị các dòng Recipe để bảng gọn hơn, nhưng cột Main Operation vẫn lặp lại trên mỗi Recipe để không mất context. Với các Schedule Area <b>không phải Chemical Line</b>, ô <b>WAIT · Next Main</b> có thêm breakdown theo <b>immediate Previous Main Planning</b> của từng Job (mũi tên ← Main trước), giúp planner biết workload đang chờ từ Main nào. Breakdown này chỉ là cách trình bày; classifier LOCKED/READY và điều kiện mở Next Main vẫn giữ nguyên: <b>Previous Main có Plan/Batch là đủ mở đúng một Next Main; Schedule chỉ phân loại READY Scheduled hay not yet Schedule</b>.
+     <br/><br/><b>V491 presentation:</b> bảng workload trên Scheduling Board chỉ giữ các cột phục vụ quyết định handoff: <b>Main Operation → Recipe No → Recipe Name → READY Scheduled/Done → READY not yet Schedule → WAIT Next Main → WAIT Future Mains → HOLD</b>. Các cột <b>PLANNED-UNSCHEDULED, SCHEDULED và Total</b> được ẩn khỏi riêng bảng này để gọn màn hình; dữ liệu scheduling thật không bị xóa hay đổi logic. Hai cột READY dùng cùng kiểu card phẳng như WAIT, chỉ khác màu: Scheduled/Done xanh lá đậm hơn, not yet Schedule xanh lá nhạt hơn. <b>Chemical Line / Flybar</b> vẫn chỉ hiển thị Recipe rows, nhưng từ V491 cũng có breakdown trong <b>WAIT · Next Main</b> như mọi khu vực khác. Mỗi dòng breakdown hiển thị <b>← Previous Main · Job · pcs · dm²</b> để planner vừa biết blocker gần nhất vừa biết tải chi tiết. Breakdown chỉ là presentation; classifier LOCKED/READY và điều kiện mở Next Main giữ nguyên: <b>Previous Main có Plan/Batch là đủ mở đúng một Next Main; Schedule chỉ phân loại READY Scheduled hay not yet Schedule</b>.
      <br/><br/>Từ <b>V473</b>, các block Schedule Area được xếp trước theo <b>Physical Area Display Order</b> (<code>md_area.sort_order</code>) của operation pool, sau đó mới theo <b>Main Planning Order</b> sớm nhất và cuối cùng <code>display_order</code> của Schedule Area làm tie-breaker. Với khu gộp nhiều lane/cabin, hiển thị một bảng chung cho operation pool của khu rồi các lane bên dưới dùng chung context đó.
     </Rule>
     <Rule title="Recipe selector theo Schedule Area" tone="important">
@@ -1043,7 +1043,7 @@ export default async function Page(){
    </Section>
 
    <section className="erp-table-panel guide-section">
-    <div className="erp-panel-head"><div><b>New User Training · V490 · Live Database</b><small className="planning-sub">Training và Logic & Hướng dẫn được cập nhật song song. V490 bổ sung cách đọc Workload Summary trên Scheduling Board; classifier WAIT V489 giữ nguyên.</small></div></div>
+    <div className="erp-panel-head"><div><b>New User Training · V491 · Live Database</b><small className="planning-sub">Training và Logic & Hướng dẫn được cập nhật song song. V491 tối giản Workload Summary trên Scheduling Board và mở WAIT Next breakdown cho cả Chemical Line; classifier WAIT V489 giữ nguyên.</small></div></div>
     <div className="lg-body">
      <p>Tab <b>New User Training</b> vẫn đào tạo theory-first, nhưng từ V474 phần minh họa đọc <b>trực tiếp database đang chạy</b>: Operation Mapping, Main Operation, Area/Planner, Process Recipe, Batch Prefix/Sequence/Common Size/Auto Split, Recipe-specific Batch Size, Process Time Rules và một Open Job thật cùng Planning Chain/Batch/Schedule hiện có.</p>
      <p>Trainer có thể nhập <b>Job Number</b> ngay trong Training để học viên trace đúng Job cần đào tạo. Training không tạo logic mới; dữ liệu live chỉ giúp giải thích Source of Truth hiện hành dễ hiểu hơn.</p>
