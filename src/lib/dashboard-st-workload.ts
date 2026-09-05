@@ -9,13 +9,14 @@ import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 //      INTERMEDIATE       -> IMMEDIATE (Dashboard-only ST membership)
 //      ST_SCOPE_ONLY      -> ST ONLY
 // 3) That one-row-per-open-Job population is the inclusion source of truth.
-// 4) Workload cards / Area-Main-Recipe table / Surface Workload chart then expand ONLY those
+// 4) Area-Main-Recipe workload detail / Surface Workload chart then expand ONLY those
 //    included Jobs back to their active Planning Chain occurrences so future LOCKED rows remain WAIT.
 //    Current-position chart and CAT3/CAT5 remain one row per current open Job.
 // INTERMEDIATE remains Dashboard-only and never syncs Planning Chain / Candidate / Batch / Schedule.
 
 export type StDashboardMetric={jobs:number;qty:number;surface:number};
 export type StDashboardWaitNextBreakdown={previousMain:string;metric:StDashboardMetric};
+export type StDashboardReadyRecipeBreakdown={previousMain:string;recipeKey:string;recipeNo:string;recipeName:string;metric:StDashboardMetric};
 export type StDashboardStatus="WAIT"|"READY"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD"|"ST_ONLY";
 
 export type StDashboardRecipeRow={
@@ -34,6 +35,8 @@ export type StDashboardRecipeRow={
  ST_ONLY:StDashboardMetric;
  total:StDashboardMetric;
  waitNextBreakdown:StDashboardWaitNextBreakdown[];
+ readyPrevScheduledBreakdown:StDashboardReadyRecipeBreakdown[];
+ readyPrevUnscheduledBreakdown:StDashboardReadyRecipeBreakdown[];
 };
 
 export type StDashboardMainRow={
@@ -385,6 +388,7 @@ const DASHBOARD_CHAIN_WORKLOAD_SQL=`
     else null
    end wait_level,
    nullif(trim(coalesce(prev_ident.previous_operation,'')),'') previous_main_operation,
+   coalesce(prev_batch.recipe_key,prev_live.recipe_key) previous_recipe_key,
    active_batch.recipe_key batch_recipe_key,
    active_batch.batch_no active_batch_no,
    case
@@ -420,7 +424,7 @@ const DASHBOARD_CHAIN_WORKLOAD_SQL=`
    limit 1
   ) active_schedule on true
   left join lateral (
-   select p2.standard_operation,p2.source_operation_code,p2.source_seq
+   select p2.standard_operation,p2.source_operation_code,p2.source_seq,p2.recipe_key
    from public.planning_job_operation p2
    where p2.job_num=p.job_num
      and p2.is_active=true
@@ -439,7 +443,7 @@ const DASHBOARD_CHAIN_WORKLOAD_SQL=`
     coalesce(nullif(trim(prev_live.source_operation_code),''),nullif(trim(p.previous_source_operation_code_snapshot),'')) previous_source_operation
   ) prev_ident on true
   left join lateral (
-   select hb.id batch_id
+   select hb.id batch_id,hb.recipe_key
    from public.planning_batch_job hbj
    join public.planning_batch hb on hb.id=hbj.batch_id and hb.status<>'CANCELLED'
    left join public.planning_job_operation hp on hp.id=hbj.planning_job_operation_id
@@ -488,6 +492,21 @@ function addWaitNextBreakdown(target:StDashboardWaitNextBreakdown[],previousMain
  const key=text(previousMain)||"START";
  let row=target.find(x=>x.previousMain===key);
  if(!row){row={previousMain:key,metric:zero()};target.push(row);}
+ addMetric(row.metric,metric);
+}
+
+function addReadyRecipeBreakdown(
+ target:StDashboardReadyRecipeBreakdown[],
+ input:{previousMain:string;recipeKey:string;recipeNo:string;recipeName:string},
+ metric:StDashboardMetric
+){
+ const previousMain=text(input.previousMain);
+ if(!previousMain)return; // First Main / START has no upstream recipe to break down.
+ const recipeKey=text(input.recipeKey)||"__NO_RECIPE__";
+ const recipeNo=text(input.recipeNo);
+ const recipeName=text(input.recipeName)||"No Recipe";
+ let row=target.find(x=>x.previousMain===previousMain&&x.recipeKey===recipeKey);
+ if(!row){row={previousMain,recipeKey,recipeNo,recipeName,metric:zero()};target.push(row);}
  addMetric(row.metric,metric);
 }
 
@@ -633,7 +652,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   if(!recipe){
    recipe={
     recipeKey:recipeGroupKey,recipeNo,recipeName,
-    WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero(),waitNextBreakdown:[]
+    WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero(),waitNextBreakdown:[],readyPrevScheduledBreakdown:[],readyPrevUnscheduledBreakdown:[]
    };
    row.recipes.push(recipe);
   }
@@ -646,6 +665,18 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   if(bucket==="READY"){
    const readyKey=text(wr.ready_previous_schedule)==="SCHEDULED"?"READY_PREV_SCHEDULED":"READY_PREV_UNSCHEDULED";
    addMetric(recipe[readyKey],metric);
+   const previousRecipeKey=text(wr.previous_recipe_key);
+   const previousRecipeMeta=previousRecipeKey?recipeMeta.get(previousRecipeKey):null;
+   addReadyRecipeBreakdown(
+    readyKey==="READY_PREV_SCHEDULED"?recipe.readyPrevScheduledBreakdown:recipe.readyPrevUnscheduledBreakdown,
+    {
+     previousMain:text(wr.previous_main_operation),
+     recipeKey:previousRecipeKey,
+     recipeNo:previousRecipeMeta?.recipeNo||"",
+     recipeName:previousRecipeMeta?.recipeName||"No Recipe"
+    },
+    metric
+   );
   }
  }
 
@@ -672,7 +703,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   addMetric(row[bucket],metric);
   let recipe=row.recipes.find(x=>x.recipeKey==="__ST_SCOPE_ONLY__");
   if(!recipe){
-   recipe={recipeKey:"__ST_SCOPE_ONLY__",recipeNo:"",recipeName:"ST Scope Only",WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero(),waitNextBreakdown:[]};
+   recipe={recipeKey:"__ST_SCOPE_ONLY__",recipeNo:"",recipeName:"ST Scope Only",WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero(),waitNextBreakdown:[],readyPrevScheduledBreakdown:[],readyPrevUnscheduledBreakdown:[]};
    row.recipes.push(recipe);
   }
   addMetric(recipe[bucket],metric);
@@ -684,6 +715,9 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   row.total=metrics.reduce((acc,m)=>{addMetric(acc,m);return acc;},zero());
   row.recipes=row.recipes.map(recipe=>{
    recipe.waitNextBreakdown.sort((a,b)=>b.metric.surface-a.metric.surface||b.metric.jobs-a.metric.jobs||a.previousMain.localeCompare(b.previousMain));
+   const sortReadyBreakdown=(a:StDashboardReadyRecipeBreakdown,b:StDashboardReadyRecipeBreakdown)=>b.metric.surface-a.metric.surface||b.metric.jobs-a.metric.jobs||a.previousMain.localeCompare(b.previousMain)||a.recipeNo.localeCompare(b.recipeNo,undefined,{numeric:true})||a.recipeName.localeCompare(b.recipeName);
+   recipe.readyPrevScheduledBreakdown.sort(sortReadyBreakdown);
+   recipe.readyPrevUnscheduledBreakdown.sort(sortReadyBreakdown);
    const rm=[recipe.WAIT,recipe.READY,recipe.PLANNED_UNSCHEDULED,recipe.SCHEDULED,recipe.HOLD,recipe.ST_ONLY];
    recipe.total=rm.reduce((acc,m)=>{addMetric(acc,m);return acc;},zero());
    return recipe;

@@ -533,3 +533,14 @@ Sau khi chỉnh text UI, luôn chạy `npm run i18n:check`. V483 yêu cầu khô
 - Production Change Alerts, handover attention, Daily Production Adjustment và audit hiện tại vẫn giữ nguyên; Chat chỉ là lớp trao đổi/thông báo bổ sung, không duyệt hoặc sửa Planning/Schedule trực tiếp.
 - SQL triển khai: `V495_APPLY_AIVEN.sql` — đúng 4 executable statements.
 - Logic & Guide và Training được cập nhật song song.
+
+---
+
+## V496 · Dashboard Workload Alignment + Scheduling READY Recipe Breakdown
+
+- Dashboard bỏ toàn bộ KPI card; workload chi tiết đọc trực tiếp từ `ST Workload Summary · By Area`.
+- Dashboard sắp xếp cột và dùng màu bucket giống Planning Board: WAIT Next → WAIT Future → READY Scheduled → READY Unscheduled/START → PLANNED-UNSCHEDULED → SCHEDULED → HOLD → ST ONLY → Total.
+- Scheduling Board: ở từng Recipe row, hai cột READY có breakdown theo Recipe của Previous Main (`Previous Main · Previous Recipe No · Job · pcs · dm²`). MAIN TOTAL không breakdown.
+- First Main/START không có previous-recipe breakdown.
+- Không thay đổi logic mở Next Main: Previous Main chỉ cần đã Plan/Batch là đủ mở đúng một Next Main; Schedule chỉ phân loại READY Scheduled/Done hay Not Yet Scheduled.
+- Không có SQL migration mới.

@@ -2670,12 +2670,6 @@
 .erpkit-migrated-page .st-dashboard-head{align-items:center!important}
 .erpkit-migrated-page .st-dashboard-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
 .erpkit-migrated-page .st-dashboard-head-actions>span{color:#758496;font-size:7px;font-variant-numeric:tabular-nums}
-.erpkit-migrated-page .st-dashboard-kpis{display:grid;grid-template-columns:repeat(7,minmax(118px,1fr));gap:6px}
-.erpkit-migrated-page .st-dashboard-kpi{min-height:78px;padding:8px 9px;border:1px solid #dbe3ea;border-radius:5px;background:#fff;display:grid;grid-template-columns:1fr auto;grid-template-rows:auto 1fr 1fr;column-gap:8px;align-items:end;box-shadow:0 1px 2px rgba(16,24,40,.025)}
-.erpkit-migrated-page .st-dashboard-kpi>small{grid-column:1/-1;color:#718093;font-size:6.8px;font-weight:900;letter-spacing:.035em}
-.erpkit-migrated-page .st-dashboard-kpi>b{grid-row:2/4;color:#263f57;font-size:18px;line-height:1;font-variant-numeric:tabular-nums;align-self:center}
-.erpkit-migrated-page .st-dashboard-kpi>span{color:#66788a;font-size:7px;text-align:right;font-variant-numeric:tabular-nums}
-.erpkit-migrated-page .st-dashboard-kpi.total{border-top:3px solid #526b83;background:#f8fafc}.erpkit-migrated-page .st-dashboard-kpi.ready{border-top:3px solid #4b8bc2;background:#f5faff}.erpkit-migrated-page .st-dashboard-kpi.wait{border-top:3px solid #d6a23e;background:#fffaf1}.erpkit-migrated-page .st-dashboard-kpi.unscheduled{border-top:3px solid #7b8da5;background:#f8fafc}.erpkit-migrated-page .st-dashboard-kpi.scheduled{border-top:3px solid #5a82c0;background:#f5f8fd}.erpkit-migrated-page .st-dashboard-kpi.hold{border-top:3px solid #c6675d;background:#fff8f6}
 .erpkit-migrated-page .st-dashboard-note{padding:6px 9px;border:1px solid #e2e7ed;border-radius:4px;background:#fbfcfd;color:#738292;font-size:7px;line-height:1.45}
 .erpkit-migrated-page .st-dashboard-panel{padding:0!important;overflow:hidden!important;background:#fff}
 .erpkit-migrated-page .st-dashboard-main-wrap{max-height:390px;overflow:auto!important;scrollbar-gutter:stable}
@@ -2684,7 +2678,7 @@
 .erpkit-migrated-page .st-dashboard-main-table td{vertical-align:middle}
 .erpkit-migrated-page .st-dashboard-metric-cell{min-width:108px;padding:3px 5px;border-radius:4px;display:grid;grid-template-columns:1fr auto;gap:1px 6px}
 .erpkit-migrated-page .st-dashboard-metric-cell>b{grid-row:1/3;font-size:8px;align-self:center;font-variant-numeric:tabular-nums}.erpkit-migrated-page .st-dashboard-metric-cell>span{font-size:6.5px;color:#6f7e8f;text-align:right;font-variant-numeric:tabular-nums}
-.erpkit-migrated-page .st-dashboard-metric-cell.ready{background:#f1f8ff;color:#155f9c}.erpkit-migrated-page .st-dashboard-metric-cell.wait{background:#fff9ed;color:#8e610f}.erpkit-migrated-page .st-dashboard-metric-cell.unscheduled{background:#f5f7fa;color:#596b7e}.erpkit-migrated-page .st-dashboard-metric-cell.scheduled{background:#f1f5fc;color:#426aa3}.erpkit-migrated-page .st-dashboard-metric-cell.hold{background:#fff3f1;color:#a84d45}.erpkit-migrated-page .st-dashboard-metric-cell.total{background:#f4f6f8;color:#3f5368}
+.erpkit-migrated-page .st-dashboard-metric-cell.ready{background:#f2f8ff;color:#0d5ea8}.erpkit-migrated-page .st-dashboard-metric-cell.wait{background:#fffbf2;color:#945c00}.erpkit-migrated-page .st-dashboard-metric-cell.unscheduled{background:#f5f7fa;color:#596b7e}.erpkit-migrated-page .st-dashboard-metric-cell.scheduled{background:#f1f5fc;color:#426aa3}.erpkit-migrated-page .st-dashboard-metric-cell.hold{background:#fff6f4;color:#b42318}.erpkit-migrated-page .st-dashboard-metric-cell.st-only{background:#f7faf6;color:#587356}.erpkit-migrated-page .st-dashboard-metric-cell.total{background:#f4f6f8;color:#3f5368}
 .erpkit-migrated-page .st-dashboard-chart-panel{min-height:360px}
 .erpkit-migrated-page .st-dashboard-chart-legend{padding:7px 11px;border-bottom:1px solid #e6ebf0;display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;color:#657689;font-size:7px}
 .erpkit-migrated-page .st-dashboard-chart-legend span{display:inline-flex;align-items:center;gap:4px}.erpkit-migrated-page .st-dashboard-chart-legend i{width:9px;height:9px;border-radius:2px;border:1px solid rgba(0,0,0,.06)}
@@ -2702,8 +2696,7 @@
 .erpkit-migrated-page .st-dashboard-priority-table td{vertical-align:middle}.erpkit-migrated-page .st-dashboard-priority-table td small{display:block;margin-top:2px;color:#7d8a98;font-size:6.4px;line-height:1.3}.erpkit-migrated-page .st-dashboard-priority-table td b{font-size:7.4px}
 .erpkit-migrated-page .st-dashboard-priority.cat3>.erp-panel-head{border-left:3px solid #c85b51}.erpkit-migrated-page .st-dashboard-priority.cat5>.erp-panel-head{border-left:3px solid #d39a2e}
 .erpkit-migrated-page .st-dashboard-status-text{font-weight:850}.erpkit-migrated-page .st-dashboard-status-text.ready{color:#1e6aa5}.erpkit-migrated-page .st-dashboard-status-text.wait{color:#94620e}.erpkit-migrated-page .st-dashboard-status-text.scheduled{color:#4e72a5}.erpkit-migrated-page .st-dashboard-status-text.hold{color:#a84740}
-@media(max-width:1450px){.erpkit-migrated-page .st-dashboard-kpis{grid-template-columns:repeat(4,minmax(118px,1fr))}}
-@media(max-width:900px){.erpkit-migrated-page .st-dashboard-kpis{grid-template-columns:repeat(2,minmax(118px,1fr))}.erpkit-migrated-page .st-dashboard-head{align-items:flex-start!important;flex-direction:column}.erpkit-migrated-page .st-dashboard-head-actions{justify-content:flex-start}}
+@media(max-width:900px){.erpkit-migrated-page .st-dashboard-head{align-items:flex-start!important;flex-direction:column}.erpkit-migrated-page .st-dashboard-head-actions{justify-content:flex-start}}
 
 /* v397 — Main Planning workload Recipe breakdown */
 .erpkit-migrated-page .st-dashboard-main-table{min-width:1540px}
@@ -2725,8 +2718,6 @@
 .erpkit-migrated-page .st-dashboard-area-panel{display:block}
 .erpkit-migrated-page .st-dashboard-area-head{border-left:3px solid #526b83;background:#fbfcfd}
 .erpkit-migrated-page .st-dashboard-area-head b{font-size:9px;color:#263f57}
-.erpkit-migrated-page .st-dashboard-area-kpis{padding:8px;border-bottom:1px solid #e4e9ee;background:#fbfcfd}
-.erpkit-migrated-page .st-dashboard-area-kpis .st-dashboard-kpi{min-height:72px}
 .erpkit-migrated-page .st-dashboard-main-wrap{max-height:none!important;overflow-x:auto!important;overflow-y:visible!important;scrollbar-gutter:auto!important}
 .erpkit-migrated-page .st-dashboard-priority-wrap{max-height:none!important;overflow-x:auto!important;overflow-y:visible!important;scrollbar-gutter:auto!important}
 .erpkit-migrated-page .st-dashboard-area-main-table{min-width:1450px}
@@ -2736,8 +2727,6 @@
 .erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-recipe-row td:nth-child(1){text-align:center;color:#8b98a7;width:92px}
 .erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-recipe-row td:nth-child(2){width:92px;white-space:nowrap;text-align:left;color:inherit}
 .erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-recipe-row td:nth-child(3){min-width:220px;max-width:320px;color:#41566c}
-@media(max-width:1450px){.erpkit-migrated-page .st-dashboard-area-kpis{grid-template-columns:repeat(4,minmax(118px,1fr))}}
-@media(max-width:900px){.erpkit-migrated-page .st-dashboard-area-kpis{grid-template-columns:repeat(2,minmax(118px,1fr))}}
 .erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-recipe-row td:nth-child(3){width:auto}
 .erpkit-migrated-page .st-dashboard-area-main-table .st-dashboard-recipe-row td:nth-child(4){min-width:0;max-width:none;color:inherit}
 
@@ -2815,7 +2804,6 @@
 .erpkit-migrated-page .st-dashboard-combo-total-title{fill:#263f57;font-size:6.4px;font-weight:950;letter-spacing:.04em}
 
 /* V421 · Canonical Dashboard population includes Dashboard-only ST Intermediate and ST_SCOPE_ONLY everywhere. */
-.erpkit-migrated-page .st-dashboard-kpi.st-only{border-top:3px solid #738b70;background:#f7faf6}
 .erpkit-migrated-page .st-dashboard-metric-cell.st-only{background:#f3f8f1;color:#526d50}
 .erpkit-migrated-page .st-dashboard-chart-legend i.st-only,.erpkit-migrated-page .st-dashboard-bar-track>.st-only{background:#7e9a78}
 .erpkit-migrated-page .st-dashboard-status-text.st-only{color:#526d50}
@@ -3130,3 +3118,18 @@
 .erpkit-migrated-page .schedule-workload-quick-filter-input .input{height:26px;min-width:105px;padding:3px 6px;font-size:10px;font-weight:400;background:#fff}
 .erpkit-migrated-page .schedule-workload-quick-filter-input .btn{height:26px;min-width:26px;padding:0 5px}
 .erpkit-migrated-page .schedule-workload-quick-summary .btn{margin-left:auto}
+
+
+/* V496 · Dashboard workload alignment + Scheduling READY recipe breakdown. */
+.erpkit-migrated-page .st-dashboard-workload-head.is-wait{background:#fffbf2!important;color:#7f5b14!important}
+.erpkit-migrated-page .st-dashboard-workload-head.is-ready{background:#f2f8ff!important;color:#0d5ea8!important}
+.erpkit-migrated-page .st-dashboard-workload-head.is-unscheduled{background:#f5f7fa!important;color:#596b7e!important}
+.erpkit-migrated-page .st-dashboard-workload-head.is-scheduled{background:#f1f5fc!important;color:#426aa3!important}
+.erpkit-migrated-page .st-dashboard-workload-head.is-hold{background:#fff6f4!important;color:#b42318!important}
+.erpkit-migrated-page .st-dashboard-workload-head.is-st-only{background:#f7faf6!important;color:#587356!important}
+.erpkit-migrated-page .st-dashboard-workload-head.is-total{background:#f4f6f8!important;color:#3f5368!important}
+.erpkit-migrated-page .schedule-area-ready-breakdown{display:grid;gap:2px;margin-top:3px;min-width:220px}
+.erpkit-migrated-page .schedule-area-ready-breakdown>span{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 4px;border:1px solid #cfe3d6;border-radius:3px;background:#f8fcf9;color:#315e42;font-size:6.1px;line-height:1.2}
+.erpkit-migrated-page .schedule-area-ready-breakdown.is-unscheduled>span{border-color:#ddebe1;background:#fbfdfb;color:#607a68}
+.erpkit-migrated-page .schedule-area-ready-breakdown b{font-size:6.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:132px}
+.erpkit-migrated-page .schedule-area-ready-breakdown em{font-style:normal;color:inherit;white-space:nowrap;font-variant-numeric:tabular-nums}

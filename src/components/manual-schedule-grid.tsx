@@ -70,11 +70,12 @@ type Draft={
 
 type ScheduleWorkloadMetric={jobs:number;qty:number;surface:number};
 type ScheduleWaitNextBreakdown={previousMain:string;metric:ScheduleWorkloadMetric};
+type ScheduleReadyRecipeBreakdown={previousMain:string;recipeKey:string;recipeNo:string;recipeName:string;metric:ScheduleWorkloadMetric};
 type ScheduleWorkloadStatus="WAIT_NEXT_MAIN"|"WAIT_FUTURE_MAIN"|"READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD";
 type ScheduleWorkloadRecipeRow={
  recipeKey:string;recipeNo:string;recipeName:string;
  WAIT:ScheduleWorkloadMetric;WAIT_NEXT_MAIN:ScheduleWorkloadMetric;WAIT_FUTURE_MAIN:ScheduleWorkloadMetric;READY:ScheduleWorkloadMetric;READY_PREV_SCHEDULED:ScheduleWorkloadMetric;READY_PREV_UNSCHEDULED:ScheduleWorkloadMetric;PLANNED_UNSCHEDULED:ScheduleWorkloadMetric;SCHEDULED:ScheduleWorkloadMetric;HOLD:ScheduleWorkloadMetric;
- total:ScheduleWorkloadMetric;waitNextBreakdown?:ScheduleWaitNextBreakdown[];
+ total:ScheduleWorkloadMetric;waitNextBreakdown?:ScheduleWaitNextBreakdown[];readyPrevScheduledBreakdown?:ScheduleReadyRecipeBreakdown[];readyPrevUnscheduledBreakdown?:ScheduleReadyRecipeBreakdown[];
 };
 type ScheduleWorkloadMainRow={
  areaId:number;areaName:string;areaSort:number;standardOperation:string;mainOrder:number;
@@ -1293,6 +1294,21 @@ export function ManualScheduleGrid({
    </button>)}
   </div>;
  }
+
+ function workloadReadyRecipeBreakdown(groups:ScheduleReadyRecipeBreakdown[]|undefined,status:"READY_PREV_SCHEDULED"|"READY_PREV_UNSCHEDULED"){
+  const list=(groups||[]).filter(x=>x&&x.metric&&Number(x.metric.jobs||0)>0);
+  if(!list.length)return null;
+  const unscheduled=status==="READY_PREV_UNSCHEDULED";
+  return <div className={`schedule-area-ready-breakdown${unscheduled?" is-unscheduled":""}`} aria-label={`${workloadLabel[status]} breakdown by Previous Main Recipe`}>
+   {list.map((x,index)=>{
+    const recipeLabel=x.recipeNo||"—";
+    const recipeName=x.recipeName||"No Recipe";
+    return <span key={`${x.previousMain}-${x.recipeKey}-${index}`} title={`${x.previousMain} · ${recipeLabel} · ${recipeName} · ${fmt(x.metric.surface)} dm² · ${fmt(x.metric.qty,0)} pcs · ${fmt(x.metric.jobs,0)} Job`}>
+     <b>← {x.previousMain} · {recipeLabel}</b><em>{fmt(x.metric.jobs,0)} Job · {fmt(x.metric.qty,0)} pcs · {fmt(x.metric.surface)} dm²</em>
+    </span>;
+   })}
+  </div>;
+ }
  function renderScheduleAreaWorkload(
   areaName:string,
   allowed:Set<string>,
@@ -1304,8 +1320,17 @@ export function ManualScheduleGrid({
    .filter(row=>allowed.has(String(row.standardOperation||"").trim().toUpperCase()))
    .sort((a,b)=>Number(a.mainOrder||999999)-Number(b.mainOrder||999999)||String(a.standardOperation).localeCompare(String(b.standardOperation)));
   const visibleGroups=compactRecipesOnly?rows.reduce((n,row)=>n+(row.recipes?.length||0),0):rows.length;
-  const statusCell=(metric:ScheduleWorkloadMetric|undefined,status:ScheduleWorkloadStatus,filter:Omit<WorkloadQuickViewFilter,"status"|"previousMain">,breakdown?:ScheduleWaitNextBreakdown[])=>
-   <>{workloadMetric(metric,status,filter)}{status==="WAIT_NEXT_MAIN"&&showWaitNextBreakdown&&workloadWaitNextBreakdown(breakdown,filter)}</>;
+  const statusCell=(
+   metric:ScheduleWorkloadMetric|undefined,
+   status:ScheduleWorkloadStatus,
+   filter:Omit<WorkloadQuickViewFilter,"status"|"previousMain">,
+   options?:{waitNext?:ScheduleWaitNextBreakdown[];readyRecipe?:ScheduleReadyRecipeBreakdown[];showReadyRecipeBreakdown?:boolean}
+  )=>
+   <>
+    {workloadMetric(metric,status,filter)}
+    {status==="WAIT_NEXT_MAIN"&&showWaitNextBreakdown&&workloadWaitNextBreakdown(options?.waitNext,filter)}
+    {options?.showReadyRecipeBreakdown&&(status==="READY_PREV_SCHEDULED"||status==="READY_PREV_UNSCHEDULED")&&workloadReadyRecipeBreakdown(options?.readyRecipe,status)}
+   </>;
 
   return <section className={`schedule-area-st-workload${compactRecipesOnly?" is-recipe-only":""}`}>
    <div className="schedule-area-st-workload-head">
@@ -1322,12 +1347,26 @@ export function ManualScheduleGrid({
         <td>{compactRecipesOnly?<b>{row.standardOperation}</b>:<span className="schedule-area-st-workload-indent">↳</span>}</td>
         <td><b className="mono">{recipe.recipeNo||"—"}</b></td>
         <td>{recipe.recipeName||"No Recipe"}</td>
-        {workloadStatuses.map(status=><td key={status}>{statusCell(recipe[status],status,{areaName,standardOperation:row.standardOperation,recipeKey:recipe.recipeKey,recipeNo:recipe.recipeNo||"",recipeName:recipe.recipeName||""},recipe.waitNextBreakdown)}</td>)}
+        {workloadStatuses.map(status=><td key={status}>{statusCell(
+         recipe[status],
+         status,
+         {areaName,standardOperation:row.standardOperation,recipeKey:recipe.recipeKey,recipeNo:recipe.recipeNo||"",recipeName:recipe.recipeName||""},
+         {
+          waitNext:recipe.waitNextBreakdown,
+          readyRecipe:status==="READY_PREV_SCHEDULED"?recipe.readyPrevScheduledBreakdown:status==="READY_PREV_UNSCHEDULED"?recipe.readyPrevUnscheduledBreakdown:undefined,
+          showReadyRecipeBreakdown:true
+         }
+        )}</td>)}
        </tr>);
        if(compactRecipesOnly)return recipes;
        const main=<tr key={`${rowKey}-main`} className="schedule-area-st-workload-main">
         <td><b>{row.standardOperation}</b></td><td>—</td><td><b>MAIN TOTAL</b><small>{row.recipes?.length||0} Recipe groups</small></td>
-        {workloadStatuses.map(status=><td key={status}>{statusCell(row[status],status,{areaName,standardOperation:row.standardOperation,recipeKey:"",recipeNo:"",recipeName:""},row.waitNextBreakdown)}</td>)}
+        {workloadStatuses.map(status=><td key={status}>{statusCell(
+         row[status],
+         status,
+         {areaName,standardOperation:row.standardOperation,recipeKey:"",recipeNo:"",recipeName:""},
+         {waitNext:row.waitNextBreakdown,showReadyRecipeBreakdown:false}
+        )}</td>)}
        </tr>;
        return [main,...recipes];
       })}
