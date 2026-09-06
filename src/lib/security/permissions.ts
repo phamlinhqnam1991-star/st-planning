@@ -42,7 +42,7 @@ export const ROLE_PRESETS: Record<string, PermissionKey[]> = {
     "guide.view","training.view",
   ],
   SHIFT_SUPERVISOR: [
-    "dashboard.view","jobs.view","production.view","production.report","production.add_job","alerts.view","chat.view","chat.send",
+    "dashboard.view","jobs.view","schedule.view","production.view","production.report","production.add_job","alerts.view","chat.view","chat.send",
     "tracking.view","guide.view","training.view",
   ],
 };

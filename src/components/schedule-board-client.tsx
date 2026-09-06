@@ -276,7 +276,7 @@ function groupByScheduleArea(items:Batch[],areas:ScheduleArea[]){
 }
 
 export default function ScheduleBoardClient({
- batches,resources,operations,recipes,scheduleAreas,handoverAlerts,planner,date
+ batches,resources,operations,recipes,scheduleAreas,handoverAlerts,planner,date,canAcceptRemoval=false
 }:{
  batches:Batch[];
  resources:Resource[];
@@ -286,6 +286,7 @@ export default function ScheduleBoardClient({
  handoverAlerts:HandoverAlert[];
  planner:"1"|"2";
  date:string;
+ canAcceptRemoval?:boolean;
 }){
  const [batchId,setBatchId]=useState("");
  const [resource,setResource]=useState("");
@@ -475,6 +476,22 @@ export default function ScheduleBoardClient({
   }
  }
 
+ async function acceptRemoveAlert(alert:HandoverAlert){
+  setAckBusy(alert.id);
+  try{
+   const r=await fetch(`/api/schedule/handover-alerts/${alert.id}/accept-remove`,{method:"POST",headers:{"content-type":"application/json"}});
+   const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Accept & Remove failed");
+   setAlerts(prev=>prev.map(x=>x.id===alert.id?{...x,status:"ACKNOWLEDGED",acknowledged_at:new Date().toISOString(),acknowledged_by:d?.alert?.acknowledged_by||"Shift"}:x));
+   const totals=d?.batchTotals;
+   if(alert.affected_batch_id&&totals){
+    setLiveBatches(prev=>prev.map(b=>Number(b.id)===Number(alert.affected_batch_id)?{...b,total_jobs:Number(totals.totalJobs??b.total_jobs),total_qty:Number(totals.totalQty??b.total_qty),total_surface_dm2:Number(totals.totalSurface??b.total_surface_dm2),process_minutes:totals.processMinutes==null?b.process_minutes:Number(totals.processMinutes)}:b));
+   }
+   setMsg(d?.already?`Job ${alert.job_num} đã không còn trong ${alert.affected_batch_no||"downstream Batch"}; alert đã đóng.`:`Đã Accept & Remove Job ${alert.job_num} khỏi ${alert.affected_batch_no||"downstream Batch"}.`);
+   window.dispatchEvent(new Event("st-schedule-changed"));
+  }catch(error){setMsg(error instanceof Error?error.message:"Accept & Remove failed");}
+  finally{setAckBusy(null);}
+ }
+
  async function acknowledgeAlert(alertId:number){
   setAckBusy(alertId);
   try{
@@ -580,7 +597,7 @@ export default function ScheduleBoardClient({
          <div className="handover-alert-title">
           <div>
            <strong>{a.impact_level}</strong>
-           <b>{a.change_type==="ADD_JOB"?"Job added":"Job removed"} · {a.job_num}</b>
+           <b>{a.change_type==="ADD_JOB"?"Job added":String(a.note||"").startsWith("PRODUCTION_REMOVE_BEFORE_START:")?"UPSTREAM JOB REMOVED · ACCEPT REQUIRED":"Job removed"} · {a.job_num}</b>
           </div>
           <time>{new Date(a.created_at).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})}</time>
          </div>
@@ -631,14 +648,11 @@ export default function ScheduleBoardClient({
            </button>}
 
           {a.status==="NEW"
-           ? <button
-              type="button"
-              className="btn primary small"
-              disabled={ackBusy===a.id}
-              onClick={()=>acknowledgeAlert(a.id)}
-             >
-              {ackBusy===a.id?"Saving...":"Acknowledge"}
-             </button>
+           ? (a.change_type==="REMOVE_JOB"&&String(a.note||"").startsWith("PRODUCTION_REMOVE_BEFORE_START:")
+              ? (a.impact_level==="CRITICAL"
+                 ? <small className="handover-ack-label handover-conflict-label">CONFLICT · Downstream Batch đã START · cần Supervisor xử lý</small>
+                 : canAcceptRemoval?<button type="button" className="btn primary small" disabled={ackBusy===a.id||!a.affected_batch_id} onClick={()=>acceptRemoveAlert(a)}>{ackBusy===a.id?"Removing...":"Shift Accept & Remove"}</button>:<small className="handover-ack-label">Cần Shift/Planner có quyền để Accept & Remove</small>)
+              : <button type="button" className="btn primary small" disabled={ackBusy===a.id} onClick={()=>acknowledgeAlert(a.id)}>{ackBusy===a.id?"Saving...":"Acknowledge"}</button>)
            : <span className="handover-ack-label">
               ✓ Acknowledged{a.acknowledged_by?` by ${a.acknowledged_by}`:""}
              </span>}

@@ -330,6 +330,11 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
        prevhist.previous_batch_operation,
        prevhist.previous_batch_source_operation,
        prevhist.previous_batch_source_seq,
+       (removedbefore.approved_at is not null) removed_before_start,
+       removedbefore.removed_from_batch_no,
+       removedbefore.removed_from_operation,
+       removedbefore.removed_before_start_reason,
+       removedbefore.removed_before_start_at,
        j.part_num,j.revision_num,j.program,j.priority_type,
        mf.primer1 part_master_primer1,
        mf.primer2 part_master_primer2,
@@ -536,6 +541,30 @@ export async function loadPlanningCandidates(c:any,input:PlanningCandidateQuery)
          hbj.id desc
        limit 1
      ) prevhist on true
+
+     -- V506: durable Production exception marker for the current Main. When a
+     -- Job was unchecked at Production Start Confirmation it is removed from
+     -- that source Batch and recomputed back to this unprocessed Main. Keep the
+     -- source Batch/reason visible on Planning Board so Planner can distinguish
+     -- it from a newly-arrived READY Job.
+     left join lateral (
+       select
+         i.approved_at removed_before_start_at,
+         i.reason removed_before_start_reason,
+         coalesce(nullif(i.proposal_json->>'sourceBatchNo',''),sb.batch_no) removed_from_batch_no,
+         coalesce(nullif(i.proposal_json->>'sourceOperation',''),i.standard_operation) removed_from_operation,
+         i.approved_at
+       from production_adjustment_item i
+       left join planning_batch sb on sb.id=i.batch_id
+       where p.id is not null
+         and i.item_type='REMOVE_JOB'
+         and i.status='APPROVED'
+         and i.approved_by='Production'
+         and i.planning_job_operation_id=p.id
+         and coalesce(i.proposal_json->>'removedBeforeStart','false')='true'
+       order by i.approved_at desc nulls last,i.id desc
+       limit 1
+     ) removedbefore on true
 
 
      -- v283: Route Matrix is lazy-loaded by /api/planning/route-status.

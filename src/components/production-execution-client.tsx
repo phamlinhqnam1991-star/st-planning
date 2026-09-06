@@ -12,6 +12,7 @@ const statusClass=(status:ProductionExecutionStatus)=>status==="DONE"?"done":sta
 
 type GroupFilter="ALL"|ProductionReportGroup;
 type DisplayGroup={key:string;title:string;subtitle:string;rows:ProductionWorkItem[];tone:string;order:number};
+type StartConfirmationState={item:ProductionWorkItem;nextStatus:ProductionExecutionStatus;includedIds:number[]};
 
 export function ProductionExecutionClient({initialItems,productionDate,canReport=false,canAddJob=false}:{initialItems:ProductionWorkItem[];productionDate:string;canReport?:boolean;canAddJob?:boolean}){
  const {locale,text}=useUiLanguage();
@@ -32,6 +33,7 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
  const [busy,setBusy]=useState("");
  const [extraJobByBatch,setExtraJobByBatch]=useState<Record<number,string>>({});
  const [addJobOpenByBatch,setAddJobOpenByBatch]=useState<Record<number,boolean>>({});
+ const [startConfirmation,setStartConfirmation]=useState<StartConfirmationState|null>(null);
 
  const fmt=(v:number,max=2)=>new Intl.NumberFormat(locale==="vi"?"vi-VN":"en-US",{maximumFractionDigits:max}).format(Number(v||0));
  const dt=(v:string|null)=>{
@@ -224,6 +226,13 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
  }
 
  async function setLineExecution(item:ProductionWorkItem,next:ProductionExecutionStatus){
+  // V506: Chemical Line / Painting must confirm the actual loaded Job list before
+  // the first transition out of WAITING. Every Job is checked by default; an
+  // unchecked Job becomes Remove Before Start and creates downstream impacts.
+  if(item.sourceType==="BATCH"&&item.reportMode==="LINE"&&item.status==="WAITING"&&next!=="WAITING"&&item.jobDetails.length){
+   setStartConfirmation({item,nextStatus:next,includedIds:item.jobDetails.map(j=>j.planningJobOperationId)});
+   return;
+  }
   const k=`LINE|${item.sourceType}|${item.sourceKey}`;setBusy(k);
   try{
    const r=await fetch("/api/production-execution",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({
@@ -234,6 +243,41 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
    setItems(prev=>prev.map(x=>x.sourceType===item.sourceType&&x.sourceKey===item.sourceKey?{
     ...x,status:summary.execution_status,actualStart:summary.actual_start||null,actualEnd:summary.actual_end||null,remark:summary.remark||""
    }:x));
+  }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
+  finally{setBusy("");}
+ }
+
+ async function confirmProductionStart(){
+  if(!startConfirmation)return;
+  const {item,nextStatus,includedIds}=startConfirmation;
+  if(item.jobDetails.length&&includedIds.length===0){
+   pushAppToast(text("Keep at least one loaded Job before Start.","Phải giữ lại ít nhất 1 Job đã load trước khi Start."));
+   return;
+  }
+  const k=`LINE|${item.sourceType}|${item.sourceKey}`;setBusy(k);
+  try{
+   const r=await fetch("/api/production-execution/start-confirmation",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
+    sourceKey:item.sourceKey,batchId:item.batchId,scheduleId:item.scheduleId,productionDate,status:nextStatus,
+    includedPlanningJobOperationIds:includedIds,remark:item.remark
+   })});
+   const d=await safeJson(r);if(!r.ok)throw new Error(d?.error||text("Unable to confirm Production Start.","Không xác nhận được Production Start."));
+   const removedRows=Array.isArray(d?.removedJobs)?d.removedJobs:[];
+   const removedIds=new Set<number>(removedRows.map((x:any)=>Number(x.planningJobOperationId)));
+   const removedJobNums=new Set<string>(removedRows.map((x:any)=>String(x.jobNum||"").trim().toUpperCase()).filter(Boolean));
+   const ex=d.execution||{};const totals=d.batchTotals||{};
+   setItems(prev=>prev.map(x=>x.sourceType===item.sourceType&&x.sourceKey===item.sourceKey?{
+    ...x,status:(ex.execution_status||nextStatus) as ProductionExecutionStatus,actualStart:ex.actual_start||new Date().toISOString(),actualEnd:ex.actual_end||null,
+    jobs:Number(totals.totalJobs??(x.jobDetails.length-[...removedIds].length)),qty:Number(totals.totalQty??x.qty),surface:Number(totals.totalSurface??x.surface),
+    jobNumbers:x.jobNumbers.filter(job=>!removedJobNums.has(String(job||"").trim().toUpperCase())),
+    jobDetails:x.jobDetails.filter(j=>!removedIds.has(j.planningJobOperationId))
+   }:x));
+   const removed=Array.isArray(d?.removedJobs)?d.removedJobs:[];
+   const impacts=Array.isArray(d?.impacts)?d.impacts:[];
+   const critical=impacts.filter((x:any)=>x?.alreadyStarted).length;
+   pushAppToast(removed.length
+    ?text(`Started ${item.batchNo}. Removed ${removed.length} not-loaded Job(s); ${impacts.length} downstream impact(s) created${critical?`, ${critical} conflict(s) already started`:""}.`,`Đã Start ${item.batchNo}. Loại ${removed.length} Job chưa load; tạo ${impacts.length} cảnh báo lô phía sau${critical?`, có ${critical} lô đã Start cần xử lý ngoại lệ`:""}.`)
+    :text(`Started ${item.batchNo} with all Jobs confirmed.`,`Đã Start ${item.batchNo}, xác nhận tất cả Job đã load.`));
+   setStartConfirmation(null);router.refresh();
   }catch(e){pushAppToast(e instanceof Error?e.message:String(e));}
   finally{setBusy("");}
  }
@@ -575,5 +619,15 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
    <div className="erp-panel-head production-area-head"><div className="production-area-title"><b>{group.title||"—"}</b><small>{group.subtitle}</small></div></div>
    {group.key.startsWith("MASK_UNMASK|")?SupportWorkTable({rows:group.rows}):WorkTable({rows:group.rows})}
   </section>)}</div>
+
+  {startConfirmation?<div className="production-start-confirm-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setStartConfirmation(null)}}>
+   <section className="production-start-confirm-dialog" role="dialog" aria-modal="true" aria-label={text("Production Start Confirmation","Xác nhận Production Start")}>
+    <header className="production-start-confirm-head"><div><b>{text("Production Start Confirmation","Xác nhận sản xuất trước khi Start lô")}</b><small>{startConfirmation.item.batchNo} · {startConfirmation.item.operation} · {[startConfirmation.item.recipeNo,startConfirmation.item.recipeName].filter(Boolean).join(" · ")||"—"}</small></div><button type="button" className="btn small" disabled={Boolean(busy)} onClick={()=>setStartConfirmation(null)}>×</button></header>
+    <div className="production-start-confirm-note">{text("All Jobs are checked by default. Uncheck any Job that has NOT been loaded. Unchecked Jobs will not be processed in this Batch and downstream Batch impacts will be created for Shift acceptance.","Mặc định tick tất cả Job. Bỏ tick Job nào thực tế CHƯA LOAD. Job bỏ tick sẽ không được process trong lô này và hệ thống tạo cảnh báo các lô Main phía sau để Shift Accept & Remove.")}</div>
+    <div className="production-start-confirm-tools"><label><input type="checkbox" checked={startConfirmation.includedIds.length===startConfirmation.item.jobDetails.length} onChange={e=>setStartConfirmation(v=>v?{...v,includedIds:e.target.checked?v.item.jobDetails.map(j=>j.planningJobOperationId):[]}:v)}/> <b>{text("Select all loaded","Tick tất cả đã load")}</b></label><span>{startConfirmation.includedIds.length}/{startConfirmation.item.jobDetails.length} {text("loaded","đã load")}</span><span className="danger-text">{startConfirmation.item.jobDetails.length-startConfirmation.includedIds.length} {text("remove","remove")}</span></div>
+    <div className="production-start-confirm-table-wrap"><table className="production-start-confirm-table"><thead><tr><th>{text("Loaded","Đã load")}</th><th>Job</th><th>{text("Part Description","Mô tả Part")}</th><th>Qty</th><th>dm²</th><th>{text("Priority","Ưu tiên")}</th><th>{text("Next Operation","Next Operation")}</th></tr></thead><tbody>{startConfirmation.item.jobDetails.map(d=>{const checked=startConfirmation.includedIds.includes(d.planningJobOperationId);return <tr key={d.planningJobOperationId} className={checked?"":"will-remove"}><td><input type="checkbox" checked={checked} onChange={e=>setStartConfirmation(v=>v?{...v,includedIds:e.target.checked?[...v.includedIds,d.planningJobOperationId]:v.includedIds.filter(id=>id!==d.planningJobOperationId)}:v)}/></td><td className="mono"><b>{d.jobNum}</b></td><td>{d.partDescription||"—"}</td><td className="num">{d.currentGoodWipQty==null?"—":fmt(d.currentGoodWipQty,0)}</td><td className="num">{d.totalSurface==null?"—":fmt(d.totalSurface)}</td><td>{d.priority||"—"}</td><td className="mono">{d.nextOperation||"—"}</td></tr>})}</tbody></table></div>
+    <footer className="production-start-confirm-footer"><div>{(()=>{const removed=startConfirmation.item.jobDetails.filter(d=>!startConfirmation.includedIds.includes(d.planningJobOperationId));const q=removed.reduce((n,d)=>n+Number(d.currentGoodWipQty||0),0);const s=removed.reduce((n,d)=>n+Number(d.totalSurface||0),0);return removed.length?<span className="production-remove-summary"><b>{text("REMOVE BEFORE START","REMOVE BEFORE START")}: {removed.length} Job</b> · {fmt(q,0)} pcs · {fmt(s)} dm²</span>:<span>{text("All Jobs will be processed.","Tất cả Job sẽ được process.")}</span>})()}</div><div className="production-start-confirm-actions"><button type="button" className="btn" disabled={Boolean(busy)} onClick={()=>setStartConfirmation(null)}>{text("Cancel","Hủy")}</button><button type="button" className="btn primary" disabled={Boolean(busy)||startConfirmation.includedIds.length===0} onClick={confirmProductionStart}>{busy?text("Saving...","Đang lưu..."):startConfirmation.nextStatus==="DONE"?text("Confirm & Complete","Xác nhận & Hoàn thành"):text("Confirm & Start Batch","Xác nhận & Start lô")}</button></div></footer>
+   </section>
+  </div>:null}
  </div>;
 }

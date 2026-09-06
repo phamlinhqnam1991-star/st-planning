@@ -45,6 +45,25 @@ export async function PATCH(req:Request){
    if(!s.rowCount)throw new Error("Schedule does not belong to this Batch");
   }
 
+  // V506: a Batch with an unresolved upstream Remove Before Start impact must
+  // not begin Production. If the Batch had already started before the impact was
+  // created, later status updates remain allowed and the alert becomes CRITICAL.
+  if(status!=="WAITING"){
+   const startedQ=await c.query(`select actual_start from production_execution where source_type='BATCH' and source_key='BATCH:'||$1::bigint::text limit 1`,[batchId]);
+   if(!startedQ.rows[0]?.actual_start){
+    const impactQ=await c.query(`
+     select id,job_num,source_batch_no,source_standard_operation
+     from planning_handover_change_event
+     where affected_batch_id=$1 and change_type='REMOVE_JOB' and status='NEW' and note like 'PRODUCTION_REMOVE_BEFORE_START:%'
+     order by created_at,id limit 10
+    `,[batchId]);
+    if(impactQ.rowCount){
+     const jobs=impactQ.rows.map((x:any)=>String(x.job_num||"")).filter(Boolean).join(", ");
+     throw new Error(`UPSTREAM IMPACT · ACCEPT REQUIRED. Job ${jobs} đã bị Remove Before Start ở Main trước. Hãy xử lý cảnh báo Điều độ trước khi Start lô.`);
+    }
+   }
+  }
+
   if(reportLevel==="LINE"){
    const lineScope=await c.query(`
     select
@@ -63,6 +82,13 @@ export async function PATCH(req:Request){
    const area=clean(scope.area_name).toUpperCase();
    const allowed=resource.startsWith("FB-")||resource.startsWith("CAB")||resource==="PAINT-POWDER"||resourceGroup==="CHEMICAL_LINE"||resourceGroup==="PAINTING"||resourceGroup==="PAINT_POWDER"||area.includes("CHEMICAL LINE")||area.includes("PAINT")||area.includes("POWDER COATING");
    if(!allowed)throw new Error("Line-level reporting is limited to Chemical Line and Painting");
+
+   // V506: the first transition out of WAITING for Chemical/Painting must go
+   // through Production Start Confirmation, where the actual loaded Job list is confirmed.
+   if(status!=="WAITING"){
+    const current=await c.query(`select execution_status,actual_start from production_execution where source_type=$1 and source_key=$2 for update`,[sourceType,sourceKey]);
+    if(!current.rows[0]?.actual_start)throw new Error("Hãy dùng Production Start Confirmation để xác nhận danh sách Job đã load trước khi Start lô.");
+   }
 
    const pq=await c.query(`
     insert into production_execution(

@@ -598,6 +598,7 @@ export default async function Page({
      handoverAlerts={handoverAlerts as any}
      planner={planner}
      date={date}
+     canAcceptRemoval={Boolean(access?.permissions.has("schedule.edit")||access?.permissions.has("production.add_job"))}
     />
 
     <div className="erp-table-panel section schedule-table-all-planners">

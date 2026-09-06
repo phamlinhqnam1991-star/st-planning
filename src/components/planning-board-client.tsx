@@ -109,6 +109,11 @@ type Candidate={
  previous_batch_operation:string|null;
  previous_batch_source_operation:string|null;
  previous_batch_source_seq:number|null;
+ removed_before_start?:boolean;
+ removed_from_batch_no?:string|null;
+ removed_from_operation?:string|null;
+ removed_before_start_reason?:string|null;
+ removed_before_start_at?:string|null;
 
  // v262/v266: recipe theo CẤU HÌNH HIỆN TẠI (paint Part+Rev → op code ưu tiên).
  effective_recipe_key:string|null;
@@ -3815,7 +3820,7 @@ const currentPriorityMonth=useMemo(()=>{
      case "standard_operation":
       return <td key={key}><b>{x.standard_operation||"—"}</b><small className="planning-sub">{x.area_name||"—"}</small></td>;
      case "job":
-       return <td key={key}><b>{x.job_num}</b></td>;
+       return <td key={key}><b>{x.job_num}</b>{x.removed_before_start?<small className="planning-sub production-removed-source-badge" title={`Production Remove Before Start · ${x.removed_from_batch_no||"—"} · ${x.removed_from_operation||x.standard_operation||"—"}${x.removed_before_start_reason?` · ${x.removed_before_start_reason}`:""}`}>REMOVED FROM PREVIOUS BATCH · {x.removed_from_batch_no||"—"}</small>:null}</td>;
 
      case "part_rev":
        return <td key={key}>

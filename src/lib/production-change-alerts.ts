@@ -1,7 +1,7 @@
 import type {PoolClient} from "pg";
 
 export type ProductionChangeAlert={
- id:number;productionDate:string;createdAt:string;approvedAt:string|null;
+ id:number;productionDate:string;createdAt:string;approvedAt:string|null;changeType:"ADD_JOB"|"REMOVE_JOB";
  batchId:number;batchNo:string;standardOperation:string;recipeNo:string|null;recipeName:string|null;
  jobNum:string;partNum:string;revisionNum:string;partDescription:string;program:string;priority:string;
  qty:number;surface:number;reason:string;validationMessage:string;sourceKind:"DIRECT"|"PROPAGATED";
@@ -19,7 +19,7 @@ const iso=(v:unknown)=>v?new Date(v as any).toISOString():null;
 
 export async function loadProductionChangeAlerts(c:PoolClient,productionDate:string):Promise<ProductionChangeAlert[]>{
  const q=await c.query(`
-  select i.id,s.production_date,i.created_at,i.approved_at,i.batch_id,b.batch_no,b.standard_operation,
+  select i.id,s.production_date,i.created_at,i.approved_at,i.item_type,i.batch_id,b.batch_no,b.standard_operation,
          r.recipe_no,r.recipe_name,i.job_num,i.reason,i.validation_message,i.proposal_json,
          coalesce(j.part_num,i.proposal_json->>'partNum','') part_num,
          coalesce(j.revision_num,i.proposal_json->>'revisionNum','') revision_num,
@@ -45,10 +45,10 @@ export async function loadProductionChangeAlerts(c:PoolClient,productionDate:str
   ) ps on true
   left join lateral(
     select h.* from planning_handover_change_event h
-    where h.source_batch_id=i.batch_id and h.job_num=i.job_num and h.change_type='ADD_JOB' and h.note like 'PRODUCTION_ADD:%'
+    where h.source_batch_id=i.batch_id and h.job_num=i.job_num and h.change_type=i.item_type and ((i.item_type='ADD_JOB' and h.note like 'PRODUCTION_ADD:%') or (i.item_type='REMOVE_JOB' and h.note like 'PRODUCTION_REMOVE_BEFORE_START:%'))
     order by h.created_at desc,h.id desc limit 1
   ) e on true
-  where s.production_date=$1::date and i.item_type='ADD_JOB' and i.status='APPROVED' and i.approved_by='Production'
+  where s.production_date=$1::date and i.item_type in ('ADD_JOB','REMOVE_JOB') and i.status='APPROVED' and i.approved_by='Production'
   order by i.created_at desc,i.id desc
  `,[productionDate]);
  return q.rows.map((x:any)=>{
@@ -60,7 +60,7 @@ export async function loadProductionChangeAlerts(c:PoolClient,productionDate:str
    else if(x.handover_status==="ACKNOWLEDGED")nextMainStatus="ACKNOWLEDGED";
   }else if(sourceKind==="DIRECT")nextMainStatus="NO_NEXT_MAIN";
   return {
-   id:n(x.id),productionDate:String(x.production_date).slice(0,10),createdAt:iso(x.created_at)!,approvedAt:iso(x.approved_at),
+   id:n(x.id),productionDate:String(x.production_date).slice(0,10),createdAt:iso(x.created_at)!,approvedAt:iso(x.approved_at),changeType:txt(x.item_type)==="REMOVE_JOB"?"REMOVE_JOB":"ADD_JOB",
    batchId:n(x.batch_id),batchNo:txt(x.batch_no),standardOperation:txt(x.standard_operation),recipeNo:txt(x.recipe_no)||null,recipeName:txt(x.recipe_name)||null,
    jobNum:txt(x.job_num),partNum:txt(x.part_num),revisionNum:txt(x.revision_num),partDescription:txt(x.part_description),program:txt(x.program),priority:txt(x.priority_type),
    qty:n(x.changed_qty),surface:n(x.changed_surface),reason:txt(x.reason),validationMessage:txt(x.validation_message),sourceKind,

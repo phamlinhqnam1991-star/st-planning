@@ -1010,15 +1010,20 @@ export default async function Page(){
     <Rule title="Phân biệt READY với khả thi về thời gian" tone="warning">Tạo Batch vẫn là handoff Planning và có thể mở Next Main theo Sequential READY trước khi previous Batch được Schedule. Nhưng khi xếp lịch hoặc điều chỉnh Carry Over, lịch thực tế vẫn phải thỏa dependency thời gian giữa Main trước và Main sau.</Rule>
    </Section>
 
-   <Section id="production-change-alerts" title="17 · Cảnh báo thay đổi bởi Sản xuất (V468–V469)"
-    sub="Tab read-only để planner đọc một nơi và hiểu ngay Production đã thay đổi gì ngoài kế hoạch và ảnh hưởng downstream">
+   <Section id="production-change-alerts" title="17 · Cảnh báo thay đổi bởi Sản xuất (V468–V506)"
+    sub="Production Add Job và Remove Before Start đều để lại audit + downstream impact; Điều độ xử lý theo event, không sửa lịch sử âm thầm">
     <div className="lg-key lg-key-2">
-     <Rule title="Nguồn alert">Đọc audit Production Adjustment + Handover Event để gom toàn bộ <b>Production-added Job</b> và các Attention downstream.</Rule>
+     <Rule title="Nguồn alert">Đọc audit Production Adjustment + Handover Event để gom cả <b>Production-added Job</b> và <b>REMOVE BEFORE START</b> cùng các impact downstream.</Rule>
      <Rule title="Thông tin phải đọc được ngay" tone="important">Job/Part/Rev/Qty/Surface; Batch/Main/Recipe/Resource nguồn; Qty Batch trước → sau; Next Main; Planner/Batch/Resource downstream; Planned Start; trạng thái Attention đang chờ / đã nhận / chưa có lô đích.</Rule>
-     <Rule title="Read-only">Tab Alert không tự sửa Batch/Schedule/Production. Planner dùng nó để hiểu thay đổi; thao tác thật vẫn ở Production Execution, Scheduling Board hoặc Daily Production Adjustment.</Rule>
+     <Rule title="Production Start Confirmation · V506" tone="important">Chemical Line và Painting khi rời WAITING lần đầu phải mở danh sách Job của Batch. Mặc định tick tất cả; Job chưa load được untick và ghi <b>REMOVE BEFORE START / NOT LOADED</b>. Batch chỉ Start với population còn tick.</Rule>
+     <Rule title="Downstream Shift Accept · V506" tone="important">Job bị untick không bị xóa âm thầm khỏi lô Main sau. Hệ thống tạo <b>REMOVE_JOB Handover Event</b> cho từng downstream Batch đang chứa Job. Điều độ hiện <b>UPSTREAM JOB REMOVED · ACCEPT REQUIRED</b>; Shift/Planner bấm <b>Shift Accept & Remove</b> mới loại Job khỏi lô đó và recompute Qty/Surface/Process Time.</Rule>
+     <Rule title="Start guard · V506" tone="warning">Batch downstream còn REMOVE impact trạng thái NEW không được Start. Nếu downstream đã START trước khi impact phát sinh, event thành <b>CRITICAL</b> và Accept & Remove bị chặn với CONFLICT để Supervisor xử lý ngoại lệ.</Rule>
+     <Rule title="Audit source Job · V506">Job bị remove quay lại Main chưa process theo Sequential READY. Planning Board gắn badge <b>REMOVED FROM PREVIOUS BATCH</b> kèm Source Batch; audit giữ Source Batch/Main, Qty/Surface, lý do NOT LOADED, thời điểm Production xác nhận và danh sách downstream event.</Rule>
+     <Rule title="Read-only Alert page">Tab Production Change Alerts không tự sửa Batch/Schedule/Production; nó đọc cả ADD_JOB và REMOVE_JOB để các bên hiểu thay đổi. Thao tác Remove downstream thực hiện ở Scheduling Board.</Rule>
      <Rule title="Không mất dấu Job sau reload · V469">Do Batch membership được load lại từ database, Production-added Job vẫn còn dưới Batch và alert vẫn có cơ sở dữ liệu thật sau khi người dùng đổi tab, tạo Batch khác hoặc reload.</Rule>
     </div>
-    <p>Ví dụ: Production thêm <b>J008</b> vào <b>BSA_00001 / BSAUNSLD</b> → hệ thống ghi audit → tìm Next Main <b>PRIMER</b> theo route thật → xác định <b>PRI_00002</b> là Batch downstream phù hợp → tạo Attention cho planner/production ở PRIMER. Nếu downstream chưa có Batch phù hợp, alert vẫn phải cho planner thấy trạng thái <b>chưa có lô Main sau</b>.</p>
+    <p>Ví dụ Add: Production thêm <b>J008</b> vào <b>BSA_00001 / BSAUNSLD</b> → hệ thống ghi audit → tìm Next Main <b>PRIMER</b> theo route thật → tạo Attention cho Batch downstream phù hợp.</p>
+    <p>Ví dụ Remove: trước Start <b>CHM_06SEP_001</b>, Production untick <b>J009</b> vì chưa load → J009 bị remove khỏi lô nguồn và quay lại Main hiện tại → nếu J009 đã nằm trong <b>PRI_07SEP_002</b> và <b>TOP_08SEP_001</b>, cả hai lô nhận REMOVE impact. Mỗi lô phải Accept riêng; lô đã Start trả CONFLICT và không được sửa ngược lịch sử tự động.</p>
    </Section>
 
 
@@ -1036,7 +1041,7 @@ export default async function Page(){
      <>Role mặc định gồm <b>ADMIN</b>, <b>PLANNER</b>, <b>PRODUCTION_OPERATOR</b>, <b>SHIFT_SUPERVISOR</b>. Role chỉ là bộ Permission; Admin vẫn có thể override từng Permission trên từng user.</>,
      <>Planner có thể sửa Planning/Điều độ nhưng chỉ trong <b>PLANNING_MAIN</b> và <b>SCHEDULE_AREA</b> được phân. Scope để trống nghĩa là toàn bộ phạm vi của Permission đó.</>,
      <>Production Operator có <b>production.report</b> để báo WAITING / ON-GOING / DONE, Actual, Note trong khu vực được cấp. Operator <b>không có</b> quyền thêm Job ngoài lô.</>,
-     <>Shift Supervisor có thêm <b>production.add_job</b>. Vì vậy ô nhập Job ngoài lô và nút nhận Job từ Previous Main Attention chỉ xuất hiện/hoạt động khi account có quyền này.</>,
+     <>Shift Supervisor có <b>production.add_job</b> và từ V506 có thêm <b>schedule.view</b> để đọc REMOVE impact trên Điều độ. Nút <b>Shift Accept & Remove</b> dùng production.add_job + Production Area scope; Shift không được quyền sửa lịch chung nếu không có schedule.edit.</>,
      <>Frontend chỉ hiển thị các tab account được xem. Tuy nhiên bảo mật thật nằm ở API: gọi trực tiếp API không đúng Permission/Scope vẫn trả <b>403</b>.</>,
      <>Các thay đổi quản lý user được ghi vào <b>app_audit_log</b>. Password chỉ lưu dạng <b>scrypt hash</b>; session lưu token hash trong <b>app_session</b> và browser dùng cookie HttpOnly. <code>ADMIN_EMAILS</code> + <code>BOOTSTRAP_ADMIN_PASSWORD</code> chỉ dùng để bootstrap Admin đầu tiên; sau đó account/quyền chuẩn nằm trong Aiven.</>
     ]}/>
@@ -1044,7 +1049,7 @@ export default async function Page(){
      <tr><td><b>ADMIN</b></td><td>Toàn bộ hệ thống + Users & Permissions</td><td>Không giới hạn</td></tr>
      <tr><td><b>PLANNER</b></td><td>Planning view/edit, Scheduling view/edit, Production view, Adjustment approve, Alert/Tracker/Guide/Training</td><td>Main Planning + Schedule Area</td></tr>
      <tr><td><b>PRODUCTION_OPERATOR</b></td><td>Production view/report + Alert/Tracker/Guide/Training</td><td>Production Area</td></tr>
-     <tr><td><b>SHIFT_SUPERVISOR</b></td><td>Operator + Add Job ngoài lô / nhận Attention</td><td>Production Area</td></tr>
+     <tr><td><b>SHIFT_SUPERVISOR</b></td><td>Operator + Add Job ngoài lô / nhận Attention + xem Điều độ để Accept Remove impact</td><td>Production Area</td></tr>
     </tbody></table></div>
     <Rule title="Nguyên tắc owner" tone="important">Role trả lời <b>được làm gì</b>; Scope trả lời <b>được làm ở đâu</b>. Hai điều kiện phải cùng đúng mới được sửa dữ liệu.</Rule>
    </Section>
@@ -1054,6 +1059,7 @@ export default async function Page(){
     <Faq q="Vì sao một Job READY nhưng click xong các READY khác bị mờ?" a={<>Bạn đang ở <b>Batch Selection Mode</b>. Main khác bị dim; cùng Main nhưng khác Recipe hoặc không thỏa các condition đang tích cũng bị dim/disable. Clear Selection để thoát mode.</>}/>
     <Faq q="Vì sao Main kế tiếp READY dù Batch trước chưa Schedule?" a={<>Theo Sequential READY hiện tại, Batch <b>PLANNED-UNSCHEDULED</b> đã là handoff Planning hợp lệ. Scheduling là lớp resource/time. Tuy nhiên khi xếp lịch hoặc sau Carry Over, Start Main sau vẫn phải thỏa dependency thời gian với Effective End Main trước.</>}/>
     <Faq q="Production thêm Job ngoài lô có cần approve ở Daily Production Adjustment không?" a={<>Không. Nếu validation hợp lệ, Job được thêm trực tiếp vào Batch, ghi audit và tạo Next Main Attention. Daily Production Adjustment chỉ hiện thông báo/audit cho Extra Job.</>}/>
+    <Faq q="Chemical/Painting có Job chưa load nhưng Batch đã chuẩn bị Start thì làm gì?" a={<>Khi đổi WAITING → ON-GOING/DONE, V506 mở <b>Production Start Confirmation</b>. Bỏ tick Job chưa load rồi xác nhận. Job đó được REMOVE BEFORE START, không advance Main; mọi downstream Batch đang chứa Job nhận REMOVE impact và bị chặn Start đến khi Shift Accept & Remove.</>}/>
     <Faq q="Vì sao Job Production-added phải còn hiện sau khi tôi tạo thêm Batch khác hoặc reload?" a={<>Từ V469, Job membership của tất cả Batch được load từ <code>planning_batch_job</code>, kể cả Painting/Chemical Line report theo Batch. Nếu Job biến mất thì đó là lỗi dữ liệu/API, không phải hành vi mong muốn.</>}/>
     <Faq q="Production thêm Job vào BSA thì PRIMER phía sau biết bằng cách nào?" a={<>V467 dùng route thật của Job để tìm Next Main, sau đó tìm Batch downstream phù hợp dựa trên relationship/overlap Job. Batch PRIMER nhận Attention; Production có thể bấm <b>Thêm Job này</b>. Không hard-code BSA → PRIMER.</>}/>
     <Faq q="Shot Peening đổi End 07:00 → 09:00 nhưng BSAUNSLD của planner khác đang Start 07:30 thì sao?" a={<>Đầu ngày, Carry Over Preview phải đánh dấu dependency conflict và đề xuất dời BSAUNSLD đến sau Effective End của Shot Peening, rồi kiểm tra tiếp resource overlap và các Main sau. Không chỉ sửa riêng Shot Peening.</>}/>
