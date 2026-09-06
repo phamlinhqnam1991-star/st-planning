@@ -14,7 +14,7 @@ type MappingDraft={id:number;standard_operation:string;source_column:string;area
 
 type ConfigPayload={
  ok?:boolean;
- migrationReady?:boolean;
+ migrationReady?:boolean|null;
  warnings?:string[];
  totalPeople?:number;
  areas?:Area[];
@@ -38,7 +38,7 @@ export function MaskingTimeEstimateConfigManager(){
  const [message,setMessage]=useState("");usePopupMessage(message);
  const [busy,setBusy]=useState("");
  const [loading,setLoading]=useState(true);
- const [migrationReady,setMigrationReady]=useState(false);
+ const [migrationReady,setMigrationReady]=useState<boolean|null>(null);
  const [loadWarnings,setLoadWarnings]=useState<string[]>([]);
  const [totalPeople,setTotalPeople]=useState(0);
  const [areas,setAreas]=useState<Area[]>([]);
@@ -55,13 +55,16 @@ export function MaskingTimeEstimateConfigManager(){
  const loadInFlightRef=useRef(false);
  const loadAgainRef=useRef(false);
  const realtimeTimerRef=useRef<number|null>(null);
+ const retryTimerRef=useRef<number|null>(null);
+ const loadFailureCountRef=useRef(0);
+ const localMutationRef=useRef(false);
 
  const applyPayload=useCallback((d:ConfigPayload)=>{
   const nextAreas=Array.isArray(d.areas)?d.areas:[];
   const nextAllocations=Array.isArray(d.allocations)?d.allocations:[];
   const nextTotal=n(d.totalPeople);
   const nextAlloc=Object.fromEntries(nextAllocations.map(x=>[String(x.area_code),String(x.allocated_people??0)]));
-  setMigrationReady(Boolean(d.migrationReady));
+  setMigrationReady(typeof d.migrationReady==="boolean"?d.migrationReady:null);
   setLoadWarnings(Array.isArray(d.warnings)?d.warnings.map(String):[]);
   setTotalPeople(nextTotal);
   setAreas(nextAreas);
@@ -85,9 +88,19 @@ export function MaskingTimeEstimateConfigManager(){
    const r=await fetch("/api/config/masking-time-estimate",{method:"GET",cache:"no-store",headers:{"cache-control":"no-cache"}});
    const d=await safeJson(r) as ConfigPayload;
    if(!r.ok){
-    setLoadWarnings([d.error||`Masking Config API HTTP ${r.status}`]);
+    const details=[d.error,...(Array.isArray(d.warnings)?d.warnings:[])].filter(Boolean).map(String);
+    setLoadWarnings(details.length?details:[`Masking Config API HTTP ${r.status}`]);
+    // V516: HTTP 503 means API/DB availability is unknown, NOT that the 4-query schema is missing.
+    // Preserve the last known schema state and retry gently instead of showing a false migration warning.
+    loadFailureCountRef.current+=1;
+    if(r.status===503&&retryTimerRef.current==null){
+     const delay=Math.min(10000,1500*Math.pow(2,Math.min(3,loadFailureCountRef.current-1)));
+     retryTimerRef.current=window.setTimeout(()=>{retryTimerRef.current=null;void loadData();},delay);
+    }
     return;
    }
+   loadFailureCountRef.current=0;
+   if(retryTimerRef.current!=null){window.clearTimeout(retryTimerRef.current);retryTimerRef.current=null;}
    applyPayload(d);
   }catch(e){
    setLoadWarnings([e instanceof Error?e.message:"Không tải được Masking Time Estimate Config."]);
@@ -96,7 +109,7 @@ export function MaskingTimeEstimateConfigManager(){
    loadInFlightRef.current=false;
    if(loadAgainRef.current){
     loadAgainRef.current=false;
-    window.setTimeout(()=>{void loadData();},120);
+    window.setTimeout(()=>{void loadData();},450);
    }
   }
  },[applyPayload]);
@@ -109,6 +122,9 @@ export function MaskingTimeEstimateConfigManager(){
    const change=(ev as CustomEvent<StRealtimeChange>).detail;
    if(!isStRealtimeChange(change))return;
    if(!change.domains.some(x=>x==="ALL"||x==="CONFIG"||x==="MASTER"||x==="IMPORT"))return;
+   // The local save already performs one explicit reload. Ignore its synchronous
+   // realtime echo so one click cannot generate two competing GET requests.
+   if(localMutationRef.current&&change.path.startsWith("/api/config/masking-time-estimate"))return;
    if(realtimeTimerRef.current!=null)window.clearTimeout(realtimeTimerRef.current);
    realtimeTimerRef.current=window.setTimeout(()=>{realtimeTimerRef.current=null;void loadData();},300);
   };
@@ -116,6 +132,7 @@ export function MaskingTimeEstimateConfigManager(){
   return()=>{
    window.removeEventListener(ST_REALTIME_WINDOW_EVENT,onRealtime);
    if(realtimeTimerRef.current!=null)window.clearTimeout(realtimeTimerRef.current);
+   if(retryTimerRef.current!=null)window.clearTimeout(retryTimerRef.current);
   };
  },[loadData]);
 
@@ -134,8 +151,10 @@ export function MaskingTimeEstimateConfigManager(){
  },[columns,columnSearch]);
 
  async function post(body:Record<string,unknown>,key:string,ok:string):Promise<boolean>{
-  if(!migrationReady){setMessage("Chưa chạy đủ 4 query Masking Estimate V512 trên Aiven.");return false;}
+  if(migrationReady===false){setMessage("Chưa chạy đủ 4 query Masking Estimate V512 trên Aiven.");return false;}
+  if(migrationReady==null){setMessage("Chưa xác nhận được trạng thái Masking Config do API/DB tạm thời unavailable. Hãy tải lại riêng Masking Config.");return false;}
   setBusy(key);setMessage("");
+  localMutationRef.current=true;
   try{
    const r=await fetch("/api/config/masking-time-estimate",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
    const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Không lưu được cấu hình.");
@@ -145,7 +164,7 @@ export function MaskingTimeEstimateConfigManager(){
   }catch(e){
    setMessage(e instanceof Error?e.message:"Không lưu được cấu hình.");
    return false;
-  }finally{setBusy("");}
+  }finally{localMutationRef.current=false;setBusy("");}
  }
 
  async function saveMapping(){
@@ -156,8 +175,9 @@ export function MaskingTimeEstimateConfigManager(){
 
  return <div className="masking-estimate-config-stack">
   {loading&&<div className="notice"><b>Đang tải Masking Time Estimate Config...</b> Trang vẫn giữ nguyên, không refresh toàn bộ.</div>}
-  {!migrationReady&&!loading&&<div className="notice error"><b>Schema Masking Estimate chưa đầy đủ.</b> Hãy chạy đủ <b>4 query V512</b> trên Aiven. Scheduling Board vẫn hoạt động bình thường; chỉ phần Masking Estimate tạm chưa dùng được.</div>}
-  {!!loadWarnings.length&&<div className="notice warning"><b>V514 · Config load diagnostics</b><ul style={{margin:"6px 0 0 18px"}}>{loadWarnings.map((x,i)=><li key={`${i}-${x}`}>{x}</li>)}</ul><div style={{marginTop:8}}><button className="btn small" type="button" disabled={loading} onClick={()=>void loadData()}>Tải lại riêng Masking Config</button></div></div>}
+  {migrationReady===false&&!loading&&<div className="notice error"><b>Schema Masking Estimate chưa đầy đủ.</b> Hãy chạy đủ <b>4 query V512</b> trên Aiven. Scheduling Board vẫn hoạt động bình thường; chỉ phần Masking Estimate tạm chưa dùng được.</div>}
+  {migrationReady==null&&!loading&&!!loadWarnings.length&&<div className="notice warning"><b>Masking Config API/DB tạm thời unavailable.</b> Đây <b>không phải</b> kết luận thiếu 4 query. Hệ thống sẽ tự retry; dữ liệu đã lưu trước đó không bị xóa.</div>}
+  {!!loadWarnings.length&&<div className="notice warning"><b>V516 · Config load diagnostics</b><ul style={{margin:"6px 0 0 18px"}}>{loadWarnings.map((x,i)=><li key={`${i}-${x}`}>{x}</li>)}</ul><div style={{marginTop:8}}><button className="btn small" type="button" disabled={loading} onClick={()=>void loadData()}>Tải lại riêng Masking Config</button></div></div>}
 
   <section className="erp-table-panel section">
    <div className="erp-panel-head"><div><b>Masking Manpower · Physical Area</b><div className="muted">Chỉ dùng để chia person-hours thành thời lượng ước tính. Không phải finite-capacity scheduling.</div></div></div>

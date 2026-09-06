@@ -1,6 +1,6 @@
-# Current patch: V514
+# Current patch: V516
 
-`/masking-time-estimate-config` is now a client data island: the Server Component no longer queries Masking configuration data. Saves and realtime changes reload only the Masking Config API dataset, never the whole page. This removes the duplicate RSC refresh/DB-load path that could crash the page after adding/saving multiple Physical Areas. No business logic change and no new migration.
+`/masking-time-estimate-config` now reuses one PostgreSQL client for authorization + config reads/writes, avoiding a second pool checkout with `DB_POOL_MAX=1`. HTTP 503 is treated as temporary API/DB unavailability, not as proof that the four V512 queries are missing. Local saves suppress their own realtime echo so one save causes one config reload. No business logic change and no new migration.
 
 # V512 — Masking Time Estimate advisory for Scheduling
 
@@ -313,3 +313,10 @@ Internal Chat is stored in Aiven PostgreSQL and is available to the four standar
 - Masking/MSKG columns are sorted first and the UI shows visible/total column counts.
 - Mapping validation uses the same real sources. No SQL migration is required.
 - V512 advisory calculation and all Planning/Scheduling/Production business rules are unchanged.
+
+
+## V516 · Masking Config HTTP 503 / single-connection fix
+- Reuses one caller-owned PostgreSQL client for RBAC + Masking Config GET/POST work.
+- Schema state is tri-state; HTTP 503 no longer shows a false “schema missing” message.
+- Gentle 503 retry/backoff and one reload per local save.
+- No SQL migration required; V512 four-query schema remains canonical.

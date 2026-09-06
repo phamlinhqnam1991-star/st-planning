@@ -1,8 +1,14 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V515";
+export const ST_AI_KNOWLEDGE_VERSION="V516";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
+
+ {
+  key:"masking-config-http503-v516",
+  title:"Masking Config HTTP 503 / single DB client · V516",
+  content:`V516 fixes only Masking Time Estimate Config API stability. The API now acquires one PostgreSQL client and reuses it for RBAC authorization plus Masking configuration reads/writes through getAccessContextWithClient / requireApiPermissionWithClient, avoiding a second pool checkout when Aiven/Vercel DB_POOL_MAX=1. RBAC side reads are sequential on that same client. Client schema state is tri-state: true means the V512 schema is confirmed ready, false means the three Masking tables are genuinely missing, and null means API/schema state is temporarily unknown. Therefore HTTP 503 no longer shows the false "run 4 queries" banner; it shows API/DB unavailable, preserves the last known schema state and retries with backoff. A successful local Masking save suppresses its own realtime echo so one click causes one config reload, while remote tabs still receive the normal CONFIG realtime event. No SQL migration is required. V512 Masking Estimate formula/manpower/mapping and all READY/WAIT, Batch, Schedule, Production, Chat and realtime business rules are unchanged.`
+ },
 
  {
   key:"masking-column-source-v515",

@@ -1,6 +1,6 @@
 import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
-import {requireApiPermission} from "@/lib/security/api";
+import {requireApiPermissionWithClient} from "@/lib/security/api";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const upper=(v:unknown)=>clean(v).toUpperCase();
@@ -23,18 +23,8 @@ async function safeRows<T=Record<string,unknown>>(c:{query:(sql:string,params?:u
  * may fail and the client still receives a renderable payload + diagnostics.
  */
 export async function GET(){
- try{
-  const {denied}=await requireApiPermission("config.view");
-  if(denied)return denied;
- }catch(e){
-  return NextResponse.json({
-   ok:false,migrationReady:false,warnings:[`Không kiểm tra được quyền truy cập: ${errorText(e)}`],
-   totalPeople:0,areas:[],mains:[],columns:[],allocations:[],mappings:[]
-  },{status:503});
- }
-
  const warnings:string[]=[];
- let migrationReady=false;
+ let migrationReady:boolean|null=null;
  let totalPeople=0;
  let areas:Record<string,unknown>[]=[];
  let mains:Record<string,unknown>[]=[];
@@ -44,17 +34,23 @@ export async function GET(){
  let c:any=null;
  try{
   c=await getPool().connect();
+  // V516: authorization reuses the same DB client as the config loader.
+  // With DB_POOL_MAX=1 this prevents a second checkout from competing with
+  // realtime/header/config requests and turning a successful save into HTTP 503.
+  const {denied}=await requireApiPermissionWithClient(c,"config.view");
+  if(denied)return denied;
 
   const schema=await safeRows<any>(c,`select
     to_regclass('public.md_masking_team_setting') is not null as team_ready,
     to_regclass('public.md_masking_area_manpower') is not null as area_ready,
     to_regclass('public.md_main_masking_time_column') is not null as mapping_ready`);
   if(schema.error){
+   migrationReady=null;
    warnings.push(`Không kiểm tra được schema Masking Estimate: ${schema.error}`);
   }else{
    const s=schema.rows[0]||{};
    migrationReady=Boolean(s.team_ready&&s.area_ready&&s.mapping_ready);
-   if(!migrationReady)warnings.push("Schema V512 chưa đầy đủ. Hãy chạy đủ 4 query Masking Estimate trên Aiven.");
+   if(migrationReady===false)warnings.push("Schema V512 chưa đầy đủ. Hãy chạy đủ 4 query Masking Estimate trên Aiven.");
   }
 
   let areaQ=await safeRows<any>(c,`select area_code,area_name,coalesce(sort_order,0) sort_order
@@ -121,7 +117,7 @@ export async function GET(){
     end,source_column`);
   if(columnQ.error)warnings.push(`Không đọc được danh sách cột thật của All Open Job: ${columnQ.error}`); else columns=columnQ.rows;
 
-  if(migrationReady){
+  if(migrationReady===true){
    const totalQ=await safeRows<any>(c,`select total_people from public.md_masking_team_setting where setting_key='DEFAULT' limit 1`);
    if(totalQ.error)warnings.push(`Không đọc được Total Masking People: ${totalQ.error}`); else totalPeople=Number(totalQ.rows[0]?.total_people||0);
 
@@ -149,7 +145,13 @@ export async function GET(){
    if(mapQ.error)warnings.push(`Không đọc được Main → Masking Time Column mapping: ${mapQ.error}`); else mappings=mapQ.rows;
   }
  }catch(e){
-  warnings.push(`Không kết nối/đọc được cấu hình Masking Estimate: ${errorText(e)}`);
+  return NextResponse.json({
+   ok:false,
+   error:`Masking Config API tạm thời không kết nối được PostgreSQL: ${errorText(e)}`,
+   migrationReady:null,
+   warnings,
+   totalPeople:0,areas:[],mains:[],columns:[],allocations:[],mappings:[]
+  },{status:503,headers:{"Cache-Control":"no-store"}});
  }finally{
   c?.release();
  }
@@ -158,16 +160,13 @@ export async function GET(){
 }
 
 export async function POST(req:Request){
- try{
-  const {denied}=await requireApiPermission("config.edit");if(denied)return denied;
- }catch(e){
-  return NextResponse.json({error:`Không kiểm tra được quyền cấu hình: ${errorText(e)}`},{status:503});
- }
  const body=await req.json().catch(()=>({}));
  const action=upper(body.action);
  let c:any=null;
  try{
   c=await getPool().connect();
+  // V516: one client owns both authorization and the mutation.
+  const {denied}=await requireApiPermissionWithClient(c,"config.edit");if(denied)return denied;
   if(action==="SAVE_TOTAL"){
    const total=number(body.total_people);if(total==null)return NextResponse.json({error:"Total People phải >= 0."},{status:400});
    await c.query(`
@@ -257,6 +256,8 @@ export async function POST(req:Request){
  }catch(e){
   const code=String((e as {code?:unknown})?.code||"");
   if(code==="42P01")return NextResponse.json({error:"Chưa chạy đủ 4 query Masking Estimate V512 trên Aiven."},{status:409});
+  if(["53300","57P01","57P02","57P03","08000","08001","08003","08004","08006","08007","08P01"].includes(code)||errorText(e).includes("[db]"))
+   return NextResponse.json({error:`PostgreSQL tạm thời bận/không kết nối được: ${errorText(e)}`},{status:503});
   return NextResponse.json({error:errorText(e)},{status:400});
  }finally{c?.release();}
 }

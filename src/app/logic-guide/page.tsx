@@ -281,6 +281,9 @@ export default async function Page(){
      <Rule title="V511 · Shift Accept chuyển sang Báo cáo sản xuất" tone="important">
       Với <b>REMOVE BEFORE START</b>, Shift Supervisor không còn Accept tại Điều độ. Báo cáo sản xuất của downstream Batch hiển thị <b>Upstream Impact · Shift Action</b> và nút <b>Accept & Remove Job</b>. Điều độ chỉ hiển thị cảnh báo/trạng thái và link sang Báo cáo sản xuất. API Accept yêu cầu <b>production.add_job + Production Area scope</b>; NEW impact vẫn chặn Start và Batch đã Start vẫn là CRITICAL/CONFLICT.
      </Rule>
+     <Rule title="V516 · Masking Config HTTP 503 không còn báo nhầm thiếu schema" tone="important">
+      API <b>Masking Time Estimate Config</b> dùng một PostgreSQL client duy nhất cho cả RBAC và đọc/lưu cấu hình, phù hợp Aiven/Vercel <code>DB_POOL_MAX=1</code>. Trạng thái schema được tách thành <b>READY / MISSING / UNKNOWN</b>; HTTP 503 chỉ là API/DB tạm unavailable, không còn tự hiện sai cảnh báo “chạy đủ 4 query”. Client tự retry có backoff và một lần Save chỉ reload riêng Masking Config một lần; realtime echo của chính thao tác local không tạo request GET thứ hai. Không cần migration mới và không đổi công thức Masking Estimate hay logic Planning/Schedule/Production.
+     </Rule>
      <Rule title="V515 · Masking Time Column lấy từ All Open Job thật" tone="important">
       Dropdown <b>Masking Time Column</b> không còn phụ thuộc việc Open Job Column Values đã Rebuild hay cột đã có giá trị unique. Danh sách là union của <b>header/source_data hiện tại trong All Open Job</b>, các cột chuẩn hóa của <code>open_job_current</code> và Open Job Column Values; cột Masking/MSKG được ưu tiên lên đầu. Save Mapping kiểm tra trên cùng nguồn thật này. Không cần migration mới và không đổi công thức Masking Estimate hay logic Planning/Schedule.
      </Rule>
