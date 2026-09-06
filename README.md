@@ -1,6 +1,6 @@
 # ST Planning Web App
 
-Surface Treatment planning application built with Next.js 16, TypeScript, PostgreSQL/Supabase and Vercel.
+Surface Treatment planning application built with Next.js 16, TypeScript, canonical PostgreSQL (Aiven) and Vercel. Supabase is optional only for legacy Storage/import flows.
 
 ## Runtime modules
 
@@ -14,6 +14,10 @@ Surface Treatment planning application built with Next.js 16, TypeScript, Postgr
 - Part Tracker / Job Tracker
 - Logic & Hướng dẫn
 - Login/Auth
+
+## Global Realtime No-Supabase · V508
+
+All open ST Planning screens self-synchronize without manual Refresh/F5. Same-PC tabs use `BroadcastChannel/localStorage`; cross-device clients use the tiny PostgreSQL `system_change_event` feed and `/api/realtime/change-events` polling (~1.2s). Run migration `086_global_realtime_change_event.sql`. Supabase URL/publishable key are not required for realtime. Business Planning/Batch/Schedule/Production rules are unchanged.
 
 ## Canonical Planning flow
 

@@ -1,3 +1,4 @@
+// V508 Global Realtime No-Supabase: PostgreSQL change-event feed + same-PC BroadcastChannel; all screens self-reconcile without manual F5; business logic unchanged.
 // V501 All Open Jobs Cross Check/Audit: every open source row is checked against canonical Planning Board population with YES/NO + reason; read-only.
 // V500 Dashboard/Scheduling workload presentation: Dashboard Area workload uses READY-first column order; Scheduling workload shows Recipe detail rows only and removes all MAIN TOTAL rows.
 // V495 Internal Chat: shared Aiven-backed team chat + automatic SYSTEM messages for Planning/Scheduling/Production/Adjustment changes; cross-planner impacts are resolved dynamically from Main → Schedule Area → Planner Assignment and highlighted without replacing existing alerts.
@@ -984,9 +985,11 @@ export default async function Page(){
      <>Giai đoạn chuyển đổi đầu tiên copy <b>toàn bộ public schema + toàn bộ public data hiện hành</b> từ Supabase sang Aiven. Chưa xóa history, chưa giảm Routing Detail, chưa dọn index trước khi cutover.</>,
      <>Vì Aiven Free có connection budget nhỏ, Vercel đặt <code>DB_POOL_MAX=1</code> mặc định. Chỉ tăng sau khi đo concurrency thực tế.</>,
      <>Supabase có thể được giữ tạm cho <b>Storage</b> nếu các luồng import cũ còn sử dụng; từ V478 <b>Authentication/RBAC/Session cũng chạy trên Aiven PostgreSQL</b>, không dùng Supabase Auth.</>,
+     <>Từ <b>V508</b>, Global Realtime cũng không dùng Supabase. Mọi mutation thành công ghi một invalidation event rất nhỏ vào <code>system_change_event</code>; máy khác đọc feed này khoảng 1.2 giây/lần, còn nhiều tab cùng máy dùng <code>BroadcastChannel/localStorage</code> gần như tức thời. Không cần <code>NEXT_PUBLIC_SUPABASE_URL</code> hoặc <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> cho realtime.</>,
      <>Chỉ đổi Vercel sang Aiven sau khi restore + row-count verify thành công. Sau cutover ổn định mới thực hiện phase giảm database/index/history.</>
     ]}/>
-    <Rule title="Không đổi nghiệp vụ" tone="important">Provider move không thay Planning Chain READY/WAIT, Recipe Resolver, Batch Compatibility, Previous Main Schedule Lock, Chemical Line proposal/capacity, Masking/Unmasking resolver hay Production Execution.</Rule>
+    <Rule title="Global Realtime No-Supabase · V508" tone="important">Chạy migration <code>086_global_realtime_change_event.sql</code>. Khi Kế hoạch/Điều độ/Báo cáo sản xuất/Batch/Add-Remove Job/Shift Accept/Dashboard/Audit/Import/Master/Config thay đổi, các màn hình đang mở tự reconcile dữ liệu mà người dùng không cần F5. <code>router.refresh()</code> trong provider là RSC soft reconcile tự động, không reload document/browser và không phải thao tác Refresh của người dùng.</Rule>
+    <Rule title="Không đổi nghiệp vụ" tone="important">Provider move và lớp realtime không thay Planning Chain READY/WAIT, Recipe Resolver, Batch Compatibility, Previous Main Schedule Lock, Chemical Line proposal/capacity, Masking/Unmasking resolver hay Production Execution.</Rule>
    </Section>
 
    <Section id="daily-production-adjustment" title="16 · Daily Production Adjustment · Daily Production Reconciliation (V464–V469)"

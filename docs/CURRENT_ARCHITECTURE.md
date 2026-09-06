@@ -1,5 +1,19 @@
 # ST Planning — Current Architecture
 
+## V508 — Global Realtime No-Supabase
+
+`Successful mutation -> local invalidation -> PostgreSQL system_change_event -> every open client reconciles canonical data`
+
+- Aiven PostgreSQL remains the single canonical operational database.
+- Realtime no longer depends on Supabase Realtime, Supabase quota, or Supabase public realtime keys.
+- Every successful mutating `/api/*` request is classified into Planning / Schedule / Production / Dashboard / Audit / Master / Config / Import / Chat / Admin domains.
+- The initiating tab applies the event immediately. Tabs on the same PC receive it through `BroadcastChannel` with `localStorage` fallback.
+- The same tiny event is persisted to `system_change_event`; other PCs/browsers poll only this feed at about 1.2 seconds and automatically reconcile the affected application data.
+- The browser is never F5/reloaded. Next.js `router.refresh()` is used only as an automatic RSC soft reconcile while fine-grained schedule/timeline components keep their existing `st-schedule-changed` loaders.
+- Hidden/offline tabs resume the event cursor on visibility/online and safety-reconcile canonical data, so missed browser timers do not require a manual refresh.
+- Migration `086_global_realtime_change_event.sql` is required. No Supabase environment variable is required for realtime; existing Supabase variables remain optional only for legacy Storage/import paths until separately migrated.
+- No READY/WAIT, Planning Chain, Recipe, Batch, Schedule, Production, Remove Before Start or audit business rule is changed.
+
 ## Canonical flow
 
 1. Import Master Data.

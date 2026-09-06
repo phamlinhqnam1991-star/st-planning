@@ -1,7 +1,7 @@
 export const ST_REALTIME_WINDOW_EVENT="st-realtime-change";
-export const ST_REALTIME_BROWSER_CHANNEL="st-planning-live-v1";
-export const ST_REALTIME_SUPABASE_CHANNEL="st-planning-live-v1";
-export const ST_REALTIME_SUPABASE_EVENT="change";
+export const ST_REALTIME_BROWSER_CHANNEL="st-planning-live-v2";
+export const ST_REALTIME_API_PATH="/api/realtime/change-events";
+export const ST_REALTIME_POLL_MS=1200;
 
 export type StRealtimeDomain=
  |"PLANNING"
@@ -25,6 +25,14 @@ export type StRealtimeChange={
  domains:StRealtimeDomain[];
 };
 
+export type StRealtimeFeedResponse={
+ ok:boolean;
+ migrationInstalled:boolean;
+ authorized?:boolean;
+ latestId:number;
+ events:StRealtimeChange[];
+};
+
 const READ_ONLY_POST_PATHS=[
  "/api/dashboard/ai",
  "/api/schedule/chemical-simulation",
@@ -42,6 +50,7 @@ const READ_ONLY_POST_PATHS=[
 const LOCAL_ONLY_MUTATION_PATHS=[
  "/api/auth/",
  "/api/planning/board-view",
+ "/api/realtime/",
 ];
 
 function normalizedPath(input:RequestInfo|URL){
@@ -86,4 +95,10 @@ export function isStRealtimeChange(value:unknown):value is StRealtimeChange{
  if(!value||typeof value!=="object")return false;
  const x=value as Partial<StRealtimeChange>;
  return typeof x.id==="string"&&typeof x.at==="number"&&typeof x.sourceTabId==="string"&&typeof x.path==="string"&&Array.isArray(x.domains);
+}
+
+export function isStRealtimeFeedResponse(value:unknown):value is StRealtimeFeedResponse{
+ if(!value||typeof value!=="object")return false;
+ const x=value as Partial<StRealtimeFeedResponse>;
+ return typeof x.ok==="boolean"&&typeof x.migrationInstalled==="boolean"&&typeof x.latestId==="number"&&Array.isArray(x.events);
 }
