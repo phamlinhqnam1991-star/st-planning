@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V503";
+export const ST_AI_KNOWLEDGE_VERSION="V504";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -36,7 +36,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"all-open-job-planning-audit",
   title:"All Open Jobs Cross Check / Audit Missing · V501",
-  content:`Cross Check / Audit Missing is a read-only source-to-board reconciliation. Its source population is every open_job_current row with is_open=true, including rows outside ST, so missing-source rows are never silently discarded before diagnosis. Planning Board=YES means the RAW NextOperation belongs to the canonical Planning Board RAW scope (active PLANNING_OPERATION or active Intermediate Bridge, excluding ST_SCOPE_ONLY) and the Job has a live active planning_job_operation occurrence. Planning Board=NO carries a deterministic reason: empty NextOperation, ST_SCOPE_ONLY, outside ST Planning scope/Bridge, missing Source->Main mapping, Intermediate Bridge without resolved chain, no active Planning Chain requiring rebuild/route diagnosis, RAW/chain mismatch, or a final population mismatch. Column filters are diagnostic only. A saved Planning Board VIEW/filter may still hide a Job whose canonical audit result is YES. The audit never rebuilds or mutates Planning Chain, Recipe, Batch, Schedule or Auto Planning.`
+  content:`Cross Check / Audit Missing is a read-only source-to-board reconciliation. Its source population is every open_job_current row with is_open=true, including rows outside ST, so missing-source rows are never silently discarded before diagnosis. Planning Board=YES means the RAW NextOperation belongs to the canonical Planning Board RAW scope (active PLANNING_OPERATION or active Intermediate Bridge, excluding ST_SCOPE_ONLY) and the Job has a live active planning_job_operation occurrence. Planning Board=NO carries a deterministic reason: empty NextOperation, ST_SCOPE_ONLY, outside ST Planning scope/Bridge, missing Source->Main mapping, Intermediate Bridge without resolved chain, no active Planning Chain requiring rebuild/route diagnosis, RAW/chain mismatch, or a final population mismatch. Column filters are diagnostic only. V504 changes categorical Audit filters to multi-select lists populated from unique values in the complete open-job audit population; WIP Qty and Surface dm² are also exact-value multi-select lists, matching the same per-column list behavior. A saved Planning Board VIEW/filter may still hide a Job whose canonical audit result is YES. The audit never rebuilds or mutates Planning Chain, Recipe, Batch, Schedule or Auto Planning.`
  },
  {
   key:"recipe-batch",
@@ -161,3 +161,6 @@ export const V501_ALL_OPEN_JOB_PLANNING_AUDIT = `V501 adds the read-only All Ope
 
 
 export const V503_SCHEDULING_READY_SCHEDULED_NEXT_RECIPE = `V503 changes only Scheduling Board ST Workload Summary presentation/navigation for READY · Previous Main Scheduled / Done. Each Recipe-row READY Scheduled card keeps its canonical current READY Main/Recipe workload total, but the clickable detail breakdown is regrouped by the immediate NEXT Main occurrence and its resolved Recipe, displayed as → Next Main · Next Recipe. Clicking a detail line opens Planning Board Quick View filtered to the same Current Main/Current Recipe/READY bucket plus that Next Main/Next Recipe subset. READY · Previous Main Not Yet Scheduled remains Current READY Main + Current READY Recipe. READY/WAIT classifiers, canonical workload totals, Recipe resolution rules, Batch, Schedule and Auto Planning are unchanged.`;
+
+export const V504_ALL_OPEN_JOB_AUDIT_MULTI_SELECT = `V504 changes only Cross Check / Audit Missing filter UX and query semantics. Planning Board, Job, Part, Revision, Program, Next Operation, Last Operation, Current Main, Board Status, Chain, Import and Reason use multi-select unique-value lists sourced from the full open-job audit population; blank source values are available as (Trống). Multiple selections within one column use OR semantics, while selections across columns continue to use AND semantics. WIP Qty and Surface dm² also use exact-value multi-select lists. Audit population, YES/NO classification, missing reasons, Planning Chain, Recipe, Batch, Schedule and Auto Planning are unchanged.`;
+

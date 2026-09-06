@@ -283,6 +283,9 @@ export default async function Page(){
      <Rule title="V501 · All Open Jobs Cross Check / Audit Missing" tone="important">
       Tab <b>Cross Check / Audit Missing</b> lấy toàn bộ <code>open_job_current.is_open=true</code> làm nguồn đối chiếu. Mỗi Job có cột <b>Planning Board = YES/NO</b>. YES chỉ khi RAW <code>NextOperation</code> thuộc canonical Planning Board scope hiện hành và Job có live <code>planning_job_operation</code> active; NO luôn có <b>Lý do</b> như NextOperation trống, <code>ST_SCOPE_ONLY</code>, ngoài ST Planning Scope/Bridge, thiếu Source → Main Mapping, Intermediate chưa resolve chain, chưa có Planning Chain/Rebuild hoặc RAW/chain mismatch. Đây là màn audit read-only; filter/view cá nhân trên Planning Board có thể tiếp tục ẩn một Job dù audit nền là YES. Audit không tạo/sửa Chain, Recipe, Batch hay Schedule.
      </Rule>
+     <Rule title="V504 · Audit filter multi-select theo danh sách" tone="important">
+      Trên <b>Cross Check / Audit Missing</b>, các cột Planning Board, Job, Part, Revision, Program, Next Operation, Last Operation, Current Main, Board Status, Chain, Import và Lý do dùng <b>multi-select</b> theo danh sách giá trị unique của toàn bộ nguồn audit. Có thể chọn nhiều giá trị trong cùng một cột; các giá trị đó được hiểu là <b>OR</b>, còn giữa các cột vẫn là <b>AND</b>. Giá trị nguồn trống được hiển thị là <b>(Trống)</b>. WIP Qty và Surface dm² cũng là danh sách multi-select theo giá trị exact. Thay đổi này chỉ là filter/read-only, không đổi population YES/NO hoặc bất kỳ logic Planning/Batch/Schedule nào.
+     </Rule>
     </div>
     {Object.keys(liveErrors).length>0&&<div className="notice"><b>Lưu ý:</b> Một số bảng Mapping sống không đọc được; các bảng còn lại vẫn hiển thị dữ liệu thật từ database. Chi tiết lỗi nằm ngay tại bảng tương ứng.</div>}
    </Section>

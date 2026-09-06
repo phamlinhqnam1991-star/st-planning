@@ -13,23 +13,40 @@ export const AUDIT_REASON_LABELS:Record<string,string>={
  NOT_ON_BOARD:"Không thỏa điều kiện population hiện tại của Planning Board",
 };
 
+export type OpenJobBoardAuditFilterValue=string|string[]|undefined;
+
 export type OpenJobBoardAuditFilters={
- board?:string;
- job?:string;
- part?:string;
- revision?:string;
- program?:string;
- nextOperation?:string;
- lastOperation?:string;
- mainOperation?:string;
- planningStatus?:string;
- chainRows?:string;
- qtyMin?:string;
- qtyMax?:string;
- surfaceMin?:string;
- surfaceMax?:string;
- importStatus?:string;
- reason?:string;
+ board?:OpenJobBoardAuditFilterValue;
+ job?:OpenJobBoardAuditFilterValue;
+ part?:OpenJobBoardAuditFilterValue;
+ revision?:OpenJobBoardAuditFilterValue;
+ program?:OpenJobBoardAuditFilterValue;
+ nextOperation?:OpenJobBoardAuditFilterValue;
+ lastOperation?:OpenJobBoardAuditFilterValue;
+ mainOperation?:OpenJobBoardAuditFilterValue;
+ planningStatus?:OpenJobBoardAuditFilterValue;
+ chainRows?:OpenJobBoardAuditFilterValue;
+ wipQty?:OpenJobBoardAuditFilterValue;
+ surface?:OpenJobBoardAuditFilterValue;
+ importStatus?:OpenJobBoardAuditFilterValue;
+ reason?:OpenJobBoardAuditFilterValue;
+};
+
+export type OpenJobBoardAuditFilterOptions={
+ board:string[];
+ job:string[];
+ part:string[];
+ revision:string[];
+ program:string[];
+ nextOperation:string[];
+ lastOperation:string[];
+ mainOperation:string[];
+ planningStatus:string[];
+ chainRows:string[];
+ wipQty:string[];
+ surface:string[];
+ importStatus:string[];
+ reason:string[];
 };
 
 export type OpenJobBoardAuditRow={
@@ -71,6 +88,7 @@ export type OpenJobBoardAuditResult={
  page:number;
  pages:number;
  pageSize:number;
+ filterOptions:OpenJobBoardAuditFilterOptions;
 };
 
 const AUDIT_CTE=`
@@ -138,43 +156,48 @@ with ${RAW_ST_VISIBLE_CTE_SQL}, audit_base as (
 )
 `;
 
+const EMPTY_FILTER_VALUE="__EMPTY__";
+
+function normalizeFilterValues(value:OpenJobBoardAuditFilterValue){
+ const raw=Array.isArray(value)?value:[value];
+ return Array.from(new Set(raw.map(v=>String(v||"").trim()).filter(Boolean)));
+}
+
 function buildFilterWhere(filters:OpenJobBoardAuditFilters){
  const args:any[]=[];
  const where:string[]=[];
- const addLike=(value:string|undefined,sql:string)=>{
-  const v=String(value||"").trim();
-  if(!v)return;
-  args.push(`%${v}%`);
-  where.push(`${sql} ilike $${args.length}`);
+ const addTextMulti=(value:OpenJobBoardAuditFilterValue,sql:string)=>{
+  const values=normalizeFilterValues(value).map(v=>v===EMPTY_FILTER_VALUE?"":v);
+  if(!values.length)return;
+  args.push(values);
+  where.push(`coalesce(nullif(trim(${sql}),''),'') = any($${args.length}::text[])`);
  };
- const board=String(filters.board||"").trim().toUpperCase();
- if(board==="YES"||board==="NO"){
-  args.push(board==="YES");
-  where.push(`a.planning_board=$${args.length}`);
+ const boardValues=normalizeFilterValues(filters.board)
+  .map(v=>v.toUpperCase())
+  .filter(v=>v==="YES"||v==="NO");
+ if(boardValues.length){
+  args.push(boardValues.map(v=>v==="YES"));
+  where.push(`a.planning_board = any($${args.length}::boolean[])`);
  }
- addLike(filters.job,"a.job_num");
- addLike(filters.part,"coalesce(a.part_num,'')");
- addLike(filters.revision,"coalesce(a.revision_num,'')");
- addLike(filters.program,"coalesce(a.program,'')");
- addLike(filters.nextOperation,"coalesce(a.next_operation,'')");
- addLike(filters.lastOperation,"coalesce(a.last_operation,'')");
- addLike(filters.mainOperation,"coalesce(a.current_main_operation,a.mapped_main_operation,'')");
- const planningStatus=String(filters.planningStatus||"").trim().toUpperCase();
- if(planningStatus){args.push(planningStatus);where.push(`upper(coalesce(a.planning_status,''))=$${args.length}`);}
- const chainRows=String(filters.chainRows||"").trim();
- if(chainRows!==""&&Number.isFinite(Number(chainRows))){args.push(Math.max(0,Math.trunc(Number(chainRows))));where.push(`a.chain_rows=$${args.length}`);}
- const qtyMin=String(filters.qtyMin||"").trim();
- if(qtyMin!==""&&Number.isFinite(Number(qtyMin))){args.push(Number(qtyMin));where.push(`coalesce(nullif(a.current_good_wip_qty,0),a.prod_qty,0)>=$${args.length}`);}
- const qtyMax=String(filters.qtyMax||"").trim();
- if(qtyMax!==""&&Number.isFinite(Number(qtyMax))){args.push(Number(qtyMax));where.push(`coalesce(nullif(a.current_good_wip_qty,0),a.prod_qty,0)<=$${args.length}`);}
- const surfaceMin=String(filters.surfaceMin||"").trim();
- if(surfaceMin!==""&&Number.isFinite(Number(surfaceMin))){args.push(Number(surfaceMin));where.push(`coalesce(a.total_surface,0)>=$${args.length}`);}
- const surfaceMax=String(filters.surfaceMax||"").trim();
- if(surfaceMax!==""&&Number.isFinite(Number(surfaceMax))){args.push(Number(surfaceMax));where.push(`coalesce(a.total_surface,0)<=$${args.length}`);}
- const importStatus=String(filters.importStatus||"").trim().toUpperCase();
- if(importStatus){args.push(importStatus);where.push(`upper(coalesce(a.last_import_status,''))=$${args.length}`);}
- const reason=String(filters.reason||"").trim().toUpperCase();
- if(reason){args.push(reason);where.push(`a.reason_code=$${args.length}`);}
+ addTextMulti(filters.job,"a.job_num");
+ addTextMulti(filters.part,"coalesce(a.part_num,'')");
+ addTextMulti(filters.revision,"coalesce(a.revision_num,'')");
+ addTextMulti(filters.program,"coalesce(a.program,'')");
+ addTextMulti(filters.nextOperation,"coalesce(a.next_operation,'')");
+ addTextMulti(filters.lastOperation,"coalesce(a.last_operation,'')");
+ addTextMulti(filters.mainOperation,"coalesce(a.current_main_operation,a.mapped_main_operation,'')");
+ addTextMulti(filters.planningStatus,"upper(coalesce(a.planning_status,''))");
+ const chainValues=normalizeFilterValues(filters.chainRows)
+  .map(v=>Number(v))
+  .filter(v=>Number.isFinite(v)&&v>=0)
+  .map(v=>Math.trunc(v));
+ if(chainValues.length){args.push(chainValues);where.push(`a.chain_rows = any($${args.length}::int[])`);}
+ const wipQtyValues=normalizeFilterValues(filters.wipQty).map(Number).filter(Number.isFinite);
+ if(wipQtyValues.length){args.push(wipQtyValues);where.push(`coalesce(nullif(a.current_good_wip_qty,0),a.prod_qty,0)::numeric = any($${args.length}::numeric[])`);}
+ const surfaceValues=normalizeFilterValues(filters.surface).map(Number).filter(Number.isFinite);
+ if(surfaceValues.length){args.push(surfaceValues);where.push(`coalesce(a.total_surface,0)::numeric = any($${args.length}::numeric[])`);}
+ addTextMulti(filters.importStatus,"upper(coalesce(a.last_import_status,''))");
+ addTextMulti(filters.reason,"a.reason_code");
  return {args,where:where.length?`where ${where.join(" and ")}`:""};
 }
 
@@ -199,6 +222,19 @@ export async function loadOpenJobBoardAudit(
    count(*) filter(where not planning_board)::int planning_no,
    count(*) filter(where reason_code='ST_SCOPE_ONLY')::int st_scope_only,
    count(*) filter(where reason_code in ('MISSING_MAPPING','INTERMEDIATE_NO_CHAIN','NO_CHAIN','RAW_CHAIN_MISMATCH','NOT_ON_BOARD'))::int st_config_or_chain_issue,
+   array_agg(distinct trim(job_num) order by trim(job_num)) filter(where nullif(trim(job_num),'') is not null) filter_job,
+   array_agg(distinct coalesce(nullif(trim(coalesce(part_num,'')),''),'__EMPTY__') order by coalesce(nullif(trim(coalesce(part_num,'')),''),'__EMPTY__')) filter_part,
+   array_agg(distinct coalesce(nullif(trim(coalesce(revision_num,'')),''),'__EMPTY__') order by coalesce(nullif(trim(coalesce(revision_num,'')),''),'__EMPTY__')) filter_revision,
+   array_agg(distinct coalesce(nullif(trim(coalesce(program,'')),''),'__EMPTY__') order by coalesce(nullif(trim(coalesce(program,'')),''),'__EMPTY__')) filter_program,
+   array_agg(distinct coalesce(nullif(trim(coalesce(next_operation,'')),''),'__EMPTY__') order by coalesce(nullif(trim(coalesce(next_operation,'')),''),'__EMPTY__')) filter_next_operation,
+   array_agg(distinct coalesce(nullif(trim(coalesce(last_operation,'')),''),'__EMPTY__') order by coalesce(nullif(trim(coalesce(last_operation,'')),''),'__EMPTY__')) filter_last_operation,
+   array_agg(distinct coalesce(nullif(trim(coalesce(current_main_operation,mapped_main_operation,'')),''),'__EMPTY__') order by coalesce(nullif(trim(coalesce(current_main_operation,mapped_main_operation,'')),''),'__EMPTY__')) filter_main_operation,
+   array_agg(distinct coalesce(nullif(trim(upper(coalesce(planning_status,''))),''),'__EMPTY__') order by coalesce(nullif(trim(upper(coalesce(planning_status,''))),''),'__EMPTY__')) filter_planning_status,
+   array_agg(distinct chain_rows order by chain_rows) filter_chain_rows,
+   array_agg(distinct coalesce(nullif(current_good_wip_qty,0),prod_qty,0) order by coalesce(nullif(current_good_wip_qty,0),prod_qty,0)) filter_wip_qty,
+   array_agg(distinct coalesce(total_surface,0) order by coalesce(total_surface,0)) filter_surface,
+   array_agg(distinct coalesce(nullif(trim(upper(coalesce(last_import_status,''))),''),'__EMPTY__') order by coalesce(nullif(trim(upper(coalesce(last_import_status,''))),''),'__EMPTY__')) filter_import_status,
+   array_agg(distinct reason_code order by reason_code) filter_reason,
    coalesce((
     select jsonb_agg(jsonb_build_object('reason_code',x.reason_code,'n',x.n) order by x.n desc,x.reason_code)
     from (
@@ -248,5 +284,21 @@ export async function loadOpenJobBoardAudit(
    n:Number(r.n||0),
   })),
   rows,total,page:safePage,pages,pageSize:safeSize,
+  filterOptions:{
+   board:["YES","NO"],
+   job:(summary.filter_job||[]).map(String),
+   part:(summary.filter_part||[]).map(String),
+   revision:(summary.filter_revision||[]).map(String),
+   program:(summary.filter_program||[]).map(String),
+   nextOperation:(summary.filter_next_operation||[]).map(String),
+   lastOperation:(summary.filter_last_operation||[]).map(String),
+   mainOperation:(summary.filter_main_operation||[]).map(String),
+   planningStatus:(summary.filter_planning_status||[]).map(String),
+   chainRows:(summary.filter_chain_rows||[]).map((v:any)=>String(v)),
+   wipQty:(summary.filter_wip_qty||[]).map((v:any)=>String(v)),
+   surface:(summary.filter_surface||[]).map((v:any)=>String(v)),
+   importStatus:(summary.filter_import_status||[]).map(String),
+   reason:(summary.filter_reason||[]).map(String),
+  },
  };
 }

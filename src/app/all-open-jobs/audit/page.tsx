@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import {AppTabs,SubTabs} from "@/components/app-tabs";
+import {AuditMultiSelect,type AuditMultiSelectOption} from "@/components/audit-multi-select";
 import {getPool} from "@/lib/db";
 import {
  AUDIT_REASON_LABELS,
@@ -11,20 +12,42 @@ import {
 
 export const dynamic="force-dynamic";
 
+type SearchValue=string|string[]|undefined;
 type SearchParams={
- board?:string;job?:string;part?:string;revision?:string;program?:string;
- next?:string;last?:string;main?:string;pstatus?:string;chain?:string;qtyMin?:string;qtyMax?:string;surfaceMin?:string;surfaceMax?:string;import?:string;reason?:string;p?:string;
+ board?:SearchValue;job?:SearchValue;part?:SearchValue;revision?:SearchValue;program?:SearchValue;
+ next?:SearchValue;last?:SearchValue;main?:SearchValue;pstatus?:SearchValue;chain?:SearchValue;
+ qty?:SearchValue;surface?:SearchValue;import?:SearchValue;reason?:SearchValue;p?:string;
 };
 
-function auditUrl(sp:SearchParams,patch:Record<string,string|number|undefined>={}){
+const EMPTY_FILTER_VALUE="__EMPTY__";
+
+function asArray(value:SearchValue){
+ return Array.isArray(value)?value.filter(Boolean):String(value||"").trim()?[String(value).trim()]:[];
+}
+
+function hasValue(value:SearchValue,target:string){
+ return asArray(value).some(v=>v.toUpperCase()===target.toUpperCase());
+}
+
+function auditUrl(sp:SearchParams,patch:Record<string,string|number|string[]|undefined>={}){
  const q=new URLSearchParams();
- const merged:{[k:string]:any}={...sp,...patch};
+ const merged:{[k:string]:string|number|string[]|undefined}={...sp,...patch};
  for(const [k,v] of Object.entries(merged)){
-  const value=String(v??"").trim();
-  if(value&&!(k==="p"&&value==="1"))q.set(k,value);
+  const values=Array.isArray(v)?v:[v];
+  for(const raw of values){
+   const value=String(raw??"").trim();
+   if(value&&!(k==="p"&&value==="1"))q.append(k,value);
+  }
  }
- const s=q.toString();
- return `/all-open-jobs/audit${s?`?${s}`:""}`;
+ const query=q.toString();
+ return `/all-open-jobs/audit${query?`?${query}`:""}`;
+}
+
+function optionList(values:string[],labeler?:(value:string)=>string):AuditMultiSelectOption[]{
+ return values.map(value=>({
+  value,
+  label:value===EMPTY_FILTER_VALUE?"(Trống)":labeler?labeler(value):value,
+ }));
 }
 
 export default async function Page({searchParams}:{searchParams:Promise<SearchParams>}){
@@ -32,8 +55,8 @@ export default async function Page({searchParams}:{searchParams:Promise<SearchPa
  const filters:OpenJobBoardAuditFilters={
   board:sp.board,job:sp.job,part:sp.part,revision:sp.revision,program:sp.program,
   nextOperation:sp.next,lastOperation:sp.last,mainOperation:sp.main,
-  planningStatus:sp.pstatus,chainRows:sp.chain,qtyMin:sp.qtyMin,qtyMax:sp.qtyMax,
-  surfaceMin:sp.surfaceMin,surfaceMax:sp.surfaceMax,importStatus:sp.import,reason:sp.reason,
+  planningStatus:sp.pstatus,chainRows:sp.chain,wipQty:sp.qty,surface:sp.surface,
+  importStatus:sp.import,reason:sp.reason,
  };
  const requestedPage=Math.max(1,Number(sp.p)||1);
  const c=await getPool().connect();
@@ -71,10 +94,10 @@ export default async function Page({searchParams}:{searchParams:Promise<SearchPa
     </div>
 
     <div className="open-job-audit-reasons section">
-     <Link className={`missing-chip ${!sp.board&&!sp.reason?"active":""}`} href="/all-open-jobs/audit"><b>{Number(summary.total_open||0).toLocaleString("vi-VN")}</b> Tất cả</Link>
-     <Link className={`missing-chip audit-yes-chip ${String(sp.board||"").toUpperCase()==="YES"?"active":""}`} href={auditUrl(sp,{board:"YES",reason:"",p:1})}><b>{Number(summary.planning_yes||0).toLocaleString("vi-VN")}</b> Planning Board YES</Link>
-     <Link className={`missing-chip audit-no-chip ${String(sp.board||"").toUpperCase()==="NO"&&!sp.reason?"active":""}`} href={auditUrl(sp,{board:"NO",reason:"",p:1})}><b>{Number(summary.planning_no||0).toLocaleString("vi-VN")}</b> Planning Board NO</Link>
-     {data.reasons.map((r:OpenJobBoardAuditReason)=><Link key={r.reason_code} className={`missing-chip ${sp.reason===r.reason_code?"active":""}`} href={auditUrl(sp,{board:"NO",reason:r.reason_code,p:1})}><b>{r.n.toLocaleString("vi-VN")}</b> {r.reason}</Link>)}
+     <Link className={`missing-chip ${asArray(sp.board).length===0&&asArray(sp.reason).length===0?"active":""}`} href="/all-open-jobs/audit"><b>{Number(summary.total_open||0).toLocaleString("vi-VN")}</b> Tất cả</Link>
+     <Link className={`missing-chip audit-yes-chip ${hasValue(sp.board,"YES")?"active":""}`} href={auditUrl(sp,{board:"YES",reason:"",p:1})}><b>{Number(summary.planning_yes||0).toLocaleString("vi-VN")}</b> Planning Board YES</Link>
+     <Link className={`missing-chip audit-no-chip ${hasValue(sp.board,"NO")&&asArray(sp.reason).length===0?"active":""}`} href={auditUrl(sp,{board:"NO",reason:"",p:1})}><b>{Number(summary.planning_no||0).toLocaleString("vi-VN")}</b> Planning Board NO</Link>
+     {data.reasons.map((r:OpenJobBoardAuditReason)=><Link key={r.reason_code} className={`missing-chip ${hasValue(sp.reason,r.reason_code)?"active":""}`} href={auditUrl(sp,{board:"NO",reason:r.reason_code,p:1})}><b>{r.n.toLocaleString("vi-VN")}</b> {r.reason}</Link>)}
     </div>
 
     <form method="get" className="erp-table-panel section open-job-audit-panel">
@@ -96,20 +119,20 @@ export default async function Page({searchParams}:{searchParams:Promise<SearchPa
          <th>Import</th><th>Lý do</th><th className="action"></th>
         </tr>
         <tr className="audit-filter-row">
-         <th><select className="input" name="board" defaultValue={sp.board||""}><option value="">All</option><option value="YES">YES</option><option value="NO">NO</option></select></th>
-         <th><input className="input" name="job" defaultValue={sp.job||""} placeholder="Job..."/></th>
-         <th><input className="input" name="part" defaultValue={sp.part||""} placeholder="Part..."/></th>
-         <th><input className="input" name="revision" defaultValue={sp.revision||""} placeholder="Rev..."/></th>
-         <th><input className="input" name="program" defaultValue={sp.program||""} placeholder="Program..."/></th>
-         <th><input className="input" name="next" defaultValue={sp.next||""} placeholder="Next Op..."/></th>
-         <th><input className="input" name="last" defaultValue={sp.last||""} placeholder="Last Op..."/></th>
-         <th><input className="input" name="main" defaultValue={sp.main||""} placeholder="Main..."/></th>
-         <th><select className="input" name="pstatus" defaultValue={sp.pstatus||""}><option value="">All</option><option value="ELIGIBLE">ELIGIBLE</option><option value="LOCKED">LOCKED</option><option value="PLANNED">PLANNED</option><option value="HOLD">HOLD</option></select></th>
-         <th><input className="input" name="chain" type="number" min="0" defaultValue={sp.chain||""} placeholder="= n"/></th>
-         <th><div className="audit-range-filter"><input className="input" name="qtyMin" type="number" defaultValue={sp.qtyMin||""} placeholder="Min"/><input className="input" name="qtyMax" type="number" defaultValue={sp.qtyMax||""} placeholder="Max"/></div></th>
-         <th><div className="audit-range-filter"><input className="input" name="surfaceMin" type="number" step="any" defaultValue={sp.surfaceMin||""} placeholder="Min"/><input className="input" name="surfaceMax" type="number" step="any" defaultValue={sp.surfaceMax||""} placeholder="Max"/></div></th>
-         <th><select className="input" name="import" defaultValue={sp.import||""}><option value="">All</option><option value="NEW">NEW</option><option value="CHANGED">CHANGED</option><option value="UNCHANGED">UNCHANGED</option></select></th>
-         <th><select className="input audit-reason-filter" name="reason" defaultValue={sp.reason||""}><option value="">All reasons</option>{Object.entries(AUDIT_REASON_LABELS).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></th>
+         <th><AuditMultiSelect name="board" options={optionList(data.filterOptions.board)} selected={asArray(sp.board)} placeholder="All" searchPlaceholder="Planning Board..." minWidth={105}/></th>
+         <th><AuditMultiSelect name="job" options={optionList(data.filterOptions.job)} selected={asArray(sp.job)} placeholder="All Jobs" searchPlaceholder="Tìm Job..." minWidth={120}/></th>
+         <th><AuditMultiSelect name="part" options={optionList(data.filterOptions.part)} selected={asArray(sp.part)} placeholder="All Parts" searchPlaceholder="Tìm Part..." minWidth={125}/></th>
+         <th><AuditMultiSelect name="revision" options={optionList(data.filterOptions.revision)} selected={asArray(sp.revision)} placeholder="All Rev" searchPlaceholder="Tìm Rev..." minWidth={95}/></th>
+         <th><AuditMultiSelect name="program" options={optionList(data.filterOptions.program)} selected={asArray(sp.program)} placeholder="All Program" searchPlaceholder="Tìm Program..." minWidth={120}/></th>
+         <th><AuditMultiSelect name="next" options={optionList(data.filterOptions.nextOperation)} selected={asArray(sp.next)} placeholder="All Next Op" searchPlaceholder="Tìm Next Op..." minWidth={125}/></th>
+         <th><AuditMultiSelect name="last" options={optionList(data.filterOptions.lastOperation)} selected={asArray(sp.last)} placeholder="All Last Op" searchPlaceholder="Tìm Last Op..." minWidth={125}/></th>
+         <th><AuditMultiSelect name="main" options={optionList(data.filterOptions.mainOperation)} selected={asArray(sp.main)} placeholder="All Main" searchPlaceholder="Tìm Main..." minWidth={125}/></th>
+         <th><AuditMultiSelect name="pstatus" options={optionList(data.filterOptions.planningStatus)} selected={asArray(sp.pstatus)} placeholder="All Status" searchPlaceholder="Tìm Status..." minWidth={115}/></th>
+         <th><AuditMultiSelect name="chain" options={optionList(data.filterOptions.chainRows)} selected={asArray(sp.chain)} placeholder="All" searchPlaceholder="Chain..." minWidth={80}/></th>
+         <th><AuditMultiSelect name="qty" options={optionList(data.filterOptions.wipQty,value=>Number(value).toLocaleString("vi-VN"))} selected={asArray(sp.qty)} placeholder="All Qty" searchPlaceholder="Tìm Qty..." minWidth={105}/></th>
+         <th><AuditMultiSelect name="surface" options={optionList(data.filterOptions.surface,value=>Number(value).toLocaleString("vi-VN",{maximumFractionDigits:2}))} selected={asArray(sp.surface)} placeholder="All Surface" searchPlaceholder="Tìm Surface..." minWidth={120}/></th>
+         <th><AuditMultiSelect name="import" options={optionList(data.filterOptions.importStatus)} selected={asArray(sp.import)} placeholder="All Import" searchPlaceholder="Tìm Import..." minWidth={110}/></th>
+         <th><AuditMultiSelect name="reason" options={optionList(data.filterOptions.reason,value=>AUDIT_REASON_LABELS[value]||value)} selected={asArray(sp.reason)} placeholder="All reasons" searchPlaceholder="Tìm lý do..." minWidth={250}/></th>
          <th></th>
         </tr>
        </thead>
