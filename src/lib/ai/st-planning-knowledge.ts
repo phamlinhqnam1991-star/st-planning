@@ -1,8 +1,13 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V504";
+export const ST_AI_KNOWLEDGE_VERSION="V507";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
+ {
+  key:"global-realtime-sync",
+  title:"Global realtime synchronization · V507",
+  content:`V507 makes the whole ST Planning app self-synchronize without manual Refresh/F5. Aiven PostgreSQL remains the canonical business database. Supabase Realtime Broadcast is used only as a lightweight cross-device invalidation signal bus, while BroadcastChannel/localStorage synchronize tabs on the same PC. A root StRealtimeProvider intercepts successful mutating API calls, publishes a deduplicated domain event, and receiving clients automatically reconcile canonical data with a debounced Next.js RSC soft refresh plus existing fine-grained schedule loaders. Hidden tabs reconcile when visible again and Realtime reconnection triggers a safety reconcile. No READY/WAIT, Planning Chain, Recipe, Batch, Schedule, Production or V506 Remove Before Start business logic changes. Cross-device instant push requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY; without them same-device tabs still sync but different PCs cannot receive push events.`
+ },
  {
   key:"canonical-flow",
   title:"Canonical ST Planning flow",
