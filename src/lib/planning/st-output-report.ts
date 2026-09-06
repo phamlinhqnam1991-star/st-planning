@@ -1,5 +1,4 @@
 import type {PoolClient} from "pg";
-import {RAW_ST_VISIBLE_CTE_SQL} from "@/lib/planning/raw-st-visible-sql";
 
 export type StOutputSource="CHEMMILL"|"FINAL_ST_OPERATION"|"FINSST_CFINM_VN"|"INTERMEDIATE_NO_CHAIN";
 
@@ -164,7 +163,7 @@ export async function loadStOutputReport(
  const offset=(page-1)*pageSize;
 
  const cte=`
-  with ${RAW_ST_VISIBLE_CTE_SQL}, st_ops as (
+  with st_ops as (
    select upper(trim(operation_code)) operation_code
    from public.md_st_operation_scope
    where is_active=true
@@ -175,16 +174,6 @@ export async function loadStOutputReport(
    from public.md_intermediate_bridge_operation bo
    join public.md_intermediate_bridge_segment bs on bs.id=bo.segment_id and bs.is_active=true
    where nullif(trim(bo.operation_code),'') is not null
-  ), output_st_next_ops as (
-   -- V525: step 2 is explicit ST membership only. Do not require the RAW
-   -- operation itself to be a PLANNING_OPERATION or to have Source->Main
-   -- mapping; valid Bridge Intermediate operations can be ST-tagged as
-   -- INTERMEDIATE and intentionally have no direct Planning mapping.
-   select distinct upper(trim(scope.operation_code)) operation_code
-   from public.md_st_operation_scope scope
-   where scope.is_active=true
-     and scope.operation_type in ('PLANNING_OPERATION','INTERMEDIATE','ST_SCOPE_ONLY')
-     and nullif(trim(scope.operation_code),'') is not null
   ), selected_open_job as (
    select j.*
    from public.open_job_current j
@@ -211,37 +200,21 @@ export async function loadStOutputReport(
      and upper(trim(coalesce(p.standard_operation,'')))<>'PIONBL'
    order by p.job_num,p.planning_seq desc nulls last,p.source_seq desc nulls last,p.id desc
   ), intermediate_no_chain_audit as (
-   -- V525 step 1 mirrors Audit All Open Job reason=INTERMEDIATE_NO_CHAIN.
-   -- Precedence kept from all-open-job-board-audit.ts:
-   -- ST_SCOPE_ONLY and PLANNING_OPERATION missing mapping are not classified
-   -- as INTERMEDIATE_NO_CHAIN.
    select distinct j.job_num
    from selected_open_job j
-   left join active_raw_scope scope
-     on scope.operation_code=upper(trim(coalesce(j.next_operation,'')))
-   left join active_bridge_raw bridge
-     on bridge.operation_code=upper(trim(coalesce(j.next_operation,'')))
-   left join visible_st_raw visible
-     on visible.operation_code=upper(trim(coalesce(j.next_operation,'')))
-   left join lateral (
-    select m.standard_operation_rule,m.id
-    from public.md_st_operation_mapping m
-    where m.is_active=true
-      and upper(trim(m.source_operation_code))=upper(trim(coalesce(j.next_operation,'')))
-    order by m.updated_at desc nulls last,m.id desc
-    limit 1
-   ) map on true
-   where bridge.operation_code is not null
-     and visible.operation_code is not null
-     and coalesce(scope.operation_type,'')<>'ST_SCOPE_ONLY'
-     and not (scope.operation_type='PLANNING_OPERATION' and map.standard_operation_rule is null)
-     and not exists(
-      select 1
-      from public.planning_job_operation p
-      where p.job_num=j.job_num
-        and p.is_active=true
-        and p.status in ('LOCKED','ELIGIBLE','PLANNED')
-     )
+   where exists(
+    select 1
+    from public.md_intermediate_bridge_operation bo
+    join public.md_intermediate_bridge_segment bs on bs.id=bo.segment_id and bs.is_active=true
+    where upper(trim(bo.operation_code))=upper(trim(coalesce(j.next_operation,'')))
+   )
+   and not exists(
+    select 1
+    from public.planning_job_operation p
+    where p.job_num=j.job_num
+      and p.is_active=true
+      and p.status in ('LOCKED','ELIGIBLE','PLANNED')
+   )
   ), raw_rows as (
    select
     case when upper(trim(coalesce(b.standard_operation,p.standard_operation,'')))='CHEMMILL'
@@ -344,14 +317,14 @@ export async function loadStOutputReport(
     j.last_import_batch_id import_batch_id,
     ib.file_name import_file_name,
     coalesce(ib.finished_at,ib.created_at)::text import_time,
-    'Audit INTERMEDIATE_NO_CHAIN, then NextOperation filtered by active explicit ST Scope membership' audit_reason
+    'V523: Intermediate/Bridge ST chưa resolve Planning Chain; NextOperation thuộc ST Output scope' audit_reason
    from selected_open_job j
    join intermediate_no_chain_audit audit on audit.job_num=j.job_num
    left join chain_final cf on cf.job_num=j.job_num
    left join allop_final af on af.job_num=j.job_num
    left join public.open_job_import_batch ib on ib.id=j.last_import_batch_id
    where $5::text in ('ALL','INTERMEDIATE_NO_CHAIN')
-     and exists(select 1 from output_st_next_ops ops where ops.operation_code=upper(trim(coalesce(j.next_operation,''))))
+     and exists(select 1 from st_ops ops where ops.operation_code=upper(trim(coalesce(j.next_operation,''))))
   ), ranked as (
    select
     r.*,
