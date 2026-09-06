@@ -1,8 +1,14 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V514";
+export const ST_AI_KNOWLEDGE_VERSION="V515";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
+
+ {
+  key:"masking-column-source-v515",
+  title:"Masking Time Column source · V515",
+  content:`V515 fixes only the Masking Time Column picker and validation. The picker no longer depends on md_open_job_column_value having been rebuilt or containing a non-empty value for every source header. Available columns are the unique union of the current All Open Job source_data headers, normalized open_job_current columns, and active Open Job Column Values; Masking/MSKG columns are sorted first. Saving a Main Operation -> Masking Time Column mapping validates against the same real All Open Job sources, so a valid source_data header can be selected and saved even before the dictionary is rebuilt. The client defaults to showing all columns and exposes the visible/total count. No SQL migration is required. V512 Masking Estimate formula, manpower, READY/WAIT, Batch, Schedule, Production, Chat and Realtime logic are unchanged.`
+ },
 
  {
   key:"masking-config-stability-v514",

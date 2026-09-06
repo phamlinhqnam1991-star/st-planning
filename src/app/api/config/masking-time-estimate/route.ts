@@ -77,11 +77,49 @@ export async function GET(){
   }
   if(mainQ.error)warnings.push(`Không đọc được Main Operation: ${mainQ.error}`); else mains=mainQ.rows;
 
-  const columnQ=await safeRows<any>(c,`select distinct source_column
-    from public.md_open_job_column_value
-    where coalesce(is_active,true)=true and nullif(trim(source_column),'') is not null
-    order by case when upper(source_column) like '%MASK%' then 0 else 1 end,source_column`);
-  if(columnQ.error)warnings.push(`Không đọc được Open Job Column Values: ${columnQ.error}`); else columns=columnQ.rows;
+  // V515: source-column picker must not depend on Open Job Column Values having
+  // already been rebuilt.  All Open Job source_data preserves the real Excel
+  // headers (including columns whose values are currently blank), so union the
+  // dictionary + real JSON keys + normalized open_job_current columns.
+  const columnQ=await safeRows<any>(c,`select source_column
+    from (
+      select distinct trim(source_column)::text as source_column
+      from public.md_open_job_column_value
+      where coalesce(is_active,true)=true
+        and nullif(trim(source_column),'') is not null
+
+      union
+
+      select distinct trim(k.key)::text as source_column
+      from (
+        select source_data
+        from public.open_job_current
+        where coalesce(is_open,true)=true and source_data is not null
+        order by last_seen_at desc nulls last,updated_at desc nulls last
+        limit 1
+      ) j
+      cross join lateral jsonb_object_keys(coalesce(j.source_data,'{}'::jsonb)) as k(key)
+      where nullif(trim(k.key),'') is not null
+
+      union
+
+      select column_name::text as source_column
+      from information_schema.columns
+      where table_schema='public'
+        and table_name='open_job_current'
+        and column_name not in (
+          'job_num','is_open','last_import_status','first_seen_at','last_seen_at',
+          'last_changed_at','closed_at','last_import_batch_id','updated_at',
+          'source_hash','source_data'
+        )
+    ) x
+    where nullif(trim(source_column),'') is not null
+    order by case
+      when upper(source_column) like '%MASKING_TIME%' then 0
+      when upper(source_column) like '%MSKG%' or upper(source_column) like '%MASK%' then 1
+      else 2
+    end,source_column`);
+  if(columnQ.error)warnings.push(`Không đọc được danh sách cột thật của All Open Job: ${columnQ.error}`); else columns=columnQ.rows;
 
   if(migrationReady){
    const totalQ=await safeRows<any>(c,`select total_people from public.md_masking_team_setting where setting_key='DEFAULT' limit 1`);
@@ -169,10 +207,31 @@ export async function POST(req:Request){
    // Keep these reads sequential on the same client. Aiven/Vercel commonly runs DB_POOL_MAX=1.
    const mainQ=await c.query(`select 1 from public.md_operation_master where upper(trim(standard_operation))=upper(trim($1::text)) and coalesce(is_active,true)=true limit 1`,[standardOperation]);
    const areaQ=await c.query(`select 1 from public.md_area where area_code=$1 and coalesce(is_active,true)=true limit 1`,[areaCode]);
-   const columnQ=await c.query(`select 1 from public.md_open_job_column_value where source_column=$1 limit 1`,[sourceColumn]);
+   const columnQ=await c.query(`select 1
+     where exists(
+       select 1 from public.md_open_job_column_value
+       where trim(source_column)=trim($1::text)
+     )
+     or exists(
+       select 1
+       from (
+         select source_data
+         from public.open_job_current
+         where coalesce(is_open,true)=true and source_data is not null
+         order by last_seen_at desc nulls last,updated_at desc nulls last
+         limit 1
+       ) j
+       where coalesce(j.source_data,'{}'::jsonb) ? $1::text
+     )
+     or exists(
+       select 1 from information_schema.columns
+       where table_schema='public' and table_name='open_job_current'
+         and trim(column_name)=trim($1::text)
+     )
+     limit 1`,[sourceColumn]);
    if(!mainQ.rowCount)return NextResponse.json({error:"Main Operation không tồn tại hoặc đã ngưng."},{status:400});
    if(!areaQ.rowCount)return NextResponse.json({error:"Physical Area không tồn tại hoặc đã ngưng."},{status:400});
-   if(!columnQ.rowCount)return NextResponse.json({error:"Cột này chưa có trong Open Job Column Values. Hãy rebuild danh sách cột trước."},{status:400});
+   if(!columnQ.rowCount)return NextResponse.json({error:"Không tìm thấy cột này trong All Open Job hiện tại."},{status:400});
    if(id>0){
     await c.query(`
      update public.md_main_masking_time_column

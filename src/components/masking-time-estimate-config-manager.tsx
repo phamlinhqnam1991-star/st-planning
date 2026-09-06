@@ -50,7 +50,7 @@ export function MaskingTimeEstimateConfigManager(){
  const [alloc,setAlloc]=useState<Record<string,string>>({});
  const [areaPick,setAreaPick]=useState("");
  const [mappingDraft,setMappingDraft]=useState<MappingDraft>(blankMapping());
- const [columnSearch,setColumnSearch]=useState("mask");
+ const [columnSearch,setColumnSearch]=useState("");
  const [mainSearch,setMainSearch]=useState("");
  const loadInFlightRef=useRef(false);
  const loadAgainRef=useRef(false);
@@ -191,7 +191,7 @@ export function MaskingTimeEstimateConfigManager(){
     <label>Time Basis<select className="input" value={mappingDraft.time_basis} onChange={e=>setMappingDraft(v=>({...v,time_basis:e.target.value==="PER_PIECE"?"PER_PIECE":"JOB_TOTAL"}))}><option value="JOB_TOTAL">JOB TOTAL · giá trị đã là tổng của Job</option><option value="PER_PIECE">PER PIECE · nhân Qty của Job</option></select></label>
     <label>Đơn vị cột<select className="input" value={mappingDraft.value_unit} onChange={e=>setMappingDraft(v=>({...v,value_unit:e.target.value==="MINUTES"?"MINUTES":"HOURS"}))}><option value="HOURS">Hours</option><option value="MINUTES">Minutes</option></select></label>
     <label className="masking-column-search">Tìm cột thời gian<input className="input" value={columnSearch} onChange={e=>setColumnSearch(e.target.value)} placeholder="mask / MSKG-AND / primer..."/></label>
-    <label className="masking-column-select">Masking Time Column<select className="input" value={mappingDraft.source_column} onChange={e=>setMappingDraft(v=>({...v,source_column:e.target.value}))}><option value="">Chọn cột All Open Job...</option>{filteredColumns.map(x=><option key={x} value={x}>{x}</option>)}</select><small className="muted">Danh sách lấy từ Open Job Column Values, không hard-code tên cột.</small></label>
+    <label className="masking-column-select">Masking Time Column<select className="input" value={mappingDraft.source_column} onChange={e=>setMappingDraft(v=>({...v,source_column:e.target.value}))}><option value="">Chọn cột All Open Job...</option>{filteredColumns.map(x=><option key={x} value={x}>{x}</option>)}</select><small className="muted">{filteredColumns.length}/{columns.length} cột · lấy từ header/source_data thật của All Open Job + Open Job Column Values. Cột Masking được ưu tiên ở đầu danh sách.</small></label>
     <label>Sort<input className="input mono" type="number" value={mappingDraft.sort_order} onChange={e=>setMappingDraft(v=>({...v,sort_order:Number(e.target.value)||100}))}/></label>
     <div className="masking-map-actions"><button className="btn primary" type="button" disabled={!!busy||loading} onClick={()=>void saveMapping()}>{busy.startsWith("map-")?"Đang lưu...":mappingDraft.id?"Cập nhật Mapping":"+ Thêm Mapping"}</button>{mappingDraft.id>0&&<button className="btn" type="button" onClick={()=>setMappingDraft(blankMapping())}>Hủy sửa</button>}</div>
    </div>

@@ -306,3 +306,10 @@ Client ERP components must import from `@/components/erp/client`. `ErpAppHeader`
 
 ## V495 · Internal Chat
 Internal Chat is stored in Aiven PostgreSQL and is available to the four standard RBAC roles. Core operational commits emit best-effort SYSTEM notifications; cross-planner impact is resolved dynamically from Main → Schedule Area → Planner Assignment and highlighted in the shared chat. Existing Production Change Alerts, handover events, Daily Adjustment and audit remain unchanged. Apply `V495_APPLY_AIVEN.sql` before deployment.
+
+## V515 · Masking Time Column source fix
+- Masking Config dropdown now reads real current All Open Job headers from `source_data`, normalized `open_job_current` columns, and Open Job Column Values together.
+- It no longer requires a dictionary rebuild before a real All Open Job column can be selected.
+- Masking/MSKG columns are sorted first and the UI shows visible/total column counts.
+- Mapping validation uses the same real sources. No SQL migration is required.
+- V512 advisory calculation and all Planning/Scheduling/Production business rules are unchanged.
