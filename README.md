@@ -1,3 +1,7 @@
+# Current patch: V513
+
+`/masking-time-estimate-config` is fail-safe: partial/missing V512 config schema or an individual config query no longer crashes the full page. No business logic change and no new migration.
+
 # V512 — Masking Time Estimate advisory for Scheduling
 
 V512 adds a read-only/advisory Masking Time Estimate layer to Scheduling. Planner configures Main Operation → All Open Job masking-time column and masking manpower by Physical Area. Batch person-hours are summed from the Jobs already in the Batch, divided by configured people, and combined with the latest known Previous Main planned end to show Estimated Masking Duration / Ready time. Scheduled starts earlier than the estimate are highlighted as `MASKING NOT READY`, but nothing is blocked. Migration `088_masking_time_estimate_advisory.sql` is required. V511 Shift Accept, V510 Chat and V509 Global Realtime remain unchanged.

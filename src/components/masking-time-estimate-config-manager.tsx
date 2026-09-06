@@ -18,7 +18,7 @@ const blankMapping=():MappingDraft=>({id:0,standard_operation:"",source_column:"
 const displayMain=(v:string)=>v.toUpperCase()==="PRIMER"?"PRIMER1":v;
 const n=(v:unknown)=>{const x=Number(v);return Number.isFinite(x)?x:0;};
 
-export function MaskingTimeEstimateConfigManager({migrationReady,totalPeople,areas,mains,columns,allocations,mappings}:{migrationReady:boolean;totalPeople:number;areas:Area[];mains:Main[];columns:Column[];allocations:Allocation[];mappings:Mapping[]}){
+export function MaskingTimeEstimateConfigManager({migrationReady,loadWarnings,totalPeople,areas,mains,columns,allocations,mappings}:{migrationReady:boolean;loadWarnings?:string[];totalPeople:number;areas:Area[];mains:Main[];columns:Column[];allocations:Allocation[];mappings:Mapping[]}){
  const router=useRouter();
  const [message,setMessage]=useState("");usePopupMessage(message);
  const [busy,setBusy]=useState("");
@@ -60,7 +60,8 @@ export function MaskingTimeEstimateConfigManager({migrationReady,totalPeople,are
  }
 
  return <div className="masking-estimate-config-stack">
-  {!migrationReady&&<div className="notice error"><b>Chưa có schema V512.</b> Chạy <code>088_masking_time_estimate_advisory.sql</code> trên Aiven trước. Scheduling Board vẫn hoạt động bình thường nhưng chưa có Masking Estimate.</div>}
+  {!migrationReady&&<div className="notice error"><b>Schema Masking Estimate chưa đầy đủ.</b> Hãy chạy đủ <b>4 query V512</b> trên Aiven. Scheduling Board vẫn hoạt động bình thường; chỉ phần Masking Estimate tạm chưa dùng được.</div>}
+  {!!loadWarnings?.length&&<div className="notice warning"><b>V513 · Config load diagnostics</b><ul style={{margin:"6px 0 0 18px"}}>{loadWarnings.map((x,i)=><li key={`${i}-${x}`}>{x}</li>)}</ul></div>}
 
   <section className="erp-table-panel section">
    <div className="erp-panel-head"><div><b>Masking Manpower · Physical Area</b><div className="muted">Chỉ dùng để chia person-hours thành thời lượng ước tính. Không phải finite-capacity scheduling.</div></div></div>
