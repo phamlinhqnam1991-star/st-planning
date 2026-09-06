@@ -50,6 +50,7 @@ export const ROLE_PRESETS: Record<string, PermissionKey[]> = {
 export const PAGE_PERMISSION: Record<string, PermissionKey> = {
   dashboard:"dashboard.view",
   jobs:"jobs.view",
+  output:"jobs.view",
   planning:"planning.view",
   schedule:"schedule.view",
   production:"production.view",

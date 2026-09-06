@@ -9,6 +9,7 @@ export type StErpLeafKey=
  |"tracker"
  |"jobtracker"
  |"jobs"
+ |"output"
  |"planning"
  |"schedule"
  |"production"
@@ -41,6 +42,7 @@ export const ST_ERP_MODULE_GROUPS:StErpModuleGroup[]=[
   key:"operations",label:"Operations",href:"/all-open-jobs",shortLabel:"OP",
   items:[
    {key:"jobs",label:"All Open Jobs",href:"/all-open-jobs",shortLabel:"OJ"},
+   {key:"output",label:"ST Output",href:"/st-output",shortLabel:"OUT"},
    {key:"planning",label:"Planning Board",href:"/planning",shortLabel:"PL"},
    {key:"schedule",label:"Scheduling Board",href:"/schedule",shortLabel:"SC"},
    {key:"production",label:"Production Execution",href:"/production-execution",shortLabel:"PX"},
