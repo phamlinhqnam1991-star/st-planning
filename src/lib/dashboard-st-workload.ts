@@ -517,11 +517,12 @@ function addReadyNextRecipeBreakdown(
  input:{nextMain:string;recipeKey:string;recipeNo:string;recipeName:string},
  metric:StDashboardMetric
 ){
- const nextMain=text(input.nextMain);
- if(!nextMain)return;
- const recipeKey=text(input.recipeKey)||"__NO_RECIPE__";
- const recipeNo=text(input.recipeNo);
- const recipeName=text(input.recipeName)||"No Recipe";
+ const rawNextMain=text(input.nextMain);
+ const noNextMain=!rawNextMain;
+ const nextMain=noNextMain?"__NO_NEXT_MAIN__":rawNextMain;
+ const recipeKey=noNextMain?"__NO_NEXT_MAIN__":text(input.recipeKey)||"__NO_RECIPE__";
+ const recipeNo=noNextMain?"":text(input.recipeNo);
+ const recipeName=noNextMain?"No Next Main":text(input.recipeName)||"No Recipe";
  let row=target.find(x=>x.nextMain===nextMain&&x.recipeKey===recipeKey);
  if(!row){row={nextMain,recipeKey,recipeNo,recipeName,metric:zero()};target.push(row);}
  addMetric(row.metric,metric);
@@ -719,15 +720,13 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
     const chain=chainByJob.get(text(wr.job_num))||[];
     const index=chain.findIndex(x=>Number(x.id)===Number(wr.id));
     const next=index>=0?chain[index+1]||null:null;
-    if(next){
-     const nextRecipe=resolveWorkloadRecipe(next,source);
-     addReadyNextRecipeBreakdown(recipe.readyNextScheduledBreakdown,{
-      nextMain:text(next.standard_operation),
-      recipeKey:nextRecipe.recipeKey,
-      recipeNo:nextRecipe.recipeNo,
-      recipeName:nextRecipe.recipeName||"No Recipe"
-     },metric);
-    }
+    const nextRecipe=next?resolveWorkloadRecipe(next,source):{recipeKey:"",recipeNo:"",recipeName:""};
+    addReadyNextRecipeBreakdown(recipe.readyNextScheduledBreakdown,{
+     nextMain:text(next?.standard_operation),
+     recipeKey:nextRecipe.recipeKey,
+     recipeNo:nextRecipe.recipeNo,
+     recipeName:nextRecipe.recipeName||"No Recipe"
+    },metric);
    }
   }
  }
@@ -904,6 +903,7 @@ export async function loadStWorkloadQuickView(c:PoolClient,input:{
  const requestedPrevious=text(input.previousMain).toUpperCase();
  const requestedNextMain=text(input.nextMain).toUpperCase();
  const requestedNextRecipe=text(input.nextRecipeKey);
+ const requestedNoNextMain=requestedNextMain==="__NO_NEXT_MAIN__";
  if(!requestedMain)throw new Error("Main Operation là bắt buộc.");
 
  const [visibleQ,ctx,recipeMetaQ]=await Promise.all([
@@ -981,8 +981,10 @@ export async function loadStWorkloadQuickView(c:PoolClient,input:{
   const index=chain.findIndex(x=>Number(x.id)===Number(wr.id));
   const next=index>=0?chain[index+1]||null:null;
   const nextRecipe=next?resolveRecipe(next,source):{recipeKey:"",recipeNo:"",recipeName:""};
-  if(requestedNextMain&&text(next?.standard_operation).toUpperCase()!==requestedNextMain)continue;
-  if(requestedNextRecipe&&(nextRecipe.recipeKey||"__NO_RECIPE__")!==requestedNextRecipe)continue;
+  if(requestedNoNextMain){
+   if(next)continue;
+  }else if(requestedNextMain&&text(next?.standard_operation).toUpperCase()!==requestedNextMain)continue;
+  if(!requestedNoNextMain&&requestedNextRecipe&&(nextRecipe.recipeKey||"__NO_RECIPE__")!==requestedNextRecipe)continue;
   rows.push({
    planningJobOperationId:num(wr.id),
    jobNum:text(wr.job_num),

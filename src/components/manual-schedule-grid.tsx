@@ -1326,11 +1326,13 @@ export function ManualScheduleGrid({
   if(!list.length)return null;
   return <div className="schedule-area-ready-breakdown" aria-label="READY Previous Main Scheduled breakdown by NEXT Main Recipe">
    {list.map((x,index)=>{
-    const recipeLabel=x.recipeNo||"—";
-    const recipeName=x.recipeName||"No Recipe";
-    return <button type="button" key={`${x.nextMain}-${x.recipeKey}-${index}`} title={`Mở READY ${filter.standardOperation} → Next ${x.nextMain} · Recipe ${recipeLabel} · ${recipeName} · ${fmt(x.metric.surface)} dm² · ${fmt(x.metric.qty,0)} pcs · ${fmt(x.metric.jobs,0)} Job`}
-     onClick={(e)=>{e.stopPropagation();openWorkloadQuickView({...filter,status:"READY_PREV_SCHEDULED",previousMain:"",nextMain:x.nextMain,nextRecipeKey:x.recipeKey});}}>
-     <b>→ {x.nextMain||"—"} · {recipeLabel}</b><em>{fmt(x.metric.jobs,0)} Job · {fmt(x.metric.qty,0)} pcs · {fmt(x.metric.surface)} dm²</em>
+    const noNextMain=x.nextMain==="__NO_NEXT_MAIN__";
+    const nextMainLabel=noNextMain?"NO NEXT MAIN":x.nextMain||"—";
+    const recipeLabel=noNextMain?"—":x.recipeNo||"—";
+    const recipeName=noNextMain?"No Next Main":x.recipeName||"No Recipe";
+    return <button type="button" key={`${x.nextMain}-${x.recipeKey}-${index}`} title={`Mở READY ${filter.standardOperation} → ${nextMainLabel} · Recipe ${recipeLabel} · ${recipeName} · ${fmt(x.metric.surface)} dm² · ${fmt(x.metric.qty,0)} pcs · ${fmt(x.metric.jobs,0)} Job`}
+     onClick={(e)=>{e.stopPropagation();openWorkloadQuickView({...filter,status:"READY_PREV_SCHEDULED",previousMain:"",nextMain:x.nextMain,nextRecipeKey:noNextMain?"":x.recipeKey});}}>
+     <b>→ {nextMainLabel} · {recipeLabel}</b><em>{fmt(x.metric.jobs,0)} Job · {fmt(x.metric.qty,0)} pcs · {fmt(x.metric.surface)} dm²</em>
     </button>;
    })}
   </div>;
