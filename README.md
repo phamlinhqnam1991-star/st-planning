@@ -1,6 +1,6 @@
-# V510 — Internal Chat stable realtime + direct user chat
+# V511 — Shift Accept & Remove in Production Report
 
-V510 keeps the V509 Global Realtime No-Supabase fail-safe leader transport and upgrades Internal Chat: the Chat page fails open instead of crashing the whole Server Component page, Planning/Scheduling/Production changes publish immediate SYSTEM messages into Chat, the navigation shows unread counts, and users can choose active coworkers for direct chat. Run `087_internal_chat_direct_realtime.sql` after migration 086. Business planning/production logic is unchanged.
+V511 keeps V510 Internal Chat and V509 Global Realtime No-Supabase unchanged, but moves the downstream `Accept & Remove Job` action for Production `REMOVE BEFORE START` impacts from Scheduling Board to Production Execution. Scheduling now shows alert/status/navigation only. Shift Supervisor performs the action in the affected downstream Batch on Production Execution using `production.add_job` + Production Area scope. NEW impacts still block first Start; already-started downstream Batches remain CRITICAL/CONFLICT. No new migration is required for V511.
 
 # ST Planning Web App
 

@@ -139,6 +139,18 @@ function scheduleTimeLabel(v:string|null){
  });
 }
 
+function productionDateFromTimestamp(v:string|null,fallback:string){
+ if(!v)return fallback;
+ const d=new Date(v);
+ if(Number.isNaN(d.getTime()))return fallback;
+ const shifted=new Date(d.getTime()-6*60*60*1000);
+ const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(shifted);
+ const y=parts.find(x=>x.type==="year")?.value||"";
+ const m=parts.find(x=>x.type==="month")?.value||"";
+ const day=parts.find(x=>x.type==="day")?.value||"";
+ return y&&m&&day?`${y}-${m}-${day}`:fallback;
+}
+
 function parseHHMM(value:string){
  const m=value.trim().match(/^(\d{1,3}):(\d{2})$/);
  if(!m)return null;
@@ -276,7 +288,7 @@ function groupByScheduleArea(items:Batch[],areas:ScheduleArea[]){
 }
 
 export default function ScheduleBoardClient({
- batches,resources,operations,recipes,scheduleAreas,handoverAlerts,planner,date,canAcceptRemoval=false
+ batches,resources,operations,recipes,scheduleAreas,handoverAlerts,planner,date
 }:{
  batches:Batch[];
  resources:Resource[];
@@ -286,7 +298,6 @@ export default function ScheduleBoardClient({
  handoverAlerts:HandoverAlert[];
  planner:"1"|"2";
  date:string;
- canAcceptRemoval?:boolean;
 }){
  const [batchId,setBatchId]=useState("");
  const [resource,setResource]=useState("");
@@ -304,6 +315,7 @@ export default function ScheduleBoardClient({
  const [liveBatches,setLiveBatches]=useState<Batch[]>(batches);
 
  useEffect(()=>{setLiveBatches(batches)},[batches]);
+ useEffect(()=>{setAlerts(handoverAlerts)},[handoverAlerts]);
 
  useEffect(()=>{
   const onBatchState=(event:Event)=>{
@@ -476,22 +488,6 @@ export default function ScheduleBoardClient({
   }
  }
 
- async function acceptRemoveAlert(alert:HandoverAlert){
-  setAckBusy(alert.id);
-  try{
-   const r=await fetch(`/api/schedule/handover-alerts/${alert.id}/accept-remove`,{method:"POST",headers:{"content-type":"application/json"}});
-   const d=await safeJson(r);if(!r.ok)throw new Error(d.error||"Accept & Remove failed");
-   setAlerts(prev=>prev.map(x=>x.id===alert.id?{...x,status:"ACKNOWLEDGED",acknowledged_at:new Date().toISOString(),acknowledged_by:d?.alert?.acknowledged_by||"Shift"}:x));
-   const totals=d?.batchTotals;
-   if(alert.affected_batch_id&&totals){
-    setLiveBatches(prev=>prev.map(b=>Number(b.id)===Number(alert.affected_batch_id)?{...b,total_jobs:Number(totals.totalJobs??b.total_jobs),total_qty:Number(totals.totalQty??b.total_qty),total_surface_dm2:Number(totals.totalSurface??b.total_surface_dm2),process_minutes:totals.processMinutes==null?b.process_minutes:Number(totals.processMinutes)}:b));
-   }
-   setMsg(d?.already?`Job ${alert.job_num} đã không còn trong ${alert.affected_batch_no||"downstream Batch"}; alert đã đóng.`:`Đã Accept & Remove Job ${alert.job_num} khỏi ${alert.affected_batch_no||"downstream Batch"}.`);
-   window.dispatchEvent(new Event("st-schedule-changed"));
-  }catch(error){setMsg(error instanceof Error?error.message:"Accept & Remove failed");}
-  finally{setAckBusy(null);}
- }
-
  async function acknowledgeAlert(alertId:number){
   setAckBusy(alertId);
   try{
@@ -568,7 +564,7 @@ export default function ScheduleBoardClient({
    <div className="handover-alert-head">
     <div>
      <b>Handover Alerts · Planner {planner}</b>
-     <small>Thay đổi Job từ Main trước có ảnh hưởng tới lô/công đoạn của bạn · tự cập nhật mỗi 15 giây.</small>
+     <small>Thay đổi Job từ Main trước có ảnh hưởng tới lô/công đoạn của bạn · realtime. REMOVE BEFORE START được Shift xử lý tại Báo cáo sản xuất.</small>
     </div>
     <div className="handover-alert-head-actions">
      <span className={`handover-new-count ${newAlerts.length?"active":""}`}>
@@ -650,8 +646,8 @@ export default function ScheduleBoardClient({
           {a.status==="NEW"
            ? (a.change_type==="REMOVE_JOB"&&String(a.note||"").startsWith("PRODUCTION_REMOVE_BEFORE_START:")
               ? (a.impact_level==="CRITICAL"
-                 ? <small className="handover-ack-label handover-conflict-label">CONFLICT · Downstream Batch đã START · cần Supervisor xử lý</small>
-                 : canAcceptRemoval?<button type="button" className="btn primary small" disabled={ackBusy===a.id||!a.affected_batch_id} onClick={()=>acceptRemoveAlert(a)}>{ackBusy===a.id?"Removing...":"Shift Accept & Remove"}</button>:<small className="handover-ack-label">Cần Shift/Planner có quyền để Accept & Remove</small>)
+                 ? <small className="handover-ack-label handover-conflict-label">CRITICAL · Downstream Batch đã START · xử lý ngoại lệ tại Báo cáo sản xuất</small>
+                 : <><small className="handover-ack-label">WAITING SHIFT ACCEPT · xử lý tại Báo cáo sản xuất</small><button type="button" className="btn small" onClick={()=>{const productionDate=productionDateFromTimestamp(a.affected_planned_start,date);window.location.href=`/production-execution?date=${encodeURIComponent(productionDate)}`}}>Open Production Report</button></>)
               : <button type="button" className="btn primary small" disabled={ackBusy===a.id} onClick={()=>acknowledgeAlert(a.id)}>{ackBusy===a.id?"Saving...":"Acknowledge"}</button>)
            : <span className="handover-ack-label">
               ✓ Acknowledged{a.acknowledged_by?` by ${a.acknowledged_by}`:""}

@@ -59,7 +59,7 @@ export async function PATCH(req:Request){
     `,[batchId]);
     if(impactQ.rowCount){
      const jobs=impactQ.rows.map((x:any)=>String(x.job_num||"")).filter(Boolean).join(", ");
-     throw new Error(`UPSTREAM IMPACT · ACCEPT REQUIRED. Job ${jobs} đã bị Remove Before Start ở Main trước. Hãy xử lý cảnh báo Điều độ trước khi Start lô.`);
+     throw new Error(`UPSTREAM IMPACT · ACCEPT REQUIRED. Job ${jobs} đã bị Remove Before Start ở Main trước. Hãy xử lý tại Báo cáo sản xuất trước khi Start lô.`);
     }
    }
   }

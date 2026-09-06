@@ -36,6 +36,70 @@ export type ProductionNextMainAttention={
  createdAt:string;
 };
 
+export type ProductionRemoveImpact={
+ id:number;
+ sourceBatchId:number;
+ sourceBatchNo:string;
+ sourceOperation:string;
+ jobNum:string;
+ nextOperation:string;
+ affectedBatchId:number;
+ affectedBatchNo:string;
+ affectedResourceCode:string;
+ affectedPlannedStart:string|null;
+ changedJobQty:number;
+ changedJobSurface:number;
+ impactLevel:"WARNING"|"IMPACTED"|"CRITICAL";
+ status:"NEW"|"ACKNOWLEDGED";
+ createdAt:string;
+ acknowledgedAt:string|null;
+ acknowledgedBy:string;
+ note:string;
+};
+
+export async function loadProductionRemoveImpacts(c:PoolClient,batchIds:number[]):Promise<ProductionRemoveImpact[]>{
+ const ids=[...new Set(batchIds.map(Number).filter(x=>Number.isFinite(x)&&x>0))];
+ if(!ids.length)return [];
+ try{
+  const q=await c.query(`
+   select id,source_batch_id,source_batch_no,source_standard_operation,job_num,
+          next_standard_operation,affected_batch_id,affected_batch_no,affected_resource_code,affected_planned_start,
+          changed_job_qty,changed_job_surface,impact_level,status,created_at,acknowledged_at,acknowledged_by,note
+   from planning_handover_change_event
+   where affected_batch_id=any($1::bigint[])
+     and change_type='REMOVE_JOB'
+     and note like 'PRODUCTION_REMOVE_BEFORE_START:%'
+     and created_at>=now()-interval '14 days'
+   order by case status when 'NEW' then 0 else 1 end,
+            case impact_level when 'CRITICAL' then 0 when 'IMPACTED' then 1 else 2 end,
+            created_at desc,id desc
+  `,[ids]);
+  return q.rows.map((row:any)=>({
+   id:Number(row.id),
+   sourceBatchId:Number(row.source_batch_id||0),
+   sourceBatchNo:clean(row.source_batch_no),
+   sourceOperation:clean(row.source_standard_operation),
+   jobNum:clean(row.job_num),
+   nextOperation:clean(row.next_standard_operation),
+   affectedBatchId:Number(row.affected_batch_id||0),
+   affectedBatchNo:clean(row.affected_batch_no),
+   affectedResourceCode:clean(row.affected_resource_code),
+   affectedPlannedStart:iso(row.affected_planned_start),
+   changedJobQty:num(row.changed_job_qty),
+   changedJobSurface:num(row.changed_job_surface),
+   impactLevel:(clean(row.impact_level)||"WARNING") as ProductionRemoveImpact["impactLevel"],
+   status:(clean(row.status)||"NEW") as ProductionRemoveImpact["status"],
+   createdAt:iso(row.created_at)||"",
+   acknowledgedAt:iso(row.acknowledged_at),
+   acknowledgedBy:clean(row.acknowledged_by),
+   note:clean(row.note),
+  }));
+ }catch(e:any){
+  if(e?.code==="42P01"||e?.code==="42703")return [];
+  throw e;
+ }
+}
+
 export type ProductionWorkItem={
  sourceType:ProductionExecutionSource;
  sourceKey:string;

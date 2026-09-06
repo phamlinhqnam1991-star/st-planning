@@ -2,14 +2,14 @@ import {NextResponse} from "next/server";
 import {getPool} from "@/lib/db";
 import {getAccessContext} from "@/lib/security/access";
 import {notifyInternalChange} from "@/lib/internal-chat/server";
-import {canProductionBatch,canScheduleResource} from "@/lib/security/scope-db";
+import {canProductionBatch} from "@/lib/security/scope-db";
 import {acceptDownstreamRemove} from "@/lib/production-remove-before-start";
 
 export async function POST(_req:Request,{params}:{params:Promise<{id:string}>}){
  const ctx=await getAccessContext();
  if(!ctx)return NextResponse.json({error:"Unauthorized"},{status:401});
- if(!ctx.active||(!ctx.permissions.has("schedule.edit")&&!ctx.permissions.has("production.add_job")))
-  return NextResponse.json({error:"Cần quyền schedule.edit hoặc production.add_job để Accept & Remove Job."},{status:403});
+ if(!ctx.active||!ctx.permissions.has("production.add_job"))
+  return NextResponse.json({error:"Cần quyền production.add_job của Shift Supervisor để Accept & Remove Job tại Báo cáo sản xuất."},{status:403});
  const {id}=await params;const eventId=Number(id);
  if(!Number.isFinite(eventId)||eventId<=0)return NextResponse.json({error:"Invalid alert id."},{status:400});
  const c=await getPool().connect();
@@ -18,14 +18,9 @@ export async function POST(_req:Request,{params}:{params:Promise<{id:string}>}){
   const preQ=await c.query(`select affected_batch_id,affected_resource_code,next_standard_operation from planning_handover_change_event where id=$1 for share`,[eventId]);
   if(!preQ.rowCount)throw new Error("Remove impact not found.");
   const pre=preQ.rows[0];
-  let scoped=false;
-  if(ctx.permissions.has("schedule.edit")){
-   const x=await canScheduleResource(c,ctx,String(pre.affected_resource_code||""),String(pre.next_standard_operation||""));scoped=scoped||x.allowed;
-  }
-  if(ctx.permissions.has("production.add_job")&&pre.affected_batch_id){
-   const x=await canProductionBatch(c,ctx,Number(pre.affected_batch_id));scoped=scoped||x.allowed;
-  }
-  if(!scoped){await c.query("rollback");return NextResponse.json({error:"Không có quyền xử lý lô/khu vực bị ảnh hưởng."},{status:403});}
+  if(!pre.affected_batch_id){await c.query("rollback");return NextResponse.json({error:"Downstream Batch không còn tồn tại để xử lý."},{status:400});}
+  const scope=await canProductionBatch(c,ctx,Number(pre.affected_batch_id));
+  if(!scope.allowed){await c.query("rollback");return NextResponse.json({error:"Không có quyền Production Area để xử lý lô bị ảnh hưởng."},{status:403});}
   const result=await acceptDownstreamRemove(c,eventId,ctx.displayName||ctx.email||"Shift");
   await c.query("commit");
   const e=result.event;

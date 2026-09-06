@@ -5,7 +5,7 @@ import {useRouter} from "next/navigation";
 import {useUiLanguage} from "@/components/i18n/ui-language-provider";
 import {safeJson} from "@/lib/fetch-json";
 import {pushAppToast} from "@/components/app-toast-provider";
-import type {ProductionExecutionStatus,ProductionWorkItem,ProductionJobDetail,ProductionReportGroup} from "@/lib/production-execution";
+import type {ProductionExecutionStatus,ProductionWorkItem,ProductionJobDetail,ProductionReportGroup,ProductionRemoveImpact} from "@/lib/production-execution";
 
 const statusOrder:ProductionExecutionStatus[]=["WAITING","ON-GOING","DONE"];
 const statusClass=(status:ProductionExecutionStatus)=>status==="DONE"?"done":status==="ON-GOING"?"ongoing":"waiting";
@@ -14,7 +14,7 @@ type GroupFilter="ALL"|ProductionReportGroup;
 type DisplayGroup={key:string;title:string;subtitle:string;rows:ProductionWorkItem[];tone:string;order:number};
 type StartConfirmationState={item:ProductionWorkItem;nextStatus:ProductionExecutionStatus;includedIds:number[]};
 
-export function ProductionExecutionClient({initialItems,productionDate,canReport=false,canAddJob=false}:{initialItems:ProductionWorkItem[];productionDate:string;canReport?:boolean;canAddJob?:boolean}){
+export function ProductionExecutionClient({initialItems,initialRemoveImpacts,productionDate,canReport=false,canAddJob=false}:{initialItems:ProductionWorkItem[];initialRemoveImpacts:ProductionRemoveImpact[];productionDate:string;canReport?:boolean;canAddJob?:boolean}){
  const {locale,text}=useUiLanguage();
  const router=useRouter();
  const [items,setItems]=useState(initialItems);
@@ -34,6 +34,8 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
  const [extraJobByBatch,setExtraJobByBatch]=useState<Record<number,string>>({});
  const [addJobOpenByBatch,setAddJobOpenByBatch]=useState<Record<number,boolean>>({});
  const [startConfirmation,setStartConfirmation]=useState<StartConfirmationState|null>(null);
+ const [removeImpacts,setRemoveImpacts]=useState<ProductionRemoveImpact[]>(initialRemoveImpacts);
+ useEffect(()=>setRemoveImpacts(initialRemoveImpacts),[initialRemoveImpacts]);
 
  const fmt=(v:number,max=2)=>new Intl.NumberFormat(locale==="vi"?"vi-VN":"en-US",{maximumFractionDigits:max}).format(Number(v||0));
  const dt=(v:string|null)=>{
@@ -137,6 +139,37 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
    surface:scoped.reduce((n,x)=>n+x.surface,0),
   };
  },[scoped]);
+
+ async function acceptRemoveImpact(item:ProductionWorkItem,impact:ProductionRemoveImpact){
+  const k=`REMOVE_IMPACT|${impact.id}`;setBusy(k);
+  try{
+   const r=await fetch(`/api/schedule/handover-alerts/${impact.id}/accept-remove`,{method:"POST",headers:{"content-type":"application/json"}});
+   const d=await safeJson(r);
+   if(!r.ok)throw new Error(d?.error||text("Accept & Remove failed.","Accept & Remove thất bại."));
+   const now=new Date().toISOString();
+   setRemoveImpacts(prev=>prev.map(x=>x.id===impact.id?{...x,status:"ACKNOWLEDGED",acknowledgedAt:now,acknowledgedBy:String(d?.alert?.acknowledged_by||"Shift")}:x));
+   const totals=d?.batchTotals;
+   setItems(prev=>prev.map(x=>{
+    if(x.sourceType!=="BATCH"||Number(x.batchId)!==Number(item.batchId))return x;
+    const nextJobDetails=x.jobDetails.filter(j=>j.jobNum.trim().toUpperCase()!==impact.jobNum.trim().toUpperCase());
+    const nextJobNumbers=x.jobNumbers.filter(j=>j.trim().toUpperCase()!==impact.jobNum.trim().toUpperCase());
+    return {
+     ...x,
+     jobs:totals?Number(totals.totalJobs??x.jobs):nextJobNumbers.length,
+     qty:totals?Number(totals.totalQty??x.qty):x.qty,
+     surface:totals?Number(totals.totalSurface??x.surface):x.surface,
+     jobDetails:nextJobDetails,
+     jobNumbers:nextJobNumbers
+    };
+   }));
+   pushAppToast(d?.already
+    ? text(`Job ${impact.jobNum} was already absent; impact closed.`,`Job ${impact.jobNum} đã không còn trong lô; cảnh báo đã đóng.`)
+    : text(`Accepted: Job ${impact.jobNum} removed from ${impact.affectedBatchNo}.`,`Đã Accept: loại Job ${impact.jobNum} khỏi ${impact.affectedBatchNo}.`));
+   if(typeof window!=="undefined")window.dispatchEvent(new Event("st-schedule-changed"));
+  }catch(error){
+   pushAppToast(error instanceof Error?error.message:text("Accept & Remove failed.","Accept & Remove thất bại."));
+  }finally{setBusy("");}
+ }
 
  async function reportExtraJob(item:ProductionWorkItem,explicitJobNum?:string){
   const job=(explicitJobNum??extraJobByBatch[item.batchId]??"").trim();
@@ -479,6 +512,32 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
     const addedRow=addedJobs.length?<tr key={`${k}__added`} className="production-detail-row production-added-job-row"><td colSpan={13}>
      <div className="notice" style={{margin:0}}><b>{text("Jobs added during production","Job thêm mới trong sản xuất")} ({addedJobs.length}):</b> {addedJobs.map(d=>`${d.jobNum}${d.partDescription?` · ${d.partDescription}`:""} · Qty ${d.currentGoodWipQty??"—"}`).join("  |  ")}</div>
     </td></tr>:null;
+    const batchRemoveImpacts=item.sourceType==="BATCH"?removeImpacts.filter(a=>Number(a.affectedBatchId)===Number(item.batchId)):[];
+    const removeImpactRow=batchRemoveImpacts.length?<tr key={`${k}__remove_impacts`} className="production-detail-row production-remove-impact-row"><td colSpan={13}>
+     <div className={batchRemoveImpacts.some(a=>a.impactLevel==="CRITICAL"&&a.status==="NEW")?"notice error":"notice warning"} style={{margin:0}}>
+      <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:6}}>
+       <b>{text("Upstream Impact · Shift Action","Ảnh hưởng Main trước · Shift xử lý")}</b>
+       <small>{batchRemoveImpacts.filter(a=>a.status==="NEW").length} {text("waiting acceptance","đang chờ Accept")}</small>
+      </div>
+      <div style={{display:"grid",gap:6}}>
+       {batchRemoveImpacts.map(a=>{
+        const actionKey=`REMOVE_IMPACT|${a.id}`;
+        const isCritical=a.impactLevel==="CRITICAL"&&a.status==="NEW";
+        return <div key={a.id} style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",borderTop:"1px solid rgba(120,120,120,.2)",paddingTop:6}}>
+         <span className="mono"><b>{a.jobNum}</b> · {a.sourceBatchNo} · {a.sourceOperation} → {a.affectedBatchNo||item.batchNo} · {a.nextOperation||item.operation}</span>
+         <span>{fmt(a.changedJobQty,0)} pcs · {fmt(a.changedJobSurface)} dm²</span>
+         {a.status==="ACKNOWLEDGED"
+          ? <span><b>✓ ACCEPTED</b>{a.acknowledgedBy?` · ${a.acknowledgedBy}`:""}{a.acknowledgedAt?` · ${dt(a.acknowledgedAt)}`:""}</span>
+          : isCritical
+           ? <span><b>CRITICAL · BATCH ALREADY STARTED</b> · {text("Supervisor exception handling required","Cần Supervisor xử lý ngoại lệ")}</span>
+           : canAddJob
+            ? <button type="button" className="btn small primary" disabled={busy===actionKey} onClick={()=>acceptRemoveImpact(item,a)}>{busy===actionKey?text("Removing...","Đang loại..."):text("Accept & Remove Job","Accept & Remove Job")}</button>
+            : <small>{text("Shift Supervisor approval required","Cần Shift Supervisor Accept & Remove")}</small>}
+        </div>;
+       })}
+      </div>
+     </div>
+    </td></tr>:null;
     const attentionRow=item.sourceType==="BATCH"&&item.nextMainAttentions.length?<tr key={`${k}__next_attention`} className="production-detail-row production-next-main-attention-row"><td colSpan={13}>
      <div className="notice warning" style={{margin:0,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
       <b>{text("Attention from previous Main:","Chú ý từ Main trước:")}</b>
@@ -488,7 +547,7 @@ export function ProductionExecutionClient({initialItems,productionDate,canReport
       </span>)}
      </div>
     </td></tr>:null;
-    const rows=[mainRow];if(attentionRow)rows.push(attentionRow);if(addedRow)rows.push(addedRow);
+    const rows=[mainRow];if(removeImpactRow)rows.push(removeImpactRow);if(attentionRow)rows.push(attentionRow);if(addedRow)rows.push(addedRow);
     if(item.reportMode==="JOB"&&item.jobDetails.length)rows.push(<tr key={`${k}__detail`} className="production-detail-row"><td colSpan={13}>{DetailTable({item})}</td></tr>);
     return rows;
    })}</tbody>
