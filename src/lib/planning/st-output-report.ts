@@ -174,6 +174,15 @@ export async function loadStOutputReport(
    from public.md_intermediate_bridge_operation bo
    join public.md_intermediate_bridge_segment bs on bs.id=bo.segment_id and bs.is_active=true
    where nullif(trim(bo.operation_code),'') is not null
+  ), output_st_next_ops as (
+   select distinct upper(trim(scope.operation_code)) operation_code
+   from public.md_st_operation_scope scope
+   join public.md_st_operation_mapping map
+     on map.is_active=true
+    and upper(trim(map.source_operation_code))=upper(trim(scope.operation_code))
+   where scope.is_active=true
+     and scope.operation_type='PLANNING_OPERATION'
+     and nullif(trim(scope.operation_code),'') is not null
   ), selected_open_job as (
    select j.*
    from public.open_job_current j
@@ -199,6 +208,22 @@ export async function loadStOutputReport(
    where p.is_active=true
      and upper(trim(coalesce(p.standard_operation,'')))<>'PIONBL'
    order by p.job_num,p.planning_seq desc nulls last,p.source_seq desc nulls last,p.id desc
+  ), intermediate_no_chain_audit as (
+   select distinct j.job_num
+   from selected_open_job j
+   where exists(
+    select 1
+    from public.md_intermediate_bridge_operation bo
+    join public.md_intermediate_bridge_segment bs on bs.id=bo.segment_id and bs.is_active=true
+    where upper(trim(bo.operation_code))=upper(trim(coalesce(j.next_operation,'')))
+   )
+   and not exists(
+    select 1
+    from public.planning_job_operation p
+    where p.job_num=j.job_num
+      and p.is_active=true
+      and p.status in ('LOCKED','ELIGIBLE','PLANNED')
+   )
   ), raw_rows as (
    select
     case when upper(trim(coalesce(b.standard_operation,p.standard_operation,'')))='CHEMMILL'
@@ -301,26 +326,14 @@ export async function loadStOutputReport(
     j.last_import_batch_id import_batch_id,
     ib.file_name import_file_name,
     coalesce(ib.finished_at,ib.created_at)::text import_time,
-    'Audit INTERMEDIATE_NO_CHAIN + NextOperation belongs to ST' audit_reason
+    'Audit INTERMEDIATE_NO_CHAIN, then NextOperation filtered to active ST Planning Operation with Source->Main mapping' audit_reason
    from selected_open_job j
+   join intermediate_no_chain_audit audit on audit.job_num=j.job_num
    left join chain_final cf on cf.job_num=j.job_num
    left join allop_final af on af.job_num=j.job_num
    left join public.open_job_import_batch ib on ib.id=j.last_import_batch_id
    where $5::text in ('ALL','INTERMEDIATE_NO_CHAIN')
-     and exists(
-      select 1
-      from public.md_intermediate_bridge_operation bo
-      join public.md_intermediate_bridge_segment bs on bs.id=bo.segment_id and bs.is_active=true
-      where upper(trim(bo.operation_code))=upper(trim(coalesce(j.next_operation,'')))
-     )
-     and exists(
-      select 1
-      from public.md_st_operation_scope scope
-      where scope.is_active=true
-        and scope.operation_type in ('PLANNING_OPERATION','ST_SCOPE_ONLY','INTERMEDIATE')
-        and upper(trim(scope.operation_code))=upper(trim(coalesce(j.next_operation,'')))
-     )
-     and not exists(select 1 from public.planning_job_operation p where p.job_num=j.job_num and p.is_active=true)
+     and exists(select 1 from output_st_next_ops ops where ops.operation_code=upper(trim(coalesce(j.next_operation,''))))
   ), ranked as (
    select
     r.*,
