@@ -1,9 +1,14 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V512";
+export const ST_AI_KNOWLEDGE_VERSION="V514";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
 
+ {
+  key:"masking-config-stability-v514",
+  title:"Masking Time Estimate Config stability · V514",
+  content:`V514 changes only the Masking Time Estimate configuration loading architecture. /masking-time-estimate-config is rendered as a stable Server Component shell while all Masking configuration data is loaded through the fail-safe /api/config/masking-time-estimate GET endpoint on the client. Add/save/delete manpower or Main-to-column mapping reloads only this client dataset and does not router.refresh the whole page. The Global Realtime provider recognizes this route explicitly and does not RSC-refresh it; the Masking manager listens to the narrow CONFIG/SCHEDULE realtime event and reloads only its own API dataset. Masking config mutations also skip the expensive global Config Health invalidation because those advisory tables are not part of Config Health. Individual DB/source failures are shown as in-panel diagnostics. V512 Masking Estimate business logic, manpower calculation, Main Operation mapping, READY/WAIT, Batch, Schedule, Production, Chat and Realtime transport remain unchanged. No new migration is required; the existing four V512 queries remain canonical.`
+ },
  {
   key:"masking-time-estimate-v512",
   title:"Masking Time Estimate advisory · V512",

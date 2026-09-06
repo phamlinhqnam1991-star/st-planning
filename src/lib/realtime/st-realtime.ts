@@ -72,6 +72,9 @@ export function realtimeMutationRequest(input:RequestInfo|URL,init?:RequestInit)
 
 export function realtimeDomainsForApiPath(path:string):StRealtimeDomain[]{
  if(path.startsWith("/api/internal-chat"))return ["CHAT"];
+ // V514: Masking Time Estimate config only changes Scheduling advisory data.
+ // Keep its invalidation narrow instead of treating it like every Master/Config mutation.
+ if(path.startsWith("/api/config/masking-time-estimate"))return ["CONFIG","SCHEDULE"];
  if(path.startsWith("/api/admin"))return ["ADMIN"];
  if(path.startsWith("/api/production-execution")||path.startsWith("/api/daily-production-adjustment"))
   return ["PRODUCTION","SCHEDULE","PLANNING","DASHBOARD","AUDIT","CHAT"];

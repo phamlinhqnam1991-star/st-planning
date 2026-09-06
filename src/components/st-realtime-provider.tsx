@@ -47,6 +47,7 @@ function pageDomains(pathname:string):StRealtimeDomain[]{
   return ["AUDIT","PLANNING","IMPORT","MASTER","CONFIG"];
  if(pathname.startsWith("/internal-chat"))return ["CHAT"];
  if(pathname.startsWith("/users-permissions"))return ["ADMIN"];
+ if(pathname.startsWith("/masking-time-estimate-config"))return ["MASTER","CONFIG","PLANNING","SCHEDULE","PRODUCTION","AUDIT"];
  if(
   pathname.startsWith("/master")||pathname.startsWith("/area")||pathname.startsWith("/settings")||
   pathname.startsWith("/st-")||pathname.startsWith("/recipe-")||pathname.startsWith("/process-")||
@@ -60,6 +61,10 @@ function pageDomains(pathname:string):StRealtimeDomain[]{
 function changeAffectsPage(change:StRealtimeChange,pathname:string){
  // V510: Internal Chat reconciles its own client data. Do not RSC-refresh the whole Chat page for CHAT events.
  if(pathname.startsWith("/internal-chat"))return false;
+ // V514: Masking Estimate Config is a client data island. It listens to the
+ // realtime window event and reloads only /api/config/masking-time-estimate.
+ // Never RSC-refresh this page for config mutations.
+ if(pathname.startsWith("/masking-time-estimate-config"))return false;
  if(change.domains.includes("ALL"))return true;
  const wanted=pageDomains(pathname);
  if(wanted.includes("ALL"))return true;
@@ -139,7 +144,10 @@ export function StRealtimeProvider({children}:{children:React.ReactNode}){
 
    if(change.domains.some(x=>x==="ALL"||x==="PLANNING"||x==="SCHEDULE"||x==="PRODUCTION"))
     window.dispatchEvent(new Event("st-schedule-changed"));
-   if(change.domains.some(x=>x==="ALL"||x==="MASTER"||x==="CONFIG"||x==="IMPORT"))
+   // V514: Masking advisory config is not part of the expensive global Config Health query.
+   // Its own manager reloads via the realtime event, so do not fan this mutation into
+   // /api/config/health and create an unnecessary competing DB request.
+   if(!change.path.startsWith("/api/config/masking-time-estimate")&&change.domains.some(x=>x==="ALL"||x==="MASTER"||x==="CONFIG"||x==="IMPORT"))
     window.dispatchEvent(new Event("st-config-health-invalidated"));
 
    if(changeAffectsPage(change,pathnameRef.current))softRefresh();

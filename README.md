@@ -1,6 +1,6 @@
-# Current patch: V513
+# Current patch: V514
 
-`/masking-time-estimate-config` is fail-safe: partial/missing V512 config schema or an individual config query no longer crashes the full page. No business logic change and no new migration.
+`/masking-time-estimate-config` is now a client data island: the Server Component no longer queries Masking configuration data. Saves and realtime changes reload only the Masking Config API dataset, never the whole page. This removes the duplicate RSC refresh/DB-load path that could crash the page after adding/saving multiple Physical Areas. No business logic change and no new migration.
 
 # V512 — Masking Time Estimate advisory for Scheduling
 
