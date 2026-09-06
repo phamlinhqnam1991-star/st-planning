@@ -24,6 +24,8 @@ const MAX_SEEN=500;
 const MAX_PERSIST_RETRIES=2;
 const MAX_POLL_BACKOFF_MS=15000;
 const MISSING_MIGRATION_BACKOFF_MS=30000;
+const VISIBLE_REFRESH_DEBOUNCE_MS=500;
+const VISIBLE_REFRESH_COOLDOWN_MS=4000;
 
 type LeaderLease={tabId:string;expiresAt:number};
 
@@ -55,7 +57,9 @@ function pageDomains(pathname:string):StRealtimeDomain[]{
   pathname.startsWith("/batch-key-recipe-rules")||pathname.startsWith("/auto-planning-rules")||
   pathname.startsWith("/open-job-column-values")||pathname.startsWith("/main-support-operations")
  )return ["MASTER","CONFIG","PLANNING","SCHEDULE","PRODUCTION","AUDIT"];
- return ["ALL"];
+ // V517: unknown/static routes do not opt into automatic RSC reconciliation.
+ // They can still receive the window realtime event if a client island needs it.
+ return [];
 }
 
 function changeAffectsPage(change:StRealtimeChange,pathname:string){
@@ -65,14 +69,14 @@ function changeAffectsPage(change:StRealtimeChange,pathname:string){
  // realtime window event and reloads only /api/config/masking-time-estimate.
  // Never RSC-refresh this page for config mutations.
  if(pathname.startsWith("/masking-time-estimate-config"))return false;
- if(change.domains.includes("ALL"))return true;
  const wanted=pageDomains(pathname);
- if(wanted.includes("ALL"))return true;
+ if(wanted.length===0)return false;
+ if(change.domains.includes("ALL"))return true;
  return change.domains.some(domain=>wanted.includes(domain));
 }
 
 /**
- * V509 Global Realtime No-Supabase · fail-safe leader architecture.
+ * V517 Global Realtime No-Supabase · visible-tab coalesced reconciliation.
  *
  * - Canonical data + tiny invalidation feed stay in PostgreSQL.
  * - Only ONE visible tab per browser profile polls PostgreSQL. Other tabs get
@@ -80,8 +84,9 @@ function changeAffectsPage(change:StRealtimeChange,pathname:string){
  * - Cross-device feed errors NEVER block page rendering and NEVER trigger a
  *   browser reload. The provider backs off and retries silently.
  * - Initial subscription does not call router.refresh(); the initial RSC page
- *   render is already canonical. Refresh happens only for a real mutation/event
- *   relevant to the current route.
+ *   render is already canonical. Only the visible relevant tab may soft-refresh.
+ * - Hidden tabs coalesce relevant changes into one dirty flag and reconcile once
+ *   when brought back to the foreground; unknown/static routes never auto-refresh.
  */
 export function StRealtimeProvider({children}:{children:React.ReactNode}){
  const router=useRouter();
@@ -90,6 +95,8 @@ export function StRealtimeProvider({children}:{children:React.ReactNode}){
  const tabIdRef=useRef("");
  const seenRef=useRef(new Set<string>());
  const refreshTimerRef=useRef<number|null>(null);
+ const lastRefreshAtRef=useRef(0);
+ const dirtyWhileHiddenRef=useRef(false);
  const lastHiddenAtRef=useRef<number|null>(null);
  pathnameRef.current=pathname;
 
@@ -130,11 +137,28 @@ export function StRealtimeProvider({children}:{children:React.ReactNode}){
   };
 
   const softRefresh=()=>{
+   // V517: hidden tabs must never RSC-refresh in the background. With several
+   // Planning/Schedule/Production tabs open, refreshing every hidden tab for
+   // the same event creates a thundering herd of heavy PostgreSQL reads. Mark
+   // it dirty and reconcile once when the user returns to that tab instead.
+   if(document.visibilityState==="hidden"){
+    dirtyWhileHiddenRef.current=true;
+    return;
+   }
    if(refreshTimerRef.current!=null)window.clearTimeout(refreshTimerRef.current);
+   const sinceLast=Math.max(0,Date.now()-lastRefreshAtRef.current);
+   const cooldownLeft=Math.max(0,VISIBLE_REFRESH_COOLDOWN_MS-sinceLast);
+   const delay=Math.max(VISIBLE_REFRESH_DEBOUNCE_MS,cooldownLeft);
    refreshTimerRef.current=window.setTimeout(()=>{
     refreshTimerRef.current=null;
+    if(document.visibilityState==="hidden"){
+     dirtyWhileHiddenRef.current=true;
+     return;
+    }
+    dirtyWhileHiddenRef.current=false;
+    lastRefreshAtRef.current=Date.now();
     try{router.refresh();}catch{/* realtime must never crash the page */}
-   },380);
+   },delay);
   };
 
   const applyChange=(change:StRealtimeChange)=>{
@@ -353,11 +377,13 @@ export function StRealtimeProvider({children}:{children:React.ReactNode}){
     if(pollTimer!=null){window.clearTimeout(pollTimer);pollTimer=null;}
     return;
    }
-   const hiddenAt=lastHiddenAtRef.current;
    lastHiddenAtRef.current=null;
    void updateLeadership();
-   // Only reconcile after a meaningful sleep. Do not refresh on every focus.
-   if(hiddenAt&&Date.now()-hiddenAt>5000)softRefresh();
+   // V517: do not refresh merely because a tab was hidden for N seconds.
+   // Reconcile exactly once only when a relevant realtime change arrived while
+   // hidden. If cross-device events happened during sleep, the leader feed will
+   // read them now and apply the same visible-tab coalescing path.
+   if(dirtyWhileHiddenRef.current)softRefresh();
   };
   document.addEventListener("visibilitychange",onVisibility);
 

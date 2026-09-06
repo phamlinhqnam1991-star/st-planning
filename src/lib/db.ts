@@ -9,8 +9,9 @@ import {Pool,type QueryResult} from "pg";
  * another standard PostgreSQL provider) to be the database.
  *
  * Aiven Free has a small server-side connection budget, so the Vercel-local
- * pool defaults to one connection per runtime instance. DB_POOL_MAX can be
- * raised deliberately later after observing real concurrency.
+ * pool defaults to one connection per runtime instance. V517 also releases
+ * idle runtime connections sooner and never tears down a shared pool merely
+ * because one request is slow. DB_POOL_MAX can be raised deliberately later.
  *
  * DATABASE_URL should include sslmode=require for Aiven.
  */
@@ -35,16 +36,6 @@ function boundedInt(value:string|undefined,fallback:number,min:number,max:number
  return Number.isInteger(parsed)?Math.min(max,Math.max(min,parsed)):fallback;
 }
 
-function withTimeout<T>(p:Promise<T>,ms:number,label?:string):Promise<T>{
- return Promise.race([
-  p,
-  new Promise<never>((_,reject)=>{
-   const t=setTimeout(()=>reject(new Error(label?`[db] ${label} timeout after ${Math.round(ms/1000)}s`:"database timeout")),ms);
-   t.unref?.();
-  })
- ]);
-}
-
 async function initPool():Promise<Pool>{
  if(globalWithPool.__stPlanningPoolPromise)return globalWithPool.__stPlanningPoolPromise;
  const promise=(async()=>{
@@ -62,7 +53,9 @@ async function initPool():Promise<Pool>{
   };
 
   const max=boundedInt(process.env.DB_POOL_MAX,1,1,5);
-  const connectionTimeoutMillis=boundedInt(process.env.DB_CONNECT_TIMEOUT_MS,10000,5000,60000);
+  const connectionTimeoutMillis=boundedInt(process.env.DB_CONNECT_TIMEOUT_MS,8000,3000,60000);
+  const queryTimeoutMillis=boundedInt(process.env.DB_QUERY_TIMEOUT_MS,15000,5000,120000);
+  const idleTimeoutMillis=boundedInt(process.env.DB_IDLE_TIMEOUT_MS,5000,1000,30000);
 
   // V439 — Node `pg` currently interprets `sslmode=require` more strictly
   // than libpq and may reject Aiven with SELF_SIGNED_CERT_IN_CHAIN. Keep TLS
@@ -83,7 +76,9 @@ async function initPool():Promise<Pool>{
    ...(ssl?{ssl}:{}),
    max,
    connectionTimeoutMillis,
-   idleTimeoutMillis:30000,
+   query_timeout:queryTimeoutMillis,
+   statement_timeout:queryTimeoutMillis,
+   idleTimeoutMillis,
    allowExitOnIdle:true,
    keepAlive:true,
    keepAliveInitialDelayMillis:10000,
@@ -98,27 +93,28 @@ async function initPool():Promise<Pool>{
  return promise;
 }
 
-const CONNECT_TIMEOUT_MS=20_000;
-
 export function getPool(){
  return {
   connect:async()=>{
    const p=await initPool();
-   try{return await withTimeout(p.connect(),CONNECT_TIMEOUT_MS,"connect");}
+   // V517: do not wrap pool.connect() in Promise.race. If the artificial
+   // timeout wins, the original pg checkout remains queued and can later
+   // resolve to a client that nobody releases. Also never p.end() a shared
+   // pool because one request is slow while other tabs may still be using it.
+   // pg's connectionTimeoutMillis is the canonical checkout/connect guard.
+   try{return await p.connect();}
    catch(e){
-    console.error("[db] connect timeout — recycling pool",e instanceof Error?e.message:String(e));
-    p.end().catch(()=>{});
-    globalWithPool.__stPlanningPoolPromise=null;
+    console.error("[db] connect failed",e instanceof Error?e.message:String(e));
     throw e;
    }
   },
   query:async(text:string,values?:unknown[]):Promise<QueryResult<any>>=>{
    const p=await initPool();
-   try{return await withTimeout(p.query<any>(text,values as any),CONNECT_TIMEOUT_MS,"query");}
+   // query_timeout / statement_timeout on the pg client bound query lifetime
+   // without killing the shared pool or interrupting unrelated requests.
+   try{return await p.query<any>(text,values as any);}
    catch(e){
-    console.error("[db] query timeout — recycling pool",e instanceof Error?e.message:String(e));
-    p.end().catch(()=>{});
-    globalWithPool.__stPlanningPoolPromise=null;
+    console.error("[db] query failed",e instanceof Error?e.message:String(e));
     throw e;
    }
   },

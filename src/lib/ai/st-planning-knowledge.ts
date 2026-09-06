@@ -1,8 +1,14 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V516";
+export const ST_AI_KNOWLEDGE_VERSION="V517";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
+
+ {
+  key:"global-multitab-stability-v517",
+  title:"Global multi-tab stability + shared DB pool protection · V517",
+  content:`V517 changes only shared runtime stability. Global Realtime No-Supabase still uses PostgreSQL system_change_event plus one visible leader tab, but hidden tabs no longer call router.refresh for realtime events. A hidden relevant page records one dirty flag and reconciles once when it becomes visible; visible RSC reconciles are debounced and have a 4-second minimum cooldown, and unknown/static routes do not auto-refresh. This prevents one Planning/Schedule/Production mutation from causing a thundering herd of heavy Server Component queries across every open browser tab. The PostgreSQL runtime also removes the manual Promise.race around pool.connect/pool.query and never calls pool.end because one request is slow; pg connectionTimeoutMillis, query_timeout and statement_timeout provide bounded operations without terminating clients used by unrelated requests. Idle Vercel runtime DB connections default to 5 seconds through DB_IDLE_TIMEOUT_MS to return scarce Aiven connections sooner. No SQL migration is required. READY/WAIT, Planning Chain, Recipe, Batch, Scheduling, Production, Internal Chat and V512 Masking Estimate business logic are unchanged.`
+ },
 
  {
   key:"masking-config-http503-v516",

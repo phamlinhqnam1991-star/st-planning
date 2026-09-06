@@ -1,4 +1,4 @@
-# Current patch: V516
+# Current patch: V517
 
 `/masking-time-estimate-config` now reuses one PostgreSQL client for authorization + config reads/writes, avoiding a second pool checkout with `DB_POOL_MAX=1`. HTTP 503 is treated as temporary API/DB unavailability, not as proof that the four V512 queries are missing. Local saves suppress their own realtime echo so one save causes one config reload. No business logic change and no new migration.
 
@@ -320,3 +320,13 @@ Internal Chat is stored in Aiven PostgreSQL and is available to the four standar
 - Schema state is tri-state; HTTP 503 no longer shows a false “schema missing” message.
 - Gentle 503 retry/backoff and one reload per local save.
 - No SQL migration required; V512 four-query schema remains canonical.
+
+
+## V517 · Global multi-tab stability / shared DB pool protection
+- Hidden tabs no longer `router.refresh()` for realtime events; they coalesce into one dirty state and reconcile once when visible.
+- Visible realtime RSC refreshes are debounced and limited to one per 4 seconds during event bursts.
+- Returning to a tab does not refresh unless that tab actually became dirty.
+- Unknown/static routes do not auto-refresh for every `ALL` event.
+- PostgreSQL runtime no longer uses manual Promise-race checkout/query timeouts and never ends the shared pool because one request times out.
+- `pg` connection/query/statement timeouts are canonical; idle runtime connections default to 5 seconds to protect Aiven's small connection budget.
+- No SQL migration required. Business logic is unchanged.
