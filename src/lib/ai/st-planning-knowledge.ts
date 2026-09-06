@@ -1,12 +1,12 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V508";
+export const ST_AI_KNOWLEDGE_VERSION="V509";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"global-realtime-sync",
-  title:"Global Realtime No-Supabase · V508",
-  content:`V508 replaces the V507 Supabase Realtime signal bus with a provider-neutral PostgreSQL change-event feed. Aiven PostgreSQL remains the single canonical business database and also stores only tiny invalidation events in system_change_event. The root StRealtimeProvider intercepts successful mutating API calls, applies the change immediately in the initiating tab, broadcasts instantly to same-PC tabs through BroadcastChannel/localStorage, and persists the same event through /api/realtime/change-events. Other PCs/browsers poll only this tiny feed at about 1.2 seconds and automatically reconcile canonical data; no user Refresh/F5 is required. The existing Next.js router.refresh call is an automatic RSC soft reconcile, not a browser document reload, while schedule/timeline components still receive their fine-grained st-schedule-changed signal. Hidden/offline tabs resume from their persisted event cursor when visible/online and then safety-reconcile canonical data. Migration 086_global_realtime_change_event.sql is required for cross-device synchronization. No NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is required for realtime. Supabase may remain only for optional legacy Storage/import flows until those are separately migrated. READY/WAIT, Planning Chain, Recipe, Batch, Schedule, Production and V506 Remove Before Start business rules are unchanged.`
+  title:"Global Realtime No-Supabase · V509 fail-safe leader",
+  content:`V509 supersedes only the V508 realtime transport implementation. Aiven PostgreSQL remains the single canonical business database and system_change_event remains the tiny cross-device invalidation feed; Supabase Realtime is not used. To prevent server/DB overload, only one visible leader tab per browser profile polls PostgreSQL while sibling tabs receive events through BroadcastChannel/localStorage. Healthy cross-device polling is about 1.8 seconds and automatically backs off on API/DB failures. Initial feed subscription no longer calls router.refresh because the just-rendered RSC page is already canonical. RSC soft reconcile runs only for a real event relevant to the current route, while existing st-schedule-changed/config invalidation events remain. Missing migration 086, temporary DB/network/feed authorization failure, or realtime API failure must never block page rendering or cause a browser F5/document reload; the realtime layer fails open and retries automatically. Hidden leader tabs release their lease and another visible tab can take over from the persisted cursor. Migration 086_global_realtime_change_event.sql remains required for cross-device sync. READY/WAIT, Planning Chain, Recipe, Batch, Schedule, Production, V506 Remove Before Start and audit business rules are unchanged.`
  },
  {
   key:"canonical-flow",

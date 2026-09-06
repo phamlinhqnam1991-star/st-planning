@@ -1,7 +1,7 @@
 export const ST_REALTIME_WINDOW_EVENT="st-realtime-change";
 export const ST_REALTIME_BROWSER_CHANNEL="st-planning-live-v2";
 export const ST_REALTIME_API_PATH="/api/realtime/change-events";
-export const ST_REALTIME_POLL_MS=1200;
+export const ST_REALTIME_POLL_MS=1800;
 
 export type StRealtimeDomain=
  |"PLANNING"

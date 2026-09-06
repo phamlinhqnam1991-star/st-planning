@@ -1,17 +1,18 @@
 # ST Planning — Current Architecture
 
-## V508 — Global Realtime No-Supabase
+## V509 — Global Realtime No-Supabase · Fail-safe Leader
 
-`Successful mutation -> local invalidation -> PostgreSQL system_change_event -> every open client reconciles canonical data`
+`Successful mutation -> local invalidation -> PostgreSQL system_change_event -> one leader tab per browser profile polls -> all open clients reconcile canonical data`
 
-- Aiven PostgreSQL remains the single canonical operational database.
-- Realtime no longer depends on Supabase Realtime, Supabase quota, or Supabase public realtime keys.
-- Every successful mutating `/api/*` request is classified into Planning / Schedule / Production / Dashboard / Audit / Master / Config / Import / Chat / Admin domains.
-- The initiating tab applies the event immediately. Tabs on the same PC receive it through `BroadcastChannel` with `localStorage` fallback.
-- The same tiny event is persisted to `system_change_event`; other PCs/browsers poll only this feed at about 1.2 seconds and automatically reconcile the affected application data.
-- The browser is never F5/reloaded. Next.js `router.refresh()` is used only as an automatic RSC soft reconcile while fine-grained schedule/timeline components keep their existing `st-schedule-changed` loaders.
-- Hidden/offline tabs resume the event cursor on visibility/online and safety-reconcile canonical data, so missed browser timers do not require a manual refresh.
-- Migration `086_global_realtime_change_event.sql` is required. No Supabase environment variable is required for realtime; existing Supabase variables remain optional only for legacy Storage/import paths until separately migrated.
+- Aiven PostgreSQL remains the single canonical operational database. Supabase Realtime is not used.
+- V509 supersedes the V508 transport implementation only; business logic is unchanged.
+- Only **one visible leader tab per browser profile / PC** polls PostgreSQL. Other tabs receive the same events instantly through `BroadcastChannel` with `localStorage` fallback.
+- Cross-device polling uses the tiny `system_change_event` feed at about **1.8 seconds** under healthy conditions, with exponential backoff on API/DB failures. This prevents every open tab from continuously querying PostgreSQL.
+- The initial realtime subscription does **not** call `router.refresh()`. The initial page render is already canonical; a soft RSC reconcile runs only after an actual relevant mutation/event or after a meaningful sleep/resume.
+- Realtime is **fail-safe**: missing migration, network failure, expired feed authorization, or temporary DB/API failure does not block page rendering and does not trigger F5/document reload. Local same-PC sync continues where possible and cross-device polling retries automatically.
+- Realtime changes are domain-scoped. A page performs RSC soft reconcile only when the event domain can affect that route; existing fine-grained `st-schedule-changed` and config invalidation signals remain.
+- Leader cursor is stored locally so another tab can take over without re-reading the whole feed. Hidden leader tabs release the lease so a visible tab can continue polling.
+- Migration `086_global_realtime_change_event.sql` remains the only required realtime migration. No Supabase environment variable is required for realtime.
 - No READY/WAIT, Planning Chain, Recipe, Batch, Schedule, Production, Remove Before Start or audit business rule is changed.
 
 ## Canonical flow

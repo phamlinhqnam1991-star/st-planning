@@ -1,3 +1,7 @@
+# V509 — Global Realtime No-Supabase · Fail-safe Leader
+
+V509 replaces only the V508 realtime transport: one visible leader tab per browser profile polls PostgreSQL (~1.8s healthy), sibling tabs use BroadcastChannel/localStorage, initial subscription does not call router.refresh, and realtime/API/DB/migration failures fail open with automatic backoff instead of taking down the page. Business planning/production logic is unchanged.
+
 # ST Planning Web App
 
 Surface Treatment planning application built with Next.js 16, TypeScript, canonical PostgreSQL (Aiven) and Vercel. Supabase is optional only for legacy Storage/import flows.
