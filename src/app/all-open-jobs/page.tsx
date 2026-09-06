@@ -1,6 +1,6 @@
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import Link from "next/link";
-import {AppTabs} from "@/components/app-tabs";
+import {AppTabs,SubTabs} from "@/components/app-tabs";
 import {OpenJobImporter} from "@/components/open-job-importer";
 import {getPool} from "@/lib/db";
 
@@ -144,6 +144,12 @@ export default async function Page({
        <p>Danh sách Job đang mở thuộc phạm vi ST.</p>
       </div>
      </div>
+
+     <SubTabs active="current" items={[
+      {key:"current",label:"Current Jobs",href:"/all-open-jobs"},
+      {key:"audit",label:"Cross Check / Audit Missing",href:"/all-open-jobs/audit"},
+      {key:"history",label:"Change History",href:"/all-open-jobs/history"},
+     ]}/>
 
      <OpenJobImporter/>
 

@@ -6250,3 +6250,56 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .internal-chat-compose{padding:10px 12px;border-top:1px solid #d7e1ec;background:#fff}.internal-chat-compose textarea{width:100%;resize:vertical;min-height:72px;max-height:180px}.internal-chat-compose-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:7px}.internal-chat-compose-actions span{font-size:10px;color:#758596}.internal-chat-error{margin:8px 12px 0}
 .erp-module-context-item,.erpkit-context-link{display:flex;align-items:center;gap:4px}
 @media(max-width:720px){.internal-chat-layout{grid-template-rows:auto minmax(320px,55vh) auto}.internal-chat-toolbar{align-items:flex-start;flex-direction:column}.internal-chat-message{max-width:92%}.internal-chat-compose-actions{align-items:flex-end;flex-direction:column}.internal-chat-compose-actions .btn{width:100%}}
+
+/* =========================================================
+   All Open Jobs · Cross Check / Audit Missing v501
+   ========================================================= */
+.open-job-audit-kpis{
+ display:grid;
+ grid-template-columns:repeat(5,minmax(150px,1fr));
+ gap:8px;
+}
+.open-job-audit-kpis>div{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:12px;
+ min-height:58px;
+ padding:10px 12px;
+ border:1px solid #d0d5dd;
+ border-radius:6px;
+ background:#fff;
+}
+.open-job-audit-kpis span{font-size:11px;font-weight:750;color:#667085}
+.open-job-audit-kpis b{font-size:18px;font-variant-numeric:tabular-nums}
+.open-job-audit-kpis .audit-yes{background:#ecfdf3;border-color:#abefc6}
+.open-job-audit-kpis .audit-no{background:#fef3f2;border-color:#fecdca}
+.open-job-audit-reasons{display:flex;flex-wrap:wrap;gap:6px}
+.open-job-audit-reasons .missing-chip{cursor:pointer;text-decoration:none}
+.open-job-audit-reasons .missing-chip.active{outline:2px solid #84adff;outline-offset:1px}
+.open-job-audit-table{min-width:1900px}
+.open-job-audit-table .audit-filter-row th{padding:4px;background:#f8fafc}
+.open-job-audit-table .audit-filter-row .input{min-width:90px;height:30px;padding:4px 6px;font-size:10px}
+.open-job-audit-table .audit-reason-filter{min-width:280px}
+.audit-board-flag{
+ display:inline-flex;align-items:center;justify-content:center;
+ min-width:38px;padding:3px 7px;border-radius:999px;border:1px solid;
+ font-size:10px;font-weight:900;letter-spacing:.04em;
+}
+.audit-board-flag.yes{background:#ecfdf3;border-color:#abefc6;color:#067647}
+.audit-board-flag.no{background:#fef3f2;border-color:#fecdca;color:#b42318}
+.audit-reason{font-size:11px;font-weight:650}
+.audit-reason.ok{color:#067647}
+.audit-reason.miss{color:#b42318}
+.audit-row-no td{background:#fffdfc}
+@media(max-width:1100px){.open-job-audit-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.open-job-audit-kpis{grid-template-columns:1fr}}
+.open-job-audit-table .audit-range-filter{display:grid;grid-template-columns:1fr 1fr;gap:3px;min-width:120px}
+.open-job-audit-reasons .missing-chip{
+ display:inline-flex;align-items:center;gap:5px;
+ padding:6px 9px;border:1px solid #d0d5dd;border-radius:999px;
+ background:#fff;color:#475467;font-size:10px;font-weight:700;
+}
+.open-job-audit-reasons .missing-chip:hover{border-color:#84adff;background:#f5f8ff;color:#1849a9}
+.open-job-audit-reasons .audit-yes-chip{background:#ecfdf3;border-color:#abefc6;color:#067647}
+.open-job-audit-reasons .audit-no-chip{background:#fef3f2;border-color:#fecdca;color:#b42318}

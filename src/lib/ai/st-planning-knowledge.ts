@@ -1,6 +1,6 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V453";
+export const ST_AI_KNOWLEDGE_VERSION="V501";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
@@ -32,6 +32,11 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
   key:"st-scope",
   title:"ST Scope and Intermediate operations",
   content:`Planning Chain workload remains based on Current Main and excludes ST_SCOPE_ONLY from Planning/Batch/Schedule. Dashboard chart 2 (Surface + Qty by Main / Immediate / ST Only) is a read-only current-position view. Current Main comes from the live Planning Chain suffix already positioned by the canonical LastOperation + RAW NextOperation resolver. Dashboard then filters RAW NextOperation by explicit md_st_operation_scope membership. PLANNING_OPERATION is MAIN, INTERMEDIATE is IMMEDIATE, and ST_SCOPE_ONLY is ST ONLY. Bridge Role is diagnostic only and must not be used as a second inclusion gate after Current Main has already resolved. CAT3/CAT5 use one current row per Job and are sorted directly by RAW NextOperation Order: md_operation.planning_sort_order first; resolved Main Planning Order is only a fallback when the RAW operation has no explicit order; then RAW NextOperation and Job. The INTERMEDIATE tag is Dashboard-only membership: it does not make a Job appear in All Open Jobs, does not create or deactivate Planning Chain rows, and does not affect Candidate, Batch, Recipe or Schedule.`
+ },
+ {
+  key:"all-open-job-planning-audit",
+  title:"All Open Jobs Cross Check / Audit Missing · V501",
+  content:`Cross Check / Audit Missing is a read-only source-to-board reconciliation. Its source population is every open_job_current row with is_open=true, including rows outside ST, so missing-source rows are never silently discarded before diagnosis. Planning Board=YES means the RAW NextOperation belongs to the canonical Planning Board RAW scope (active PLANNING_OPERATION or active Intermediate Bridge, excluding ST_SCOPE_ONLY) and the Job has a live active planning_job_operation occurrence. Planning Board=NO carries a deterministic reason: empty NextOperation, ST_SCOPE_ONLY, outside ST Planning scope/Bridge, missing Source->Main mapping, Intermediate Bridge without resolved chain, no active Planning Chain requiring rebuild/route diagnosis, RAW/chain mismatch, or a final population mismatch. Column filters are diagnostic only. A saved Planning Board VIEW/filter may still hide a Job whose canonical audit result is YES. The audit never rebuilds or mutates Planning Chain, Recipe, Batch, Schedule or Auto Planning.`
  },
  {
   key:"recipe-batch",
@@ -150,3 +155,6 @@ export const V498_SCHEDULING_OPERATION_CARD_RECIPE_PICKER = `Scheduling Board ST
 export const V499_SCHEDULING_DETAIL_RECIPE_CLICK = `V499 corrects the V498 Scheduling recipe navigation placement. MAIN TOTAL returns to the compact canonical total only and does not render Recipe choices. Recipe selection/navigation happens directly on the existing detail lines inside each Recipe row. READY detail lines (current READY Main + current READY Recipe) are now clickable and open the existing Planning Board Quick View already filtered by Area + Main Operation + Recipe + READY bucket, matching the direct-click behavior of WAIT · Next Main detail breakdown. Canonical workload population, READY/WAIT gating, Recipe resolver, Batch, Schedule and Auto Planning are unchanged.`;
 
 export const V500_SCHEDULING_DETAIL_ONLY_DASHBOARD_READY_FIRST = `V500 changes presentation only. Scheduling Board ST Workload Summary removes every MAIN TOTAL row and renders Recipe detail rows only; each Recipe row carries its Main Operation label directly so removing the total row does not remove operation context. Existing V499 detail-line Recipe click behavior remains. Dashboard ST Workload Summary · By Area uses this exact display order: READY · Previous Main Scheduled, READY · Previous Main Unscheduled / START, WAIT · Next Main, WAIT · Future Mains, PLANNED-UNSCHEDULED, SCHEDULED, HOLD, ST ONLY, Total. Canonical workload population, READY/WAIT classifiers, Recipe resolution, Batch, Schedule and Auto Planning are unchanged.`;
+
+
+export const V501_ALL_OPEN_JOB_PLANNING_AUDIT = `V501 adds the read-only All Open Jobs Cross Check / Audit Missing tab. It audits every open source row against canonical Planning Board population and exposes Planning Board YES/NO plus deterministic missing reasons and per-column filters. It does not mutate Planning Chain, Recipe, Batch, Schedule or Auto Planning.`;

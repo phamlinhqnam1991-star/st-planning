@@ -1,3 +1,4 @@
+// V501 All Open Jobs Cross Check/Audit: every open source row is checked against canonical Planning Board population with YES/NO + reason; read-only.
 // V500 Dashboard/Scheduling workload presentation: Dashboard Area workload uses READY-first column order; Scheduling workload shows Recipe detail rows only and removes all MAIN TOTAL rows.
 // V495 Internal Chat: shared Aiven-backed team chat + automatic SYSTEM messages for Planning/Scheduling/Production/Adjustment changes; cross-planner impacts are resolved dynamically from Main → Schedule Area → Planner Assignment and highlighted without replacing existing alerts.
 // V494 Recent Batches export: each Batch row can export its real planning_batch_job membership to Excel using the Planning Matrix-style columns. Export is read-only and does not change Batch/READY/WAIT/Schedule/Production.
@@ -278,6 +279,9 @@ export default async function Page(){
      </Rule>
      <Rule title="V500 · Workload Dashboard + Scheduling detail-only" tone="important">
       <b>Dashboard</b> bỏ toàn bộ KPI card và giữ bảng workload chi tiết. Bảng <b>ST Workload Summary · By Area</b> dùng thứ tự cột: READY Previous Main Scheduled → READY Previous Main Unscheduled / START → WAIT Next → WAIT Future → Planned-Unscheduled → Scheduled → Hold → ST Only → Total. Trên <b>Scheduling Board</b>, toàn bộ dòng <b>MAIN TOTAL</b> đã được bỏ; chỉ còn Recipe detail rows và mỗi dòng hiển thị trực tiếp Main Operation. Ở hai cột READY, breakdown dùng <b>Recipe của Main Planning đang READY</b> theo V497/V499. Đây chỉ là presentation/read model; READY/WAIT gating và Batch/Schedule engine không đổi.
+     </Rule>
+     <Rule title="V501 · All Open Jobs Cross Check / Audit Missing" tone="important">
+      Tab <b>Cross Check / Audit Missing</b> lấy toàn bộ <code>open_job_current.is_open=true</code> làm nguồn đối chiếu. Mỗi Job có cột <b>Planning Board = YES/NO</b>. YES chỉ khi RAW <code>NextOperation</code> thuộc canonical Planning Board scope hiện hành và Job có live <code>planning_job_operation</code> active; NO luôn có <b>Lý do</b> như NextOperation trống, <code>ST_SCOPE_ONLY</code>, ngoài ST Planning Scope/Bridge, thiếu Source → Main Mapping, Intermediate chưa resolve chain, chưa có Planning Chain/Rebuild hoặc RAW/chain mismatch. Đây là màn audit read-only; filter/view cá nhân trên Planning Board có thể tiếp tục ẩn một Job dù audit nền là YES. Audit không tạo/sửa Chain, Recipe, Batch hay Schedule.
      </Rule>
     </div>
     {Object.keys(liveErrors).length>0&&<div className="notice"><b>Lưu ý:</b> Một số bảng Mapping sống không đọc được; các bảng còn lại vẫn hiển thị dữ liệu thật từ database. Chi tiết lỗi nằm ngay tại bảng tương ứng.</div>}

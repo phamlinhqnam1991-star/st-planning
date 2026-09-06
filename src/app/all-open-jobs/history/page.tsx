@@ -1,6 +1,6 @@
 import {ErpAppHeader} from "@/components/erp/erp-app-header";
 import Link from "next/link";
-import {AppTabs} from "@/components/app-tabs";
+import {AppTabs,SubTabs} from "@/components/app-tabs";
 import {getPool} from "@/lib/db";
 
 export const dynamic="force-dynamic";
@@ -57,6 +57,12 @@ export default async function Page({
       <div><h2>All Open Job Change History</h2><p>Chỉ lưu các thay đổi NEW / CHANGED / CLOSED.</p></div>
       <Link className="btn" href="/all-open-jobs">← Current Jobs</Link>
      </div>
+
+     <SubTabs active="history" items={[
+      {key:"current",label:"Current Jobs",href:"/all-open-jobs"},
+      {key:"audit",label:"Cross Check / Audit Missing",href:"/all-open-jobs/audit"},
+      {key:"history",label:"Change History",href:"/all-open-jobs/history"},
+     ]}/>
 
      <form className="erp-form-panel open-job-history-filter">
       <select className="input" name="type" defaultValue={type}>
