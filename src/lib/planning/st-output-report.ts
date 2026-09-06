@@ -174,6 +174,12 @@ export async function loadStOutputReport(
    from public.md_intermediate_bridge_operation bo
    join public.md_intermediate_bridge_segment bs on bs.id=bo.segment_id and bs.is_active=true
    where nullif(trim(bo.operation_code),'') is not null
+  ), st_final_step_ops as (
+   select distinct upper(trim(operation_code)) operation_code
+   from public.md_st_operation_scope
+   where is_active=true
+     and operation_type in ('ST_SCOPE_ONLY','PLANNING_OPERATION','INTERMEDIATE')
+     and nullif(trim(operation_code),'') is not null
   ), selected_open_job as (
    select j.*
    from public.open_job_current j
@@ -317,14 +323,14 @@ export async function loadStOutputReport(
     j.last_import_batch_id import_batch_id,
     ib.file_name import_file_name,
     coalesce(ib.finished_at,ib.created_at)::text import_time,
-    'V523: Intermediate/Bridge ST chưa resolve Planning Chain; NextOperation thuộc ST Output scope' audit_reason
+    'ST Final Steps: V523 candidate; NextOperation thuộc active ST Scope (ST_SCOPE_ONLY / PLANNING_OPERATION / INTERMEDIATE)' audit_reason
    from selected_open_job j
    join intermediate_no_chain_audit audit on audit.job_num=j.job_num
    left join chain_final cf on cf.job_num=j.job_num
    left join allop_final af on af.job_num=j.job_num
    left join public.open_job_import_batch ib on ib.id=j.last_import_batch_id
    where $5::text in ('ALL','INTERMEDIATE_NO_CHAIN')
-     and exists(select 1 from st_ops ops where ops.operation_code=upper(trim(coalesce(j.next_operation,''))))
+     and exists(select 1 from st_final_step_ops ops where ops.operation_code=upper(trim(coalesce(j.next_operation,''))))
   ), ranked as (
    select
     r.*,

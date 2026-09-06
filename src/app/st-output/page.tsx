@@ -11,7 +11,7 @@ const SOURCE_LABEL:Record<StOutputSource,string>={
  CHEMMILL:"CHEMMILL",
  FINAL_ST_OPERATION:"Công đoạn ST cuối",
  FINSST_CFINM_VN:"FINSST / CFINM-VN",
- INTERMEDIATE_NO_CHAIN:"Intermediate No Chain",
+ INTERMEDIATE_NO_CHAIN:"ST Final Steps",
 };
 
 function fmt(value:unknown,max=2){
@@ -95,7 +95,7 @@ export default async function Page({
     <ErpPageHeader
      eyebrow="ST OUTPUT"
      title="Output ST dm²/ngày"
-     description="Tính theo kế hoạch: CHEMMILL và công đoạn ST cuối lấy theo Scheduled End trong cửa sổ 00:00 ngày báo cáo đến 03:00 ngày hôm sau; FINSST/CFINM-VN và Intermediate No Chain lấy từ All Open Job import được chọn."
+     description="Tính theo kế hoạch: CHEMMILL và công đoạn ST cuối lấy theo Scheduled End trong cửa sổ 00:00 ngày báo cáo đến 03:00 ngày hôm sau; FINSST/CFINM-VN và ST Final Steps lấy từ All Open Job import được chọn; ST Final Steps chỉ giữ NextOperation thuộc active ST Scope (ST Only, Main Planning hoặc Intermediate)."
      status={<span className="erpkit-status erpkit-status-success"><span className="erpkit-status-dot"/>LIVE</span>}
     />
 
@@ -163,7 +163,7 @@ export default async function Page({
     <div className="erp-table-panel section">
      <div className="erp-panel-head">
       <div><b>Danh sách Job chi tiết</b><small>{fmt(report.totalRows,0)} dòng sau lọc · trang {report.page}/{report.pages}</small></div>
-      <div className="muted">Ưu tiên: Công đoạn ST cuối đã điều độ &gt; FINSST/CFINM-VN &gt; Intermediate No Chain. CHEMMILL tính riêng.</div>
+      <div className="muted">Ưu tiên: Công đoạn ST cuối đã điều độ &gt; FINSST/CFINM-VN &gt; ST Final Steps. CHEMMILL tính riêng.</div>
      </div>
      <div className="table-wrap">
       <table className="erp-table open-job-all-columns">
