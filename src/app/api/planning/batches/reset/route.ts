@@ -81,7 +81,7 @@ export async function POST(){
   }
 
   await c.query("commit");
-  await notifyInternalChange({ctx,eventKey:"BATCH_RESET_ALL",summary:`Reset all active Planning Batches · ${Number(batchCountQ.rows[0]?.count||0)} Batch · ${Number(jobCountQ.rows[0]?.count||0)} Job released`,entityType:"PLANNING",entityId:"RESET_ALL",metadata:{resetBatches:Number(batchCountQ.rows[0]?.count||0),releasedJobs:Number(jobCountQ.rows[0]?.count||0)}});
+  await notifyInternalChange({dbClient:c,ctx,eventKey:"BATCH_RESET_ALL",summary:`Reset all active Planning Batches · ${Number(batchCountQ.rows[0]?.count||0)} Batch · ${Number(jobCountQ.rows[0]?.count||0)} Job released`,entityType:"PLANNING",entityId:"RESET_ALL",metadata:{resetBatches:Number(batchCountQ.rows[0]?.count||0),releasedJobs:Number(jobCountQ.rows[0]?.count||0)}});
 
   return NextResponse.json({
    ok:true,

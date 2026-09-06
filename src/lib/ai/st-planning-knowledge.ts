@@ -1,8 +1,14 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V509";
+export const ST_AI_KNOWLEDGE_VERSION="V510";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
+
+ {
+  key:"internal-chat-v510",
+  title:"Internal Chat · V510 stable realtime + direct user chat",
+  content:`V510 keeps the V509 Global Realtime No-Supabase transport and upgrades Internal Chat only. The /internal-chat page no longer performs a second page-level access-context database read; permission/can-send state is supplied by the chat API so a Chat/API/schema problem fails inside the Chat panel instead of taking down the whole Server Component page. Planning Batch create/delete, Batch Job add/remove, Scheduling add/move/unschedule/order/manual-grid, Production and approved adjustment notifications continue to write best-effort SYSTEM messages after the business transaction commits. V510 reuses the route's already-committed PostgreSQL client for that notification instead of acquiring a second pool client, so DB_POOL_MAX=1 cannot deadlock the Chat path. Each inserted Chat message also emits a CHAT invalidation into PostgreSQL system_change_event; same-browser Planning/Schedule/Production mutations also include the CHAT realtime domain, so chat and unread counters update without F5. Internal Chat supports the shared ST Planning Group plus direct user-to-user conversations selected from active app users. Direct messages use nullable recipient_user_id; per-conversation read state uses app_chat_read_state with GROUP or deterministic DM keys so unread totals and per-user badges remain correct. Chat read-receipt PATCH calls broadcast CHAT so unread state clears across tabs/devices, but Chat clients treat PATCH as unread-only and do not reload/mark messages again, preventing realtime feedback loops. Migration 087_internal_chat_direct_realtime.sql is required after migration 086. Chat failures never rollback Planning/Schedule/Production changes.`
+ },
  {
   key:"global-realtime-sync",
   title:"Global Realtime No-Supabase · V509 fail-safe leader",

@@ -221,7 +221,7 @@ export async function PATCH(
   });
 
   await c.query("commit");
-  await notifyInternalChange({
+  await notifyInternalChange({dbClient:c,
    ctx,eventKey:"BATCH_RECIPE_CHANGED",summary:`Changed Recipe of Batch ${batch.batch_no} · ${batch.standard_operation}`,
    batchId,batchNo:String(batch.batch_no||""),standardOperation:String(batch.standard_operation||""),
    entityType:"BATCH",entityId:batchId,metadata:{previousRecipeKey:batch.recipe_key||null,newRecipeKey:recipeKey}
@@ -351,7 +351,7 @@ export async function DELETE(
   }
 
   await c.query("commit");
-  await notifyInternalChange({
+  await notifyInternalChange({dbClient:c,
    ctx,eventKey:"BATCH_DELETED",summary:`Deleted Batch ${batch.batch_no} · ${batch.standard_operation} · released ${affected.length} Job`,
    batchId,batchNo:String(batch.batch_no||""),standardOperation:String(batch.standard_operation||""),jobNums:affected,
    entityType:"BATCH",entityId:batchId,metadata:{releasedJobs:affected.length}

@@ -65,7 +65,7 @@ export async function POST(req:NextRequest){
   `,[id,reason,note,clean(user?.email)||clean(user?.userId)||"USER"]);
   const state=await loadHoldState(c,id);
   await c.query("commit");
-  await notifyInternalChange({ctx:user,eventKey:"JOB_HOLD",summary:`HOLD Job ${row.job_num} · ${row.standard_operation} · ${reason}`,standardOperation:String(row.standard_operation||""),jobNums:[String(row.job_num||"")],entityType:"JOB_MAIN",entityId:id,metadata:{reason,note}});
+  await notifyInternalChange({dbClient:c,ctx:user,eventKey:"JOB_HOLD",summary:`HOLD Job ${row.job_num} · ${row.standard_operation} · ${reason}`,standardOperation:String(row.standard_operation||""),jobNums:[String(row.job_num||"")],entityType:"JOB_MAIN",entityId:id,metadata:{reason,note}});
   return NextResponse.json({ok:true,action:"HOLD",state});
  }catch(error){
   await c.query("rollback");
@@ -109,7 +109,7 @@ export async function DELETE(req:NextRequest){
   await syncPlanningChains(c,{jobNums:[String(row.job_num)]});
   const state=await loadHoldState(c,id);
   await c.query("commit");
-  await notifyInternalChange({ctx,eventKey:"JOB_RELEASED",summary:`Released HOLD Job ${row.job_num} · ${row.standard_operation}`,standardOperation:String(row.standard_operation||""),jobNums:[String(row.job_num||"")],entityType:"JOB_MAIN",entityId:id});
+  await notifyInternalChange({dbClient:c,ctx,eventKey:"JOB_RELEASED",summary:`Released HOLD Job ${row.job_num} · ${row.standard_operation}`,standardOperation:String(row.standard_operation||""),jobNums:[String(row.job_num||"")],entityType:"JOB_MAIN",entityId:id});
   return NextResponse.json({ok:true,action:"RELEASE",state,job_num:row.job_num});
  }catch(error){
   await c.query("rollback");

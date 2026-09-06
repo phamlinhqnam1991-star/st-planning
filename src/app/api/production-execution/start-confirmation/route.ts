@@ -70,7 +70,7 @@ export async function POST(req:Request){
   await c.query("commit");
 
   const removedJobs=result.removedJobs.map(x=>x.jobNum);
-  await notifyInternalChange({
+  await notifyInternalChange({dbClient:c,
    ctx,eventKey:removedJobs.length?"PRODUCTION_START_WITH_REMOVED_JOBS":"PRODUCTION_REPORTED",
    summary:removedJobs.length
     ?`Production START · ${bQ.rows[0].batch_no} · ${bQ.rows[0].standard_operation} · removed ${removedJobs.length} not-loaded Job(s): ${removedJobs.join(", ")}`

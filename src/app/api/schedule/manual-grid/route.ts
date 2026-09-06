@@ -266,7 +266,7 @@ export async function POST(req:Request){
     columns?.unloadingStart||null,columns?.unloadingEnd||null,columns?.unloadingDurationMinutes||null]);
 
   await c.query("commit");
-  await notifyInternalChange({
+  await notifyInternalChange({dbClient:c,
    ctx,eventKey:"MANUAL_SCHEDULE_CREATED",summary:`Created manual Schedule Batch ${batchNo} · ${op.standard_operation} on ${resourceCode} · ${effectiveStart.toISOString()} → ${end.toISOString()}`,
    batchId,batchNo,standardOperation:String(op.standard_operation||""),entityType:"SCHEDULE",entityId:scheduleQ.rows[0]?.id||batchId,
    metadata:{resourceCode,planningDate,plannedStart:effectiveStart.toISOString(),plannedEnd:end.toISOString(),planSource:"MANUAL_GRID",autoAdjusted}

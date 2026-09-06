@@ -115,7 +115,7 @@ export async function PUT(req:Request){
 
   const mainsQ=await c.query(`select standard_operation from md_schedule_area_operation where schedule_area_code=$1 and is_active=true order by standard_operation`,[code]);
   invalidateConfigHealth();
-  await notifyInternalChange({
+  await notifyInternalChange({dbClient:c,
    ctx,eventKey:"PLANNER_ASSIGNMENT_CHANGED",
    summary:`Planner Assignment ${areaQ.rows[0].schedule_area_name||code}: Planner ${areaQ.rows[0].previous_planner_owner||"UNASSIGNED"} → Planner ${owner}`,
    affectedMains:mainsQ.rows.map((r:any)=>String(r.standard_operation||"")).filter(Boolean),entityType:"SCHEDULE_AREA",entityId:code,

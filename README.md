@@ -1,6 +1,6 @@
-# V509 — Global Realtime No-Supabase · Fail-safe Leader
+# V510 — Internal Chat stable realtime + direct user chat
 
-V509 replaces only the V508 realtime transport: one visible leader tab per browser profile polls PostgreSQL (~1.8s healthy), sibling tabs use BroadcastChannel/localStorage, initial subscription does not call router.refresh, and realtime/API/DB/migration failures fail open with automatic backoff instead of taking down the page. Business planning/production logic is unchanged.
+V510 keeps the V509 Global Realtime No-Supabase fail-safe leader transport and upgrades Internal Chat: the Chat page fails open instead of crashing the whole Server Component page, Planning/Scheduling/Production changes publish immediate SYSTEM messages into Chat, the navigation shows unread counts, and users can choose active coworkers for direct chat. Run `087_internal_chat_direct_realtime.sql` after migration 086. Business planning/production logic is unchanged.
 
 # ST Planning Web App
 
@@ -19,9 +19,9 @@ Surface Treatment planning application built with Next.js 16, TypeScript, canoni
 - Logic & Hướng dẫn
 - Login/Auth
 
-## Global Realtime No-Supabase · V508
+## Global Realtime No-Supabase · V509/V510
 
-All open ST Planning screens self-synchronize without manual Refresh/F5. Same-PC tabs use `BroadcastChannel/localStorage`; cross-device clients use the tiny PostgreSQL `system_change_event` feed and `/api/realtime/change-events` polling (~1.2s). Run migration `086_global_realtime_change_event.sql`. Supabase URL/publishable key are not required for realtime. Business Planning/Batch/Schedule/Production rules are unchanged.
+All open ST Planning screens self-synchronize without manual Refresh/F5. Same-PC tabs use `BroadcastChannel/localStorage`; cross-device clients use the tiny PostgreSQL `system_change_event` feed with the V509 one-leader-tab fail-safe polling model (~1.8s healthy). Run migration `086_global_realtime_change_event.sql`. V510 Internal Chat adds migration `087_internal_chat_direct_realtime.sql` for direct recipients and per-conversation unread state. Supabase URL/publishable key are not required for realtime. Business Planning/Batch/Schedule/Production rules are unchanged.
 
 ## Canonical Planning flow
 

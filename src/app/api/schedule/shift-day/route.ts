@@ -144,7 +144,7 @@ export async function POST(req:Request){
    throw new Error("Dời ngày chưa hoàn tất: ngày sản xuất nguồn 06:00 → 06:00 vẫn còn lô. Transaction đã được rollback.");
 
   await c.query("commit");
-  await notifyInternalChange({ctx,eventKey:"SCHEDULE_DAY_SHIFTED",summary:`Moved production-day Schedule ${sourceDate} → ${targetDate} · ${Number(movedQ.rowCount||0)} rows`,entityType:"SCHEDULE_DAY",entityId:sourceDate,metadata:{sourceDate,targetDate,direction,moved:Number(movedQ.rowCount||0),batchNos:sourceQ.rows.map((x:any)=>String(x.batch_no||"")).filter(Boolean)}});
+  await notifyInternalChange({dbClient:c,ctx,eventKey:"SCHEDULE_DAY_SHIFTED",summary:`Moved production-day Schedule ${sourceDate} → ${targetDate} · ${Number(movedQ.rowCount||0)} rows`,entityType:"SCHEDULE_DAY",entityId:sourceDate,metadata:{sourceDate,targetDate,direction,moved:Number(movedQ.rowCount||0),batchNos:sourceQ.rows.map((x:any)=>String(x.batch_no||"")).filter(Boolean)}});
   return NextResponse.json({
    ok:true,
    sourceDate,

@@ -116,7 +116,7 @@ export async function PATCH(req:Request){
     returning id,source_type,source_key,batch_id,schedule_id,execution_status,actual_start,actual_end,remark,updated_at
    `,[sourceType,sourceKey,batchId,scheduleId,status,remark]);
    await c.query("commit");
-   await notifyInternalChange({
+   await notifyInternalChange({dbClient:c,
     ctx,eventKey:"PRODUCTION_REPORTED",summary:`Production ${status} · Batch ${b.rows[0].batch_no} · ${b.rows[0].standard_operation} · line ${sourceKey}`,
     batchId,batchNo:String(b.rows[0].batch_no||""),standardOperation:String(b.rows[0].standard_operation||""),
     entityType:"PRODUCTION_EXECUTION",entityId:pq.rows[0]?.id||sourceKey,metadata:{reportLevel:"LINE",sourceType,sourceKey,status,remark}
@@ -203,7 +203,7 @@ export async function PATCH(req:Request){
   `,[sourceType,sourceKey,batchId,scheduleId,summaryStatus,summaryStart,summaryEnd,remark]);
 
   await c.query("commit");
-  await notifyInternalChange({
+  await notifyInternalChange({dbClient:c,
    ctx,eventKey:"PRODUCTION_REPORTED",summary:`Production ${status} · Job ${jobNum} · Batch ${b.rows[0].batch_no} · ${b.rows[0].standard_operation}${sourceType!=="BATCH"?` · ${sourceType}`:""}`,
    batchId,batchNo:String(b.rows[0].batch_no||""),standardOperation:String(b.rows[0].standard_operation||""),jobNums:[jobNum],
    entityType:"PRODUCTION_EXECUTION_JOB",entityId:jq.rows[0]?.id||planningJobOperationId,metadata:{reportLevel:"JOB",sourceType,sourceKey,status,remark}

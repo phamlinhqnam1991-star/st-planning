@@ -166,7 +166,7 @@ export async function POST(req:Request){
   }
 
   await c.query("commit");
-  await notifyInternalChange({
+  await notifyInternalChange({dbClient:c,
    ctx,eventKey:"SCHEDULE_CREATED",
    summary:`Scheduled Batch ${batch.batch_no} · ${batch.standard_operation} on ${resourceCode} · ${effectiveStart.toISOString()} → ${end.toISOString()}`,
    batchId,batchNo:String(batch.batch_no||""),standardOperation:String(batch.standard_operation||""),
@@ -286,7 +286,7 @@ export async function PATCH(req:Request){
   `,[current.batch_id,start,end]);
 
   await c.query("commit");
-  await notifyInternalChange({
+  await notifyInternalChange({dbClient:c,
    ctx,eventKey:"SCHEDULE_CHANGED",
    summary:`Changed Schedule ${current.batch_no} · ${current.standard_operation}: ${String(current.resource_code||"")} → ${resourceCode} · ${start.toISOString()} → ${end.toISOString()}`,
    batchId:Number(current.batch_id),batchNo:String(current.batch_no||""),standardOperation:String(current.standard_operation||""),
@@ -357,7 +357,7 @@ export async function DELETE(req:Request){
   }
 
   await c.query("commit");
-  await notifyInternalChange({
+  await notifyInternalChange({dbClient:c,
    ctx,eventKey:"SCHEDULE_REMOVED",summary:`Unscheduled Batch ${row.batch_no} · ${row.standard_operation} from ${row.resource_code}`,
    batchId:Number(row.batch_id),batchNo:String(row.batch_no||""),standardOperation:String(row.standard_operation||""),
    entityType:"SCHEDULE",entityId:scheduleId,metadata:{resourceCode:row.resource_code||null}

@@ -58,6 +58,8 @@ function pageDomains(pathname:string):StRealtimeDomain[]{
 }
 
 function changeAffectsPage(change:StRealtimeChange,pathname:string){
+ // V510: Internal Chat reconciles its own client data. Do not RSC-refresh the whole Chat page for CHAT events.
+ if(pathname.startsWith("/internal-chat"))return false;
  if(change.domains.includes("ALL"))return true;
  const wanted=pageDomains(pathname);
  if(wanted.includes("ALL"))return true;

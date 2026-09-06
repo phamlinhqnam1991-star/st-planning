@@ -1,5 +1,20 @@
 # ST Planning — Current Architecture
 
+## V510 — Internal Chat stable realtime + unread + direct user chat
+
+`Planning / Schedule / Production commit -> Internal Chat SYSTEM message -> PostgreSQL system_change_event[CHAT] -> unread/chat clients reconcile without F5`
+
+- V510 keeps the **V509 Global Realtime No-Supabase fail-safe leader** transport unchanged as the global synchronization base.
+- `/internal-chat` no longer performs a second page-level access-context database read. Chat permission/state is loaded by the client API, so Chat schema/API failure stays inside the Chat panel and must not crash the whole page.
+- Planning Batch create/delete, Batch Job add/remove, Scheduling add/move/unschedule/order/manual-grid, Production execution, Remove Before Start/Shift Accept and Daily Adjustment notifications remain best-effort **SYSTEM messages after business commit**. Chat failure never rolls back those business transactions.
+- V510 reuses the route's already-committed PostgreSQL client when writing the SYSTEM message. It does **not** acquire a second pool client while the business request still holds one, so `DB_POOL_MAX=1` cannot deadlock the notification path.
+- Every successful SYSTEM/user Chat insert emits a `CHAT` invalidation into PostgreSQL `system_change_event`. Same-browser Planning/Schedule/Production mutations also carry the `CHAT` domain for immediate local refresh; cross-device clients receive the server CHAT event through the V509 leader feed.
+- The navigation tab shows a total unread badge. Internal Chat has the shared **ST Planning Group** plus direct user-to-user chat selected from active app users, with unread count per person.
+- Direct chat uses nullable `app_chat_message.recipient_user_id`. Read state is per conversation in `app_chat_read_state` using `GROUP` or deterministic `DM:<userA>:<userB>` keys, so reading one conversation does not clear another conversation's unread count.
+- Chat read-receipt `PATCH /api/internal-chat` also broadcasts a CHAT invalidation so unread badges clear across tabs/devices; the Chat client recognizes PATCH events and refreshes unread state only, not message data, preventing feedback loops.
+- Required migrations: `086_global_realtime_change_event.sql` then `087_internal_chat_direct_realtime.sql`. Supabase is not used for Chat/realtime.
+- No READY/WAIT, Planning Chain, Recipe, Batch, Schedule, Production, Remove Before Start or Audit business rule is changed.
+
 ## V509 — Global Realtime No-Supabase · Fail-safe Leader
 
 `Successful mutation -> local invalidation -> PostgreSQL system_change_event -> one leader tab per browser profile polls -> all open clients reconcile canonical data`

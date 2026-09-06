@@ -40,7 +40,7 @@ export async function PUT(req:Request){
   }
 
   await c.query("commit");
-  await notifyInternalChange({ctx,eventKey:"SCHEDULE_ORDER_CHANGED",summary:`Changed Scheduling Board sequence · ${unique.length} Schedule rows`,entityType:"SCHEDULE",entityId:"ORDER",metadata:{scheduleIds:unique}});
+  await notifyInternalChange({dbClient:c,ctx,eventKey:"SCHEDULE_ORDER_CHANGED",summary:`Changed Scheduling Board sequence · ${unique.length} Schedule rows`,entityType:"SCHEDULE",entityId:"ORDER",metadata:{scheduleIds:unique}});
   return NextResponse.json({ok:true});
  }catch(e){
   await c.query("rollback");

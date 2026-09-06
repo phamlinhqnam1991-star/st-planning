@@ -74,11 +74,11 @@ export function realtimeDomainsForApiPath(path:string):StRealtimeDomain[]{
  if(path.startsWith("/api/internal-chat"))return ["CHAT"];
  if(path.startsWith("/api/admin"))return ["ADMIN"];
  if(path.startsWith("/api/production-execution")||path.startsWith("/api/daily-production-adjustment"))
-  return ["PRODUCTION","SCHEDULE","PLANNING","DASHBOARD","AUDIT"];
+  return ["PRODUCTION","SCHEDULE","PLANNING","DASHBOARD","AUDIT","CHAT"];
  if(path.startsWith("/api/schedule"))
-  return ["SCHEDULE","PRODUCTION","PLANNING","DASHBOARD","AUDIT"];
+  return ["SCHEDULE","PRODUCTION","PLANNING","DASHBOARD","AUDIT","CHAT"];
  if(path.startsWith("/api/planning"))
-  return ["PLANNING","SCHEDULE","PRODUCTION","DASHBOARD","AUDIT"];
+  return ["PLANNING","SCHEDULE","PRODUCTION","DASHBOARD","AUDIT","CHAT"];
  if(path.startsWith("/api/import"))
   return ["IMPORT","MASTER","CONFIG","PLANNING","SCHEDULE","PRODUCTION","DASHBOARD","AUDIT"];
  if(path.startsWith("/api/master")||path.startsWith("/api/config")||path.startsWith("/api/process-recipe")||path.startsWith("/api/area"))

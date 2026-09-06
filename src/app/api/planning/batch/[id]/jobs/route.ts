@@ -472,7 +472,7 @@ export async function POST(
    }
 
    await c.query("commit");
-   await notifyInternalChange({
+   await notifyInternalChange({dbClient:c,
     ctx,eventKey:"BATCH_JOBS_ADDED",
     summary:`Added ${q.rows.length} Job to Batch ${batch.batch_no} · ${batch.standard_operation} · ${Number(totals.totalQty||0)} pcs`,
     batchId,batchNo:String(batch.batch_no||""),standardOperation:String(batch.standard_operation||""),
@@ -593,7 +593,7 @@ export async function DELETE(
    });
 
    await c.query("commit");
-   await notifyInternalChange({
+   await notifyInternalChange({dbClient:c,
     ctx,eventKey:"BATCH_JOB_REMOVED",
     summary:`Removed Job ${row.job_num} from Batch ${batch.batch_no} · ${batch.standard_operation}`,
     batchId,batchNo:String(batch.batch_no||""),standardOperation:String(batch.standard_operation||""),jobNums:[String(row.job_num||"")],

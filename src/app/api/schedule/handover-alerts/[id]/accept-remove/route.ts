@@ -29,7 +29,7 @@ export async function POST(_req:Request,{params}:{params:Promise<{id:string}>}){
   const result=await acceptDownstreamRemove(c,eventId,ctx.displayName||ctx.email||"Shift");
   await c.query("commit");
   const e=result.event;
-  await notifyInternalChange({
+  await notifyInternalChange({dbClient:c,
    ctx,eventKey:"PRODUCTION_REMOVE_ACCEPTED",
    summary:`Accepted upstream Remove · Job ${e.job_num} removed from ${e.affected_batch_no||"downstream Batch"} · ${e.next_standard_operation||""}`,
    batchId:Number(e.affected_batch_id)||null,batchNo:String(e.affected_batch_no||""),standardOperation:String(e.next_standard_operation||""),jobNums:[String(e.job_num||"")],

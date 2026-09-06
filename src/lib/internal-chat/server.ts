@@ -1,10 +1,23 @@
+import {randomUUID} from "node:crypto";
 import {getPool} from "@/lib/db";
 import type {AccessContext} from "@/lib/security/access";
 
 const clean=(v:unknown)=>String(v??"").trim();
 
+
+export async function emitInternalChatRealtime(c:any,userId:string|null|undefined,eventKey:string):Promise<void>{
+ try{
+  await c.query(`
+   insert into system_change_event(event_id,at_ms,source_tab_id,method,path,domains,created_by_user_id)
+   values($1,$2,'server-internal-chat','SYSTEM','/api/internal-chat/system',$3::text[],$4)
+   on conflict(event_id) do nothing
+  `,[`chat-${randomUUID()}`,Date.now(),["CHAT"],clean(userId)||null]);
+ }catch{/* Realtime feed is fail-open. Chat/business changes must never fail because migration 086/feed is unavailable. */}
+}
+
 export type InternalChangeNotification={
  ctx:AccessContext;
+ dbClient?:any;
  eventKey:string;
  summary:string;
  batchId?:number|null;
@@ -108,8 +121,10 @@ async function downstreamFromJobs(c:any,jobNums:string[],sourceMain:string){
  * Planning / Scheduling / Production changes that have already committed.
  */
 export async function notifyInternalChange(args:InternalChangeNotification):Promise<void>{
+ let ownClient=false;
+ let c:any=args.dbClient||null;
  try{
-  const c=await getPool().connect();
+  if(!c){c=await getPool().connect();ownClient=true;}
   try{
    let sourceMain=clean(args.standardOperation);
    let batchNo=clean(args.batchNo);
@@ -144,11 +159,12 @@ export async function notifyInternalChange(args:InternalChangeNotification):Prom
     ?` · CROSS-PLANNER: Planner ${sourcePlanner} → ${otherPlanners.map(x=>`Planner ${x}`).join(" / ")}${affectedMain?` · Downstream ${affectedMain}`:""}`
     :"";
    const body=`${args.summary}${crossText}`;
-   await c.query(`
+   const messageQ=await c.query(`
     insert into app_chat_message(
-     message_type,sender_user_id,sender_display_name,body,event_key,is_cross_planner,
+     message_type,sender_user_id,sender_display_name,recipient_user_id,body,event_key,is_cross_planner,
      source_main,affected_main,source_planner,affected_planner,entity_type,entity_id,metadata_json
-    ) values('SYSTEM',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
+    ) values('SYSTEM',$1,$2,null,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
+    returning id
    `,[
     args.ctx.userId,args.ctx.displayName||args.ctx.email,body,clean(args.eventKey)||"SYSTEM_CHANGE",isCross,
     sourceMain||null,affectedMain,sourcePlanner,affectedPlanner,args.entityType||null,
@@ -158,7 +174,8 @@ export async function notifyInternalChange(args:InternalChangeNotification):Prom
      jobNums:args.jobNums||[],affectedMains,...(args.metadata||{})
     })
    ]);
-  }finally{c.release();}
+   await emitInternalChatRealtime(c,args.ctx.userId,`${clean(args.eventKey)||"SYSTEM_CHANGE"}:${messageQ.rows[0]?.id||""}`);
+  }finally{if(ownClient)try{c?.release();}catch{}}
  }catch(error){
   console.error("[internal-chat] notification skipped:",error instanceof Error?error.message:String(error));
  }
