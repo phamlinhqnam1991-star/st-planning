@@ -281,6 +281,9 @@ export default async function Page(){
      <Rule title="V511 · Shift Accept chuyển sang Báo cáo sản xuất" tone="important">
       Với <b>REMOVE BEFORE START</b>, Shift Supervisor không còn Accept tại Điều độ. Báo cáo sản xuất của downstream Batch hiển thị <b>Upstream Impact · Shift Action</b> và nút <b>Accept & Remove Job</b>. Điều độ chỉ hiển thị cảnh báo/trạng thái và link sang Báo cáo sản xuất. API Accept yêu cầu <b>production.add_job + Production Area scope</b>; NEW impact vẫn chặn Start và Batch đã Start vẫn là CRITICAL/CONFLICT.
      </Rule>
+     <Rule title="V519 · Masking Time nhỏ hơn font số lô" tone="important">
+      Trong bảng Điều độ, dòng <b>Masking time HH:MM</b> giữ một dòng gọn nhưng dùng font 8px, nhỏ hơn font cơ sở 9px của số lô. Đây chỉ là thay đổi UI; công thức Masking V512 và mọi logic Scheduling không đổi.
+     </Rule>
      <Rule title="V518 · Masking Time hiển thị 1 dòng gọn" tone="important">
       Trên các màn Điều độ, Masking Estimate chỉ hiển thị một dòng chữ nhỏ dạng <b>Masking time HH:MM</b>. Bỏ box lớn, tiêu đề MASKING EST., workload/manpower/Ready/Data ở phần nhìn chính; chi tiết vẫn giữ trong tooltip để tra cứu khi cần. Unscheduled card dùng cỡ note nhỏ, còn dòng Batch trong bảng Điều độ dùng cỡ gần bằng số lô. Đây chỉ là thay đổi presentation; công thức V512 và mọi READY/WAIT, Batch, Schedule, Production logic không đổi.
      </Rule>

@@ -1,8 +1,14 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V518";
+export const ST_AI_KNOWLEDGE_VERSION="V519";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
+
+ {
+  key:"masking-time-font-v519",
+  title:"Masking Time smaller than Batch No. · V519",
+  content:`V519 changes only Scheduling presentation. The one-line “Masking time HH:MM” note remains exactly as V518, but in the scheduled Batch table its font size is intentionally one step smaller than the Batch number (8px vs the table's 9px base). Unscheduled-card note sizing and all V512 Masking Estimate calculation, READY/WAIT, Batch and Schedule logic are unchanged. No SQL migration is required.`
+ },
 
  {
   key:"masking-time-ui-v518",

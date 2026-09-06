@@ -332,3 +332,8 @@ Internal Chat is stored in Aiven PostgreSQL and is available to the four standar
 - PostgreSQL runtime no longer uses manual Promise-race checkout/query timeouts and never ends the shared pool because one request times out.
 - `pg` connection/query/statement timeouts are canonical; idle runtime connections default to 5 seconds to protect Aiven's small connection budget.
 - No SQL migration required. Business logic is unchanged.
+
+
+## V519 · Masking Time font
+- Scheduled-table `Masking time HH:MM` uses 8px, intentionally smaller than the 9px Batch number/table font.
+- Presentation-only; no SQL migration.

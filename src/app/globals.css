@@ -6367,7 +6367,7 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .masking-estimate-summary b{font:inherit;font-weight:800;color:#334155}
 .masking-estimate-summary.is-not-ready,.masking-estimate-summary.is-not-ready b{color:#b45309}
 .schedule-area-unscheduled-card .masking-estimate-summary{font-size:8px}
-.schedule-area-entry-table td .masking-estimate-summary{font-size:11px;text-align:center}
+.schedule-area-entry-table td .masking-estimate-summary{font-size:8px;text-align:center}
 .masking-estimate-warning{color:#b45309!important}
 .masking-estimate-config-stack{display:grid;gap:14px}
 .masking-manpower-summary{display:grid;grid-template-columns:minmax(280px,520px) minmax(180px,260px);gap:14px;padding:12px;align-items:end}
