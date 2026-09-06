@@ -1923,7 +1923,7 @@ export function ManualScheduleGrid({
      {activeFilterCount>0&&<button type="button" className="btn small" onClick={()=>{setWorkloadQuickFilters({});setWorkloadQuickFilterOpen(null);}}>Clear filters</button>}
     </div>
     <div className="table-wrap schedule-workload-quick-table-wrap">
-     <table className="erp-table schedule-workload-quick-table">
+     <table className="erp-table schedule-workload-quick-table schedule-workload-quick-table-compact">
       <thead><tr>
        <th className="quick-pick">{canPlan?<input type="checkbox" aria-label="Chọn tất cả" title={visibleRecipeGroups.length>1?"Card đang lọc có nhiều Recipe: chọn Job cùng Recipe thủ công.":"Chọn tất cả Job đang hiển thị"} disabled={!allSelectable} checked={allSelected} onChange={()=>{
         setWorkloadQuickSelected(prev=>{
@@ -1933,22 +1933,52 @@ export function ManualScheduleGrid({
          return next;
         });
        }}/>:null}</th>
-       <th>{quickFilterHeader("Job","job")}</th><th>{quickFilterHeader("Part / Rev","partRev")}</th><th>{quickFilterHeader("Description","description")}</th><th>{quickFilterHeader("Qty","qty")}</th><th>{quickFilterHeader("dm²","surface")}</th><th>{quickFilterHeader("Priority","priority")}</th><th>{quickFilterHeader("Previous Main","previousMain")}</th><th>{quickFilterHeader("Main","main")}</th><th>{quickFilterHeader("Recipe No","recipeNo")}</th><th>{quickFilterHeader("Recipe Name","recipeName")}</th><th>{quickFilterHeader("Next Main","nextMain")}</th><th>{quickFilterHeader("Next Recipe No","nextRecipeNo")}</th><th>{quickFilterHeader("Next Recipe Name","nextRecipeName")}</th><th>{quickFilterHeader("Batch","batch")}</th>
+       <th>{quickFilterHeader("Job","job")}</th>
+       <th>{quickFilterHeader("Part / Rev","partRev")}</th>
+       <th>{quickFilterHeader("Qty","qty")}</th>
+       <th>{quickFilterHeader("Priority","priority")}</th>
+       <th>{quickFilterHeader("Flow","main")}</th>
+       <th>{quickFilterHeader("Recipe","recipeName")}</th>
+       <th>{quickFilterHeader("Batch","batch")}</th>
       </tr></thead>
       <tbody>
        {visibleRows.map(row=><tr key={row.planningJobOperationId}>
         <td className="quick-pick">{canPlan?<input type="checkbox" aria-label={`Chọn ${row.jobNum}`} checked={workloadQuickSelected.has(row.planningJobOperationId)} onChange={()=>toggleWorkloadQuickRow(row)}/>:null}</td>
-        <td><b>{row.jobNum}</b></td>
-        <td>{row.partNum||"—"}{row.revisionNum?` / ${row.revisionNum}`:""}</td>
-        <td>{row.partDescription||"—"}</td>
-        <td className="num">{fmt(row.qty,0)}</td><td className="num">{fmt(row.surface)}</td>
-        <td>{row.priority||"—"}</td><td>{row.previousMain||"START"}</td><td><b>{row.standardOperation}</b></td>
-        <td className="mono">{row.recipeNo||"—"}</td><td>{row.recipeName||"No Recipe"}</td>
-        <td><b>{row.nextMain||"—"}</b></td><td className="mono">{row.nextRecipeNo||"—"}</td><td>{row.nextRecipeName||"—"}</td>
+        <td>
+         <div className="schedule-workload-quick-stack">
+          <b>{row.jobNum}</b>
+         </div>
+        </td>
+        <td>
+         <div className="schedule-workload-quick-stack">
+          <div><b>{row.partNum||"—"}</b>{row.revisionNum?` / ${row.revisionNum}`:""}</div>
+          <div className="schedule-workload-quick-sub">{row.partDescription||"—"}</div>
+         </div>
+        </td>
+        <td>
+         <div className="schedule-workload-quick-stack schedule-workload-quick-metric-stack">
+          <div><b>{fmt(row.qty,0)}</b> pcs</div>
+          <div><b>{fmt(row.surface)}</b> dm²</div>
+         </div>
+        </td>
+        <td>{row.priority||"—"}</td>
+        <td>
+         <div className="schedule-workload-quick-stack">
+          <div className="schedule-workload-quick-kv"><span className="schedule-workload-quick-k">Prev</span><span>{row.previousMain||"START"}</span></div>
+          <div className="schedule-workload-quick-kv"><span className="schedule-workload-quick-k">Main</span><b>{row.standardOperation}</b></div>
+          <div className="schedule-workload-quick-kv"><span className="schedule-workload-quick-k">Next</span><b>{row.nextMain||"—"}</b></div>
+         </div>
+        </td>
+        <td>
+         <div className="schedule-workload-quick-stack">
+          <div className="schedule-workload-quick-kv"><span className="schedule-workload-quick-k">Now</span><span><span className="mono">{row.recipeNo||"—"}</span>{row.recipeName?` · ${row.recipeName}`:" · No Recipe"}</span></div>
+          <div className="schedule-workload-quick-kv"><span className="schedule-workload-quick-k">Next</span><span><span className="mono">{row.nextRecipeNo||"—"}</span>{row.nextRecipeName?` · ${row.nextRecipeName}`:""}</span></div>
+         </div>
+        </td>
         <td>{row.currentBatchNo||"—"}</td>
        </tr>)}
-       {!visibleRows.length&&!workloadQuickLoading&&<tr><td colSpan={15} className="muted">{workloadQuickRows.length&&activeFilterCount?"No Job matches the active column filters.":"Không còn Job phù hợp với card này."}</td></tr>}
-       {workloadQuickLoading&&<tr><td colSpan={15} className="muted">Đang tải danh sách Planning Board…</td></tr>}
+       {!visibleRows.length&&!workloadQuickLoading&&<tr><td colSpan={8} className="muted">{workloadQuickRows.length&&activeFilterCount?"No Job matches the active column filters.":"Không còn Job phù hợp với card này."}</td></tr>}
+       {workloadQuickLoading&&<tr><td colSpan={8} className="muted">Đang tải danh sách Planning Board…</td></tr>}
       </tbody>
      </table>
     </div>
