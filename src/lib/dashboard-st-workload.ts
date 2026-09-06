@@ -17,6 +17,7 @@ import {getCachedLiveRecipeContext} from "@/lib/planning/planning-static-cache";
 export type StDashboardMetric={jobs:number;qty:number;surface:number};
 export type StDashboardWaitNextBreakdown={previousMain:string;metric:StDashboardMetric};
 export type StDashboardReadyRecipeBreakdown={previousMain:string;recipeKey:string;recipeNo:string;recipeName:string;metric:StDashboardMetric};
+export type StDashboardReadyNextRecipeBreakdown={nextMain:string;recipeKey:string;recipeNo:string;recipeName:string;metric:StDashboardMetric};
 export type StDashboardStatus="WAIT"|"READY"|"PLANNED_UNSCHEDULED"|"SCHEDULED"|"HOLD"|"ST_ONLY";
 
 export type StDashboardRecipeRow={
@@ -37,6 +38,7 @@ export type StDashboardRecipeRow={
  waitNextBreakdown:StDashboardWaitNextBreakdown[];
  readyPrevScheduledBreakdown:StDashboardReadyRecipeBreakdown[];
  readyPrevUnscheduledBreakdown:StDashboardReadyRecipeBreakdown[];
+ readyNextScheduledBreakdown:StDashboardReadyNextRecipeBreakdown[];
 };
 
 export type StDashboardMainRow={
@@ -510,6 +512,21 @@ function addReadyRecipeBreakdown(
  addMetric(row.metric,metric);
 }
 
+function addReadyNextRecipeBreakdown(
+ target:StDashboardReadyNextRecipeBreakdown[],
+ input:{nextMain:string;recipeKey:string;recipeNo:string;recipeName:string},
+ metric:StDashboardMetric
+){
+ const nextMain=text(input.nextMain);
+ if(!nextMain)return;
+ const recipeKey=text(input.recipeKey)||"__NO_RECIPE__";
+ const recipeNo=text(input.recipeNo);
+ const recipeName=text(input.recipeName)||"No Recipe";
+ let row=target.find(x=>x.nextMain===nextMain&&x.recipeKey===recipeKey);
+ if(!row){row={nextMain,recipeKey,recipeNo,recipeName,metric:zero()};target.push(row);}
+ addMetric(row.metric,metric);
+}
+
 function emptyStatusRecord():Record<StDashboardStatus,StDashboardMetric>{
  return {WAIT:zero(),READY:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero()};
 }
@@ -562,6 +579,36 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
  for(const r of recipeMetaQ.rows as any[]){
   recipeMeta.set(text(r.recipe_key),{recipeNo:text(r.recipe_no),recipeName:text(r.recipe_name)});
  }
+
+ // V503: READY Previous Main Scheduled/Done on Scheduling Board shows the NEXT Main Recipe.
+ // Build the per-Job chain once so the canonical workload totals stay unchanged while the UI
+ // receives an exact next-Main/next-Recipe breakdown for the READY Scheduled bucket.
+ const chainByJob=new Map<string,any[]>();
+ for(const wr of workloadRows){
+  const jobNum=text(wr.job_num);
+  if(!jobNum)continue;
+  const list=chainByJob.get(jobNum)||[];
+  list.push(wr);chainByJob.set(jobNum,list);
+ }
+ for(const list of chainByJob.values())list.sort((a,b)=>{
+  const ap=num(a.planning_seq)||2147483647,bp=num(b.planning_seq)||2147483647;
+  const as=num(a.source_seq)||2147483647,bs=num(b.source_seq)||2147483647;
+  return ap-bp||as-bs||num(a.id)-num(b.id);
+ });
+ const resolveWorkloadRecipe=(wr:any,source:any)=>{
+  const batchRecipeKey=text(wr?.batch_recipe_key);
+  const liveMatch=batchRecipeKey?null:bestRecipeMatch(ctx,{
+   standardOperation:text(wr?.standard_operation),
+   sourceOperationCode:text(wr?.source_operation_code),
+   partNum:source?.part_num,
+   revisionNum:source?.revision_num,
+   sourceData:source?.source_data||null,
+   ruleSuggestion:null
+  });
+  const recipeKey=batchRecipeKey||liveMatch?.recipeKey||text(wr?.planning_recipe_key);
+  const meta=recipeKey?recipeMeta.get(recipeKey):null;
+  return {recipeKey,recipeNo:meta?.recipeNo||"",recipeName:meta?.recipeName||""};
+ };
 
  const statuses=emptyStatusRecord();
  const total=zero();
@@ -634,25 +681,16 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
    addMetric(row[readyKey],metric);
   }
 
-  const batchRecipeKey=text(wr.batch_recipe_key);
-  const liveMatch=batchRecipeKey?null:bestRecipeMatch(ctx,{
-   standardOperation,
-   sourceOperationCode:text(wr.source_operation_code),
-   partNum:source.part_num,
-   revisionNum:source.revision_num,
-   sourceData:source.source_data||null,
-   ruleSuggestion:null
-  });
-  const recipeKey=batchRecipeKey||liveMatch?.recipeKey||text(wr.planning_recipe_key);
-  const meta=recipeKey?recipeMeta.get(recipeKey):null;
-  const recipeNo=meta?.recipeNo||"";
-  const recipeName=meta?.recipeName||"";
+  const currentRecipe=resolveWorkloadRecipe(wr,source);
+  const recipeKey=currentRecipe.recipeKey;
+  const recipeNo=currentRecipe.recipeNo;
+  const recipeName=currentRecipe.recipeName;
   const recipeGroupKey=recipeKey||"__NO_RECIPE__";
   let recipe=row.recipes.find(x=>x.recipeKey===recipeGroupKey);
   if(!recipe){
    recipe={
     recipeKey:recipeGroupKey,recipeNo,recipeName,
-    WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero(),waitNextBreakdown:[],readyPrevScheduledBreakdown:[],readyPrevUnscheduledBreakdown:[]
+    WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero(),waitNextBreakdown:[],readyPrevScheduledBreakdown:[],readyPrevUnscheduledBreakdown:[],readyNextScheduledBreakdown:[]
    };
    row.recipes.push(recipe);
   }
@@ -677,6 +715,20 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
     },
     metric
    );
+   if(readyKey==="READY_PREV_SCHEDULED"){
+    const chain=chainByJob.get(text(wr.job_num))||[];
+    const index=chain.findIndex(x=>Number(x.id)===Number(wr.id));
+    const next=index>=0?chain[index+1]||null:null;
+    if(next){
+     const nextRecipe=resolveWorkloadRecipe(next,source);
+     addReadyNextRecipeBreakdown(recipe.readyNextScheduledBreakdown,{
+      nextMain:text(next.standard_operation),
+      recipeKey:nextRecipe.recipeKey,
+      recipeNo:nextRecipe.recipeNo,
+      recipeName:nextRecipe.recipeName||"No Recipe"
+     },metric);
+    }
+   }
   }
  }
 
@@ -703,7 +755,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
   addMetric(row[bucket],metric);
   let recipe=row.recipes.find(x=>x.recipeKey==="__ST_SCOPE_ONLY__");
   if(!recipe){
-   recipe={recipeKey:"__ST_SCOPE_ONLY__",recipeNo:"",recipeName:"ST Scope Only",WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero(),waitNextBreakdown:[],readyPrevScheduledBreakdown:[],readyPrevUnscheduledBreakdown:[]};
+   recipe={recipeKey:"__ST_SCOPE_ONLY__",recipeNo:"",recipeName:"ST Scope Only",WAIT:zero(),WAIT_NEXT_MAIN:zero(),WAIT_FUTURE_MAIN:zero(),READY:zero(),READY_PREV_SCHEDULED:zero(),READY_PREV_UNSCHEDULED:zero(),PLANNED_UNSCHEDULED:zero(),SCHEDULED:zero(),HOLD:zero(),ST_ONLY:zero(),total:zero(),waitNextBreakdown:[],readyPrevScheduledBreakdown:[],readyPrevUnscheduledBreakdown:[],readyNextScheduledBreakdown:[]};
    row.recipes.push(recipe);
   }
   addMetric(recipe[bucket],metric);
@@ -718,6 +770,7 @@ export async function loadStDashboardData(c:PoolClient):Promise<StDashboardData>
    const sortReadyBreakdown=(a:StDashboardReadyRecipeBreakdown,b:StDashboardReadyRecipeBreakdown)=>b.metric.surface-a.metric.surface||b.metric.jobs-a.metric.jobs||a.previousMain.localeCompare(b.previousMain)||a.recipeNo.localeCompare(b.recipeNo,undefined,{numeric:true})||a.recipeName.localeCompare(b.recipeName);
    recipe.readyPrevScheduledBreakdown.sort(sortReadyBreakdown);
    recipe.readyPrevUnscheduledBreakdown.sort(sortReadyBreakdown);
+   recipe.readyNextScheduledBreakdown.sort((a,b)=>b.metric.surface-a.metric.surface||b.metric.jobs-a.metric.jobs||a.nextMain.localeCompare(b.nextMain)||a.recipeNo.localeCompare(b.recipeNo,undefined,{numeric:true})||a.recipeName.localeCompare(b.recipeName));
    const rm=[recipe.WAIT,recipe.READY,recipe.PLANNED_UNSCHEDULED,recipe.SCHEDULED,recipe.HOLD,recipe.ST_ONLY];
    recipe.total=rm.reduce((acc,m)=>{addMetric(acc,m);return acc;},zero());
    return recipe;
@@ -843,10 +896,14 @@ export async function loadStWorkloadQuickView(c:PoolClient,input:{
  recipeKey?:string|null;
  status:StWorkloadQuickViewStatus;
  previousMain?:string|null;
+ nextMain?:string|null;
+ nextRecipeKey?:string|null;
 }){
  const requestedMain=text(input.standardOperation).toUpperCase();
  const requestedRecipe=text(input.recipeKey);
  const requestedPrevious=text(input.previousMain).toUpperCase();
+ const requestedNextMain=text(input.nextMain).toUpperCase();
+ const requestedNextRecipe=text(input.nextRecipeKey);
  if(!requestedMain)throw new Error("Main Operation là bắt buộc.");
 
  const [visibleQ,ctx,recipeMetaQ]=await Promise.all([
@@ -924,6 +981,8 @@ export async function loadStWorkloadQuickView(c:PoolClient,input:{
   const index=chain.findIndex(x=>Number(x.id)===Number(wr.id));
   const next=index>=0?chain[index+1]||null:null;
   const nextRecipe=next?resolveRecipe(next,source):{recipeKey:"",recipeNo:"",recipeName:""};
+  if(requestedNextMain&&text(next?.standard_operation).toUpperCase()!==requestedNextMain)continue;
+  if(requestedNextRecipe&&(nextRecipe.recipeKey||"__NO_RECIPE__")!==requestedNextRecipe)continue;
   rows.push({
    planningJobOperationId:num(wr.id),
    jobNum:text(wr.job_num),
