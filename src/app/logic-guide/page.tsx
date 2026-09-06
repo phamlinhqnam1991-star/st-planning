@@ -281,6 +281,9 @@ export default async function Page(){
      <Rule title="V511 · Shift Accept chuyển sang Báo cáo sản xuất" tone="important">
       Với <b>REMOVE BEFORE START</b>, Shift Supervisor không còn Accept tại Điều độ. Báo cáo sản xuất của downstream Batch hiển thị <b>Upstream Impact · Shift Action</b> và nút <b>Accept & Remove Job</b>. Điều độ chỉ hiển thị cảnh báo/trạng thái và link sang Báo cáo sản xuất. API Accept yêu cầu <b>production.add_job + Production Area scope</b>; NEW impact vẫn chặn Start và Batch đã Start vẫn là CRITICAL/CONFLICT.
      </Rule>
+     <Rule title="V518 · Masking Time hiển thị 1 dòng gọn" tone="important">
+      Trên các màn Điều độ, Masking Estimate chỉ hiển thị một dòng chữ nhỏ dạng <b>Masking time HH:MM</b>. Bỏ box lớn, tiêu đề MASKING EST., workload/manpower/Ready/Data ở phần nhìn chính; chi tiết vẫn giữ trong tooltip để tra cứu khi cần. Unscheduled card dùng cỡ note nhỏ, còn dòng Batch trong bảng Điều độ dùng cỡ gần bằng số lô. Đây chỉ là thay đổi presentation; công thức V512 và mọi READY/WAIT, Batch, Schedule, Production logic không đổi.
+     </Rule>
      <Rule title="V517 · Ổn định nhiều tab + bảo vệ DB pool" tone="important">
       Global Realtime vẫn dùng PostgreSQL <code>system_change_event</code>, nhưng <b>tab đang ẩn không còn router.refresh nền</b>. Event liên quan chỉ đánh dấu tab đó dirty; khi người dùng quay lại mới reconcile đúng một lần. Tab đang visible gộp burst event và tối thiểu 4 giây mới RSC-refresh lần tiếp theo; route tĩnh/không đăng ký domain không bị refresh bởi mọi event. Ở tầng DB, bỏ manual <code>Promise.race</code> quanh pool checkout/query và không còn <code>pool.end()</code> chỉ vì một request chậm, tránh một tab timeout làm gián đoạn request của tab khác. Idle connection của Vercel runtime mặc định trả về Aiven sau 5 giây. Không cần SQL mới và không đổi READY/WAIT, Batch, Schedule, Production, Chat hay Masking Estimate.
      </Rule>

@@ -1,8 +1,14 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V517";
+export const ST_AI_KNOWLEDGE_VERSION="V518";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
+
+ {
+  key:"masking-time-ui-v518",
+  title:"Masking Time compact scheduling note · V518",
+  content:`V518 changes only Masking Estimate presentation on Scheduling surfaces. The previous multi-line MASKING EST. card is replaced by one small advisory line: “Masking time HH:MM”. In Unscheduled Batch cards it uses the existing small note scale; in Schedule table Batch cells it uses approximately the same text size as the Batch number. Detailed workload/manpower/ready/warning information remains available in the element tooltip and the underlying V512 calculation is unchanged. NOT READY may still be indicated by text color only; no extra line, box or business-rule change is introduced. No SQL migration is required.`
+ },
 
  {
   key:"global-multitab-stability-v517",
@@ -30,7 +36,7 @@ export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
  {
   key:"masking-time-estimate-v512",
   title:"Masking Time Estimate advisory · V512",
-  content:`V512 adds a Scheduling advisory layer only. Planner configures total Masking people, allocated people by existing Physical Area, and one or more Main Operation -> All Open Job source-column mappings. Source columns come from Open Job Column Values and are not hard-coded. Each mapping declares JOB_TOTAL vs PER_PIECE and HOURS vs MINUTES. For a Planning Batch, the app reads the configured masking-time values from every Job already in planning_batch_job, converts them to person-hours, divides by the configured Physical Area manpower, and sums the configured masking durations. When scheduled Previous Main planned_end values are known, the latest Previous Main end plus the estimated duration is shown as Estimated Masking Ready. Scheduling cards/rows show MASKING EST.; a planned start earlier than Estimated Masking Ready is highlighted MASKING NOT READY, but the Schedule is not blocked. Missing/invalid values are advisory warnings only. Masking does not become a Main Operation/resource, does not change READY/WAIT, Planning Chain, Batch membership, Recipe, Schedule dependency, Production, Realtime or Chat. Migration 088_masking_time_estimate_advisory.sql is required; the loader fails open if the migration is missing so Scheduling still renders without estimates.`
+  content:`V512 adds a Scheduling advisory layer only. Planner configures total Masking people, allocated people by existing Physical Area, and one or more Main Operation -> All Open Job source-column mappings. Source columns come from Open Job Column Values and are not hard-coded. Each mapping declares JOB_TOTAL vs PER_PIECE and HOURS vs MINUTES. For a Planning Batch, the app reads the configured masking-time values from every Job already in planning_batch_job, converts them to person-hours, divides by the configured Physical Area manpower, and sums the configured masking durations. When scheduled Previous Main planned_end values are known, the latest Previous Main end plus the estimated duration is shown as Estimated Masking Ready. Scheduling cards/rows show the compact one-line Masking time HH:MM note per V518; a planned start earlier than Estimated Masking Ready may be indicated by advisory color only, and the Schedule is not blocked. Missing/invalid values are advisory warnings only. Masking does not become a Main Operation/resource, does not change READY/WAIT, Planning Chain, Batch membership, Recipe, Schedule dependency, Production, Realtime or Chat. Migration 088_masking_time_estimate_advisory.sql is required; the loader fails open if the migration is missing so Scheduling still renders without estimates.`
  },
  {
   key:"production-shift-accept-v511",

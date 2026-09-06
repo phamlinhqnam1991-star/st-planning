@@ -1,3 +1,5 @@
+> Current delivery: V518 · Masking Time compact one-line UI (no SQL migration).
+
 # Current patch: V517
 
 `/masking-time-estimate-config` now reuses one PostgreSQL client for authorization + config reads/writes, avoiding a second pool checkout with `DB_POOL_MAX=1`. HTTP 503 is treated as temporary API/DB unavailability, not as proof that the four V512 queries are missing. Local saves suppress their own realtime echo so one save causes one config reload. No business logic change and no new migration.

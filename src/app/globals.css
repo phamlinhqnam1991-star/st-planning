@@ -6360,15 +6360,14 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 @media(max-width:900px){.internal-chat-shell{grid-template-columns:1fr}.internal-chat-people{max-height:260px}.internal-chat-user-list{max-height:170px}}
 
 /* V512 · Masking Estimate advisory (Scheduling only) */
-.masking-estimate-summary{margin-top:8px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;display:grid;gap:4px;text-align:left}
-.masking-estimate-summary.compact{margin-top:6px;padding:6px 8px;gap:2px;font-size:11px}
-.masking-estimate-summary.is-not-ready{border-color:#f59e0b;background:#fff7ed}
-.masking-estimate-summary-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;letter-spacing:.04em;color:#475569}
-.masking-estimate-summary-head em{font-style:normal;font-weight:800;color:#b45309;background:#ffedd5;border-radius:999px;padding:2px 6px}
-.masking-estimate-summary-metric{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.masking-estimate-summary-metric strong{font-size:14px;color:#0f172a}.masking-estimate-summary.compact .masking-estimate-summary-metric strong{font-size:12px}
-.masking-estimate-summary-metric span{font-size:11px;color:#475569}
-.masking-estimate-summary small{color:#64748b}.masking-estimate-summary small b{color:#0f172a}
+/* V518 · Masking estimate presentation: one compact advisory line only. */
+.masking-estimate-summary{margin-top:2px;padding:0;border:0;background:transparent;text-align:left;line-height:1.2;font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.masking-estimate-summary.compact{margin-top:1px;padding:0;font-size:9px}
+.masking-estimate-summary span{font:inherit;color:inherit}
+.masking-estimate-summary b{font:inherit;font-weight:800;color:#334155}
+.masking-estimate-summary.is-not-ready,.masking-estimate-summary.is-not-ready b{color:#b45309}
+.schedule-area-unscheduled-card .masking-estimate-summary{font-size:8px}
+.schedule-area-entry-table td .masking-estimate-summary{font-size:11px;text-align:center}
 .masking-estimate-warning{color:#b45309!important}
 .masking-estimate-config-stack{display:grid;gap:14px}
 .masking-manpower-summary{display:grid;grid-template-columns:minmax(280px,520px) minmax(180px,260px);gap:14px;padding:12px;align-items:end}
