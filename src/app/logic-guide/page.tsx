@@ -1,3 +1,4 @@
+// V521 ST Output dm²/day: planned output report with Import History snapshot, 00:00 D -> 03:00 D+1 scheduled window, detailed Job drill-down and dedupe priority.
 // V512: Masking Time Estimate is advisory for Scheduling only; Main -> All Open Job time column + Physical Area manpower. No READY/WAIT or Schedule lock change.
 // V501 All Open Jobs Cross Check/Audit: every open source row is checked against canonical Planning Board population with YES/NO + reason; read-only.
 // V500 Dashboard/Scheduling workload presentation: Dashboard Area workload uses READY-first column order; Scheduling workload shows Recipe detail rows only and removes all MAIN TOTAL rows.
@@ -12,7 +13,7 @@ import {getPool} from "@/lib/db";
 export const dynamic="force-dynamic";
 
 // =====================================================================
-// LOGIC & HƯỚNG DẪN v494
+// LOGIC & HƯỚNG DẪN v521
 // Tài liệu vận hành nằm ngay trong app. Nội dung mô tả SOURCE OF TRUTH,
 // trình tự thao tác, dependency và impact của từng tab theo code hiện tại.
 // Phần "Mapping đang chạy" đọc trực tiếp database để đối chiếu cấu hình thật.
@@ -219,7 +220,7 @@ export default async function Page(){
    <div className="erp-page-head guide-head">
     <div>
      <h2>Logic & Hướng dẫn vận hành</h2>
-     <p>Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau theo logic hiện tại đến V496.</p>
+     <p>Flow · Mapping · Cách thao tác · Ảnh hưởng phía sau theo logic hiện tại đến V521.</p>
     </div>
    </div>
 
@@ -231,6 +232,7 @@ export default async function Page(){
     <a href="#tracker">Part Tracker</a>
     <a href="#jobtracker">Job Tracker</a>
     <a href="#openjobs">All Open Jobs</a>
+    <a href="#st-output">ST Output</a>
     <a href="#planning">Planning Board</a>
     <a href="#masking">Masking / Unmasking trong Báo cáo sản xuất</a>
     <a href="#schedule">Scheduling Board</a>
@@ -258,6 +260,7 @@ export default async function Page(){
      {t:"H · Production Change Alerts",d:"Audit Production-added + downstream",c:"amber"},
      {t:"I · Internal Chat",d:"Team chat + automatic cross-planner notifications",c:"blue"},
      {t:"J · Dashboard",d:"Workload tables → Risk → AI Analysis",c:"green"},
+     {t:"K · ST Output",d:"dm²/ngày → drill-down Job",c:"teal"},
     ]}/>
     <div className="lg-key lg-key-2">
      <Rule title="Nguyên tắc 1 · Master ≠ Config" tone="important">
@@ -294,7 +297,10 @@ export default async function Page(){
       API <b>Masking Time Estimate Config</b> dùng một PostgreSQL client duy nhất cho cả RBAC và đọc/lưu cấu hình, phù hợp Aiven/Vercel <code>DB_POOL_MAX=1</code>. Trạng thái schema được tách thành <b>READY / MISSING / UNKNOWN</b>; HTTP 503 chỉ là API/DB tạm unavailable, không còn tự hiện sai cảnh báo “chạy đủ 4 query”. Client tự retry có backoff và một lần Save chỉ reload riêng Masking Config một lần; realtime echo của chính thao tác local không tạo request GET thứ hai. Không cần migration mới và không đổi công thức Masking Estimate hay logic Planning/Schedule/Production.
      </Rule>
      <Rule title="V515 · Masking Time Column lấy từ All Open Job thật" tone="important">
-      Dropdown <b>Masking Time Column</b> không còn phụ thuộc việc Open Job Column Values đã Rebuild hay cột đã có giá trị unique. Danh sách là union của <b>header/source_data hiện tại trong All Open Job</b>, các cột chuẩn hóa của <code>open_job_current</code> và Open Job Column Values; cột Masking/MSKG được ưu tiên lên đầu. Save Mapping kiểm tra trên cùng nguồn thật này. Không cần migration mới và không đổi công thức Masking Estimate hay logic Planning/Schedule.
+     Dropdown <b>Masking Time Column</b> không còn phụ thuộc việc Open Job Column Values đã Rebuild hay cột đã có giá trị unique. Danh sách là union của <b>header/source_data hiện tại trong All Open Job</b>, các cột chuẩn hóa của <code>open_job_current</code> và Open Job Column Values; cột Masking/MSKG được ưu tiên lên đầu. Save Mapping kiểm tra trên cùng nguồn thật này. Không cần migration mới và không đổi công thức Masking Estimate hay logic Planning/Schedule.
+     </Rule>
+     <Rule title="V521 · ST Output dm²/ngày theo kế hoạch" tone="important">
+      Tab <b>Operations → ST Output</b> tính output toàn ST theo ngày báo cáo. Batch đã điều độ dùng cửa sổ <b>00:00 ngày D → 03:00 ngày D+1</b> theo <code>Scheduled End</code>. <b>CHEMMILL</b> tính riêng tất cả flybar/batch trong cửa sổ, không cần là công đoạn cuối. Các batch khác chỉ tính khi đó là <b>công đoạn ST cuối</b>, ưu tiên <code>Planning Chain</code> và fallback <code>AllOperation</code>. Nhóm snapshot lấy từ <b>Import History</b> gồm <code>FINSST</code> và <code>CFINM-VN</code>; <code>INTERMEDIATE_NO_CHAIN</code> dùng logic Audit All Open Job nhưng thêm điều kiện <code>NextOperation</code> thuộc ST. Chống trùng theo ưu tiên <b>Final ST Operation Batch → FINSST/CFINM-VN → INTERMEDIATE_NO_CHAIN</b>; CHEMMILL là output độc lập. Màn hình luôn có bảng Job drill-down để thấy Qty, Surface, Batch, Schedule End, Import và lý do tính/loại.
      </Rule>
      <Rule title="V514 · Masking Config không refresh toàn trang" tone="important">
       Trang <b>Masking Time Estimate Config</b> chỉ reload dataset cấu hình của chính nó qua API fail-safe. Thêm/lưu/bỏ Physical Area hoặc Mapping không còn gọi <code>router.refresh()</code> toàn Server Component. Global Realtime nhận diện riêng route này và chỉ phát event CONFIG/SCHEDULE để manager reload dữ liệu Masking Config; không gọi lại Config Health toàn cục cho thay đổi Masking advisory. Lỗi DB/API hiển thị trong panel diagnostics thay vì làm sập trang. Không đổi công thức Masking Estimate hoặc bất kỳ logic READY/WAIT, Batch, Schedule hay Production nào.
@@ -590,6 +596,24 @@ export default async function Page(){
       <tr><td><b>source_data bất kỳ</b></td><td>Recipe condition, Batch Compatibility, Process Time condition, Planning filters/sort.</td><td>Đổi value có thể đổi Recipe, compatibility hoặc Process Time nếu rule tham chiếu cột đó.</td></tr>
      </tbody>
     </table></div>
+   </Section>
+
+   <Section id="st-output" title="6.5 · Tab ST Output — Output ST dm²/ngày theo kế hoạch"
+    sub="Báo cáo tổng dm² toàn ST, đọc được từng Job vì sao được tính hoặc bị loại do trùng">
+    <StepList items={[
+     <>Chọn <b>Ngày báo cáo</b>. Batch/schedule được tính trong cửa sổ <b>00:00 ngày D → 03:00 ngày D+1</b> theo <code>Scheduled End</code>.</>,
+     <>Chọn <b>All Open Job Import History</b> để làm snapshot cho các Job đã ra khỏi ST bằng <code>FINSST</code> hoặc <code>CFINM-VN</code>, và cho nhóm audit <code>INTERMEDIATE_NO_CHAIN</code>.</>,
+     <>Đọc tổng <b>Total Output dm²</b>, sau đó đối chiếu breakdown theo nguồn: <b>CHEMMILL</b>, <b>Công đoạn ST cuối</b>, <b>FINSST/CFINM-VN</b>, <b>Intermediate No Chain</b>.</>,
+     <>Mở bảng chi tiết để kiểm từng Job: Job/Part/Rev/Qty/Surface, Next/Last/Final ST Operation, Batch, Main, Area, Resource, Scheduled End, Import file và Audit Reason.</>,
+     <>Nếu một Job xuất hiện ở nhiều nguồn, chỉ dòng ưu tiên cao nhất được tính: <b>Final ST Operation Batch → FINSST/CFINM-VN → INTERMEDIATE_NO_CHAIN</b>. Dòng trùng vẫn xem được khi chọn trạng thái <b>Tất cả dòng audit</b> hoặc <b>Bị loại/trùng</b>.</>,
+     <>Riêng <b>CHEMMILL</b> không bị loại bởi rule chống trùng vì đây là output flybar độc lập; cùng một Job có thể vừa tính CHEMMILL vừa tính công đoạn ST cuối.</>
+    ]}/>
+    <Rule title="Công thức" tone="important">
+     <code>Output dm² = SUM(Qty × Surface dm²/part)</code>. Nếu Batch Job đã có <code>surface_dm2</code> allocation thì dùng allocation đó; nếu thiếu mới fallback về Qty × Surface/part hoặc Total Surface từ All Open Job.
+    </Rule>
+    <Rule title="Không phải Production actual">
+     Báo cáo này tính theo <b>kế hoạch điều độ</b>, không dùng trạng thái Production DONE. Muốn biết thực tế đã chạy/không chạy vẫn phải xem <b>Production Execution</b> và <b>Daily Production Adjustment</b>.
+    </Rule>
    </Section>
 
    <Section id="planning" title="7 · Tab Planning Board — từ READY Job đến Production Batch"

@@ -55,6 +55,7 @@ export type StOutputSummaryRow={
 
 export type StOutputReport={
  reportDate:string;
+ windowStartIso:string;
  cutoffIso:string;
  selectedImportId:string|null;
  importOptions:StOutputImportOption[];
@@ -84,6 +85,12 @@ function cutoffForReportDate(reportDate:string){
  return new Date(utc).toISOString();
 }
 
+function windowStartForReportDate(reportDate:string){
+ const [y,m,d]=reportDate.split("-").map(Number);
+ const utc=Date.UTC(y,m-1,d-1,17,0,0,0);
+ return new Date(utc).toISOString();
+}
+
 function normalizeSource(value?:string|null){
  const v=String(value||"").trim().toUpperCase();
  return ["CHEMMILL","FINAL_ST_OPERATION","FINSST_CFINM_VN","INTERMEDIATE_NO_CHAIN"].includes(v)?v:"ALL";
@@ -107,6 +114,7 @@ export async function loadStOutputReport(
  }={}
 ):Promise<StOutputReport>{
  const reportDate=isoDate(params.date);
+ const windowStartIso=windowStartForReportDate(reportDate);
  const cutoffIso=cutoffForReportDate(reportDate);
  const sourceFilter=normalizeSource(params.source);
  const countedFilter=normalizeCounted(params.counted);
@@ -134,9 +142,8 @@ export async function loadStOutputReport(
   :(importOptions[0]?.id||null);
  const selectedImport=importOptions.find(x=>x.id===selectedImportId)||null;
 
- const args:any[]=[cutoffIso,selectedImportId,FINAL_OUT_OPS];
+ const args:any[]=[windowStartIso,cutoffIso,selectedImportId,FINAL_OUT_OPS,sourceFilter];
  const filters:string[]=[];
- if(sourceFilter!=="ALL"){args.push(sourceFilter);filters.push(`output_source=$${args.length}`);}
  if(countedFilter==="COUNTED")filters.push(`is_counted=true`);
  if(countedFilter==="EXCLUDED")filters.push(`is_counted=false`);
  if(q){
@@ -171,15 +178,19 @@ export async function loadStOutputReport(
    select j.*
    from public.open_job_current j
    where j.is_open=true
-     and ($2::uuid is null or j.last_import_batch_id=$2::uuid)
+     and ($3::uuid is null or j.last_import_batch_id=$3::uuid)
   ), allop_final as (
    select distinct on (j.job_num)
     j.job_num,
     upper(trim(x.op)) final_st_operation
-   from selected_open_job j
-   cross join lateral regexp_split_to_table(coalesce(j.all_operation,''),'\\s*(?:→|->|,|;|\\|)+\\s*') with ordinality x(op,ord)
+   from public.open_job_current j
+   cross join lateral regexp_split_to_table(
+    regexp_replace(coalesce(j.all_operation,''),'^\\s*\\[|\\]\\s*$','','g'),
+    '\\s*\\|\\s*'
+   ) with ordinality as x(op,ord)
    join st_ops s on s.operation_code=upper(trim(x.op))
-   where nullif(trim(x.op),'') is not null
+   where j.is_open=true
+     and nullif(trim(x.op),'') is not null
    order by j.job_num,x.ord desc
   ), chain_final as (
    select distinct on (p.job_num)
@@ -211,19 +222,31 @@ export async function loadStOutputReport(
     null::text import_file_name,
     null::text import_time,
     case when upper(trim(coalesce(b.standard_operation,p.standard_operation,'')))='CHEMMILL'
-      then 'CHEMMILL scheduled end <= cutoff'
-      else 'Final ST operation scheduled end <= cutoff'
+      then 'CHEMMILL scheduled end inside output window'
+      else 'Final ST operation scheduled end inside output window'
     end audit_reason
    from public.planning_batch_job bj
    join public.planning_batch b on b.id=bj.batch_id and b.status<>'CANCELLED'
    left join public.planning_job_operation p on p.id=bj.planning_job_operation_id
    left join public.open_job_current j on j.job_num=bj.job_num
    left join public.md_area a on a.id=b.area_id
-   left join public.planning_schedule ps on ps.batch_id=b.id and ps.status<>'CANCELLED'
+   left join lateral (
+    select ps0.*
+    from public.planning_schedule ps0
+    where ps0.batch_id=b.id and ps0.status<>'CANCELLED'
+    order by ps0.planned_end desc nulls last,ps0.id desc
+    limit 1
+   ) ps on true
    left join chain_final cf on cf.job_num=bj.job_num
    left join allop_final af on af.job_num=bj.job_num
    where coalesce(ps.planned_end,b.planned_end) is not null
-     and coalesce(ps.planned_end,b.planned_end)<=$1::timestamptz
+     and (
+      $5::text='ALL'
+      or ($5::text='CHEMMILL' and upper(trim(coalesce(b.standard_operation,p.standard_operation,'')))='CHEMMILL')
+      or ($5::text='FINAL_ST_OPERATION' and upper(trim(coalesce(b.standard_operation,p.standard_operation,'')))<>'CHEMMILL')
+     )
+     and coalesce(ps.planned_end,b.planned_end)>=$1::timestamptz
+     and coalesce(ps.planned_end,b.planned_end)<=$2::timestamptz
      and (
       upper(trim(coalesce(b.standard_operation,p.standard_operation,'')))='CHEMMILL'
       or p.id=cf.planning_job_operation_id
@@ -255,7 +278,8 @@ export async function loadStOutputReport(
    left join chain_final cf on cf.job_num=j.job_num
    left join allop_final af on af.job_num=j.job_num
    left join public.open_job_import_batch ib on ib.id=j.last_import_batch_id
-   where upper(trim(coalesce(j.next_operation,'')))=any($3::text[])
+   where $5::text in ('ALL','FINSST_CFINM_VN')
+     and upper(trim(coalesce(j.next_operation,'')))=any($4::text[])
    union all
    select
     'INTERMEDIATE_NO_CHAIN' output_source,
@@ -282,8 +306,20 @@ export async function loadStOutputReport(
    left join chain_final cf on cf.job_num=j.job_num
    left join allop_final af on af.job_num=j.job_num
    left join public.open_job_import_batch ib on ib.id=j.last_import_batch_id
-   where exists(select 1 from public.md_intermediate_bridge_operation bo where upper(trim(bo.operation_code))=upper(trim(coalesce(j.next_operation,''))))
-     and exists(select 1 from st_ops s where s.operation_code=upper(trim(coalesce(j.next_operation,''))))
+   where $5::text in ('ALL','INTERMEDIATE_NO_CHAIN')
+     and exists(
+      select 1
+      from public.md_intermediate_bridge_operation bo
+      join public.md_intermediate_bridge_segment bs on bs.id=bo.segment_id and bs.is_active=true
+      where upper(trim(bo.operation_code))=upper(trim(coalesce(j.next_operation,'')))
+     )
+     and exists(
+      select 1
+      from public.md_st_operation_scope scope
+      where scope.is_active=true
+        and scope.operation_type in ('PLANNING_OPERATION','ST_SCOPE_ONLY','INTERMEDIATE')
+        and upper(trim(scope.operation_code))=upper(trim(coalesce(j.next_operation,'')))
+     )
      and not exists(select 1 from public.planning_job_operation p where p.job_num=j.job_num and p.is_active=true)
   ), ranked as (
    select
@@ -343,7 +379,7 @@ export async function loadStOutputReport(
  })) as StOutputRow[];
 
  return {
-  reportDate,cutoffIso,selectedImportId,importOptions,selectedImport,
+  reportDate,windowStartIso,cutoffIso,selectedImportId,importOptions,selectedImport,
   rows,
   summary:summaryQ.rows.map((r:any)=>({
    output_source:r.output_source,

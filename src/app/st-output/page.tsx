@@ -45,13 +45,37 @@ export default async function Page({
  const c=await getPool().connect();
  try{
   const report=await loadStOutputReport(c,{
-   date:sp.date,
-   importId:sp.import,
-   source:sp.source,
-   counted:sp.counted,
-   q:sp.q,
-   page:Number(sp.p)||1,
-  });
+    date:sp.date,
+    importId:sp.import,
+    source:sp.source,
+    counted:sp.counted,
+    q:sp.q,
+    page:Number(sp.p)||1,
+   }).catch((e:unknown)=>({error:e instanceof Error?e.message:String(e)}));
+  if("error" in report){
+   return <ErpAppShell
+    moduleGroups={ST_ERP_MODULE_GROUPS}
+    activeModule="operations"
+    activeSecondary="output"
+    environment="ST PLANNING"
+    userArea={<LogoutButton presentation="erp"/>}
+    breadcrumb={<><Link href="/all-open-jobs">Operations</Link><span>/</span><b>ST Output</b></>}
+   >
+    <div className="planning-erp-version">
+     <ErpPageHeader
+      eyebrow="ST OUTPUT"
+      title="Output ST dm²/ngày"
+      description="Trang báo lỗi mềm để người dùng còn thấy nguyên nhân thay vì server error trắng."
+      status={<span className="erpkit-status erpkit-status-danger"><span className="erpkit-status-dot"/>ERROR</span>}
+     />
+     <div className="notice section">
+      <b>Không tải được ST Output.</b> Vui lòng gửi nội dung lỗi này để kiểm tra query/report.
+      <pre style={{whiteSpace:"pre-wrap",marginTop:8}}>{report.error}</pre>
+     </div>
+     <Link className="btn" href="/st-output">Tải lại ST Output</Link>
+    </div>
+   </ErpAppShell>;
+  }
   const current={
    date:report.reportDate,
    import:report.selectedImportId||undefined,
@@ -71,7 +95,7 @@ export default async function Page({
     <ErpPageHeader
      eyebrow="ST OUTPUT"
      title="Output ST dm²/ngày"
-     description="Tính theo kế hoạch: CHEMMILL và công đoạn ST cuối lấy theo Scheduled End trước 03:00 ngày hôm sau; FINSST/CFINM-VN và Intermediate No Chain lấy từ All Open Job import được chọn."
+     description="Tính theo kế hoạch: CHEMMILL và công đoạn ST cuối lấy theo Scheduled End trong cửa sổ 00:00 ngày báo cáo đến 03:00 ngày hôm sau; FINSST/CFINM-VN và Intermediate No Chain lấy từ All Open Job import được chọn."
      status={<span className="erpkit-status erpkit-status-success"><span className="erpkit-status-dot"/>LIVE</span>}
     />
 
@@ -112,7 +136,7 @@ export default async function Page({
      <div className="kv"><span>Total Output</span><b>{fmt(report.total.dm2)} dm²</b></div>
      <div className="kv"><span>Qty</span><b>{fmt(report.total.qty,0)} pcs</b></div>
      <div className="kv"><span>Job counted</span><b>{fmt(report.total.jobs,0)}</b></div>
-     <div className="kv"><span>Cutoff</span><b>{dt(report.cutoffIso)}</b></div>
+     <div className="kv"><span>Window</span><b>{dt(report.windowStartIso)} → {dt(report.cutoffIso)}</b></div>
     </div>
 
     <div className="erp-table-panel section">
