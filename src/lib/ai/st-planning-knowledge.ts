@@ -1,9 +1,14 @@
 export type StLogicSection={key:string;title:string;content:string};
 
-export const ST_AI_KNOWLEDGE_VERSION="V511";
+export const ST_AI_KNOWLEDGE_VERSION="V512";
 
 export const ST_AI_LOGIC_SECTIONS:StLogicSection[]=[
 
+ {
+  key:"masking-time-estimate-v512",
+  title:"Masking Time Estimate advisory · V512",
+  content:`V512 adds a Scheduling advisory layer only. Planner configures total Masking people, allocated people by existing Physical Area, and one or more Main Operation -> All Open Job source-column mappings. Source columns come from Open Job Column Values and are not hard-coded. Each mapping declares JOB_TOTAL vs PER_PIECE and HOURS vs MINUTES. For a Planning Batch, the app reads the configured masking-time values from every Job already in planning_batch_job, converts them to person-hours, divides by the configured Physical Area manpower, and sums the configured masking durations. When scheduled Previous Main planned_end values are known, the latest Previous Main end plus the estimated duration is shown as Estimated Masking Ready. Scheduling cards/rows show MASKING EST.; a planned start earlier than Estimated Masking Ready is highlighted MASKING NOT READY, but the Schedule is not blocked. Missing/invalid values are advisory warnings only. Masking does not become a Main Operation/resource, does not change READY/WAIT, Planning Chain, Batch membership, Recipe, Schedule dependency, Production, Realtime or Chat. Migration 088_masking_time_estimate_advisory.sql is required; the loader fails open if the migration is missing so Scheduling still renders without estimates.`
+ },
  {
   key:"production-shift-accept-v511",
   title:"Production downstream Remove acceptance · V511",
@@ -185,3 +190,5 @@ export const V504_ALL_OPEN_JOB_AUDIT_MULTI_SELECT = `V504 changes only Cross Che
 
 
 export const V511_SHIFT_ACCEPT_IN_PRODUCTION_REPORT = `V511 moves Shift Accept & Remove for PRODUCTION_REMOVE_BEFORE_START downstream impacts to Production Execution. Scheduling Board is alert/status/navigation only. Production Execution shows the affected Batch impact and Shift Supervisor with production.add_job + Production Area scope performs Accept & Remove there. NEW impacts still block Start; CRITICAL already-started batches remain conflict-only. Existing source Remove Before Start, downstream event creation, Batch recomputation, Internal Chat and Global Realtime behavior are preserved.`;
+
+export const V512_MASKING_TIME_ESTIMATE_ADVISORY = `V512 adds a read-only Masking Time Estimate to Scheduling. Config maps Main Operation to one or more real All Open Job masking-time source columns plus Physical Area manpower, Time Basis and Value Unit. Batch person-hours are computed from current Batch Jobs, divided by allocated people, and optionally added to the latest known Previous Main planned end to produce Estimated Masking Ready. Scheduling highlights MASKING NOT READY when planned start is earlier, but does not block or rewrite Schedule. Missing migration/data fails open. Planning Chain, READY/WAIT, Recipe, Batch, Production, Realtime and Chat are unchanged.`;

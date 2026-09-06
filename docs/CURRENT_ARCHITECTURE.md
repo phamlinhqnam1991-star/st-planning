@@ -1,5 +1,23 @@
 # ST Planning — Current Architecture
 
+## V512 — Masking Time Estimate advisory for Scheduling
+
+`Batch Jobs -> configured All Open Job Masking Time Column -> person-hours -> Physical Area manpower -> Estimated Duration -> optional Estimated Ready`
+
+- V512 is **Planning Advisory only**. Masking does not become a Main Operation, does not create a Scheduling resource and does not change READY/WAIT or Batch membership.
+- Configuration adds a total Masking headcount, manpower allocation by existing `md_area` Physical Area, and `Main Operation -> source_column -> Physical Area` mapping. Source columns come from `md_open_job_column_value`, so the planner can choose real All Open Job columns such as `Masking_time.Process_time_Group.MSKG-AND` without hard-coded code changes.
+- Each mapping defines `JOB_TOTAL` vs `PER_PIECE` and `HOURS` vs `MINUTES`. Batch workload is converted to person-hours from Jobs already in `planning_batch_job`; `PER_PIECE` multiplies the source value by Batch Job Qty.
+- Estimated duration is workload divided by configured Area people. If the Batch has known scheduled Previous Main `planned_end` values, the latest end plus estimated duration becomes `Estimated Masking Ready`.
+- Scheduling Board shows the estimate on Unscheduled and Scheduled Batch cards/rows. A Schedule earlier than the calculated ready time is highlighted `MASKING NOT READY`, but it is not blocked. Missing/invalid masking values are shown as data warnings.
+- The estimate loader is fail-open: if migration 088 is not installed or optional estimate tables are unavailable, Scheduling still renders normally without masking estimates.
+- Required migration: `088_masking_time_estimate_advisory.sql`. V511 Shift Accept in Production, V510 Internal Chat and V509 Global Realtime No-Supabase remain unchanged.
+
+## V511 — Shift Accept & Remove in Production Report
+
+- For `PRODUCTION_REMOVE_BEFORE_START` downstream impacts, Shift Supervisor performs `Accept & Remove Job` in Production Execution, not Scheduling. Scheduling is alert/status/navigation only.
+- NEW impact still blocks first Start; already-started downstream Batch remains CRITICAL/CONFLICT.
+- Authorization is `production.add_job` + matching Production Area scope.
+
 ## V510 — Internal Chat stable realtime + unread + direct user chat
 
 `Planning / Schedule / Production commit -> Internal Chat SYSTEM message -> PostgreSQL system_change_event[CHAT] -> unread/chat clients reconcile without F5`

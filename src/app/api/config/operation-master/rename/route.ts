@@ -150,6 +150,15 @@ export async function POST(req:Request){
    where standard_operation=$1
   `,[oldName,newName]);
 
+  const maskingTimeTable=await c.query(`select to_regclass('public.md_main_masking_time_column') rel`);
+  if(maskingTimeTable.rows[0]?.rel){
+   await c.query(`
+    update md_main_masking_time_column
+    set standard_operation=$2,updated_at=now()
+    where upper(trim(standard_operation))=$1
+   `,[oldName,newName]);
+  }
+
   await c.query(`
    update md_st_operation_scope
    set previous_main_operation=case when previous_main_operation=$1 then $2 else previous_main_operation end,

@@ -3,6 +3,8 @@
 import {safeJson} from "@/lib/fetch-json";
 import {useEffect,useMemo,useState} from "react";
 import {usePopupMessage} from "@/hooks/use-popup-message";
+import {MaskingEstimateSummary} from "@/components/masking-estimate-summary";
+import type {BatchMaskingEstimate} from "@/lib/masking-time-estimate";
 
 type NextBreakdown={
  operation:string;
@@ -30,6 +32,7 @@ type Batch={
  scheduled_planned_end:string|null;
  schedule_status:string|null;
  handover_alert_count?:number;
+ masking_estimate?:BatchMaskingEstimate|null;
 };
 
 type HandoverAlert={
@@ -856,6 +859,7 @@ export default function ScheduleBoardClient({
            <span><b>Total Qty:</b> {formatNumber(b.total_qty,0)}</span>
            <span><b>Total Surface:</b> {formatNumber(b.total_surface_dm2,2)} dm²</span>
           </div>
+          <MaskingEstimateSummary estimate={b.masking_estimate}/>
 
           <div className="schedule-next-breakdown">
            {(b.next_main_breakdown||[]).map((x,index)=>
@@ -948,6 +952,7 @@ export default function ScheduleBoardClient({
            {" → "}
            {scheduleTimeLabel(b.scheduled_planned_end)}
           </div>
+          <MaskingEstimateSummary estimate={b.masking_estimate} plannedStart={b.scheduled_planned_start}/>
          </div>
         )}
        </div>

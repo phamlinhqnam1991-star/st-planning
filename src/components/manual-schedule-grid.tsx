@@ -10,6 +10,8 @@ import {
  type ChemicalHandlingRule
 } from "@/lib/chemical-line-schedule";
 import {useErpConfirm} from "@/components/app-dialog-provider";
+import {MaskingEstimateSummary} from "@/components/masking-estimate-summary";
+import type {BatchMaskingEstimate} from "@/lib/masking-time-estimate";
 
 type OperationOption={standard_operation:string;st_group:string;batch_prefix:string|null};
 type ResourceOption={resource_code:string;resource_name:string;resource_group:string};
@@ -46,6 +48,7 @@ type PlanningBatch={
  total_jobs:number;total_qty:number;total_surface_dm2:number;process_minutes:number|null;
  schedule_id:number|null;
  previous_main_batches:PreviousMainBatch[];
+ masking_estimate?:BatchMaskingEstimate|null;
 };
 
 type BatchScheduleStateDetail={
@@ -1466,6 +1469,7 @@ export function ManualScheduleGrid({
             {fmt(b.total_qty,0)} pcs · {fmt(b.total_surface_dm2)} dm²
             {Number(b.total_jobs||0)===0?" · EMPTY":""}
            </small>
+           <MaskingEstimateSummary estimate={b.masking_estimate} compact/>
           </div>
 
           <div className="schedule-previous-main-list">
@@ -1583,7 +1587,7 @@ export function ManualScheduleGrid({
            {i+1}
 
           </td>
-          <td><b>{x.batch_no}</b></td>
+          <td><b>{x.batch_no}</b><MaskingEstimateSummary estimate={(liveBatches.find(b=>Number(b.id)===Number(x.batch_id))||planningBatches.find(b=>Number(b.id)===Number(x.batch_id)))?.masking_estimate} plannedStart={x.planned_start} compact/></td>
 
           <td>
            {editing
@@ -1803,7 +1807,7 @@ export function ManualScheduleGrid({
           {actual.length+i+1}
           {chainVisual&&<span className={`row-chain-badge ${chainVisual.cls}`} title={`Liên kết 1-1: ${chainVisual.label}${(r.chainFrom!=null||r.chainFromExisting!=null)?" · Bấm X để xóa liên kết thủ công.":""}`} onClick={()=>{if(r.chainFrom!=null||r.chainFromExisting!=null)patch(a,i,{chainFrom:null,chainFromExisting:null});}}>×</span>}
 
-         </td><td>{r.batchId?<b>{r.batchNo}</b>:<span className="muted">MỚI</span>}</td>
+         </td><td>{r.batchId?<><b>{r.batchNo}</b><MaskingEstimateSummary estimate={(liveBatches.find(b=>b.id===r.batchId)||planningBatches.find(b=>b.id===r.batchId))?.masking_estimate} plannedStart={r.startTime?`${timeDateOf(r,r.startTime)}T${r.startTime}:00+07:00`:null} compact/></>:<span className="muted">MỚI</span>}</td>
          <td>
           <select className="input" disabled={Boolean(r.batchId&&r.recipeKey)} value={r.recipeKey} onChange={e=>{
            const rc=recipes.find(x=>x.recipe_key===e.target.value);

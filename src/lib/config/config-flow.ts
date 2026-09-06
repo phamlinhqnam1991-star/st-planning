@@ -115,6 +115,7 @@ export const CONFIG_FLOW: {
     items: [
       { key: "recipetimeloading", label: "Loading / Unloading Time", href: "/recipe-time-loading", no: 14, statusKey: "handling_total" },
       { key: "recipetimeprocess", label: "Process Time", href: "/recipe-time-process", no: 15, statusKey: "time_total" },
+      { key: "maskingtime", label: "Masking Time Estimate", href: "/masking-time-estimate-config", no: 16 },
     ],
   },
   {
@@ -122,7 +123,7 @@ export const CONFIG_FLOW: {
     tag: "future ready",
     hint: "Quy tắc Auto Planning dùng chung data model với Planning thủ công.",
     items: [
-      { key: "autoplanning", label: "Auto Planning Rules", href: "/auto-planning-rules", no: 16 },
+      { key: "autoplanning", label: "Auto Planning Rules", href: "/auto-planning-rules", no: 17 },
     ],
   },
 ];

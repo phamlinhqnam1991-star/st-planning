@@ -6358,3 +6358,23 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .internal-chat-users-empty{padding:14px 10px;color:#718096;font-size:10px;text-align:center}
 .internal-chat-shell>.internal-chat-layout{min-width:0}
 @media(max-width:900px){.internal-chat-shell{grid-template-columns:1fr}.internal-chat-people{max-height:260px}.internal-chat-user-list{max-height:170px}}
+
+/* V512 · Masking Estimate advisory (Scheduling only) */
+.masking-estimate-summary{margin-top:8px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;display:grid;gap:4px;text-align:left}
+.masking-estimate-summary.compact{margin-top:6px;padding:6px 8px;gap:2px;font-size:11px}
+.masking-estimate-summary.is-not-ready{border-color:#f59e0b;background:#fff7ed}
+.masking-estimate-summary-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;letter-spacing:.04em;color:#475569}
+.masking-estimate-summary-head em{font-style:normal;font-weight:800;color:#b45309;background:#ffedd5;border-radius:999px;padding:2px 6px}
+.masking-estimate-summary-metric{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.masking-estimate-summary-metric strong{font-size:14px;color:#0f172a}.masking-estimate-summary.compact .masking-estimate-summary-metric strong{font-size:12px}
+.masking-estimate-summary-metric span{font-size:11px;color:#475569}
+.masking-estimate-summary small{color:#64748b}.masking-estimate-summary small b{color:#0f172a}
+.masking-estimate-warning{color:#b45309!important}
+.masking-estimate-config-stack{display:grid;gap:14px}
+.masking-manpower-summary{display:grid;grid-template-columns:minmax(280px,520px) minmax(180px,260px);gap:14px;padding:12px;align-items:end}
+.masking-manpower-summary label{display:grid;gap:6px}.masking-manpower-summary .row{display:grid;grid-template-columns:1fr auto;gap:8px}
+.masking-capacity-kpi{border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;display:grid;gap:2px;background:#f8fafc}.masking-capacity-kpi span,.masking-capacity-kpi small{color:#64748b}.masking-capacity-kpi b{font-size:20px}.masking-capacity-kpi.is-over{border-color:#f59e0b;background:#fff7ed}
+.masking-area-add{padding:0 12px 12px;display:grid!important;grid-template-columns:minmax(280px,520px) auto;justify-content:start;gap:8px}
+.masking-time-map-form{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:10px;padding:12px}.masking-time-map-form label{display:grid;gap:5px;font-size:12px;font-weight:700;color:#334155}.masking-column-search,.masking-column-select{grid-column:span 2}.masking-map-actions{display:flex;align-items:end;gap:8px;grid-column:span 2}
+@media(max-width:1000px){.masking-manpower-summary,.masking-time-map-form{grid-template-columns:1fr 1fr}.masking-column-search,.masking-column-select,.masking-map-actions{grid-column:span 2}}
+@media(max-width:700px){.masking-manpower-summary,.masking-time-map-form,.masking-area-add{grid-template-columns:1fr}.masking-column-search,.masking-column-select,.masking-map-actions{grid-column:span 1}}

@@ -1,6 +1,6 @@
-# V511 — Shift Accept & Remove in Production Report
+# V512 — Masking Time Estimate advisory for Scheduling
 
-V511 keeps V510 Internal Chat and V509 Global Realtime No-Supabase unchanged, but moves the downstream `Accept & Remove Job` action for Production `REMOVE BEFORE START` impacts from Scheduling Board to Production Execution. Scheduling now shows alert/status/navigation only. Shift Supervisor performs the action in the affected downstream Batch on Production Execution using `production.add_job` + Production Area scope. NEW impacts still block first Start; already-started downstream Batches remain CRITICAL/CONFLICT. No new migration is required for V511.
+V512 adds a read-only/advisory Masking Time Estimate layer to Scheduling. Planner configures Main Operation → All Open Job masking-time column and masking manpower by Physical Area. Batch person-hours are summed from the Jobs already in the Batch, divided by configured people, and combined with the latest known Previous Main planned end to show Estimated Masking Duration / Ready time. Scheduled starts earlier than the estimate are highlighted as `MASKING NOT READY`, but nothing is blocked. Migration `088_masking_time_estimate_advisory.sql` is required. V511 Shift Accept, V510 Chat and V509 Global Realtime remain unchanged.
 
 # ST Planning Web App
 

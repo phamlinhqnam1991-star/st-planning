@@ -7,6 +7,7 @@ import ProductionTimelineClient from "@/components/production-timeline-client";
 import {ScheduleDayShiftControl} from "@/components/schedule-day-shift-control";
 import {calculateScheduleEnd,getProductionDateString} from "@/lib/schedule-time";
 import {getAccessContext} from "@/lib/security/access";
+import {loadBatchMaskingEstimates,withMaskingReady} from "@/lib/masking-time-estimate";
 
 export const dynamic="force-dynamic";
 
@@ -505,13 +506,16 @@ export default async function Page({
    alertCountByBatch.set(id,(alertCountByBatch.get(id)||0)+1);
   }
 
+  const maskingEstimateMap=await loadBatchMaskingEstimates(c,(batchesQ.rows as any[]).map((x:any)=>Number(x.id)));
+
   const plannerBatches=(batchesQ.rows as any[])
    .filter(
     (x:any)=>effectivePlannerOperationSet.has(String(x.standard_operation||"").toUpperCase())
    )
    .map((x:any)=>({
     ...x,
-    handover_alert_count:alertCountByBatch.get(Number(x.id))||0
+    handover_alert_count:alertCountByBatch.get(Number(x.id))||0,
+    masking_estimate:withMaskingReady(x,maskingEstimateMap.get(Number(x.id)))||null
    }));
 
   const rows=(scheduleTableQ.rows as any[]).filter(
