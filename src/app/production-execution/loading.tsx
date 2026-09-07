@@ -1,0 +1,1 @@
+export default function Loading(){return <main className="erp-shell erpkit-migrated-page"><section className="erp-content erp-content-full"><div className="erp-panel skeleton tall"/></section></main>}

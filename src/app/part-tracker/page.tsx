@@ -1,0 +1,159 @@
+import {ErpAppHeader} from "@/components/erp/erp-app-header";
+import Link from "next/link";
+import {getPool} from "@/lib/db";
+import {AppTabs} from "@/components/app-tabs";
+export const dynamic="force-dynamic";
+
+function KV({label,value}:{label:string,value:unknown}){return <div className="kv"><span>{label}</span><b>{value===null||value===undefined||value===""?"—":String(value)}</b></div>}
+
+export default async function Page({searchParams}:{searchParams:Promise<{q?:string}>}){
+ const sp=await searchParams,q=(sp.q||"").trim();
+ let matches:any[]=[];let part:any=null;let revisions:any[]=[],finish:any[]=[],requirements:any[]=[],routing:any[]=[],partRouting:any[]=[],stRouting:any[]=[],opMaster:any[]=[],areaMaps:any[]=[],areas:any[]=[];
+ if(q){
+   const c=await getPool().connect();
+   try{
+     const exact=await c.query(`select * from md_part where is_active=true and part_num ilike $1 limit 1`,[q]);
+     part=exact.rows[0]||null;
+     if(!part){
+       const safe=`%${q.replaceAll(",","")}%`;
+       const m=await c.query(`
+         select part_num,part_description,program,part_cluster,surface_dm2
+         from md_part
+         where is_active=true
+           and (part_num ilike $1 or part_description ilike $1)
+         order by part_num
+         limit 30
+       `,[safe]);
+       matches=m.rows;
+     }else{
+       const pn=part.part_num;
+       const [r1,r2,r3,r4,r5]=await Promise.all([
+         c.query(`select * from md_part_revision where part_num=$1 order by revision_num`,[pn]),
+         c.query(`select * from md_material_finish where part_num=$1`,[pn]),
+         c.query(`select * from md_process_requirement where part_num=$1 order by revision_num,requirement_code`,[pn]),
+         c.query(`select * from md_routing_detailed where part_num=$1 order by revision_num,source_seq`,[pn]),
+         c.query(`select * from md_part_routing where part_num=$1 order by revision_num`,[pn])
+       ]);
+       revisions=r1.rows;finish=r2.rows;requirements=r3.rows;routing=r4.rows;partRouting=r5.rows;
+       const routingCodes=[...new Set(partRouting.filter(x=>x.is_active).map(x=>String(x.routing_code)))];
+       if(routingCodes.length){
+         const sr=await c.query(`select * from md_st_routing where routing_code=any($1::text[]) and is_active=true order by routing_code,seq`,[routingCodes]);
+         stRouting=sr.rows;
+         const standards=[...new Set(stRouting.map(x=>x.standard_operation).filter(Boolean).map(String))];
+         const groups=[...new Set(stRouting.map(x=>x.planning_group).filter(Boolean).map(String))];
+         if(standards.length){const om=await c.query(`select * from md_operation_master where standard_operation=any($1::text[])`,[standards]);opMaster=om.rows;}
+         if(groups.length){
+           const gm=await c.query(`select * from md_area_operation_group where st_group=any($1::text[]) and is_active=true`,[groups]);areaMaps=gm.rows;
+           const ids=[...new Set(areaMaps.map(x=>String(x.area_id)))];
+           if(ids.length){const ar=await c.query(`select * from md_area where id=any($1::uuid[])`,[ids]);areas=ar.rows;}
+         }
+       }
+     }
+   }finally{c.release();}
+ }
+ const areaByGroup=new Map(areaMaps.map(m=>[m.st_group,areas.find(a=>a.id===m.area_id)?.area_name||""]));
+ const opByStd=new Map(opMaster.map(x=>[x.standard_operation,x]));
+ return <main className="erp-shell erpkit-migrated-page">
+ <ErpAppHeader module="PART TRACKER"/>
+ <AppTabs active="tracker"/>
+
+ <section className="erp-content erp-content-full">
+  <div className="erp-page-head">
+   <div><h2>Part Tracker</h2><p>Tra cứu toàn bộ thông tin liên quan theo Part Number</p></div>
+  </div>
+
+  <form className="erp-form-panel tracker-search">
+   <div>
+    <label htmlFor="partq">Part Number / Description</label>
+    <input id="partq" className="input" name="q" defaultValue={q} placeholder="Nhập PartNum, ví dụ PVSHFSA002314"/>
+   </div>
+   <button className="btn primary">Tìm Part</button>
+  </form>
+
+
+  {q&&!part&&<div className="erp-table-panel section">
+   <div className="erp-panel-head"><b>Kết quả tìm kiếm</b><span>{matches.length} matches</span></div>
+   {matches.length?
+    <div className="table-wrap"><table className="erp-table">
+     <thead><tr><th>Part Number</th><th>Description</th><th>Program</th><th>Part Cluster</th><th className="num">Surface dm²</th><th className="action"></th></tr></thead>
+     <tbody>{matches.map(x=><tr key={x.part_num}>
+      <td><b>{x.part_num}</b></td><td>{x.part_description||"—"}</td><td>{x.program||"—"}</td><td>{x.part_cluster||"—"}</td><td className="num">{x.surface_dm2??"—"}</td>
+      <td className="action"><Link className="erp-link" href={`/part-tracker?q=${encodeURIComponent(x.part_num)}`}>Mở</Link></td>
+     </tr>)}</tbody>
+    </table></div>
+    :<div className="erp-empty">Không tìm thấy Part phù hợp với “{q}”.</div>}
+  </div>}
+
+  {part&&<div className="section">
+   <div className="erp-object-hero">
+    <div className="erp-object-identity"><small>PART</small><strong>{part.part_num}</strong><span>{part.part_description||"Không có mô tả"}</span></div>
+    <div className="erp-object-facts"><div><small>Program</small><b>{part.program||"—"}</b></div><div><small>Revision</small><b>{revisions.length}</b></div><div><small>Surface</small><b>{part.surface_dm2!=null?`${part.surface_dm2} dm²`:"—"}</b></div></div>
+   </div>
+   <div className="erp-table-panel">
+    <div className="erp-panel-head"><b>Part Summary</b><span>{part.part_num}</span></div>
+    <div className="part-summary-grid">
+     <KV label="Part Number" value={part.part_num}/>
+     <KV label="Description" value={part.part_description}/>
+     <KV label="Program" value={part.program}/>
+     <KV label="Part Cluster" value={part.part_cluster}/>
+     <KV label="Surface" value={part.surface_dm2!=null?`${part.surface_dm2} dm²`:"—"}/>
+     <KV label="Revision Count" value={revisions.length}/>
+     <KV label="ST Routing" value={[...new Set(partRouting.filter(x=>x.is_active).map(x=>x.routing_code))].join(", ")||"—"}/>
+     <KV label="Areas" value={[...new Set(stRouting.map(x=>areaByGroup.get(x.planning_group)).filter(Boolean))].join(", ")||"Chưa gán"}/>
+    </div>
+   </div>
+
+   {revisions.map(rev=>{
+    const rv=rev.revision_num;
+    const f=finish.find(x=>x.revision_num===rv);
+    const req=requirements.filter(x=>x.revision_num===rv&&x.is_active);
+    const rd=routing.filter(x=>x.revision_num===rv&&x.is_active);
+    const pr=partRouting.find(x=>x.revision_num===rv&&x.is_active);
+    const sr=pr?stRouting.filter(x=>x.routing_code===pr.routing_code):[];
+    return <section className="erp-table-panel section" key={rv}>
+     <div className="erp-panel-head revision-panel-head">
+      <div><b>Revision {rv}</b><span>{rev.is_active?"Active":"Inactive"} · ST Routing: {pr?.routing_code||"—"}</span></div>
+      <span>{rd.length} routing operations</span>
+     </div>
+
+     <details open className="erp-details">
+      <summary>Part / Material / Finish</summary>
+      <div className="part-summary-grid compact">
+       <KV label="Alloy" value={f?.alloy}/><KV label="Temper" value={f?.temper}/><KV label="TSA" value={f?.tsa}/><KV label="Chemical Conv Airbus" value={f?.chemicalconv_airbus}/>
+       <KV label="Primer 1" value={f?.primer1}/><KV label="Primer 2" value={f?.primer2}/><KV label="Primer 3" value={f?.primer3}/><KV label="Topcoat 1" value={f?.topcoat1}/>
+       <KV label="Topcoat 2" value={f?.topcoat2}/><KV label="Anti Abrasion" value={f?.antiabration}/><KV label="Primer Name" value={f?.primer1_name}/><KV label="Topcoat Name" value={f?.topcoat_name}/>
+       <KV label="Antiabrasion Name" value={f?.antiabrasion_name}/><KV label="Varnish Name" value={f?.varinish_name}/>
+      </div>
+     </details>
+
+     <details className="erp-details">
+      <summary>Process Requirements ({req.length})</summary>
+      {req.length?<div className="table-wrap"><table className="erp-table">
+       <thead><tr><th>Requirement Code</th><th>Requirement Value</th></tr></thead>
+       <tbody>{req.map((x:any)=><tr key={`${rv}-${x.requirement_code}`}><td><b>{x.requirement_code}</b></td><td>{x.requirement_value}</td></tr>)}</tbody>
+      </table></div>:<div className="erp-empty">Không có Process Requirement.</div>}
+     </details>
+
+     <details className="erp-details">
+      <summary>Routing Detail ({rd.length})</summary>
+      <div className="table-wrap"><table className="erp-table">
+       <thead><tr><th>Seq</th><th>Operation</th><th>Detail Code</th><th>Detail Name</th><th>Next Operation</th></tr></thead>
+       <tbody>{rd.map((x:any)=><tr key={x.source_seq}><td className="mono">{x.source_seq}</td><td><b>{x.operation_code}</b></td><td>{x.operation_detail_code}</td><td>{x.operation_detail_name}</td><td>{x.next_operation_code||"END"}</td></tr>)}</tbody>
+      </table></div>
+     </details>
+
+     <details open className="erp-details">
+      <summary>ST Routing / Planning Chain ({sr.length})</summary>
+      {sr.length?<div className="table-wrap"><table className="erp-table">
+       <thead><tr><th>Seq</th><th>Source Operation</th><th>Standard Operation</th><th>ST Group</th><th>Area</th><th>Rule</th><th>Time Calc</th><th className="num">Hours</th></tr></thead>
+       <tbody>{sr.map((x:any)=>{const om=opByStd.get(x.standard_operation);return <tr key={`${x.routing_code}-${x.seq}`}>
+        <td className="mono">{x.seq}</td><td>{x.operation_code}</td><td><b>{x.standard_operation||"—"}</b></td><td>{x.planning_group||"—"}</td><td>{areaByGroup.get(x.planning_group)||"Chưa gán"}</td><td>{x.mapping_rule||"—"}{x.occurrence_no?` #${x.occurrence_no}`:""}</td><td>{om?.time_calc_type||"—"}</td><td className="num">{om?.standard_hours??om?.fixed_hours??"—"}</td>
+       </tr>})}</tbody>
+      </table></div>:<div className="erp-empty">Revision này chưa có ST Routing.</div>}
+     </details>
+    </section>
+   })}
+  </div>}
+ </section>
+ </main>
+}

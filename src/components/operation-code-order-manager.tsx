@@ -1,0 +1,147 @@
+"use client";
+
+import {safeJson} from "@/lib/fetch-json";
+import {useState} from "react";
+import {useRouter} from "next/navigation";
+import {refreshConfigPage} from "@/lib/config/config-client";
+import {usePopupMessage} from "@/hooks/use-popup-message";
+import {useErpConfirm} from "@/components/app-dialog-provider";
+
+type Row={
+ operation_code:string;
+ operation_name:string|null;
+ planning_sort_order:number|null;
+ operation_type:"PLANNING_OPERATION"|"BRIDGE_INTERMEDIATE"|"ST_SCOPE_ONLY";
+};
+
+export function OperationCodeOrderManager({rows}:{rows:Row[]}){
+ const confirmErp=useErpConfirm();
+ const router=useRouter();
+ const [editing,setEditing]=useState<string|null>(null);
+ const [value,setValue]=useState("");
+ const [busy,setBusy]=useState(false);
+ const [message,setMessage]=useState("");
+ usePopupMessage(message);
+
+ function begin(row:Row){
+  setEditing(row.operation_code);
+  setValue(row.planning_sort_order==null?"":String(row.planning_sort_order));
+ }
+
+ async function request(body:any,method:"POST"|"DELETE"="POST"){
+  const r=await fetch("/api/config/operation-code-order",{
+   method,
+   headers:{"content-type":"application/json"},
+   body:JSON.stringify(body)
+  });
+  const d=await safeJson(r);
+  if(!r.ok)throw new Error(d.error||"Không cập nhật được Operation Code.");
+  return d;
+ }
+
+ async function save(operationCode:string){
+  setBusy(true);
+  setMessage("");
+  try{
+   const d=await request({
+    operation_code:operationCode,
+    planning_sort_order:value.trim()===""?null:Number(value)
+   });
+
+   setMessage(
+    `Đã lưu Operation Code Order ${operationCode} = ${d.row.planning_sort_order??"chưa gán"}. Chỉ tie-break trong cùng Main; không thay đổi Planning Chain.`
+   );
+   setEditing(null);
+   refreshConfigPage(router);
+  }catch(e){
+   setMessage(e instanceof Error?e.message:"Không lưu được Operation Code Order.");
+  }finally{
+   setBusy(false);
+  }
+ }
+
+ async function removeOperation(row:Row){
+  const ok=await confirmErp(
+   `Bỏ ${row.operation_code} khỏi ST Scope?\n\n`+
+   `Job ở công đoạn này sẽ không còn thuộc phạm vi ST và Planning Chain sẽ được cập nhật lại.\n`+
+   `Batch/Schedule lịch sử không bị xóa.`
+  );
+  if(!ok)return;
+
+  setBusy(true);
+  setMessage("");
+  try{
+   await request({operation_code:row.operation_code},"DELETE");
+   setMessage(`Đã bỏ ${row.operation_code} khỏi ST Scope và cập nhật lại Planning Chain.`);
+   refreshConfigPage(router);
+  }catch(e){
+   setMessage(e instanceof Error?e.message:"Không remove được Operation Code.");
+  }finally{
+   setBusy(false);
+  }
+ }
+
+ return <div className="section erp-config-editor-stack">
+  <div className="erp-panel-head" style={{marginBottom:8}}>
+   <div><b>ST Scope & Operation Code Order</b></div>
+   <button className="btn primary" type="button" disabled={busy} onClick={()=>router.push("/st-operation-flow")}>＋ Thêm / cấu hình công đoạn</button>
+  </div>
+
+
+  <div className="erp-table-panel table-wrap">
+   <table className="erp-table">
+    <thead>
+     <tr>
+      <th>Operation Code Order</th>
+     <th>Mã công đoạn</th>
+     <th>Tên công đoạn</th>
+      <th>Loại</th>
+     <th>Thao tác</th>
+     </tr>
+    </thead>
+    <tbody>
+     {rows.map(row=>
+      <tr key={row.operation_code}>
+       <td style={{width:150}}>
+        {editing===row.operation_code
+         ? <input
+            className="input"
+            type="number"
+            min={0}
+            step={1}
+            value={value}
+            onChange={e=>setValue(e.target.value)}
+            autoFocus
+           />
+         : <b>{row.planning_sort_order??"—"}</b>}
+       </td>
+       <td><b>{row.operation_code}</b></td>
+       <td>{row.operation_name||"—"}</td>
+       <td><b>{row.operation_type==="ST_SCOPE_ONLY"?"ST_SCOPE_ONLY":row.operation_type==="BRIDGE_INTERMEDIATE"?"Intermediate":"Planning"}</b></td>
+       <td>
+        {editing===row.operation_code
+         ? <div className="row">
+            <button className="btn small primary" type="button" disabled={busy} onClick={()=>save(row.operation_code)}>Lưu</button>
+            <button className="btn small" type="button" disabled={busy} onClick={()=>setEditing(null)}>Hủy</button>
+           </div>
+         : <div className="row">
+            <button className="btn small" type="button" disabled={busy} onClick={()=>begin(row)}>Đặt thứ tự</button>
+            {row.operation_type!=="BRIDGE_INTERMEDIATE"&&<button
+             className="btn small"
+             type="button"
+             disabled={busy}
+             onClick={()=>removeOperation(row)}
+             style={{borderColor:"#dc2626",color:"#b91c1c"}}
+            >
+             Bỏ khỏi ST
+            </button>}
+           </div>}
+       </td>
+      </tr>
+     )}
+     {!rows.length&&<tr><td colSpan={5} className="muted">Không có Operation Code.</td></tr>}
+    </tbody>
+   </table>
+  </div>
+ </div>;
+}
