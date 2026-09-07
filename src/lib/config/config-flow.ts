@@ -17,6 +17,8 @@ export type ConfigHealth = {
   time_total: number;
   colval_total: number;
   missing_jobs: number;
+  unconfigured_operations: number;
+  unconfigured_jobs: number;
 };
 
 export type ConfigFlowItem = {
@@ -63,6 +65,8 @@ export function healthStatus(
       return n(h.colval_total) > 0 ? "ok" : "warn";
     case "missing_jobs":
       return n(h.missing_jobs) > 0 ? "warn" : "ok";
+    case "unconfigured_operations":
+      return n(h.unconfigured_operations) > 0 ? "warn" : "ok";
     default:
       return "idle";
   }
@@ -79,11 +83,12 @@ export const CONFIG_FLOW: {
     tag: "nền tảng",
     hint: "Xác định Operation nào thuộc ST, map Source → Main và thứ tự Planning.",
     items: [
-      { key: "flow", label: "ST Operation Flow", href: "/st-operation-flow", no: 1, statusKey: "chain_ok" },
-      { key: "operationcodeorder", label: "ST Scope & Operation Code", href: "/operation-code-order", no: 2, statusKey: "scope_total" },
-      { key: "operationmapping", label: "Source → Main Mapping", href: "/master/operationmapping", no: 3, statusKey: "mapping_missing" },
-      { key: "operation", label: "Main Operation", href: "/master/operation", no: 4, statusKey: "master_total" },
-      { key: "mainsupport", label: "Masking / Unmasking by Main", href: "/main-support-operations", no: 5 },
+      { key: "unconfiguredoperations", label: "New / Unconfigured Operations", href: "/unconfigured-operations", no: 1, statusKey: "unconfigured_operations" },
+      { key: "flow", label: "ST Operation Flow", href: "/st-operation-flow", no: 2, statusKey: "chain_ok" },
+      { key: "operationcodeorder", label: "ST Scope & Operation Code", href: "/operation-code-order", no: 3, statusKey: "scope_total" },
+      { key: "operationmapping", label: "Source → Main Mapping", href: "/master/operationmapping", no: 4, statusKey: "mapping_missing" },
+      { key: "operation", label: "Main Operation", href: "/master/operation", no: 5, statusKey: "master_total" },
+      { key: "mainsupport", label: "Masking / Unmasking by Main", href: "/main-support-operations", no: 6 },
     ],
   },
   {
@@ -91,11 +96,11 @@ export const CONFIG_FLOW: {
     tag: "ownership",
     hint: "Gắn Main Operation vào nhóm, khu vực vật lý, lane điều độ và Planner phụ trách.",
     items: [
-      { key: "stgroup", label: "ST Group", href: "/st-groups", no: 6, statusKey: "group_total" },
-      { key: "area", label: "Physical Area", href: "/area", no: 7, statusKey: "area_total" },
-      { key: "areaorder", label: "Area Display Order", href: "/area-display-order", no: 8 },
-      { key: "schedulearea", label: "Schedule Area", href: "/schedule-areas", no: 9, statusKey: "schedule_total" },
-      { key: "plannerassignment", label: "Planner Assignment", href: "/planner-work-assignment", no: 10, statusKey: "planner_assigned" },
+      { key: "stgroup", label: "ST Group", href: "/st-groups", no: 7, statusKey: "group_total" },
+      { key: "area", label: "Physical Area", href: "/area", no: 8, statusKey: "area_total" },
+      { key: "areaorder", label: "Area Display Order", href: "/area-display-order", no: 9 },
+      { key: "schedulearea", label: "Schedule Area", href: "/schedule-areas", no: 10, statusKey: "schedule_total" },
+      { key: "plannerassignment", label: "Planner Assignment", href: "/planner-work-assignment", no: 11, statusKey: "planner_assigned" },
     ],
   },
   {
@@ -103,9 +108,9 @@ export const CONFIG_FLOW: {
     tag: "batch rules",
     hint: "Cấu hình Recipe proposal, Batch Key, điều kiện tương thích và nguồn giá trị từ All Open Job.",
     items: [
-      { key: "recipeoperationmap", label: "Recipe & Batch Rules", href: "/recipe-operation-map", no: 11, statusKey: "recipe_op_total" },
-      { key: "processrequirementfilter", label: "Process Requirement Import Filter", href: "/process-requirement-filter", no: 12 },
-      { key: "openjobcolumnvalues", label: "Open Job Column Values", href: "/open-job-column-values", no: 13, statusKey: "colval_total" },
+      { key: "recipeoperationmap", label: "Recipe & Batch Rules", href: "/recipe-operation-map", no: 12, statusKey: "recipe_op_total" },
+      { key: "processrequirementfilter", label: "Process Requirement Import Filter", href: "/process-requirement-filter", no: 13 },
+      { key: "openjobcolumnvalues", label: "Open Job Column Values", href: "/open-job-column-values", no: 14, statusKey: "colval_total" },
     ],
   },
   {
@@ -113,9 +118,9 @@ export const CONFIG_FLOW: {
     tag: "duration",
     hint: "Định nghĩa thời gian chuẩn dùng khi tạo Batch và điều độ.",
     items: [
-      { key: "recipetimeloading", label: "Loading / Unloading Time", href: "/recipe-time-loading", no: 14, statusKey: "handling_total" },
-      { key: "recipetimeprocess", label: "Process Time", href: "/recipe-time-process", no: 15, statusKey: "time_total" },
-      { key: "maskingtime", label: "Masking Time Estimate", href: "/masking-time-estimate-config", no: 16 },
+      { key: "recipetimeloading", label: "Loading / Unloading Time", href: "/recipe-time-loading", no: 15, statusKey: "handling_total" },
+      { key: "recipetimeprocess", label: "Process Time", href: "/recipe-time-process", no: 16, statusKey: "time_total" },
+      { key: "maskingtime", label: "Masking Time Estimate", href: "/masking-time-estimate-config", no: 17 },
     ],
   },
   {
@@ -123,7 +128,7 @@ export const CONFIG_FLOW: {
     tag: "future ready",
     hint: "Quy tắc Auto Planning dùng chung data model với Planning thủ công.",
     items: [
-      { key: "autoplanning", label: "Auto Planning Rules", href: "/auto-planning-rules", no: 17 },
+      { key: "autoplanning", label: "Auto Planning Rules", href: "/auto-planning-rules", no: 18 },
     ],
   },
 ];

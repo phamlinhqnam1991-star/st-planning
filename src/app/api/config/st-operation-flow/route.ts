@@ -4,6 +4,7 @@ import {cleanCode,findOpenJobNumsUsingRawOperation,syncAllStDerived} from "@/lib
 import {invalidatePlanningStaticData} from "@/lib/planning/planning-static-cache";
 import {invalidateConfigHealth} from "@/lib/config/config-health";
 import {requireApiPermission} from "@/lib/security/api";
+import {clearOperationReview} from "@/lib/config/unconfigured-operations";
 
 const clean=(v:unknown)=>String(v??"").trim();
 const RULES=new Set(["DIRECT","OCCURRENCE","SEQUENCE","SEQUENCE/FALLBACK"]);
@@ -232,6 +233,7 @@ export async function POST(req:Request){
      is_active=true,updated_at=now()
    `,[source]);
 
+   await clearOperationReview(c,source);
    await c.query("commit");
    invalidateConfigHealth();
    return NextResponse.json({
@@ -292,6 +294,7 @@ export async function POST(req:Request){
    const sync=wasConfigured
     ?await syncAllStDerived(c)
     :await syncAllStDerived(c,{jobNums:affectedJobNums});
+   await clearOperationReview(c,source);
    await c.query("commit");
    invalidatePlanningStaticData();
    invalidateConfigHealth();
@@ -362,6 +365,7 @@ export async function POST(req:Request){
   const sync=wasConfigured
    ?await syncAllStDerived(c)
    :await syncAllStDerived(c,{jobNums:affectedJobNums});
+  await clearOperationReview(c,source);
   await c.query("commit");
   invalidatePlanningStaticData();
   invalidateConfigHealth();

@@ -41,7 +41,7 @@ export function ConfigOverviewClient(){
   const okCount=tracked.filter(x=>x.ok).length;
   const readiness=tracked.length?Math.round(okCount/tracked.length*100):0;
   const issues:{severity:"critical"|"warning";title:string;detail:string;href:string}[]=[];
-  if(n(s.missing_jobs)>0)issues.push({severity:"critical",title:`${n(s.missing_jobs)} Job chưa đủ cấu hình ST`,detail:"Các Job này chưa thể đi vào Planning Board đúng flow.",href:"/st-operation-flow"});
+  if(n(s.unconfigured_operations)>0)issues.push({severity:"critical",title:`${n(s.unconfigured_jobs)} Jobs affected · ${n(s.unconfigured_operations)} Operation chưa review ST`,detail:"Review các NextOperation mới/partial rồi chọn ST_SCOPE_ONLY, PLANNING_OPERATION, INTERMEDIATE hoặc Not ST.",href:"/unconfigured-operations"});
   if(n(s.mapping_missing)>0)issues.push({severity:"critical",title:`${n(s.mapping_missing)} Operation chưa có Main Mapping`,detail:"Source Operation chưa map đầy đủ vào Main Operation.",href:"/master/operationmapping"});
   if(n(s.schedule_total)>0&&n(s.planner_assigned)===0)issues.push({severity:"warning",title:"Schedule Area chưa có Planner",detail:"Scheduling Board chưa xác định ownership theo khu vực.",href:"/planner-work-assignment"});
   if(n(s.recipe_total)===0||n(s.recipe_op_total)===0)issues.push({severity:"critical",title:"Recipe / Batch Rule chưa hoàn chỉnh",detail:"Job có thể không đề xuất được Recipe hoặc không tạo Batch đúng rule.",href:"/recipe-operation-map"});
@@ -78,7 +78,7 @@ export function ConfigOverviewClient(){
    <div className="erp-config-kpi"><span>Planning Chain</span><b>{chainPct}%</b><small>{chainOk}/{chainPlanning||0} Job đủ chuỗi</small></div>
    <div className="erp-config-kpi"><span>Main Mapping</span><b>{n(s.mapping_total)}</b><small>{n(s.mapping_missing)} thiếu mapping</small></div>
    <div className="erp-config-kpi"><span>Recipe Rules</span><b>{n(s.recipe_op_total)}</b><small>{n(s.recipe_total)} Recipe đang dùng</small></div>
-   <div className="erp-config-kpi"><span>Open Job Issues</span><b>{n(s.missing_jobs)}</b><small>Job cần bổ sung cấu hình</small></div>
+   <div className="erp-config-kpi"><span>Operation Inbox</span><b>{n(s.unconfigured_operations)}</b><small>{n(s.unconfigured_jobs)} Job bị ảnh hưởng</small></div>
   </div>
 
   <section className="erp-panel erp-config-health-panel">

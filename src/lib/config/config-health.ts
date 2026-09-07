@@ -6,6 +6,14 @@ async function loadConfigHealth(): Promise<Partial<ConfigHealth>> {
   try {
     const c = await getPool().connect();
     try {
+      const reviewTableQ=await c.query(`select to_regclass('public.md_operation_review') is not null as ok`);
+      const reviewTableReady=Boolean(reviewTableQ.rows[0]?.ok);
+      const ignoredOperationClause=reviewTableReady?`
+               and not exists(
+                 select 1 from public.md_operation_review rv
+                 where upper(trim(rv.operation_code))=upper(trim(j.next_operation))
+                   and rv.decision='NOT_ST'
+               )`:``;
       const q = await c.query(`
         with active_scope as (
           select
@@ -67,7 +75,57 @@ async function loadConfigHealth(): Promise<Partial<ConfigHealth>> {
                  select 1 from planning_job_operation po
                  where po.job_num=j.job_num and po.is_active=true
                    and po.status in ('ELIGIBLE','PLANNED')
-               )) missing_jobs
+               )) missing_jobs,
+          (select count(distinct upper(trim(j.next_operation)))::int
+             from open_job_current j
+            where j.is_open=true
+              and nullif(trim(coalesce(j.next_operation,'')),'') is not null
+              and (
+               not exists(
+                select 1 from md_st_operation_scope s2
+                where s2.is_active=true
+                  and s2.operation_type in ('PLANNING_OPERATION','INTERMEDIATE','ST_SCOPE_ONLY')
+                  and upper(trim(s2.operation_code))=upper(trim(j.next_operation))
+               )
+               or (
+                exists(
+                 select 1 from md_st_operation_scope s2
+                 where s2.is_active=true and s2.operation_type='PLANNING_OPERATION'
+                   and upper(trim(s2.operation_code))=upper(trim(j.next_operation))
+                )
+                and not exists(
+                 select 1 from md_st_operation_mapping m2
+                 where m2.is_active=true
+                   and upper(trim(m2.source_operation_code))=upper(trim(j.next_operation))
+                )
+               )
+              )
+              ${ignoredOperationClause}) unconfigured_operations,
+          (select count(*)::int
+             from open_job_current j
+            where j.is_open=true
+              and nullif(trim(coalesce(j.next_operation,'')),'') is not null
+              and (
+               not exists(
+                select 1 from md_st_operation_scope s2
+                where s2.is_active=true
+                  and s2.operation_type in ('PLANNING_OPERATION','INTERMEDIATE','ST_SCOPE_ONLY')
+                  and upper(trim(s2.operation_code))=upper(trim(j.next_operation))
+               )
+               or (
+                exists(
+                 select 1 from md_st_operation_scope s2
+                 where s2.is_active=true and s2.operation_type='PLANNING_OPERATION'
+                   and upper(trim(s2.operation_code))=upper(trim(j.next_operation))
+                )
+                and not exists(
+                 select 1 from md_st_operation_mapping m2
+                 where m2.is_active=true
+                   and upper(trim(m2.source_operation_code))=upper(trim(j.next_operation))
+                )
+               )
+              )
+              ${ignoredOperationClause}) unconfigured_jobs
       `);
       return (q.rows[0] || {}) as Partial<ConfigHealth>;
     } finally {
@@ -80,7 +138,7 @@ async function loadConfigHealth(): Promise<Partial<ConfigHealth>> {
 
 export const getConfigHealth = unstable_cache(
   loadConfigHealth,
-  ["config-health-v2"],
+  ["config-health-v3"],
   {revalidate: 60, tags: ["config-health"]},
 );
 

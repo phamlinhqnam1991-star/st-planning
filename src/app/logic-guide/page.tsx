@@ -390,6 +390,22 @@ export default async function Page(){
 
     <div className="lg-subtitle">4.1 · Tầng 1 — Định nghĩa công đoạn</div>
     <details open className="erp-details">
+     <summary><b>NEW · New / Unconfigured Operations — Operation Inbox</b></summary>
+     <div className="lg-key lg-key-2">
+      <Rule title="Nguồn phát hiện">Quét unique Operation Code từ <b>NextOperation + AllOperation</b> của toàn bộ Open Job. NextOperation được tách riêng để thấy số Job đang đứng trực tiếp tại Operation; AllOperation giúp phát hiện Operation mới nằm trong route nhưng chưa tới bước hiện tại.</Rule>
+      <Rule title="Quyết định thủ công" tone="important">Inbox không tự thêm Operation vào ST. Người cấu hình phải chọn một trong ba loại <b>ST_SCOPE_ONLY / PLANNING_OPERATION / INTERMEDIATE</b>, hoặc xác nhận <b>Not ST</b>. Quyết định Not ST được lưu riêng trong <code>md_operation_review</code> để các import sau không cảnh báo lại.</Rule>
+     </div>
+     <StepList items={[
+      <>Mở <b>Configuration → New / Unconfigured Operations</b>, ưu tiên filter <b>NextOperation only</b> và Operation có nhiều Job ảnh hưởng.</>,
+      <>Nếu là <b>ST_SCOPE_ONLY</b>: thêm vào ST Scope nhưng không tạo Main/Batch/Schedule.</>,
+      <>Nếu là <b>PLANNING_OPERATION</b>: chọn đủ <b>Main Operation → ST Group → Physical Area → Schedule Area → Planner</b> rồi Add to ST Operation.</>,
+      <>Nếu là <b>INTERMEDIATE</b>: chỉ được chọn khi Operation đang có active Intermediate Bridge; đây là Dashboard ST membership, không tạo Main Planning.</>,
+      <>Nếu xác nhận không thuộc ST: chọn <b>Not ST</b>. Có thể mở lại bằng <b>Re-open review</b>.</>
+     ]}/>
+     <div className="notice"><b>Impact:</b> Health Dashboard dùng số Operation/Job chưa review để tạo issue clickable. Chỉ thao tác <b>Add to ST Operation</b> mới ghi ST configuration; <b>Not ST</b> không sửa All Open Job, Planning Chain, Batch hoặc Schedule.</div>
+    </details>
+
+    <details className="erp-details">
      <summary><b>① ST Operation Flow — Trợ lý Operation</b></summary>
      <div className="lg-key lg-key-2">
       <Rule title="Mục đích">Quản lý 2 lớp trên cùng màn hình: operational ST Scope gồm <b>PLANNING_OPERATION / ST_SCOPE_ONLY</b>, và nhãn <b>INTERMEDIATE Dashboard ST</b>. Planning Operation mới cần Main/ST Group/Area/Schedule Area/Planner. INTERMEDIATE chỉ dùng để xác nhận một Bridge operation được tính trên Dashboard; Previous/Next Main vẫn lấy từ Bridge.</Rule>
