@@ -199,7 +199,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{job?:st
 
    <section id="flow" className="erp-table-panel guide-section"><div className="erp-panel-head"><div><b>7 · Trainer dẫn học viên đi xuyên flow — từng câu hỏi phải trả lời</b></div></div><div className="lg-body"><ol className="lg-steps">
     <li><b>All Open Jobs:</b> Job hiện có NextOperation gì? Qty/Surface/Priority là bao nhiêu? Đây là dữ liệu nguồn, chưa phải quyết định Batch.</li>
-    <li><b>Operation Inbox:</b> nếu gặp Operation mới/chưa cấu hình, mở <b>Configuration → New / Unconfigured Operations</b>. Kiểm số Next Jobs/All Jobs, xác nhận ST_SCOPE_ONLY, PLANNING_OPERATION, INTERMEDIATE hoặc Not ST. Không tự suy Operation mới là ST chỉ vì nó xuất hiện trong AllOperation.</li>
+    <li><b>Operation Inbox:</b> nếu gặp Operation mới/chưa cấu hình, mở <b>Configuration → New / Unconfigured Operations</b>. Kiểm số Next Jobs/All Jobs, xác nhận ST_SCOPE_ONLY, PLANNING_OPERATION, INTERMEDIATE hoặc Not ST. FINSST/CFINM-VN không review tại đây vì là Final-Out marker. Nếu chọn INTERMEDIATE mà Operation chưa có Bridge, bắt buộc chọn Intermediate Segment / Bridge; hệ thống tạo Manual Bridge và bật ST Scope INTERMEDIATE. Intermediate đã có active Bridge không bị báo Inactive chỉ vì legacy Scope đang tắt.</li>
     <li><b>Operation Mapping:</b> Next/route Operation Code map vào ST Group và Main nào? Nếu không map được, dừng tại đây và sửa cấu hình nguồn đúng chỗ.</li>
     <li><b>Main Chain:</b> Main hiện tại đứng thứ mấy? Previous Main/Next Main là gì theo Planning Order thật của Job?</li>
     <li><b>Recipe:</b> Main này resolve Recipe nào? Recipe lấy theo rule/cột dữ liệu nào? Có mismatch với Batch định gom không?</li>

@@ -22,6 +22,7 @@ export type OperationInboxRow={
 
 const clean=(v:unknown)=>String(v??"").trim();
 const norm=(v:unknown)=>clean(v).toUpperCase();
+const FINAL_OUT_OPERATIONS=new Set(["FINSST","CFINM-VN"]);
 
 function splitAllOperation(v:unknown){
  const x=clean(v)
@@ -185,20 +186,31 @@ export async function loadOperationInbox(c:PoolClient):Promise<{rows:OperationIn
 
  const rows:OperationInboxRow[]=[];
  for(const a of agg.values()){
+  // FINSST / CFINM-VN are Final-Out markers used by ST Output. They are not
+  // source Operations that need to be classified into ST Operation Scope.
+  if(FINAL_OUT_OPERATIONS.has(a.operationCode))continue;
+
   const scope=scopeByCode.get(a.operationCode)||null;
   const mapping=mappingByCode.get(a.operationCode)||null;
   const review=reviewByCode.get(a.operationCode)||null;
+  const bridgeCount=bridgeByCode.get(a.operationCode)||0;
 
   const activeType=scope?.is_active?scope.operation_type:"";
-  const fullyConfigured=Boolean(
+  const activePlanningPartial=Boolean(scope?.is_active&&activeType==="PLANNING_OPERATION"&&!mapping);
+  const activeScopeConfigured=Boolean(
    scope?.is_active&&
    ["PLANNING_OPERATION","INTERMEDIATE","ST_SCOPE_ONLY"].includes(activeType)&&
-   (activeType!=="PLANNING_OPERATION"||mapping)
+   !activePlanningPartial
   );
-  if(fullyConfigured)continue;
+
+  // An active Bridge is the canonical Intermediate recognition. Historical
+  // INTERMEDIATE scope rows may intentionally be inactive after Auto Routing
+  // migrations; do not surface those as false "Inactive ST config" issues.
+  const bridgeRecognizedIntermediate=Boolean(bridgeCount>0&&!activePlanningPartial);
+  if(activeScopeConfigured||bridgeRecognizedIntermediate)continue;
 
   let status:OperationInboxStatus="NEW";
-  if(scope?.is_active&&activeType==="PLANNING_OPERATION"&&!mapping)status="PARTIAL_CONFIG";
+  if(activePlanningPartial)status="PARTIAL_CONFIG";
   else if(review?.decision==="NOT_ST")status="NOT_ST";
   else if(scope&&!scope.is_active)status="INACTIVE";
 
@@ -212,7 +224,7 @@ export async function loadOperationInbox(c:PoolClient):Promise<{rows:OperationIn
    found_in:a.hasNext&&a.hasAll?"NextOperation + AllOperation":a.hasNext?"NextOperation":"AllOperation",
    status,
    scope_type:scope?.operation_type||null,
-   bridge_count:bridgeByCode.get(a.operationCode)||0,
+   bridge_count:bridgeCount,
    mapped_main:mapping?.standard_operation_rule||null,
    mapped_group:mapping?.st_group||null,
    suggested_main:mapping?.standard_operation_rule||null,

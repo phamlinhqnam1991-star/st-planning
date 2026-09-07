@@ -392,17 +392,17 @@ export default async function Page(){
     <details open className="erp-details">
      <summary><b>NEW · New / Unconfigured Operations — Operation Inbox</b></summary>
      <div className="lg-key lg-key-2">
-      <Rule title="Nguồn phát hiện">Quét unique Operation Code từ <b>NextOperation + AllOperation</b> của toàn bộ Open Job. NextOperation được tách riêng để thấy số Job đang đứng trực tiếp tại Operation; AllOperation giúp phát hiện Operation mới nằm trong route nhưng chưa tới bước hiện tại.</Rule>
+      <Rule title="Nguồn phát hiện">Quét unique Operation Code từ <b>NextOperation + AllOperation</b> của toàn bộ Open Job. NextOperation được tách riêng để thấy số Job đang đứng trực tiếp tại Operation; AllOperation giúp phát hiện Operation mới nằm trong route nhưng chưa tới bước hiện tại. <b>FINSST / CFINM-VN</b> là Final-Out marker nên không đưa vào Inbox.</Rule>
       <Rule title="Quyết định thủ công" tone="important">Inbox không tự thêm Operation vào ST. Người cấu hình phải chọn một trong ba loại <b>ST_SCOPE_ONLY / PLANNING_OPERATION / INTERMEDIATE</b>, hoặc xác nhận <b>Not ST</b>. Quyết định Not ST được lưu riêng trong <code>md_operation_review</code> để các import sau không cảnh báo lại.</Rule>
      </div>
      <StepList items={[
       <>Mở <b>Configuration → New / Unconfigured Operations</b>, ưu tiên filter <b>NextOperation only</b> và Operation có nhiều Job ảnh hưởng.</>,
       <>Nếu là <b>ST_SCOPE_ONLY</b>: thêm vào ST Scope nhưng không tạo Main/Batch/Schedule.</>,
       <>Nếu là <b>PLANNING_OPERATION</b>: chọn đủ <b>Main Operation → ST Group → Physical Area → Schedule Area → Planner</b> rồi Add to ST Operation.</>,
-      <>Nếu là <b>INTERMEDIATE</b>: chỉ được chọn khi Operation đang có active Intermediate Bridge; đây là Dashboard ST membership, không tạo Main Planning.</>,
+      <>Nếu là <b>INTERMEDIATE</b>: luôn có thể chọn. Nếu Operation chưa có active Bridge, chọn thêm <b>Intermediate Segment / Bridge</b>; hệ thống tạo một Manual Bridge dựa trên Segment đã chọn, nối Operation vào cuối Intermediate sequence trước Next Main, rồi bật ST Scope = INTERMEDIATE. Không tạo Main Mapping.</>,
       <>Nếu xác nhận không thuộc ST: chọn <b>Not ST</b>. Có thể mở lại bằng <b>Re-open review</b>.</>
      ]}/>
-     <div className="notice"><b>Impact:</b> Health Dashboard dùng số Operation/Job chưa review để tạo issue clickable. Chỉ thao tác <b>Add to ST Operation</b> mới ghi ST configuration; <b>Not ST</b> không sửa All Open Job, Planning Chain, Batch hoặc Schedule.</div>
+     <div className="notice"><b>Impact:</b> Health Dashboard dùng số Operation/Job chưa review để tạo issue clickable. Intermediate đã có active Bridge không bị báo sai là Inactive chỉ vì legacy ST Scope đang inactive. Chỉ thao tác <b>Add to ST Operation</b> mới ghi ST configuration; khi chọn INTERMEDIATE chưa có Bridge, thao tác này đồng thời tạo Manual Bridge từ Segment đã chọn. <b>Not ST</b> không sửa All Open Job.</div>
     </details>
 
     <details className="erp-details">

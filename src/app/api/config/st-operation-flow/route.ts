@@ -9,6 +9,8 @@ import {clearOperationReview} from "@/lib/config/unconfigured-operations";
 const clean=(v:unknown)=>String(v??"").trim();
 const RULES=new Set(["DIRECT","OCCURRENCE","SEQUENCE","SEQUENCE/FALLBACK"]);
 const OPERATION_TYPES=new Set(["PLANNING_OPERATION","INTERMEDIATE","ST_SCOPE_ONLY"]);
+const norm=(v:unknown)=>clean(v).toUpperCase();
+const manualBridgeKey=(previous:string,ops:string[],next:string)=>`MANUAL|${norm(previous)}|${ops.map(norm).join(">")}|${norm(next)}`;
 
 async function deactivateSourceMappings(c:any,source:string,action:"MOVE"|"DEACTIVATE",next?:{
  stGroup:string;standard:string;mappingRule:string;
@@ -168,6 +170,7 @@ export async function POST(req:Request){
  const mainOrder=b.main_planning_order==null||b.main_planning_order===""?null:Number(b.main_planning_order);
  const batchPrefix=clean(b.batch_prefix).toUpperCase()||null;
  const plannerOwner=clean(b.planner_owner).toUpperCase();
+ const bridgeSegmentId=Number(b.bridge_segment_id||0);
  if(!source||!OPERATION_TYPES.has(operationType))
   return NextResponse.json({error:"Cần Operation Code và loại Operation hợp lệ."},{status:400});
  if(operationType==="PLANNING_OPERATION"&&(!standard||!stGroup||!areaId||!scheduleArea||!RULES.has(mappingRule)||!["1","2"].includes(plannerOwner)))
@@ -180,9 +183,11 @@ export async function POST(req:Request){
  try{
   await c.query("begin");
 
-  // V419: INTERMEDIATE is a Dashboard-only ST membership tag.
-  // It must never mutate Planning Mapping, Planning Chain, Candidate, Batch or Schedule.
-  // Bridge remains the only source that decides Previous/Next Main and INTERMEDIATE role.
+  // INTERMEDIATE never creates Source → Main Mapping or Main Planning.
+  // V534 Operation Inbox may attach a new raw Operation to a user-selected
+  // active Bridge Segment first. To preserve AUTO_ROUTING as derived data, the
+  // selected Segment is cloned into an explicit MANUAL Segment with the new
+  // Operation appended immediately before Next Main.
   if(operationType==="INTERMEDIATE"){
    const bridgeQ=await c.query(`
     select count(distinct s.id)::int bridge_count
@@ -190,10 +195,62 @@ export async function POST(req:Request){
     join md_intermediate_bridge_segment s on s.id=bo.segment_id and s.is_active=true
     where upper(trim(bo.operation_code))=$1
    `,[source]);
-   const bridgeCount=Number(bridgeQ.rows[0]?.bridge_count||0);
+   let bridgeCount=Number(bridgeQ.rows[0]?.bridge_count||0);
+   let createdBridgeSegmentId:number|null=null;
+
    if(bridgeCount<=0){
-    await c.query("rollback");
-    return NextResponse.json({error:"INTERMEDIATE Dashboard chỉ được đánh dấu cho Operation đang tồn tại trong active Auto/Manual Bridge."},{status:400});
+    if(!Number.isInteger(bridgeSegmentId)||bridgeSegmentId<=0){
+     await c.query("rollback");
+     return NextResponse.json({error:"INTERMEDIATE cần chọn một active Intermediate Segment / Bridge."},{status:400});
+    }
+
+    const selectedSegmentQ=await c.query(`
+     select id,upper(trim(previous_main_operation)) previous_main_operation,
+            upper(trim(next_main_operation)) next_main_operation,source
+     from md_intermediate_bridge_segment
+     where id=$1 and is_active=true
+     for update
+    `,[bridgeSegmentId]);
+    if(!selectedSegmentQ.rowCount){
+     await c.query("rollback");
+     return NextResponse.json({error:"Intermediate Segment / Bridge đã chọn không còn active."},{status:400});
+    }
+    const selectedSegment=selectedSegmentQ.rows[0];
+    const opsQ=await c.query(`
+     select upper(trim(operation_code)) operation_code
+     from md_intermediate_bridge_operation
+     where segment_id=$1
+     order by sequence_no,id
+    `,[bridgeSegmentId]);
+    const ops=opsQ.rows.map((r:any)=>norm(r.operation_code)).filter(Boolean);
+    if(!ops.includes(source))ops.push(source);
+
+    const previous=norm(selectedSegment.previous_main_operation);
+    const next=norm(selectedSegment.next_main_operation);
+    const signature=ops.join(" → ");
+    const bridgeKey=manualBridgeKey(previous,ops,next);
+    const manualQ=await c.query(`
+     insert into md_intermediate_bridge_segment(
+      bridge_key,previous_main_operation,next_main_operation,intermediate_signature,
+      source,route_count,is_active,created_at,updated_at
+     ) values($1,$2,$3,$4,'MANUAL',0,true,now(),now())
+     on conflict(bridge_key) do update set
+      previous_main_operation=excluded.previous_main_operation,
+      next_main_operation=excluded.next_main_operation,
+      intermediate_signature=excluded.intermediate_signature,
+      source='MANUAL',route_count=0,is_active=true,updated_at=now()
+     returning id
+    `,[bridgeKey,previous,next,signature]);
+    createdBridgeSegmentId=Number(manualQ.rows[0].id);
+
+    await c.query(`delete from md_intermediate_bridge_operation where segment_id=$1`,[createdBridgeSegmentId]);
+    for(let i=0;i<ops.length;i++){
+     await c.query(`
+      insert into md_intermediate_bridge_operation(segment_id,sequence_no,operation_code)
+      values($1,$2,$3)
+     `,[createdBridgeSegmentId,i+1,ops[i]]);
+    }
+    bridgeCount=1;
    }
 
    const priorScopeQ=await c.query(`
@@ -235,6 +292,7 @@ export async function POST(req:Request){
 
    await clearOperationReview(c,source);
    await c.query("commit");
+   if(createdBridgeSegmentId)invalidatePlanningStaticData();
    invalidateConfigHealth();
    return NextResponse.json({
     ok:true,
@@ -242,6 +300,8 @@ export async function POST(req:Request){
     operation_type:"INTERMEDIATE",
     dashboard_only:true,
     bridge_count:bridgeCount,
+    bridge_segment_id:createdBridgeSegmentId||bridgeSegmentId||null,
+    bridge_created:Boolean(createdBridgeSegmentId),
     standard_operation:null,
     sync:null
    });

@@ -8,6 +8,7 @@ type MainOperation={standard_operation:string;st_group:string|null;planning_sort
 type StGroup={st_group:string;group_name:string|null};
 type Area={id:number;area_code:string;area_name:string};
 type ScheduleArea={schedule_area_code:string;schedule_area_name:string;planner_owner:string|null};
+type BridgeSegment={id:number;previous_main_operation:string;next_main_operation:string;intermediate_signature:string|null;source:string};
 type Filter="ACTIVE"|"ALL"|"NEXT"|"NEW"|"INACTIVE"|"PARTIAL_CONFIG"|"NOT_ST";
 type StType=""|"ST_SCOPE_ONLY"|"PLANNING_OPERATION"|"INTERMEDIATE";
 
@@ -20,18 +21,19 @@ const STATUS_LABEL:Record<OperationInboxStatus,string>={
 
 function defaultType(row:OperationInboxRow):StType{
  if(row.status==="PARTIAL_CONFIG")return "PLANNING_OPERATION";
- if(row.bridge_count>0)return "INTERMEDIATE";
+ if(row.scope_type==="INTERMEDIATE"||row.bridge_count>0)return "INTERMEDIATE";
  return "";
 }
 
 export function UnconfiguredOperationsManager({
- rows,mainOperations,groups,areas,scheduleAreas,reviewTableReady,
+ rows,mainOperations,groups,areas,scheduleAreas,bridgeSegments,reviewTableReady,
 }:{
  rows:OperationInboxRow[];
  mainOperations:MainOperation[];
  groups:StGroup[];
  areas:Area[];
  scheduleAreas:ScheduleArea[];
+ bridgeSegments:BridgeSegment[];
  reviewTableReady:boolean;
 }){
  const initialRow=rows.find(x=>x.status!=="NOT_ST")||rows[0]||null;
@@ -44,6 +46,7 @@ export function UnconfiguredOperationsManager({
  const [areaId,setAreaId]=useState("");
  const [scheduleArea,setScheduleArea]=useState("");
  const [planner,setPlanner]=useState("");
+ const [bridgeSegmentId,setBridgeSegmentId]=useState("");
  const [mappingRule,setMappingRule]=useState("DIRECT");
  const [note,setNote]=useState(initialRow?.review_note||"");
  const [busy,setBusy]=useState(false);
@@ -76,7 +79,7 @@ export function UnconfiguredOperationsManager({
   const t=defaultType(r);setType(t);
   setMain(r.mapped_main||r.suggested_main||"");
   setGroup(r.mapped_group||r.suggested_st_group||"");
-  setAreaId("");setScheduleArea("");setPlanner("");setMappingRule("DIRECT");setNote(r.review_note||"");
+  setAreaId("");setScheduleArea("");setPlanner("");setBridgeSegmentId("");setMappingRule("DIRECT");setNote(r.review_note||"");
  };
 
  const chooseMain=(value:string)=>{
@@ -114,12 +117,13 @@ export function UnconfiguredOperationsManager({
 
  const addToSt=async()=>{
   if(!selected||!type){setMessage("Chọn ST Operation Type trước khi thêm.");return;}
-  if(type==="INTERMEDIATE"&&selected.bridge_count<=0){setMessage("INTERMEDIATE chỉ dùng cho Operation đang có active Intermediate Bridge.");return;}
+  if(type==="INTERMEDIATE"&&selected.bridge_count<=0&&!bridgeSegmentId){setMessage("Chọn Intermediate Segment / Bridge trước khi thêm Operation vào ST.");return;}
   if(type==="PLANNING_OPERATION"&&(!main||!group||!areaId||!scheduleArea||!planner)){
    setMessage("Planning Operation cần đủ Main Operation → ST Group → Physical Area → Schedule Area → Planner.");return;
   }
   const body:any={source_operation_code:selected.operation_code,source_operation_name:selected.operation_name,operation_type:type};
   if(type==="PLANNING_OPERATION")Object.assign(body,{standard_operation:main,st_group:group,area_id:Number(areaId),schedule_area_code:scheduleArea,planner_owner:planner,mapping_rule:mappingRule});
+  if(type==="INTERMEDIATE"&&selected.bridge_count<=0)Object.assign(body,{bridge_segment_id:Number(bridgeSegmentId)});
   const ok=window.confirm(`Thêm ${selected.operation_code} vào ST với loại ${type}?\n\nHệ thống chỉ cập nhật cấu hình theo loại bạn chọn. All Open Job không bị sửa.`);
   if(!ok)return;
   setBusy(true);setMessage("");
@@ -161,7 +165,7 @@ export function UnconfiguredOperationsManager({
        <td><b className="erp-operation-code">{r.operation_code}</b><small>{r.operation_name!==r.operation_code?r.operation_name:""}</small></td>
        <td><span className={`erp-operation-review-status ${r.status.toLowerCase()}`}>{STATUS_LABEL[r.status]}</span></td>
        <td className="num"><b>{r.next_op_jobs.toLocaleString("vi-VN")}</b></td><td className="num">{r.total_jobs.toLocaleString("vi-VN")}</td><td className="num">{r.parts}</td><td className="num">{r.programs}</td>
-       <td>{r.found_in}</td><td>{r.status==="PARTIAL_CONFIG"?"PLANNING_OPERATION":r.bridge_count>0?"INTERMEDIATE":"—"}</td>
+       <td>{r.found_in}</td><td>{r.status==="PARTIAL_CONFIG"?"PLANNING_OPERATION":r.scope_type==="INTERMEDIATE"||r.bridge_count>0?"INTERMEDIATE":"—"}</td>
       </tr>)}</tbody>
      </table>
      {!filtered.length&&<div className="erp-config-empty-ok"><b>Không có Operation phù hợp bộ lọc.</b><span>Thử chọn All hoặc xóa nội dung tìm kiếm.</span></div>}
@@ -175,7 +179,9 @@ export function UnconfiguredOperationsManager({
        <div><span>Suggested Main</span><b>{selected.suggested_main||"—"}</b></div><div><span>Suggested ST Group</span><b>{selected.suggested_st_group||"—"}</b></div>
       </div>
       {selected.status==="NOT_ST"?<div className="erp-operation-review-actions"><button className="btn primary" type="button" disabled={busy} onClick={reopen}>Re-open review</button></div>:<>
-       <label className="erp-operation-review-field"><span>ST Operation Type</span><select className="input" value={type} onChange={e=>setType(e.target.value as StType)}><option value="">— Chọn loại ST —</option><option value="ST_SCOPE_ONLY">ST_SCOPE_ONLY</option><option value="PLANNING_OPERATION">PLANNING_OPERATION</option><option value="INTERMEDIATE" disabled={selected.bridge_count<=0}>INTERMEDIATE{selected.bridge_count<=0?" (requires Bridge)":""}</option></select></label>
+       <label className="erp-operation-review-field"><span>ST Operation Type</span><select className="input" value={type} onChange={e=>{setType(e.target.value as StType);if(e.target.value!=="INTERMEDIATE")setBridgeSegmentId("")}}><option value="">— Chọn loại ST —</option><option value="ST_SCOPE_ONLY">ST_SCOPE_ONLY</option><option value="PLANNING_OPERATION">PLANNING_OPERATION</option><option value="INTERMEDIATE">INTERMEDIATE</option></select></label>
+       {type==="INTERMEDIATE"&&selected.bridge_count<=0&&<label className="erp-operation-review-field"><span>Intermediate Segment / Bridge</span><select className="input" value={bridgeSegmentId} onChange={e=>setBridgeSegmentId(e.target.value)}><option value="">— Chọn active segment —</option>{bridgeSegments.map(s=><option key={s.id} value={s.id}>{s.previous_main_operation} → {s.next_main_operation} · {s.source}{s.intermediate_signature?` · ${s.intermediate_signature}`:""}</option>)}</select><small>Operation sẽ được gắn vào cuối Intermediate sequence của segment đã chọn, ngay trước Next Main.</small></label>}
+       {type==="INTERMEDIATE"&&selected.bridge_count>0&&<div className="erp-operation-inbox-note">Operation này đã có active Intermediate Bridge; hệ thống chỉ bật ST Scope = <b>INTERMEDIATE</b>, không tạo Mapping/Main Planning.</div>}
        {type==="PLANNING_OPERATION"&&<div className="erp-operation-review-planning-fields">
         <label><span>Main Operation</span><select className="input" value={main} onChange={e=>chooseMain(e.target.value)}><option value="">Chọn...</option>{mainOperations.map(m=><option key={m.standard_operation} value={m.standard_operation}>{m.standard_operation}</option>)}</select></label>
         <label><span>ST Group</span><select className="input" value={group} onChange={e=>setGroup(e.target.value)}><option value="">Chọn...</option>{groups.map(g=><option key={g.st_group} value={g.st_group}>{g.st_group}{g.group_name?` · ${g.group_name}`:""}</option>)}</select></label>
@@ -186,7 +192,7 @@ export function UnconfiguredOperationsManager({
        </div>}
        <label className="erp-operation-review-field"><span>Review note (optional)</span><input className="input" value={note} onChange={e=>setNote(e.target.value)} placeholder="Lý do / ghi chú..."/></label>
        <div className="erp-operation-review-actions"><button className="btn primary" type="button" disabled={busy||!type} onClick={addToSt}>{busy?"Processing...":"Add to ST Operation"}</button><button className="btn" type="button" disabled={busy||selected.status==="PARTIAL_CONFIG"} title={selected.status==="PARTIAL_CONFIG"?"Operation đang có active ST Scope. Hãy deactivate tại ST Operation Flow trước.":""} onClick={markNotSt}>Not ST</button></div>
-       <small className="erp-operation-review-help">ST_SCOPE_ONLY không tạo Planning Chain. INTERMEDIATE chỉ tạo Dashboard ST membership và yêu cầu active Bridge. PLANNING_OPERATION sẽ dùng đủ Main → Group → Area → Schedule Area → Planner.</small>
+       <small className="erp-operation-review-help">ST_SCOPE_ONLY không tạo Planning Chain. INTERMEDIATE không tạo Main/Mapping; nếu chưa có Bridge, bắt buộc chọn một active Segment để gắn Operation vào Bridge trước khi bật ST Scope. PLANNING_OPERATION sẽ dùng đủ Main → Group → Area → Schedule Area → Planner.</small>
       </>}
      </>:<div className="erp-config-empty-ok"><b>Chọn một Operation.</b><span>Chi tiết review và action sẽ xuất hiện tại đây.</span></div>}
     </aside>
