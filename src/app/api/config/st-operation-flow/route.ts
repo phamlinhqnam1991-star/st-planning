@@ -140,7 +140,7 @@ export async function GET(){
     ) j on true
     order by case when coalesce(j.open_jobs,0)>0 then 0 else 1 end,c.operation_code
    `),
-   c.query(`select standard_operation,st_group,planning_sort_order,batch_prefix from md_operation_master where is_active=true order by planning_sort_order nulls last,standard_operation`),
+   c.query(`select standard_operation,st_group,planning_sort_order,null::text batch_prefix from md_operation_master where is_active=true order by planning_sort_order nulls last,standard_operation`),
    c.query(`select st_group,group_name,sort_order from md_st_group where is_active=true order by sort_order,st_group`),
    c.query(`select id,area_code,area_name,sort_order from md_area where is_active=true order by sort_order,area_name`),
    c.query(`select schedule_area_code,schedule_area_name,display_order from md_schedule_area where is_active=true order by display_order,schedule_area_code`)
