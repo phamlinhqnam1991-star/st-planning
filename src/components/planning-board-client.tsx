@@ -1,10 +1,10 @@
 "use client";
 
-import {pushAppToast} from "@/components/app-toast-provider";
+import {pushAppToast} from "./app-toast-provider";
 
-import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,type CSSProperties,type MouseEvent as ReactMouseEvent} from "react";
-import {usePopupMessage} from "@/hooks/use-popup-message";
-import {safeJson} from "@/lib/fetch-json";
+import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,type ClipboardEvent as ReactClipboardEvent,type CSSProperties,type MouseEvent as ReactMouseEvent} from "react";
+import {usePopupMessage} from "../hooks/use-popup-message";
+import {safeJson} from "../lib/fetch-json";
 
 const formatNumber=(value:unknown, maxDecimals=2)=>{
  const n=Number(value??0);
@@ -676,6 +676,7 @@ const [stViewOverride,setStViewOverride]=useState<string[]|null>(initialView?.st
  const [colFilters,setColFilters]=useState<Record<string,string[]>>({});
  const [colFilterMenu,setColFilterMenu]=useState<{key:string;rect:{left:number;top:number;width:number}}|null>(null);
  const [colFilterSearch,setColFilterSearch]=useState("");
+ const [colFilterPasteResult,setColFilterPasteResult]=useState<{input:number;matched:number;notFound:string[]}|null>(null);
  const [sortRules,setSortRules]=useState<SortRule[]>(
   initialView&&Array.isArray(initialView.sortRules)&&initialView.sortRules.length
    ?(initialView.sortRules as SortRule[])
@@ -1950,6 +1951,7 @@ const currentPriorityMonth=useMemo(()=>{
    const rect=th?.getBoundingClientRect();
    if(!rect)return;
    setColFilterSearch("");
+   setColFilterPasteResult(null);
    setColFilterMenu({key,rect:{left:rect.left,top:rect.bottom,width:rect.width}});
   };
 
@@ -1971,8 +1973,9 @@ const currentPriorityMonth=useMemo(()=>{
    });
   };
 
- // v339: danh sách giá trị distinct của cột đang mở menu (kèm search).
- const colFilterOptions=useMemo(()=>{
+ // v536: danh sách distinct của cột đang mở. Tách all-options khỏi search để paste Job
+ // luôn match trên toàn bộ Candidate, không chỉ các dòng đang hiện trong scroll/search.
+ const colFilterAllOptions=useMemo(()=>{
    if(!colFilterMenu)return [];
    const key=colFilterMenu.key;
    const set=new Set<string>();
@@ -1982,12 +1985,52 @@ const currentPriorityMonth=useMemo(()=>{
      if(s)set.add(s);
     }
    }
-   const q=colFilterSearch.trim().toUpperCase();
-   return [...set]
-    .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:"base"}))
-    .filter(v=>!q||v.toUpperCase().includes(q));
+   return [...set].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:"base"}));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[colFilterMenu,colFilterSearch,candidates]);
+  },[colFilterMenu,candidates]);
+
+ const colFilterOptions=useMemo(()=>{
+   const q=colFilterSearch.trim().toUpperCase();
+   return colFilterAllOptions.filter(v=>!q||v.toUpperCase().includes(q));
+ },[colFilterAllOptions,colFilterSearch]);
+
+ const handleColFilterPaste=(e:ReactClipboardEvent<HTMLInputElement>)=>{
+   if(!colFilterMenu||colFilterMenu.key!=="job")return;
+   const text=e.clipboardData.getData("text");
+   // Paste một Job đơn lẻ vẫn hoạt động như search bình thường. Chỉ multi-paste mới auto-select.
+   if(!/[\r\n\t,;]/.test(text))return;
+   e.preventDefault();
+
+   const raw=text
+    .split(/[\r\n\t,;]+/)
+    .map(v=>v.trim().replace(/^["']+|["']+$/g,""))
+    .filter(Boolean);
+   const uniqueRaw:string[]=[];
+   const seen=new Set<string>();
+   for(const item of raw){
+    const key=normalized(item);
+    if(!key||seen.has(key))continue;
+    seen.add(key);
+    uniqueRaw.push(item);
+   }
+
+   const optionByKey=new Map<string,string>();
+   for(const option of colFilterAllOptions){
+    const key=normalized(option);
+    if(key&&!optionByKey.has(key))optionByKey.set(key,option);
+   }
+   const matched:string[]=[];
+   const notFound:string[]=[];
+   for(const item of uniqueRaw){
+    const actual=optionByKey.get(normalized(item));
+    if(actual)matched.push(actual);else notFound.push(item);
+   }
+
+   // Replace selection theo logic đã chốt: danh sách paste mới thay selection hiện tại.
+   setAllColFilter("job",matched);
+   setColFilterSearch("");
+   setColFilterPasteResult({input:uniqueRaw.length,matched:matched.length,notFound});
+ };
 
  const colFilterMenuLabel=useMemo(()=>{
    if(!colFilterMenu)return "";
@@ -4908,10 +4951,26 @@ const currentPriorityMonth=useMemo(()=>{
      <div className="col-filter-popup-actions">
       <button type="button" className="btn small" onClick={()=>setAllColFilter(colFilterMenu.key,colFilterOptions)}>{erpMode?"Chọn tất cả":"Chọn hết"}</button>
       <button type="button" className="btn small" onClick={()=>setAllColFilter(colFilterMenu.key,[])}>{erpMode?"Bỏ chọn":"Bỏ hết"}</button>
-      <span className="muted">{sel.length}/{colFilterOptions.length}</span>
+      <span className="muted">{sel.length}/{colFilterAllOptions.length}</span>
      </div>
-     <input className="input col-filter-search" placeholder={erpMode?"Tìm giá trị…":"Tìm giá trị..."} value={colFilterSearch}
-      onChange={e=>setColFilterSearch(e.target.value)} autoFocus/>
+     <input className="input col-filter-search"
+      placeholder={colFilterMenu.key==="job"?(erpMode?"Tìm Job hoặc dán danh sách từ Excel…":"Tìm Job hoặc dán danh sách từ Excel..."):(erpMode?"Tìm giá trị…":"Tìm giá trị...")}
+      value={colFilterSearch}
+      onChange={e=>{setColFilterSearch(e.target.value);setColFilterPasteResult(null);}}
+      onPaste={handleColFilterPaste}
+      autoFocus/>
+     {colFilterMenu.key==="job"&&<div className="col-filter-paste-hint">
+      <span>Ctrl+V: Enter / Tab / , / ;</span>
+      {colFilterPasteResult&&<b className={colFilterPasteResult.notFound.length?"has-missing":"is-ok"}>
+       {colFilterPasteResult.input} pasted · {colFilterPasteResult.matched} matched
+       {colFilterPasteResult.notFound.length?` · ${colFilterPasteResult.notFound.length} not found`:""}
+      </b>}
+     </div>}
+     {colFilterMenu.key==="job"&&colFilterPasteResult?.notFound.length?
+      <div className="col-filter-paste-missing" title={colFilterPasteResult.notFound.join(", ")}>
+       <b>Không tìm thấy:</b> {colFilterPasteResult.notFound.slice(0,8).join(", ")}
+       {colFilterPasteResult.notFound.length>8?` +${colFilterPasteResult.notFound.length-8}`:""}
+      </div>:null}
      <div className="col-filter-list">
       {colFilterOptions.map(v=>{
        const checked=sel.includes(v);

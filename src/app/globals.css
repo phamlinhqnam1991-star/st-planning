@@ -6377,3 +6377,18 @@ td.ph-loading:hover,td.ph-process:hover,td.ph-ndt:hover,td.ph-unloading:hover{fi
 .masking-time-map-form{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:10px;padding:12px}.masking-time-map-form label{display:grid;gap:5px;font-size:12px;font-weight:700;color:#334155}.masking-column-search,.masking-column-select{grid-column:span 2}.masking-map-actions{display:flex;align-items:end;gap:8px;grid-column:span 2}
 @media(max-width:1000px){.masking-manpower-summary,.masking-time-map-form{grid-template-columns:1fr 1fr}.masking-column-search,.masking-column-select,.masking-map-actions{grid-column:span 2}}
 @media(max-width:700px){.masking-manpower-summary,.masking-time-map-form,.masking-area-add{grid-template-columns:1fr}.masking-column-search,.masking-column-select,.masking-map-actions{grid-column:span 1}}
+
+/* v536: Planning Board Job filter multi-paste from Excel */
+.col-filter-paste-hint{
+ display:flex;align-items:center;justify-content:space-between;gap:8px;
+ padding:5px 7px;border:1px dashed #cbd5e1;border-radius:6px;background:#f8fafc;
+ font-size:9.5px;color:#667085;line-height:1.25;
+}
+.col-filter-paste-hint b{font-size:9.5px;font-weight:800;white-space:nowrap}
+.col-filter-paste-hint b.is-ok{color:#067647}
+.col-filter-paste-hint b.has-missing{color:#b54708}
+.col-filter-paste-missing{
+ padding:5px 7px;border:1px solid #fedf89;border-radius:6px;background:#fffaeb;
+ color:#93370d;font-size:9.5px;line-height:1.35;max-height:48px;overflow:auto;
+}
+.col-filter-paste-missing b{font-weight:800}
