@@ -1,5 +1,4 @@
 import type {PoolClient} from "pg";
-import {ST_OPERATION_MAPPING} from "@/data/master-config";
 
 export type OperationInboxStatus="NEW"|"INACTIVE"|"PARTIAL_CONFIG"|"NOT_ST";
 
@@ -147,13 +146,6 @@ export async function loadOperationInbox(c:PoolClient):Promise<{rows:OperationIn
   const code=String(r.operation_code||"").trim().toUpperCase();
   let suggestedMain=r.mapped_main?String(r.mapped_main):null;
   let suggestedGroup=r.mapped_group?String(r.mapped_group):null;
-  if(!suggestedMain||!suggestedGroup){
-   const staticRule=ST_OPERATION_MAPPING.find((x)=>String(x[0]).trim().toUpperCase()===code&&String(x[3]).trim().toUpperCase()==="DIRECT");
-   if(staticRule){
-    suggestedMain=suggestedMain||String(staticRule[2]||"").trim()||null;
-    suggestedGroup=suggestedGroup||String(staticRule[1]||"").trim()||null;
-   }
-  }
   return {
    operation_code:code,
    operation_name:String(r.operation_name||code),
